@@ -24,3 +24,28 @@ Run unit tests (macOS destination, no simulator needed):
 ```sh
 scripts/test.sh
 ```
+
+## Local Supabase
+
+Requires Docker and the [Supabase CLI](https://supabase.com/docs/guides/local-development) (`brew install supabase/tap/supabase`).
+Ports are shifted to 544xx (API `54421`, DB `54422`, Studio `54423`) so Foon can run beside other local Supabase projects.
+
+```sh
+supabase start                   # boots the stack and applies supabase/migrations
+scripts/write-local-config.sh    # writes Config/Local.local.xcconfig (gitignored) from `supabase status`
+xcodegen generate
+supabase db reset                # re-apply migrations and supabase/seed/*.sql
+supabase test db                 # pgTAP tests in supabase/tests
+TEST_RUNNER_FOON_LOCAL_SUPABASE=1 scripts/test.sh   # include tests that hit the local stack
+supabase stop
+```
+
+### Environments
+
+| Build configuration | Supabase | Settings file (gitignored) |
+| --- | --- | --- |
+| Debug | local stack | `Config/Local.local.xcconfig` |
+| Staging | hosted staging | `Config/Staging.local.xcconfig` |
+| Release | production | `Config/Prod.local.xcconfig` |
+
+Copy the matching `*.local.xcconfig.example` to create each file. Staging and Release builds fail if their file is missing, so a hosted build can't ship unconfigured (CI or Xcode Cloud must write it from secrets). Only the URL and anon key live in the app; service-role keys belong in Edge Functions only.
