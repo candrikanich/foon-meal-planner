@@ -4,6 +4,7 @@ struct FamilyView: View {
     @Environment(HouseholdStore.self) private var store
     @Environment(SessionStore.self) private var session
     @State private var editor: EditorTarget?
+    @State private var confirmingSignOutEverywhere = false
 
     var body: some View {
         NavigationStack {
@@ -39,6 +40,15 @@ struct FamilyView: View {
                     Button("Sign out") {
                         Task { await session.signOut() }
                     }
+                    Button("Sign out of all devices", role: .destructive) {
+                        confirmingSignOutEverywhere = true
+                    }
+                } footer: {
+                    if let message = session.errorMessage {
+                        Text(message).foregroundStyle(.red)
+                    } else {
+                        Text("Use this if a phone is lost or shared. Every device, this one included, signs out right away.")
+                    }
                 }
             }
             .refreshable { await store.load() }
@@ -51,6 +61,15 @@ struct FamilyView: View {
                         }
                     }
                 }
+            }
+            .confirmationDialog(
+                "Sign out of all devices?", isPresented: $confirmingSignOutEverywhere, titleVisibility: .visible
+            ) {
+                Button("Sign out everywhere", role: .destructive) {
+                    Task { _ = await session.signOutEverywhere() }
+                }
+            } message: {
+                Text("Foon signs out on every phone, tablet, and Mac using your account, including this one.")
             }
             .sheet(item: $editor) { target in
                 switch target {

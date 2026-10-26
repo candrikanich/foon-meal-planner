@@ -82,5 +82,16 @@ final class SessionStore {
         await auth.signOut()
     }
 
+    /// Returns whether every device was signed out.
+    func signOutEverywhere() async -> Bool {
+        errorMessage = nil
+        pendingInviteCode = nil
+        guard await auth.signOutEverywhere() else {
+            errorMessage = "Couldn't sign out your other devices. Check your connection and try again."
+            return false
+        }
+        return true
+    }
+
     private static let signInFailed = "Sign in didn't work. Check your connection and try again."
 }

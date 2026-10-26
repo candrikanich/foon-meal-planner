@@ -7,7 +7,8 @@ extension AuthClient {
             sessionChanges: { AsyncStream { $0.yield(userID) } },
             signInWithApple: { _, _, _ in },
             signOut: {},
-            accountStillExists: { true }
+            accountStillExists: { true },
+            signOutEverywhere: { true }
         )
     }
 }

@@ -119,6 +119,18 @@ struct SessionStoreTests {
         #expect(store.errorMessage == nil)
     }
 
+    @Test func signsOutEverywhere() async {
+        let store = SessionStore(auth: .fake(signOutEverywhere: { true }))
+        #expect(await store.signOutEverywhere())
+        #expect(store.errorMessage == nil)
+    }
+
+    @Test func aFailedSignOutEverywhereSaysSo() async {
+        let store = SessionStore(auth: .fake(signOutEverywhere: { false }))
+        #expect(!(await store.signOutEverywhere()))
+        #expect(store.errorMessage != nil)
+    }
+
     @Test func signOutClearsAnyMessageAndCallsAuth() async {
         let recorder = Recorder()
         let store = SessionStore(auth: .fake(onSignOut: { await recorder.recordSignOut() }))
@@ -148,13 +160,15 @@ private extension AuthClient {
         sessionChanges: AsyncStream<UUID?> = AsyncStream { _ in },
         onSignIn: @escaping @Sendable (String, String, String?) async throws -> Void = { _, _, _ in },
         onSignOut: @escaping @Sendable () async -> Void = {},
-        accountStillExists: @escaping @Sendable () async -> Bool = { true }
+        accountStillExists: @escaping @Sendable () async -> Bool = { true },
+        signOutEverywhere: @escaping @Sendable () async -> Bool = { true }
     ) -> AuthClient {
         AuthClient(
             sessionChanges: { sessionChanges },
             signInWithApple: onSignIn,
             signOut: onSignOut,
-            accountStillExists: accountStillExists
+            accountStillExists: accountStillExists,
+            signOutEverywhere: signOutEverywhere
         )
     }
 }

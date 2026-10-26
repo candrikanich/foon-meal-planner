@@ -336,7 +336,7 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
 - Private storage buckets with short-lived signed URLs.
 - Recipe-fetch Edge Function blocks internal addresses (SSRF) and sanitizes HTML.
 - No allergy details or names of absent kids in lock-screen notification text.
-- Sign out of all devices; removing a member revokes access immediately.
+- Sign out of all devices (Family tab) ends every session at once: the database checks each request's session, so other devices lose access immediately rather than when their token expires. Removing a member unlinks their account and ends their access immediately.
 
 **Privacy**
 
