@@ -333,7 +333,7 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
 - Invite codes: single-use, expiring, rate-limited, unguessable.
 - RLS tests for role escalation and editing others' allergies.
 - Strip location and other metadata from every uploaded photo.
-- Private storage buckets with short-lived signed URLs.
+- Private storage buckets with short-lived signed URLs (15 minutes). Each household has its own folder: members read it, planners add photos. Photos are re-encoded on the device, which drops location and camera details, before upload.
 - Recipe-fetch Edge Function blocks internal addresses (SSRF) and sanitizes HTML.
 - No allergy details or names of absent kids in lock-screen notification text.
 - Sign out of all devices (Family tab) ends every session at once: the database checks each request's session, so other devices lose access immediately rather than when their token expires. Removing a member unlinks their account and ends their access immediately.
