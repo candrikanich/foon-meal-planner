@@ -344,14 +344,21 @@ def run(cmd, apply):
 
 def existing(repo, kind):
     if kind == "labels":
-        out = subprocess.run(["gh", "label", "list", "-R", repo, "--limit", "200", "--json", "name"], capture_output=True, text=True).stdout or "[]"
+        out = subprocess.run(["gh", "api", f"repos/{repo}/labels?per_page=100"], capture_output=True, text=True).stdout or "[]"
         return {x["name"] for x in json.loads(out)}
     if kind == "milestones":
         out = subprocess.run(["gh", "api", f"repos/{repo}/milestones?state=all&per_page=100"], capture_output=True, text=True).stdout or "[]"
         return {x["title"] for x in json.loads(out)}
     if kind == "issues":
-        out = subprocess.run(["gh", "issue", "list", "-R", repo, "--state", "all", "--limit", "500", "--json", "title"], capture_output=True, text=True).stdout or "[]"
-        return {x["title"] for x in json.loads(out)}
+        # REST (not `gh issue list`, which needs GraphQL); paginate and skip pull requests.
+        out = subprocess.run(["gh", "api", "--paginate", f"repos/{repo}/issues?state=all&per_page=100"], capture_output=True, text=True).stdout or "[]"
+        out = out.replace("][", ",")
+        return {x["title"] for x in json.loads(out) if "pull_request" not in x}
+
+
+def milestone_numbers(repo):
+    out = subprocess.run(["gh", "api", f"repos/{repo}/milestones?state=all&per_page=100"], capture_output=True, text=True).stdout or "[]"
+    return {x["title"]: x["number"] for x in json.loads(out)}
 
 
 def main():
@@ -365,16 +372,21 @@ def main():
 
     for name, color in LABELS:
         if name not in have_labels:
-            run(["gh", "label", "create", name, "-R", repo, "--color", color], apply)
+            run(["gh", "api", f"repos/{repo}/labels", "--method", "POST", "-f", f"name={name}", "-f", f"color={color}"], apply)
     for title, desc in MILESTONES:
         if title not in have_ms:
             run(["gh", "api", f"repos/{repo}/milestones", "-f", f"title={title}", "-f", f"description={desc}"], apply)
+    ms_numbers = milestone_numbers(repo) if apply else {}
     for it in ISSUES:
         if it["title"] in have_issues:
             continue
-        cmd = ["gh", "issue", "create", "-R", repo, "--title", it["title"], "--body", it["body"], "--milestone", it["milestone"]]
+        # REST issue creation (works where GraphQL is unavailable).
+        cmd = ["gh", "api", f"repos/{repo}/issues", "--method", "POST",
+               "-f", f"title={it['title']}", "-f", f"body={it['body']}"]
+        if apply:
+            cmd += ["-F", f"milestone={ms_numbers[it['milestone']]}"]
         for l in it["labels"]:
-            cmd += ["--label", l]
+            cmd += ["-f", f"labels[]={l}"]
         run(cmd, apply)
     print(f"\n{len(ISSUES)} issues across {len(MILESTONES)} milestones." + ("" if apply else " Dry run only; add --apply to create."))
 
