@@ -51,6 +51,9 @@ targets:
       properties:
         SupabaseURL: $(SUPABASE_URL)
         SupabaseAnonKey: $(SUPABASE_ANON_KEY)
+        CFBundleURLTypes:
+          - CFBundleURLName: com.andrikanich.foon
+            CFBundleURLSchemes: [foon]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon

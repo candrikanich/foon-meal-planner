@@ -13,6 +13,7 @@ struct FoonApp: App {
                 RootView(householdClient: .live(SupabaseService.shared.client))
                     .environment(session)
                     .task { await session.start() }
+                    .onOpenURL { session.open($0) }
             } else {
                 ConfigurationMissingView()
             }

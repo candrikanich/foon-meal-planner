@@ -24,22 +24,22 @@ One adult buys and sets up the app; one subscription covers the whole household.
 
 **Sign-in.** Sign in with Apple for everyone, including kids on Family Sharing accounts. No passwords; private email relay.
 
-**Invites.** Sent by iMessage with a link plus a short code (e.g. SMITH-4821). iOS doesn't reliably carry link context through an App Store install, so the code is the fallback after sign-in.
+**Invites.** Parents send them by iMessage (the share sheet) with a link plus a code (e.g. SMITH-7KQ4-M9XP: a household prefix and 8 random characters with no look-alikes). iOS doesn't reliably carry link context through an App Store install, so the code is the fallback after sign-in. Codes work once, expire in 7 days, are replaced by a newer invite for the same person, and lock after 5 wrong guesses in 15 minutes. The link is `foon://invite/<code>` until Foon has a domain for universal links.
 
 **Who can do what.** Each person has three separate settings. Who they are (adult or kid, parent or not) is kept apart from what they do in planning (planner or member).
 
 | Setting | Values | What it controls |
 | --- | --- | --- |
 | Adult or kid | Adult, Kid | Kids get push budgets, school-hours quiet time, parental consent, and no email. |
-| Guardian | Parents (adults only) | Manage people (add, set roles, remove), edit everyone's allergies, give or revoke allergy and parental consent. Everyone else sees these but can't change them. |
-| Role | Planner, Member | Planner: build and edit the week, manage the meal library, invite. Member: request meals, vote, rate, add to lists, confirm meals; cannot delete dishes or rewrite the plan. |
+| Guardian | Parents (adults only) | Manage people (add, invite, set roles, remove), edit everyone's allergies, give or revoke allergy and parental consent. Everyone else sees these but can't change them. |
+| Role | Planner, Member | Planner: build and edit the week, manage the meal library. Member: request meals, vote, rate, add to lists, confirm meals; cannot delete dishes or rewrite the plan. |
 
 **Owner** is the guardian who holds the subscription: billing and household settings, plus everything a guardian and planner can do. The owner's profile is always a guardian.
 
 **Rules decided**
 
 - One household per person in v1. Multi-household (split families) is a later feature.
-- Owner and Planners can invite.
+- Parents (guardians) invite; planning rights alone don't include inviting.
 - A nanny, grandparent, or roommate is an adult who can be a planner but isn't a guardian. A teen can be a planner too; planning rights never include managing people.
 - **Away status** for members who leave temporarily (e.g. college): out of default attendance and notifications, history kept, flip to "home this week" for breaks.
 - **Remove from household** (guardians, on member detail): the person's account is unlinked immediately and they lose access; their ratings and cook history stay. Deleting the whole household is separate and does erase data.

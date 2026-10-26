@@ -13,6 +13,8 @@ final class SessionStore {
     private(set) var errorMessage: String?
     /// The first name Apple shared at first sign-in, for onboarding to prefill the owner's profile.
     private(set) var appleGivenName: String?
+    /// An invite code from a `foon://invite/…` link, kept until the person signs in and joins.
+    private(set) var pendingInviteCode: String?
 
     private let auth: AuthClient
     private var pendingNonce: String?
@@ -59,6 +61,16 @@ final class SessionStore {
         }
     }
 
+    func open(_ url: URL) {
+        if let code = InviteCode.code(from: url) {
+            pendingInviteCode = code
+        }
+    }
+
+    func clearPendingInvite() {
+        pendingInviteCode = nil
+    }
+
     func appleSignInFailed(cancelled: Bool) {
         pendingNonce = nil
         errorMessage = cancelled ? nil : Self.signInFailed
@@ -66,6 +78,7 @@ final class SessionStore {
 
     func signOut() async {
         errorMessage = nil
+        pendingInviteCode = nil
         await auth.signOut()
     }
 

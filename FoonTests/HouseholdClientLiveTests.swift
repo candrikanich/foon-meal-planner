@@ -9,15 +9,7 @@ import Testing
 @Suite(.enabled(if: ProcessInfo.processInfo.environment["FOON_LOCAL_SUPABASE"] != nil))
 struct HouseholdClientLiveTests {
     @Test func createsAHouseholdAndManagesItsMembers() async throws {
-        let config = try SupabaseConfig.fromMainBundle()
-        let supabase = SupabaseClient(
-            supabaseURL: config.url,
-            supabaseKey: config.anonKey,
-            options: SupabaseClientOptions(auth: .init(storage: MemoryAuthStorage(), emitLocalSessionAsInitialSession: true))
-        )
-        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
-                                       password: "local-test-password-1")
-        let households = HouseholdClient.live(supabase)
+        let households = try await Self.signedUpClient()
 
         #expect(try await households.myHousehold() == nil)
 
@@ -51,6 +43,37 @@ struct HouseholdClientLiveTests {
         removal.status = .removed
         let removed = try await households.updateMember(nora.id, removal.changes(from: back))
         #expect(removed.status == .removed)
+    }
+
+    @Test func aParentInvitesAndASecondAccountJoins() async throws {
+        let parent = try await Self.signedUpClient()
+        let household = try await parent.createHousehold("Invite family", nil, "Ann")
+        var kid = MemberDraft()
+        kid.firstName = "Owen"
+        kid.ageGroup = .kid
+        let owen = try await parent.addMember(household.id, try #require(kid.validated()))
+
+        let code = try await parent.createInvite(owen.id)
+        #expect(try await parent.invitedMemberIDs(household.id) == [owen.id])
+
+        let newcomer = try await Self.signedUpClient()
+        #expect(try await newcomer.redeemInvite("WRONG-2222-2222") == .invalid)
+        #expect(try await newcomer.redeemInvite(InviteCode.normalized(code)) == .claimed)
+        #expect(try await newcomer.myHousehold()?.id == household.id)
+        #expect(try await parent.invitedMemberIDs(household.id).isEmpty, "a redeemed invite is no longer open")
+        #expect(try await newcomer.redeemInvite(code) == .hasHousehold)
+    }
+
+    private static func signedUpClient() async throws -> HouseholdClient {
+        let config = try SupabaseConfig.fromMainBundle()
+        let supabase = SupabaseClient(
+            supabaseURL: config.url,
+            supabaseKey: config.anonKey,
+            options: SupabaseClientOptions(auth: .init(storage: MemoryAuthStorage(), emitLocalSessionAsInitialSession: true))
+        )
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: "local-test-password-1")
+        return .live(supabase)
     }
 }
 

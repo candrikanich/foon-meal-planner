@@ -8,6 +8,7 @@ struct MemberEditorView: View {
     @State private var draft: MemberDraft
     @State private var isSaving = false
     @State private var confirmingRemoval = false
+    @State private var inviteCode: String?
 
     init(member: Member?) {
         self.member = member
@@ -62,6 +63,10 @@ struct MemberEditorView: View {
                     }
                 }
 
+                if let member, store.canInvite(member) {
+                    inviteSection(for: member)
+                }
+
                 if let member, store.canRemove(member) {
                     Section {
                         Button("Remove from household", role: .destructive) {
@@ -110,6 +115,39 @@ struct MemberEditorView: View {
             } message: {
                 Text("They lose access right away. Their ratings and history stay.")
             }
+        }
+    }
+
+    @ViewBuilder
+    private func inviteSection(for member: Member) -> some View {
+        Section {
+            if let inviteCode {
+                Text(inviteCode)
+                    .font(.title3.monospaced().weight(.semibold))
+                    .textSelection(.enabled)
+                    .accessibilityLabel("Invite code \(inviteCode.map { String($0) }.joined(separator: " "))")
+                ShareLink(
+                    "Send invite",
+                    item: InviteCode.shareMessage(
+                        householdName: store.household?.name ?? "our family", firstName: member.firstName, code: inviteCode
+                    )
+                )
+            } else {
+                Button(store.invitedMemberIDs.contains(member.id) ? "Invite again" : "Invite \(member.firstName)") {
+                    Task {
+                        isSaving = true
+                        inviteCode = await store.invite(member)
+                        isSaving = false
+                    }
+                }
+                .disabled(isSaving)
+            }
+        } header: {
+            Text("Invite")
+        } footer: {
+            Text(inviteCode == nil
+                 ? "Sends a link and a code so \(member.firstName) can join on their own device. Codes work once and expire in 7 days."
+                 : "This code is shown only now. Inviting again replaces it.")
         }
     }
 

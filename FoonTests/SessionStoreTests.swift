@@ -102,6 +102,16 @@ struct SessionStoreTests {
         #expect(await recorder.calls.map(\.idToken) == ["first"])
     }
 
+    @Test func keepsAnInviteCodeFromAnOpenedLink() throws {
+        let store = SessionStore(auth: .fake())
+        store.open(try #require(URL(string: "foon://invite/THESM-7KQ4-M9XP")))
+        #expect(store.pendingInviteCode == "THESM-7KQ4-M9XP")
+        store.open(try #require(URL(string: "foon://somewhere-else")))
+        #expect(store.pendingInviteCode == "THESM-7KQ4-M9XP", "unrelated links leave the code alone")
+        store.clearPendingInvite()
+        #expect(store.pendingInviteCode == nil)
+    }
+
     @Test func cancellingTheAppleSheetIsNotAnError() {
         let store = SessionStore(auth: .fake())
         _ = store.appleRequestNonce()
@@ -113,8 +123,10 @@ struct SessionStoreTests {
         let recorder = Recorder()
         let store = SessionStore(auth: .fake(onSignOut: { await recorder.recordSignOut() }))
         store.appleSignInFailed(cancelled: false)
+        store.open(URL(string: "foon://invite/THESM-7KQ4-M9XP")!)
         await store.signOut()
         #expect(await recorder.signOuts == 1)
+        #expect(store.pendingInviteCode == nil, "signing out forgets a pending invite")
         #expect(store.errorMessage == nil)
     }
 }
