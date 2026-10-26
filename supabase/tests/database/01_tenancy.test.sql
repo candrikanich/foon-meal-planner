@@ -1,6 +1,6 @@
 -- Households, members, allergies: tenancy, roles, and the member self-edit rule (#4).
 begin;
-select plan(51);
+select plan(48);
 
 -- Impersonation: RLS reads the role and JWT claims PostgREST would set for a signed-in user.
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
@@ -26,7 +26,7 @@ select ok((select relrowsecurity from pg_class where oid = 'public.member_allerg
 insert into public.households (id, name, emoji, owner) values
   ('00000000-0000-0000-0000-0000000000b0', 'Carters', '🍝', 'c0000000-0000-0000-0000-00000000000c');
 insert into public.members (id, household_id, first_name, role, user_id) values
-  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b0', 'Carol', 'owner',
+  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b0', 'Carol', 'planner',
    'c0000000-0000-0000-0000-00000000000c');
 insert into public.member_allergies (household_id, member_id, category) values
   ('00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000000c1', 'peanuts');
@@ -39,7 +39,7 @@ select lives_ok(
   'a signed-in user creates a household they own');
 select lives_ok(
   $$ insert into public.members (id, household_id, first_name, role, user_id) values
-       ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a0', 'Alice', 'owner',
+       ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a0', 'Alice', 'planner',
         'a0000000-0000-0000-0000-00000000000a') $$,
   'the owner adds themselves as the first member');
 select lives_ok(
@@ -47,6 +47,7 @@ select lives_ok(
        ('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000a0', 'Bob', 'member'),
        ('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-0000000000a0', 'Nora', 'member') $$,
   'the owner adds unclaimed profiles');
+insert into public.consents (household_id, kind, text_version) values ('00000000-0000-0000-0000-0000000000a0', 'allergy_data', 'test-v1');
 select lives_ok(
   $$ insert into public.member_allergies (household_id, member_id, category) values
        ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'milk') $$,
@@ -70,12 +71,8 @@ select lives_ok(
   'the owner edits household name and settings');
 select throws_ok(
   $$ insert into public.members (household_id, first_name, role, user_id) values
-       ('00000000-0000-0000-0000-0000000000a0', 'Alice again', 'member', 'a0000000-0000-0000-0000-00000000000a') $$,
+       ('00000000-0000-0000-0000-0000000000a0', 'Alice again', 'planner', 'a0000000-0000-0000-0000-00000000000a') $$,
   '23505', null, 'a user belongs to at most one member profile');
-select throws_ok(
-  $$ insert into public.members (household_id, first_name, role) values
-       ('00000000-0000-0000-0000-0000000000a0', 'Second owner', 'owner') $$,
-  '23505', null, 'a household has at most one owner profile');
 
 -- Cross-household isolation (as Alice) ------------------------------------------------------
 select is_empty($$ select 1 from public.households where id = '00000000-0000-0000-0000-0000000000b0' $$,
@@ -94,7 +91,7 @@ select throws_ok(
 select throws_ok(
   $$ insert into public.member_allergies (household_id, member_id, category) values
        ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000c1', 'soy') $$,
-  '23503', null, 'an allergy cannot point at a member of another household');
+  '42501', null, 'an allergy cannot point at a member of another household');
 update public.members set first_name = 'Hacked' where id = '00000000-0000-0000-0000-0000000000c1';
 update public.households set name = 'Hacked' where id = '00000000-0000-0000-0000-0000000000b0';
 
@@ -109,9 +106,6 @@ select throws_ok(
 select throws_ok(
   $$ delete from public.members where id = '00000000-0000-0000-0000-0000000000a3' $$,
   '42501', null, 'members are never hard-deleted');
-select throws_ok(
-  $$ delete from public.member_allergies $$,
-  '42501', null, 'allergies are not deleted through the API');
 select throws_ok(
   $$ delete from public.households where id = '00000000-0000-0000-0000-0000000000a0' $$,
   '42501', null, 'households are not deleted through the API');
@@ -154,13 +148,13 @@ select throws_ok(
   '42501', null, 'a member cannot add members');
 select throws_ok(
   $$ insert into public.member_allergies (household_id, member_id, category) values
-       ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'soy') $$,
-  '42501', null, 'a member cannot add allergies');
+       ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'soy') $$,
+  '42501', null, 'a member cannot add allergies for another adult');
 select throws_ok(
   $$ insert into public.households (name) values ('Bob''s second household') $$,
   '42501', null, 'a user with a member profile cannot create another household');
 
--- Owner role is protected from other planners -----------------------------------------------
+-- The owner's profile and ownership are protected from other planners -----------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select lives_ok(
   $$ update public.members set role = 'planner' where id = '00000000-0000-0000-0000-0000000000a2' $$,
@@ -170,12 +164,9 @@ select throws_ok(
   $$ update public.members set role = 'member' where id = '00000000-0000-0000-0000-0000000000a1' $$,
   '42501', null, 'a planner cannot demote the owner');
 select throws_ok(
-  $$ update public.members set role = 'owner' where id = '00000000-0000-0000-0000-0000000000a3' $$,
-  '42501', null, 'a planner cannot make someone owner');
-select throws_ok(
-  $$ insert into public.members (household_id, first_name, role) values
-       ('00000000-0000-0000-0000-0000000000a0', 'Usurper', 'owner') $$,
-  '42501', null, 'a planner cannot add an owner profile');
+  $$ update public.households set owner = 'b0000000-0000-0000-0000-00000000000b'
+     where id = '00000000-0000-0000-0000-0000000000a0' $$,
+  '42501', null, 'a planner cannot take ownership');
 
 -- Outsiders ---------------------------------------------------------------------------------
 select pg_temp.as_user('d0000000-0000-0000-0000-00000000000d');
