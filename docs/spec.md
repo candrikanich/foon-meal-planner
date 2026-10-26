@@ -20,34 +20,46 @@ In most families, one person carries dinner: the weekly plan, the nightly "what'
 
 One adult buys and sets up the app; one subscription covers the whole household.
 
-**Profiles first, accounts second.** During onboarding the owner creates a profile (first name, avatar, role) for each family member before anyone installs. Attendance, ratings, and favorites attach to profiles from day one. When a member installs, they claim their profile. Kids without phones still participate via "pass the phone."
+**Profiles first, accounts second.** During onboarding the owner creates a profile (first name, avatar, adult or kid, parent or not, role) for each family member before anyone installs. Attendance, ratings, and favorites attach to profiles from day one. When a member installs, they claim their profile. Kids without phones still participate via "pass the phone."
 
 **Sign-in.** Sign in with Apple for everyone, including kids on Family Sharing accounts. No passwords; private email relay.
 
 **Invites.** Sent by iMessage with a link plus a short code (e.g. SMITH-4821). iOS doesn't reliably carry link context through an App Store install, so the code is the fallback after sign-in.
 
-| Role | Can do |
-| --- | --- |
-| Owner | Billing, household settings, manage members, everything a Planner can |
-| Planner | Build and edit the week, manage the meal library, invite members |
-| Member | Request meals, vote, rate, add to lists, confirm meals; cannot delete dishes or rewrite the plan |
+**Who can do what.** Each person has three separate settings. Who they are (adult or kid, parent or not) is kept apart from what they do in planning (planner or member).
+
+| Setting | Values | What it controls |
+| --- | --- | --- |
+| Adult or kid | Adult, Kid | Kids get push budgets, school-hours quiet time, parental consent, and no email. |
+| Guardian | Parents (adults only) | Manage people (add, set roles, remove), edit everyone's allergies, give or revoke allergy and parental consent. Everyone else sees these but can't change them. |
+| Role | Planner, Member | Planner: build and edit the week, manage the meal library, invite. Member: request meals, vote, rate, add to lists, confirm meals; cannot delete dishes or rewrite the plan. |
+
+**Owner** is the guardian who holds the subscription: billing and household settings, plus everything a guardian and planner can do. The owner's profile is always a guardian.
 
 **Rules decided**
 
 - One household per person in v1. Multi-household (split families) is a later feature.
 - Owner and Planners can invite.
-- **Away status** for members who leave temporarily (e.g. college): out of default attendance and notifications, history kept, flip to "home this week" for breaks. True removal also keeps past ratings.
-- Owner can transfer ownership to another Planner.
+- A nanny, grandparent, or roommate is an adult who can be a planner but isn't a guardian. A teen can be a planner too; planning rights never include managing people.
+- **Away status** for members who leave temporarily (e.g. college): out of default attendance and notifications, history kept, flip to "home this week" for breaks.
+- **Remove from household** (guardians, on member detail): the person's account is unlinked immediately and they lose access; their ratings and cook history stay. Deleting the whole household is separate and does erase data.
+- Owner can transfer ownership to another guardian.
 - Non-iPhone household members exist as profiles others vote for; a web page may cover them later.
 
-**Family tab.** Header with household name, emoji or photo, Founding Family badge, and subscription status (owner). Member rows show avatar, name, role, and status (Home, Away, Invite pending), with Add member and Invite. Member detail: role (planners edit), Home or Away with optional return date (auto-flips back, with a heads-up to plan their favorites), usual weekday schedule (kids can edit their own; planners can override), allergies and dietary preferences (adults edit; kids view), taste profile of favorites, dislikes, and serving notes (visible to everyone), cook tally, and per-member notification preset. Household rhythm and planning mix defaults (planners), notification presets, show tips again, plain-English privacy summary with data export and delete household, and subscription (owner).
+**Family tab.** Header with household name, emoji or photo, Founding Family badge, and subscription status (owner). Member rows show avatar, name, role, and status (Home, Away, Invite pending), with Add member and Invite. Member detail: adult or kid, guardian, and role (guardians edit), Home or Away with optional return date (auto-flips back, with a heads-up to plan their favorites), usual weekday schedule (everyone edits their own; guardians can override), allergies and dietary preferences (guardians edit; everyone sees), Remove from household (guardians), taste profile of favorites, dislikes, and serving notes (visible to everyone), cook tally, and per-member notification preset. Household rhythm and planning mix defaults (planners), notification presets, show tips again, plain-English privacy summary with data export and delete household, and subscription (owner).
 
 **Minimal data.** Household name (last name or nickname), first names, avatars. No birthdays, phone numbers, photos, or location. Keep the app a parent-run household app, not in the App Store Kids category. COPPA applies if users under 13 are known; get a legal review before launch.
 
 **Allergies and dietary preferences**
 
-- Standard categories: the 9 major US allergens (milk, eggs, fish, shellfish, tree nuts, peanuts, wheat, soy, sesame) plus custom. Each maps to a keyword list (casein and butter map to milk, tahini to sesame).
-- Captured during onboarding. Flag, don't filter: affected dishes (starter pack included) stay available with a flag such as "Contains milk (Nora). Consider dairy-free swaps." Flags show in the library, on day cards, and on the shopping list ("Cheese: get dairy-free"). A built-in substitution table (AI-enhanced on capable devices) and a "Make it safe" button create the family's own version. An allergy added later triggers a library review prompt.
+Important, never a burden. Families without allergies never see allergy UI; families with them tell the app in about 30 seconds.
+
+- **One question in onboarding:** "Does anyone have food allergies?" No is one tap and the topic never comes back. Yes opens one screen: a single plain sentence ("Foon keeps these in your household to flag dishes. Never shared, never sent off-device.") above each person with tappable chips. Tapping the first chip is the opt-in; there is no separate consent step.
+- Standard chips: the 9 major US allergens (milk, eggs, fish, shellfish, tree nuts, peanuts, wheat, soy, sesame) plus Other with free text. Each maps to a keyword list (casein and butter map to milk, tahini to sesame).
+- Guardians add and change allergies later from member detail, using the same chips. Everyone in the household sees them.
+- **Flag, don't filter:** affected dishes (starter pack included) stay available with a flag such as "Contains milk (Nora)." Flags show in the library, on day cards, and on the shopping list ("Cheese: get dairy-free"). Planning is never blocked by an allergy, and allergies never trigger push notifications.
+- **Turning allergy alerts off** (Family settings, guardians) erases the household's allergy data.
+- Later, not v1: a substitution table and "Make it safe" button that create the family's own version; a library review prompt when an allergy is added.
 - Presented as a helper, not a guarantee. UI and terms say families still check labels.
 - Household-only visibility, never sent off-device, disclosed in the App Store privacy label.
 - Dietary preferences (vegetarian, no pork) use the same mechanism as soft warnings.
@@ -259,8 +271,9 @@ iOS-only, multiplatform SwiftUI (iPhone, iPad, Mac) on Supabase, with a local ca
 | Table | Key fields |
 | --- | --- |
 | households | name, owner, settings (JSON), founding flag, subscription status |
-| members | household, first name, avatar, role, status (active, away), user link (null until claimed), attendance defaults |
-| allergies | member, category, custom text |
+| members | household, first name, avatar, adult or kid, guardian, role (planner, member), status (active, away, removed), user link (null until claimed), attendance defaults |
+| allergies | member, category, custom text (guardians edit; needs allergy consent) |
+| consents | household, member (kid, for parental), kind (allergy data, parental), granted by, granted at, revoked at, wording version; append-only |
 | meals | household, name, servings, tags, prep steps, source URL, status (active, trial, archived, retired) |
 | meal\_ingredients | meal, item, quantity (optional) |
 | items | household, canonical name, keep-on-hand flag, stock state (in, low, out) |
@@ -312,7 +325,7 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
 - Build all 12 notifications, but only 4 are on by default: plan set, prep reminder, day-of check-in, after-dinner prompt. The rest ship off and can be turned on in settings.
 - Settings: presets plus advanced controls; any advanced control that can wait is flagged during build rather than cut.
 - Pantry: manual in/low/out staples; receipt-driven inventory in Phase 3.
-- Owner is a billing flag on a planner, not a separate permission set.
+- Owner is a billing flag on a guardian, not a separate permission set.
 
 **Security**
 
@@ -328,7 +341,7 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
 **Privacy**
 
 - Amended COPPA rule, compliance date April 22, 2026: written data-retention policy with a time period; new parental consent for material privacy changes ([source](https://toyassociation.org/PressRoom2/News/2026-News/updated-coppa-rule-requirements-take-effect-april-22.aspx)). Add an explicit parental-consent step when adults create kids' profiles.
-- Allergies are consumer health data in some states (e.g. Washington's My Health My Data Act): explicit opt-in on the allergy step.
+- Allergies are consumer health data in some states (e.g. Washington's My Health My Data Act): explicit opt-in built into the allergy step (adding the first allergy is the opt-in, logged with who, when, and the wording shown). Only guardians opt in or revoke; revoking erases the data.
 - Apple: in-app account deletion with Sign in with Apple token revocation, privacy manifest, accurate privacy label.
 - No tracking and no ad SDKs, so no App Tracking Transparency prompt. Market it.
 - Delete receipt images after parsing. US-only launch at first.

@@ -91,7 +91,7 @@ select throws_ok(
 select throws_ok(
   $$ insert into public.member_allergies (household_id, member_id, category) values
        ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000c1', 'soy') $$,
-  '42501', null, 'an allergy cannot point at a member of another household');
+  '23503', null, 'an allergy cannot point at a member of another household');
 update public.members set first_name = 'Hacked' where id = '00000000-0000-0000-0000-0000000000c1';
 update public.households set name = 'Hacked' where id = '00000000-0000-0000-0000-0000000000b0';
 

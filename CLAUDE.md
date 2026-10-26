@@ -4,7 +4,7 @@ Foon is an iOS family dinner planner. Mission: **take the weight of dinner off o
 
 Every feature must pass one test: *does it make it easier for more people to contribute, or lighten the planner's load?* If not, it waits.
 
-Full product spec: [docs/spec.md](docs/spec.md). Starter dishes: [docs/starter-pack.md](docs/starter-pack.md). App Store listing and compliance: [docs/app-store-submission.md](docs/app-store-submission.md). These are exports of the living spec doc; if they disagree with a ticket, ask in the PR rather than guessing.
+Full product spec: [docs/spec.md](docs/spec.md). Starter dishes: [docs/starter-pack.md](docs/starter-pack.md). App Store listing and compliance: [docs/app-store-submission.md](docs/app-store-submission.md). These docs are the source of truth: when a decision changes product behavior, update them in the same PR. If a ticket disagrees with the spec, ask in the PR rather than guessing.
 
 ## Stack
 
@@ -44,7 +44,7 @@ supabase/
 
 ## Domain vocabulary
 
-- **Household** = family account. **Member** = profile (may be unclaimed). Roles: Owner, Planner, Member.
+- **Household** = family account. **Member** = profile (may be unclaimed). Each member is an adult or a kid; **guardians** (parents) manage people, allergies, and consent; **role** is Planner or Member (planning rights only). **Owner** = the guardian holding the subscription (`households.owner`).
 - **Catalog** = shared read-only starter dishes. **Library** = the household's own meals (copied from catalog or added).
 - **Plan / night** = one week of nights; each night has attendance, effort (normal, rushed, full, event), and a meal or quick pick.
 - **Quick picks:** Leftovers, Takeout, Eat out, Fend for yourselves, Freezer raid.
