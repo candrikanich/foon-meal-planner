@@ -1,0 +1,3 @@
+// Prod environment. Supabase URL and anon key come from the gitignored Prod.local.xcconfig
+// (see Prod.local.xcconfig.example). The include is required so a hosted build can't ship without them.
+#include "Prod.local.xcconfig"
