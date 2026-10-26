@@ -32,6 +32,8 @@ final class HouseholdStore {
     private(set) var members: [Member] = []
     private(set) var errorMessage: String?
     private(set) var isLoading = false
+    /// Profiles with an open invite, shown as "Invite sent".
+    private(set) var invitedMemberIDs: Set<UUID> = []
 
     let userID: UUID
     private let client: HouseholdClient
@@ -93,6 +95,7 @@ final class HouseholdStore {
                 return
             }
             members = try await client.members(household.id)
+            invitedMemberIDs = (try? await client.invitedMemberIDs(household.id)) ?? []
             phase = .ready(household)
         } catch {
             // A view going away cancels its load; that isn't a failure to show.
@@ -157,6 +160,43 @@ final class HouseholdStore {
         var draft = MemberDraft(member)
         draft.status = .removed
         return await save(draft, editing: member.id)
+    }
+
+    /// Parents invite profiles nobody has claimed yet.
+    func canInvite(_ member: Member) -> Bool {
+        canManagePeople && member.userID == nil && member.status != .removed
+    }
+
+    /// Creates an invite and returns the code to share, or nil with a message.
+    func invite(_ member: Member) async -> String? {
+        errorMessage = nil
+        do {
+            let code = try await client.createInvite(member.id)
+            invitedMemberIDs.insert(member.id)
+            return code
+        } catch {
+            errorMessage = "Couldn't create an invite. Check your connection and try again."
+            return nil
+        }
+    }
+
+    /// Joins the household behind an invite code, then loads it.
+    func redeem(_ typedCode: String) async {
+        errorMessage = nil
+        guard InviteCode.isComplete(typedCode) else {
+            errorMessage = RedeemResult.invalid.message
+            return
+        }
+        do {
+            let result = try await client.redeemInvite(InviteCode.normalized(typedCode))
+            guard result == .claimed else {
+                errorMessage = result.message
+                return
+            }
+            await load()
+        } catch {
+            errorMessage = "Couldn't check that code. Check your connection and try again."
+        }
     }
 
     private func isOwnerProfile(_ member: Member) -> Bool {

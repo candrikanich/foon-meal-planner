@@ -10,6 +10,11 @@ struct HouseholdClient: Sendable {
     var members: @Sendable (_ householdID: UUID) async throws -> [Member]
     var addMember: @Sendable (_ householdID: UUID, _ draft: MemberDraft) async throws -> Member
     var updateMember: @Sendable (_ memberID: UUID, _ changes: MemberChanges) async throws -> Member
+    /// Returns the code to share; it is shown once and stored only as a hash.
+    var createInvite: @Sendable (_ memberID: UUID) async throws -> String
+    var redeemInvite: @Sendable (_ code: String) async throws -> RedeemResult
+    /// Profiles with an invite that is still open (parents only; others get none).
+    var invitedMemberIDs: @Sendable (_ householdID: UUID) async throws -> Set<UUID>
 }
 
 extension HouseholdClient {
@@ -57,6 +62,23 @@ extension HouseholdClient {
                     .single()
                     .execute()
                     .value
+            },
+            createInvite: { memberID in
+                try await client.rpc("create_invite", params: ["target_member": memberID]).execute().value
+            },
+            redeemInvite: { code in
+                try await client.rpc("redeem_invite", params: ["code": code]).execute().value
+            },
+            invitedMemberIDs: { householdID in
+                let rows: [OpenInvite] = try await client.from("invites")
+                    .select("member_id")
+                    .eq("household_id", value: householdID)
+                    .is("redeemed_at", value: nil)
+                    .is("revoked_at", value: nil)
+                    .gt("expires_at", value: Date())
+                    .execute()
+                    .value
+                return Set(rows.map(\.memberID))
             }
         )
     }
@@ -72,6 +94,15 @@ private struct CreateHouseholdParams: Encodable, Sendable {
         case householdEmoji = "household_emoji"
         case ownerFirstName = "owner_first_name"
     }
+
+    // Every argument is sent, null included: PostgREST matches functions by argument names, so an
+    // omitted emoji would look for a create_household that doesn't exist.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(householdName, forKey: .householdName)
+        try container.encode(householdEmoji, forKey: .householdEmoji)
+        try container.encode(ownerFirstName, forKey: .ownerFirstName)
+    }
 }
 
 private struct NewMember: Encodable, Sendable {
@@ -86,5 +117,13 @@ private struct NewMember: Encodable, Sendable {
         try draft.encode(to: encoder)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(householdID, forKey: .householdID)
+    }
+}
+
+private struct OpenInvite: Decodable, Sendable {
+    let memberID: UUID
+
+    enum CodingKeys: String, CodingKey {
+        case memberID = "member_id"
     }
 }

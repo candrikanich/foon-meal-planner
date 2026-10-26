@@ -54,7 +54,10 @@ extension HouseholdClient {
             },
             updateMember: { memberID, changes in
                 (members.first { $0.id == memberID } ?? .fixture(id: memberID)).applying(changes)
-            }
+            },
+            createInvite: { _ in "THESM-7KQ4-M9XP" },
+            redeemInvite: { _ in .invalid },
+            invitedMemberIDs: { _ in [] }
         )
     }
 }

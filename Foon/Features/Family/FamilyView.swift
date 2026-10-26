@@ -21,12 +21,13 @@ struct FamilyView: View {
                 Section("Family") {
                     ForEach(store.visibleMembers) { member in
                         if store.editScope(for: member) == .none {
-                            MemberRow(member: member, isYou: false)
+                            MemberRow(member: member, isYou: false, invited: store.invitedMemberIDs.contains(member.id))
                         } else {
                             Button {
                                 editor = .existing(member)
                             } label: {
-                                MemberRow(member: member, isYou: member.userID == store.userID)
+                                MemberRow(member: member, isYou: member.userID == store.userID,
+                                          invited: store.invitedMemberIDs.contains(member.id))
                             }
                             .buttonStyle(.plain)
                             .accessibilityHint("Edit")
@@ -76,6 +77,7 @@ struct FamilyView: View {
 struct MemberRow: View {
     let member: Member
     let isYou: Bool
+    var invited = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -107,7 +109,7 @@ struct MemberRow: View {
     private var details: String {
         let age = member.ageGroup == .adult ? "Adult" : "Kid"
         let role = member.role == .planner ? "Planner" : "Member"
-        return [age, role, status].joined(separator: " · ")
+        return ([age, role, status] + (invited ? ["Invite sent"] : [])).joined(separator: " · ")
     }
 
     private var status: String {

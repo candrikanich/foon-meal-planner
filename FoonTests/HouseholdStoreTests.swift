@@ -243,6 +243,10 @@ private extension HouseholdClient {
             members: members,
             addMember: addMember,
             updateMember: updateMember
+,
+            createInvite: { _ in throw URLError(.unknown) },
+            redeemInvite: { _ in .invalid },
+            invitedMemberIDs: { _ in [] }
         )
     }
 }

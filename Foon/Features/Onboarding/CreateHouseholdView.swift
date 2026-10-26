@@ -9,6 +9,7 @@ struct CreateHouseholdView: View {
     @State private var emoji = "🏡"
     @State private var firstName = ""
     @State private var isSaving = false
+    @State private var inviteCode = ""
 
     private var canCreate: Bool {
         var owner = MemberDraft()
@@ -19,6 +20,27 @@ struct CreateHouseholdView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    TextField("Invite code", text: $inviteCode, prompt: Text("SMITH-7KQ4-M9XP"))
+                        .autocorrectionDisabled()
+                        .font(.body.monospaced())
+                    Button {
+                        Task {
+                            isSaving = true
+                            await store.redeem(inviteCode)
+                            if store.household != nil { session.clearPendingInvite() }
+                            isSaving = false
+                        }
+                    } label: {
+                        Text("Join family").frame(maxWidth: .infinity)
+                    }
+                    .disabled(isSaving || !InviteCode.isComplete(inviteCode))
+                } header: {
+                    Text("Joining a family?")
+                } footer: {
+                    Text("Enter the code from your invite. Otherwise, start your own household below.")
+                }
+
                 Section {
                     TextField("Household name", text: $name, prompt: Text("The Smiths"))
                         .textContentType(.familyName)
@@ -69,6 +91,9 @@ struct CreateHouseholdView: View {
                 }
             }
             .navigationTitle("Welcome to Foon")
+            .onChange(of: session.pendingInviteCode) { _, code in
+                if let code { inviteCode = code }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Sign out") {
@@ -78,6 +103,9 @@ struct CreateHouseholdView: View {
             }
             .onAppear {
                 store.clearError()
+                if inviteCode.isEmpty, let pending = session.pendingInviteCode {
+                    inviteCode = pending
+                }
                 if firstName.isEmpty, let given = session.appleGivenName {
                     firstName = given
                 }
