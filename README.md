@@ -49,3 +49,7 @@ supabase stop
 | Release | production | `Config/Prod.local.xcconfig` |
 
 Copy the matching `*.local.xcconfig.example` to create each file. Staging and Release builds fail if their file is missing, so a hosted build can't ship unconfigured (CI or Xcode Cloud must write it from secrets). Only the URL and anon key live in the app; service-role keys belong in Edge Functions only.
+
+### Starter catalog
+
+`supabase/seed/catalog.sql` holds the 69 starter dishes from [docs/starter-pack.md](docs/starter-pack.md). It runs on every `supabase db reset` and is safe to re-run: dishes update in place by slug, and each dish's ingredient list is replaced. To change the catalog, edit both files, then run `supabase db reset` and `supabase test db`. Hosted environments get catalog changes with `supabase db push --include-seed`.
