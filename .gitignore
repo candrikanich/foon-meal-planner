@@ -18,5 +18,10 @@ supabase/.temp/
 # macOS
 .DS_Store
 
-# XcodeGen output (regenerate with `xcodegen generate`)
-Foon.xcodeproj/
+# XcodeGen output (regenerate with `xcodegen generate`); keep Package.resolved so SPM versions are pinned
+Foon.xcodeproj/*
+!Foon.xcodeproj/project.xcworkspace/
+Foon.xcodeproj/project.xcworkspace/*
+!Foon.xcodeproj/project.xcworkspace/xcshareddata/
+Foon.xcodeproj/project.xcworkspace/xcshareddata/*
+!Foon.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
