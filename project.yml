@@ -26,6 +26,8 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_STYLE: Automatic
+    # The Recruiting Compass LLC publishes Foon for now; see planning/m0-foundation-plan.md.
+    DEVELOPMENT_TEAM: G374A783RH
 
 targets:
   Foon:
@@ -40,6 +42,10 @@ targets:
       Debug: Config/Local.xcconfig
       Staging: Config/Staging.xcconfig
       Release: Config/Prod.xcconfig
+    entitlements:
+      path: Foon/App/Foon.entitlements
+      properties:
+        com.apple.developer.applesignin: [Default]
     info:
       path: Foon/App/Info.plist
       properties:

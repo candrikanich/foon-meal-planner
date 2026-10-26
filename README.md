@@ -53,3 +53,13 @@ Copy the matching `*.local.xcconfig.example` to create each file. Staging and Re
 ### Starter catalog
 
 `supabase/seed/catalog.sql` holds the 69 starter dishes from [docs/starter-pack.md](docs/starter-pack.md). It runs on every `supabase db reset` and is safe to re-run: dishes update in place by slug, and each dish's ingredient list is replaced. To change the catalog, edit both files, then run `supabase db reset` and `supabase test db`. Hosted environments get catalog changes with `supabase db push --include-seed`.
+
+### Sign in with Apple (local)
+
+The app signs in natively with Sign in with Apple and hands the identity token to Supabase Auth. The local stack enables the Apple provider with the App ID `com.andrikanich.foon` as the client ID; native sign-in needs no secret key. Sign in with Apple needs a signed build, so `CODE_SIGNING_ALLOWED=NO` builds (CI, `scripts/test.sh`) can't sign in:
+
+```sh
+xcodebuild build -project Foon.xcodeproj -scheme Foon -destination 'platform=macOS,arch=arm64' \
+  -derivedDataPath build/DerivedDataSigned -allowProvisioningUpdates
+open build/DerivedDataSigned/Build/Products/Debug/Foon.app
+```

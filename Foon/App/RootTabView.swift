@@ -27,4 +27,5 @@ struct RootTabView: View {
 
 #Preview {
     RootTabView()
+        .environment(SessionStore(auth: .preview()))
 }
