@@ -1,7 +1,10 @@
+import CoreGraphics
 import Foundation
+import ImageIO
 import Supabase
 import Synchronization
 import Testing
+import UniformTypeIdentifiers
 @testable import Foon
 
 /// Drives the real `.live` client through PostgREST, the RPC, grants, and RLS on the local stack.
@@ -78,6 +81,53 @@ struct HouseholdClientLiveTests {
         #expect(try await HouseholdClient.live(mac).members(household.id).isEmpty,
                 "the Mac's unexpired token no longer reads the household")
         #expect(await !AuthClient.live(mac).accountStillExists(), "and the Mac notices its session is gone")
+    }
+
+    @Test func photosAreReadableOnlyByTheirHousehold() async throws {
+        let ann = Self.newSupabaseClient()
+        try await ann.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com", password: Self.password)
+        let household = try await HouseholdClient.live(ann).createHousehold("Photo family", nil, "Ann")
+
+        let tiny = try Self.sampleJPEG()
+        let path = try await PhotoStorageClient.live(ann).upload(household.id, try PhotoPreparation.prepare(tiny))
+        #expect(path.hasPrefix(household.id.uuidString.lowercased() + "/meals/"))
+
+        let url = try await PhotoStorageClient.live(ann).signedURL(path)
+        let (_, response) = try await URLSession.shared.data(from: url)
+        #expect((response as? HTTPURLResponse)?.statusCode == 200, "the household loads its photo")
+        let expiry = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "token" })
+        #expect(!(expiry.value ?? "").isEmpty, "signed URLs carry a token")
+
+        let outsider = Self.newSupabaseClient()
+        try await outsider.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com", password: Self.password)
+        await #expect(throws: (any Error).self, "another household cannot sign a URL for it") {
+            _ = try await PhotoStorageClient.live(outsider).signedURL(path)
+        }
+        await #expect(throws: (any Error).self, "another household cannot download it") {
+            _ = try await outsider.storage.from(PhotoStorageClient.bucket).download(path: path)
+        }
+        await #expect(throws: (any Error).self, "another household cannot upload into its folder") {
+            _ = try await PhotoStorageClient.live(outsider).upload(household.id, try PhotoPreparation.prepare(tiny))
+        }
+
+        let publicURL = Self.config.url.appending(path: "storage/v1/object/public/\(PhotoStorageClient.bucket)/\(path)")
+        let (_, publicResponse) = try await URLSession.shared.data(from: publicURL)
+        #expect((publicResponse as? HTTPURLResponse)?.statusCode != 200, "there is no public URL")
+    }
+
+    private static let config = try! SupabaseConfig.fromMainBundle()
+    private static func sampleJPEG() throws -> Data {
+        let context = try #require(CGContext(
+            data: nil, width: 64, height: 48, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ))
+        context.setFillColor(CGColor(red: 0.2, green: 0.6, blue: 0.3, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 64, height: 48))
+        let data = NSMutableData()
+        let destination = try #require(CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, try #require(context.makeImage()), nil)
+        #expect(CGImageDestinationFinalize(destination))
+        return data as Data
     }
 
     private static let password = "local-test-password-1"
