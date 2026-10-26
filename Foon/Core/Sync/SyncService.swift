@@ -22,6 +22,8 @@ final class SyncService {
     private let client: SyncClient
     private let today: @Sendable () -> CalendarDay
 
+    /// Set on sign-out: no write may land in the cache after it is wiped.
+    private var isStopped = false
     private var isRunning = false
     /// Work requested while the runner was busy (true: pull too); the runner picks it up before it stops.
     private var requestedPull: Bool?
@@ -32,6 +34,7 @@ final class SyncService {
         self.context = context
         self.client = client
         self.today = today
+        removeOtherHouseholds()
         pendingCount = pendingChanges().count
     }
 
@@ -69,7 +72,7 @@ final class SyncService {
     /// is queued for it and this returns at once.
     func sync(pull: Bool = true) async {
         requestedPull = (requestedPull ?? false) || pull
-        guard !isRunning else { return }
+        guard !isRunning, !isStopped else { return }
         isRunning = true
         defer { isRunning = false }
         while let shouldPull = requestedPull {
@@ -78,6 +81,14 @@ final class SyncService {
             if shouldPull { await pullOnce() }
         }
     }
+
+    /// Stops the service for good (sign-out). Work still in flight finishes without touching the cache.
+    func stop() {
+        isStopped = true
+    }
+
+    /// Whether results that just arrived may still be written.
+    private var mayWrite: Bool { !isStopped && !Task.isCancelled }
 
     func pull() async { await sync(pull: true) }
     func replayPending() async { await sync(pull: false) }
@@ -127,6 +138,7 @@ final class SyncService {
                 return OfflineReplay.classify(error)
             }
         }
+        guard mayWrite else { return }
 
         let finished = Set(report.sent + report.rejected)
         for stored in pending {
@@ -148,6 +160,7 @@ final class SyncService {
     private func pullOnce() async {
         do {
             let snapshot = try await client.fetchSnapshot(householdID, today())
+            guard mayWrite else { return }
             try replaceCache(with: snapshot)
             // The server hasn't seen queued changes yet, so they stay visible on top of the snapshot.
             for change in pendingChanges().compactMap(\.change) {
@@ -161,6 +174,17 @@ final class SyncService {
     }
 
     // MARK: - Cache
+
+    /// Backstop for the sign-out wipe: only this household's data may stay on the device.
+    private func removeOtherHouseholds() {
+        let household = householdID
+        try? context.delete(model: CachedPlan.self, where: #Predicate { $0.householdID != household })
+        try? context.delete(model: CachedNight.self, where: #Predicate { $0.householdID != household })
+        try? context.delete(model: CachedListItem.self, where: #Predicate { $0.householdID != household })
+        try? context.delete(model: CachedItem.self, where: #Predicate { $0.householdID != household })
+        try? context.delete(model: PendingChange.self, where: #Predicate { $0.householdID != household })
+        try? context.save()
+    }
 
     private func pendingChanges() -> [PendingChange] {
         let household = householdID

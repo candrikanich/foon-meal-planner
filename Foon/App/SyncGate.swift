@@ -24,5 +24,9 @@ struct SyncGate<Content: View>: View {
                 // Back in the foreground: send anything queued and refresh.
                 if phase == .active, let service { Task { await service.sync() } }
             }
+            .onDisappear {
+                // Signed out (or switched household): nothing still in flight may write to the cache.
+                service?.stop()
+            }
     }
 }

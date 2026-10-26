@@ -250,3 +250,45 @@ struct SyncCacheClearingTests {
         #expect(try container.mainContext.fetch(FetchDescriptor<PendingChange>()).isEmpty)
     }
 }
+
+@MainActor
+struct SyncIsolationTests {
+    nonisolated private func snapshot(_ household: UUID) -> SyncSnapshot {
+        SyncSnapshot(plan: nil, nights: [],
+                     listItems: [ListItemRow(id: UUID(), householdID: household, itemID: UUID(), list: .quick,
+                                             urgency: .whenever, source: .manual, note: nil, checkedAt: nil)],
+                     items: [])
+    }
+
+    @Test func aPullThatFinishesAfterStoppingWritesNothing() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let household = UUID()
+        let (gate, release) = AsyncStream<Void>.makeStream()
+        let service = SyncService(householdID: household, context: container.mainContext, client: .fake(snapshot: {
+            for await _ in gate { break }  // hold the fetch until the test releases it
+            return snapshot(household)
+        }))
+        let pulling = Task { await service.pull() }
+        await Task.yield()
+        service.stop()  // signed out while the fetch was in flight
+        try SyncService.clearCache(in: container.mainContext)
+        release.yield()
+        await pulling.value
+        #expect(try container.mainContext.fetch(FetchDescriptor<CachedListItem>()).isEmpty,
+                "the late snapshot must not refill the wiped cache")
+    }
+
+    @Test func startingForAHouseholdRemovesAnyOtherHouseholdsData() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let previous = UUID()
+        let previousService = SyncService(householdID: previous, context: container.mainContext, client: .fake(
+            snapshot: { snapshot(previous) }, send: { _ in throw URLError(.notConnectedToInternet) }
+        ))
+        await previousService.pull()
+        await previousService.perform(.setStock(itemID: UUID(), state: .low))
+
+        _ = SyncService(householdID: UUID(), context: container.mainContext, client: .fake(snapshot: { snapshot(UUID()) }))
+        #expect(try container.mainContext.fetch(FetchDescriptor<CachedListItem>()).isEmpty)
+        #expect(try container.mainContext.fetch(FetchDescriptor<PendingChange>()).isEmpty)
+    }
+}
