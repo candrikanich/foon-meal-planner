@@ -1,0 +1,150 @@
+import SwiftUI
+
+/// Add a member (`member` nil) or edit one. Shows only what the signed-in person may change.
+struct MemberEditorView: View {
+    @Environment(HouseholdStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    let member: Member?
+    @State private var draft: MemberDraft
+    @State private var isSaving = false
+    @State private var confirmingRemoval = false
+
+    init(member: Member?) {
+        self.member = member
+        _draft = State(initialValue: member.map(MemberDraft.init) ?? MemberDraft())
+    }
+
+    private var scope: HouseholdStore.EditScope {
+        member.map(store.editScope(for:)) ?? .everything
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Who they are") {
+                    TextField("First name", text: $draft.firstName)
+                        .disabled(!scope.name)
+                    AvatarPicker(selection: $draft.avatar)
+                    if scope.identity {
+                        Picker("Age", selection: $draft.ageGroup) {
+                            Text("Adult").tag(AgeGroup.adult)
+                            Text("Kid").tag(AgeGroup.kid)
+                        }
+                        .pickerStyle(.segmented)
+                        if draft.ageGroup == .adult {
+                            Toggle("Parent", isOn: $draft.guardian)
+                        }
+                    }
+                }
+
+                if scope.planning {
+                    Section {
+                        Picker("Planning", selection: $draft.role) {
+                            Text("Planner").tag(MemberRole.planner)
+                            Text("Member").tag(MemberRole.member)
+                        }
+                    } footer: {
+                        Text("Parents manage the family, allergies, and privacy choices. Planners build the week and manage meals.")
+                    }
+
+                    Section("Status") {
+                        Picker("Status", selection: $draft.status) {
+                            Text("Home").tag(MemberStatus.active)
+                            Text("Away").tag(MemberStatus.away)
+                        }
+                        .pickerStyle(.segmented)
+                        if draft.status == .away {
+                            Toggle("Return date", isOn: hasReturnDate)
+                            if draft.awayUntil != nil {
+                                DatePicker("Back on", selection: returnDate, in: Date()..., displayedComponents: .date)
+                            }
+                        }
+                    }
+                }
+
+                if let member, store.canRemove(member) {
+                    Section {
+                        Button("Remove from household", role: .destructive) {
+                            confirmingRemoval = true
+                        }
+                        .disabled(isSaving)
+                    } footer: {
+                        Text("Their ratings and cooking history stay.")
+                    }
+                }
+
+                if let message = store.errorMessage {
+                    Section {
+                        Text(message).foregroundStyle(.red)
+                    }
+                }
+            }
+            .navigationTitle(member.map { "Edit \($0.firstName)" } ?? "Add member")
+            .onAppear { store.clearError() }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(member == nil ? "Add" : "Save") {
+                        Task {
+                            isSaving = true
+                            if await store.save(draft, editing: member?.id) { dismiss() }
+                            isSaving = false
+                        }
+                    }
+                    .disabled(isSaving || draft.validated() == nil)
+                }
+            }
+            .confirmationDialog(
+                "Remove \(member?.firstName ?? "")?", isPresented: $confirmingRemoval, titleVisibility: .visible
+            ) {
+                Button("Remove", role: .destructive) {
+                    guard let member else { return }
+                    Task {
+                        isSaving = true
+                        if await store.remove(member) { dismiss() }
+                        isSaving = false
+                    }
+                }
+            } message: {
+                Text("They lose access right away. Their ratings and history stay.")
+            }
+        }
+    }
+
+    private var hasReturnDate: Binding<Bool> {
+        Binding(
+            get: { draft.awayUntil != nil },
+            set: { draft.awayUntil = $0 ? CalendarDay(Date()) : nil }
+        )
+    }
+
+    private var returnDate: Binding<Date> {
+        Binding(
+            get: { draft.awayUntil?.date() ?? Date() },
+            set: { draft.awayUntil = CalendarDay($0) }
+        )
+    }
+}
+
+#Preview("Add") {
+    let store = HouseholdStore.preview()
+    MemberEditorView(member: nil)
+        .environment(store)
+        .task { await store.load() }
+}
+
+#Preview("Edit a kid away at camp") {
+    let store = HouseholdStore.preview()
+    MemberEditorView(member: Member.sampleFamily[3])
+        .environment(store)
+        .task { await store.load() }
+}
+
+#Preview("Owner editing themselves") {
+    let store = HouseholdStore.preview()
+    MemberEditorView(member: Member.sampleFamily[0])
+        .environment(store)
+        .task { await store.load() }
+}

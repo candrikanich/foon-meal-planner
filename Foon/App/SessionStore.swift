@@ -22,8 +22,16 @@ final class SessionStore {
     }
 
     func start() async {
+        var verified: UUID?
         for await userID in auth.sessionChanges() {
             state = userID.map(State.signedIn) ?? .signedOut
+            // A stored session can outlive its account (deleted elsewhere, revoked); check once per user.
+            if let userID, userID != verified {
+                verified = userID
+                if await !auth.accountStillExists() {
+                    await auth.signOut()
+                }
+            }
         }
     }
 
