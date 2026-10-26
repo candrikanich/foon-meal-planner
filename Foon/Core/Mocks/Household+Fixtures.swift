@@ -57,7 +57,10 @@ extension HouseholdClient {
             },
             createInvite: { _ in "THESM-7KQ4-M9XP" },
             redeemInvite: { _ in .invalid },
-            invitedMemberIDs: { _ in [] }
+            invitedMemberIDs: { _ in [] },
+            parentalConsentMemberIDs: { _ in [] },
+            recordParentalConsent: { _, _ in },
+            revokeParentalConsent: { _ in }
         )
     }
 }

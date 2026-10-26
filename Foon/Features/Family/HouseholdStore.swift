@@ -34,6 +34,8 @@ final class HouseholdStore {
     private(set) var isLoading = false
     /// Profiles with an open invite, shown as "Invite sent".
     private(set) var invitedMemberIDs: Set<UUID> = []
+    /// Kids whose parental consent is active (#12).
+    private(set) var parentalConsentMemberIDs: Set<UUID> = []
 
     let userID: UUID
     private let client: HouseholdClient
@@ -96,6 +98,7 @@ final class HouseholdStore {
             }
             members = try await client.members(household.id)
             invitedMemberIDs = (try? await client.invitedMemberIDs(household.id)) ?? []
+            parentalConsentMemberIDs = (try? await client.parentalConsentMemberIDs(household.id)) ?? []
             phase = .ready(household)
         } catch {
             // A view going away cancels its load; that isn't a failure to show.
@@ -177,6 +180,56 @@ final class HouseholdStore {
         } catch {
             errorMessage = "Couldn't create an invite. Check your connection and try again."
             return nil
+        }
+    }
+
+    /// A kid's invite needs a parent's recorded consent first (COPPA, #12).
+    func needsParentalConsent(_ member: Member) -> Bool {
+        member.ageGroup == .kid && !parentalConsentMemberIDs.contains(member.id)
+    }
+
+    /// Records the parent's consent, then creates the invite. Returns the code, or nil with a message.
+    func consentAndInvite(_ member: Member) async -> String? {
+        errorMessage = nil
+        guard let household else { return nil }
+        if needsParentalConsent(member) {
+            do {
+                try await client.recordParentalConsent(household.id, member.id)
+                parentalConsentMemberIDs.insert(member.id)
+            } catch {
+                // Consent may already exist (it failed to load earlier); check before giving up.
+                parentalConsentMemberIDs = (try? await client.parentalConsentMemberIDs(household.id)) ?? parentalConsentMemberIDs
+                guard !needsParentalConsent(member) else {
+                    errorMessage = "Couldn't record your consent. Check your connection and try again."
+                    return nil
+                }
+            }
+        }
+        return await invite(member)
+    }
+
+    func canWithdrawConsent(_ member: Member) -> Bool {
+        canManagePeople && member.ageGroup == .kid && parentalConsentMemberIDs.contains(member.id)
+    }
+
+    /// Withdraws a kid's parental consent: their account is unlinked at once and open invites end;
+    /// the profile and its history stay. Returns whether it worked.
+    func withdrawConsent(_ member: Member) async -> Bool {
+        errorMessage = nil
+        do {
+            try await client.revokeParentalConsent(member.id)
+            parentalConsentMemberIDs.remove(member.id)
+            invitedMemberIDs.remove(member.id)
+            members = members.map { candidate in
+                guard candidate.id == member.id else { return candidate }
+                var unlinked = candidate
+                unlinked.userID = nil
+                return unlinked
+            }
+            return true
+        } catch {
+            errorMessage = "Couldn't withdraw consent. Check your connection and try again."
+            return false
         }
     }
 

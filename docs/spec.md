@@ -340,7 +340,10 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
 
 **Privacy**
 
-- Amended COPPA rule, compliance date April 22, 2026: written data-retention policy with a time period; new parental consent for material privacy changes ([source](https://toyassociation.org/PressRoom2/News/2026-News/updated-coppa-rule-requirements-take-effect-april-22.aspx)). Add an explicit parental-consent step when adults create kids' profiles.
+- Amended COPPA rule, compliance date April 22, 2026: written data-retention policy with a time period; new parental consent for material privacy changes ([source](https://toyassociation.org/PressRoom2/News/2026-News/updated-coppa-rule-requirements-take-effect-april-22.aspx)).
+- **Kids on their own devices:** a parent consents in the kid's invite (logged with who, when, and the wording version) before a kid can join; withdrawing consent (member detail) signs the kid out at once. Claiming reads only the age band from Apple's Declared Age Range API, never a birthdate, and a minor's account can't claim an adult profile (#88).
+- **Retention policy** (for the privacy notice): deleting the household erases everything at once; a removed kid's profile is anonymized after 12 months (first name becomes "Former member", avatar and allergies deleted, ratings kept as anonymous history). When a parent withdraws a kid's own-device consent and doesn't give it again, what the kid added themselves (requests, ratings, comments, list items) and their age band are erased after 30 days; the parent-entered profile (name, avatar, allergies) stays while they're in the family. A daily job enforces both.
+- **Legal review** happens before external TestFlight (founding families); internal TestFlight with our own family can go ahead first.
 - Allergies are consumer health data in some states (e.g. Washington's My Health My Data Act): explicit opt-in built into the allergy step (adding the first allergy is the opt-in, logged with who, when, and the wording shown). Only guardians opt in or revoke; revoking erases the data.
 - Apple: in-app account deletion with Sign in with Apple token revocation, privacy manifest, accurate privacy label.
 - No tracking and no ad SDKs, so no App Tracking Transparency prompt. Market it.

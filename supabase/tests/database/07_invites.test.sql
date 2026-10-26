@@ -36,6 +36,11 @@ insert into public.members (id, household_id, first_name, role, age_group, guard
   ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000a0', 'Rita', 'member', 'adult', false, 'removed', null),
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b0', 'Carol', 'planner', 'adult', true, 'active', 'c0000000-0000-0000-0000-00000000000c');
 
+-- Parents have consented for the kids they invite (#12).
+insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', 'parental', 'a0000000-0000-0000-0000-00000000000a', 'test-v1'),
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'parental', 'a0000000-0000-0000-0000-00000000000a', 'test-v1');
+
 -- Creating invites -------------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice
 select set_config('test.nora_old', public.create_invite('00000000-0000-0000-0000-0000000000a5'), true);

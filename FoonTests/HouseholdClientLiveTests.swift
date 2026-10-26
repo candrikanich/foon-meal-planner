@@ -56,6 +56,11 @@ struct HouseholdClientLiveTests {
         kid.ageGroup = .kid
         let owen = try await parent.addMember(household.id, try #require(kid.validated()))
 
+        await #expect(throws: (any Error).self, "a kid can't be invited before a parent consents") {
+            _ = try await parent.createInvite(owen.id)
+        }
+        try await parent.recordParentalConsent(household.id, owen.id)
+        #expect(try await parent.parentalConsentMemberIDs(household.id) == [owen.id])
         let code = try await parent.createInvite(owen.id)
         #expect(try await parent.invitedMemberIDs(household.id) == [owen.id])
 
@@ -65,6 +70,10 @@ struct HouseholdClientLiveTests {
         #expect(try await newcomer.myHousehold()?.id == household.id)
         #expect(try await parent.invitedMemberIDs(household.id).isEmpty, "a redeemed invite is no longer open")
         #expect(try await newcomer.redeemInvite(code) == .hasHousehold)
+
+        try await parent.revokeParentalConsent(owen.id)
+        #expect(try await newcomer.myHousehold() == nil, "withdrawing consent takes the kid out of the household")
+        #expect(try await parent.parentalConsentMemberIDs(household.id).isEmpty)
     }
 
     @Test func signingOutEverywhereEndsOtherDevicesAccessAtOnce() async throws {
