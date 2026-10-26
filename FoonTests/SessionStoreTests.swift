@@ -25,6 +25,38 @@ struct SessionStoreTests {
         await listening.value
     }
 
+    @Test func signsOutWhenARestoredAccountNoLongerExists() async {
+        let recorder = Recorder()
+        let (stream, continuation) = AsyncStream<UUID?>.makeStream()
+        let store = SessionStore(auth: .fake(
+            sessionChanges: stream,
+            onSignOut: { await recorder.recordSignOut() },
+            accountStillExists: { false }
+        ))
+        let listening = Task { await store.start() }
+        continuation.yield(userID)
+        continuation.finish()
+        await listening.value
+        #expect(await recorder.signOuts == 1)
+    }
+
+    @Test func keepsAnAccountThatStillExists() async {
+        let recorder = Recorder()
+        let (stream, continuation) = AsyncStream<UUID?>.makeStream()
+        let store = SessionStore(auth: .fake(
+            sessionChanges: stream,
+            onSignOut: { await recorder.recordSignOut() },
+            accountStillExists: { true }
+        ))
+        let listening = Task { await store.start() }
+        continuation.yield(userID)
+        continuation.yield(userID)
+        continuation.finish()
+        await listening.value
+        #expect(await recorder.signOuts == 0)
+        #expect(store.state == .signedIn(userID))
+    }
+
     @Test func signsInWithTheRawNonceWhileAppleGetsItsHash() async throws {
         let recorder = Recorder()
         let store = SessionStore(auth: .fake(onSignIn: { idToken, nonce, givenName in
@@ -103,12 +135,14 @@ private extension AuthClient {
     static func fake(
         sessionChanges: AsyncStream<UUID?> = AsyncStream { _ in },
         onSignIn: @escaping @Sendable (String, String, String?) async throws -> Void = { _, _, _ in },
-        onSignOut: @escaping @Sendable () async -> Void = {}
+        onSignOut: @escaping @Sendable () async -> Void = {},
+        accountStillExists: @escaping @Sendable () async -> Bool = { true }
     ) -> AuthClient {
         AuthClient(
             sessionChanges: { sessionChanges },
             signInWithApple: onSignIn,
-            signOut: onSignOut
+            signOut: onSignOut,
+            accountStillExists: accountStillExists
         )
     }
 }

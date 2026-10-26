@@ -8,6 +8,9 @@ struct AuthClient: Sendable {
     var signInWithApple: @Sendable (_ idToken: String, _ rawNonce: String, _ givenName: String?) async throws -> Void
     /// Signs out this device only; signing out everywhere is a separate action (#14).
     var signOut: @Sendable () async -> Void
+    /// False only when the server says the account or session is gone (deleted account, revoked
+    /// session). Network trouble counts as still signed in, so offline use keeps working.
+    var accountStillExists: @Sendable () async -> Bool
 }
 
 extension AuthClient {
@@ -40,6 +43,17 @@ extension AuthClient {
                 // The SDK clears the local session before calling the server, so a network failure
                 // afterwards still leaves this device signed out. Nothing for the user to retry.
                 try? await client.auth.signOut(scope: .local)
+            },
+            accountStillExists: {
+                do {
+                    _ = try await client.auth.user()
+                    return true
+                } catch let AuthError.api(_, errorCode, _, _)
+                    where errorCode == .userNotFound || errorCode == .sessionNotFound {
+                    return false
+                } catch {
+                    return true
+                }
             }
         )
     }

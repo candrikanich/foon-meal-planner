@@ -26,6 +26,9 @@ struct RootTabView: View {
 }
 
 #Preview {
+    let store = HouseholdStore.preview()
     RootTabView()
         .environment(SessionStore(auth: .preview()))
+        .environment(store)
+        .task { await store.load() }
 }
