@@ -121,7 +121,10 @@ create table public.consents (
   -- Which wording the person agreed to.
   text_version text not null check (char_length(btrim(text_version)) between 1 and 40),
   foreign key (member_id, household_id) references public.members (id, household_id),
-  constraint consents_revoked_after_granted check (revoked_at is null or revoked_at >= granted_at)
+  constraint consents_revoked_after_granted check (revoked_at is null or revoked_at >= granted_at),
+  constraint consents_scope_matches_kind check (
+    (kind = 'allergy_data' and member_id is null) or (kind = 'parental' and member_id is not null)
+  )
 );
 
 create unique index consents_one_active
@@ -162,7 +165,15 @@ create policy "members read household consents" on public.consents
 
 create policy "adults give consent" on public.consents
   for insert to authenticated
-  with check (public.is_household_adult(household_id) and granted_by = (select auth.uid()));
+  with check (
+    granted_by = (select auth.uid())
+    and case kind
+      when 'allergy_data' then public.is_household_adult(household_id)
+      -- Parental consent is given for a kid's profile by an adult who manages the household.
+      when 'parental' then public.is_household_manager(household_id)
+        and exists (select 1 from public.members where id = member_id and age_group = 'kid')
+    end
+  );
 
 create policy "adults revoke consent" on public.consents
   for update to authenticated
@@ -176,6 +187,10 @@ as $$
 begin
   if old.revoked_at is not null and new.revoked_at is distinct from old.revoked_at then
     raise exception 'a revoked consent stays revoked' using errcode = '42501';
+  end if;
+  -- The log records when revocation happened, not a time the client chose.
+  if old.revoked_at is null and new.revoked_at is not null then
+    new.revoked_at := now();
   end if;
   return new;
 end;
@@ -329,3 +344,28 @@ $$;
 create trigger households_guard_owner
   before update on public.households
   for each row execute function public.households_guard_owner();
+
+-- An allergy insert locks the household's active consent, so a concurrent revoke waits for it
+-- (and the insert fails if the revoke commits first). SECURITY DEFINER because row locks need
+-- privileges the inserting adult may not hold on consents.
+create function public.member_allergies_lock_consent()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is null then
+    return new;
+  end if;
+  perform 1 from public.consents
+  where household_id = new.household_id and kind = 'allergy_data' and member_id is null and revoked_at is null
+  for share;
+  if not found then
+    raise exception 'allergy data needs the household''s consent' using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger member_allergies_lock_consent
+  before insert on public.member_allergies
+  for each row execute function public.member_allergies_lock_consent();

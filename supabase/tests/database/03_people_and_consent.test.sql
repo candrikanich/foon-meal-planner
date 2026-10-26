@@ -1,7 +1,7 @@
 -- People rules and allergy consent (#75): adult/kid, planner/member, ownership from households.owner,
 -- member removal, allergy editing by adults, and the allergy-data consent log.
 begin;
-select plan(46);
+select plan(51);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -81,6 +81,14 @@ select throws_ok(
   $$ insert into public.consents (household_id, kind, text_version, granted_by) values
        ('00000000-0000-0000-0000-0000000000a0', 'parental', 'v1', 'a0000000-0000-0000-0000-00000000000a') $$,
   '42501', null, 'consent cannot be recorded in someone else''s name');
+select throws_ok(
+  $$ insert into public.consents (household_id, member_id, kind, text_version) values
+       ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'parental', 'v1') $$,
+  '42501', null, 'an adult who does not manage the household cannot give parental consent');
+select throws_ok(
+  $$ insert into public.consents (household_id, member_id, kind, text_version) values
+       ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'allergy_data', 'v1') $$,
+  '23514', null, 'allergy consent is household-wide');
 
 -- Who edits allergies -----------------------------------------------------------------------
 select lives_ok(
@@ -106,6 +114,14 @@ select lives_ok(
   $$ insert into public.member_allergies (household_id, member_id, category) values
        ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'fish') $$,
   'an adult planner adds any member''s allergy');
+select throws_ok(
+  $$ insert into public.consents (household_id, member_id, kind, text_version) values
+       ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'parental', 'v1') $$,
+  '42501', null, 'parental consent is only for a kid''s profile');
+select lives_ok(
+  $$ insert into public.consents (household_id, member_id, kind, text_version) values
+       ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'parental', 'v1') $$,
+  'an adult planner gives parental consent for a kid');
 
 select pg_temp.as_user('a0000000-0000-0000-0000-0000000000a4');  -- Tess
 select throws_ok(
@@ -205,11 +221,15 @@ select throws_ok(
 -- Revoking consent erases the household's allergy data ---------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-0000000000a2');  -- Paul
 select lives_ok(
-  $$ update public.consents set revoked_at = now()
+  $$ update public.consents set revoked_at = '2099-01-01'
      where household_id = '00000000-0000-0000-0000-0000000000a0' and kind = 'allergy_data' $$,
   'an adult revokes allergy consent');
+select is((select revoked_at from public.consents
+           where household_id = '00000000-0000-0000-0000-0000000000a0' and kind = 'allergy_data'), now(),
+  'the revocation time is stamped by the database, not the client');
 select throws_ok(
-  $$ update public.consents set revoked_at = null where household_id = '00000000-0000-0000-0000-0000000000a0' $$,
+  $$ update public.consents set revoked_at = null
+     where household_id = '00000000-0000-0000-0000-0000000000a0' and kind = 'allergy_data' $$,
   '42501', null, 'a revocation cannot be undone');
 select throws_ok($$ delete from public.consents $$, '42501', null, 'the consent log is never deleted');
 select throws_ok(
