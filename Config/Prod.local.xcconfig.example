@@ -1,0 +1,4 @@
+// Copy to Prod.local.xcconfig and fill in from the Supabase dashboard (Project Settings → API).
+// `//` starts a comment in xcconfig, so URLs escape it as `:/$()/`.
+SUPABASE_URL = https:/$()/<project-ref>.supabase.co
+SUPABASE_ANON_KEY = <anon or publishable key>

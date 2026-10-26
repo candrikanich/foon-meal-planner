@@ -1,0 +1,3 @@
+// Local environment. Supabase URL and anon key come from the gitignored Local.local.xcconfig
+// (see Local.local.xcconfig.example). Without it the app builds, then stops at first Supabase use naming the missing key.
+#include? "Local.local.xcconfig"

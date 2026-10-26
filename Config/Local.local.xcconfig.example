@@ -1,0 +1,4 @@
+// Generate this file with `scripts/write-local-config.sh` after `supabase start`.
+// `//` starts a comment in xcconfig, so URLs escape it as `:/$()/`.
+SUPABASE_URL = http:/$()/127.0.0.1:54421
+SUPABASE_ANON_KEY = <ANON_KEY from `supabase status`>
