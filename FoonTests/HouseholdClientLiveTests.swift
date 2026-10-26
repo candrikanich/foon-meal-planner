@@ -64,15 +64,36 @@ struct HouseholdClientLiveTests {
         #expect(try await newcomer.redeemInvite(code) == .hasHousehold)
     }
 
-    private static func signedUpClient() async throws -> HouseholdClient {
-        let config = try SupabaseConfig.fromMainBundle()
-        let supabase = SupabaseClient(
+    @Test func signingOutEverywhereEndsOtherDevicesAccessAtOnce() async throws {
+        let email = "foon-test-\(UUID().uuidString.lowercased())@example.com"
+        let phone = Self.newSupabaseClient()
+        try await phone.auth.signUp(email: email, password: Self.password)
+        let mac = Self.newSupabaseClient()
+        try await mac.auth.signIn(email: email, password: Self.password)
+
+        let household = try await HouseholdClient.live(phone).createHousehold("Two devices", nil, "Ann")
+        #expect(try await HouseholdClient.live(mac).members(household.id).count == 1)
+
+        #expect(await AuthClient.live(phone).signOutEverywhere())
+        #expect(try await HouseholdClient.live(mac).members(household.id).isEmpty,
+                "the Mac's unexpired token no longer reads the household")
+        #expect(await !AuthClient.live(mac).accountStillExists(), "and the Mac notices its session is gone")
+    }
+
+    private static let password = "local-test-password-1"
+
+    private static func newSupabaseClient() -> SupabaseClient {
+        let config = try! SupabaseConfig.fromMainBundle()
+        return SupabaseClient(
             supabaseURL: config.url,
             supabaseKey: config.anonKey,
             options: SupabaseClientOptions(auth: .init(storage: MemoryAuthStorage(), emitLocalSessionAsInitialSession: true))
         )
-        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
-                                       password: "local-test-password-1")
+    }
+
+    private static func signedUpClient() async throws -> HouseholdClient {
+        let supabase = newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com", password: password)
         return .live(supabase)
     }
 }

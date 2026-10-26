@@ -11,6 +11,9 @@ struct AuthClient: Sendable {
     /// False only when the server says the account or session is gone (deleted account, revoked
     /// session). Network trouble counts as still signed in, so offline use keeps working.
     var accountStillExists: @Sendable () async -> Bool
+    /// Ends every session for this account, this device included. Other devices lose household
+    /// access at once (RLS checks the session). False if the server couldn't be reached.
+    var signOutEverywhere: @Sendable () async -> Bool
 }
 
 extension AuthClient {
@@ -51,8 +54,22 @@ extension AuthClient {
                 } catch let AuthError.api(_, errorCode, _, _)
                     where errorCode == .userNotFound || errorCode == .sessionNotFound {
                     return false
+                } catch AuthError.sessionMissing {
+                    // The SDK maps a revoked session (session_not_found) to this after clearing it locally.
+                    return false
                 } catch {
                     return true
+                }
+            },
+            signOutEverywhere: {
+                // The SDK clears this device before it calls the server, so check the server is
+                // reachable first; otherwise other devices could stay signed in while this one looks done.
+                do {
+                    _ = try await client.auth.user()
+                    try await client.auth.signOut(scope: .global)
+                    return true
+                } catch {
+                    return false
                 }
             }
         )
