@@ -9,6 +9,7 @@ struct MemberEditorView: View {
     @State private var isSaving = false
     @State private var confirmingRemoval = false
     @State private var inviteCode: String?
+    @State private var confirmingWithdrawal = false
 
     init(member: Member?) {
         self.member = member
@@ -67,6 +68,19 @@ struct MemberEditorView: View {
                     inviteSection(for: member)
                 }
 
+                if let member, store.canWithdrawConsent(member) {
+                    Section {
+                        Button("Withdraw consent", role: .destructive) {
+                            confirmingWithdrawal = true
+                        }
+                        .disabled(isSaving)
+                    } header: {
+                        Text("Parental consent")
+                    } footer: {
+                        Text("\(member.firstName) signs out right away and can rejoin only with your consent and a new invite.")
+                    }
+                }
+
                 if let member, store.canRemove(member) {
                     Section {
                         Button("Remove from household", role: .destructive) {
@@ -102,6 +116,20 @@ struct MemberEditorView: View {
                 }
             }
             .confirmationDialog(
+                "Withdraw consent for \(member?.firstName ?? "")?", isPresented: $confirmingWithdrawal, titleVisibility: .visible
+            ) {
+                Button("Withdraw consent", role: .destructive) {
+                    guard let member else { return }
+                    Task {
+                        isSaving = true
+                        if await store.withdrawConsent(member) { dismiss() }
+                        isSaving = false
+                    }
+                }
+            } message: {
+                Text("They're signed out of the household on their own device now, and stay in the family on yours. If you don't consent again within 30 days, what they added themselves is erased.")
+            }
+            .confirmationDialog(
                 "Remove \(member?.firstName ?? "")?", isPresented: $confirmingRemoval, titleVisibility: .visible
             ) {
                 Button("Remove", role: .destructive) {
@@ -132,6 +160,17 @@ struct MemberEditorView: View {
                         householdName: store.household?.name ?? "our family", firstName: member.firstName, code: inviteCode
                     )
                 )
+            } else if store.needsParentalConsent(member) {
+                Text(ParentalConsent.statement(firstName: member.firstName))
+                    .font(.callout)
+                Button("Agree and invite \(member.firstName)") {
+                    Task {
+                        isSaving = true
+                        inviteCode = await store.consentAndInvite(member)
+                        isSaving = false
+                    }
+                }
+                .disabled(isSaving)
             } else {
                 Button(store.invitedMemberIDs.contains(member.id) ? "Invite again" : "Invite \(member.firstName)") {
                     Task {

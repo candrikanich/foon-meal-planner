@@ -15,6 +15,11 @@ struct HouseholdClient: Sendable {
     var redeemInvite: @Sendable (_ code: String) async throws -> RedeemResult
     /// Profiles with an invite that is still open (parents only; others get none).
     var invitedMemberIDs: @Sendable (_ householdID: UUID) async throws -> Set<UUID>
+    /// Kids whose parental consent is active.
+    var parentalConsentMemberIDs: @Sendable (_ householdID: UUID) async throws -> Set<UUID>
+    var recordParentalConsent: @Sendable (_ householdID: UUID, _ memberID: UUID) async throws -> Void
+    /// Unlinks the kid's account at once (the database does it when consent is revoked).
+    var revokeParentalConsent: @Sendable (_ memberID: UUID) async throws -> Void
 }
 
 extension HouseholdClient {
@@ -79,6 +84,30 @@ extension HouseholdClient {
                     .execute()
                     .value
                 return Set(rows.map(\.memberID))
+            },
+            parentalConsentMemberIDs: { householdID in
+                let rows: [OpenInvite] = try await client.from("consents")
+                    .select("member_id")
+                    .eq("household_id", value: householdID)
+                    .eq("kind", value: "parental")
+                    .is("revoked_at", value: nil)
+                    .execute()
+                    .value
+                return Set(rows.map(\.memberID))
+            },
+            recordParentalConsent: { householdID, memberID in
+                try await client.from("consents")
+                    .insert(NewParentalConsent(householdID: householdID, memberID: memberID))
+                    .execute()
+            },
+            revokeParentalConsent: { memberID in
+                // The database stamps the real revocation time.
+                try await client.from("consents")
+                    .update(["revoked_at": Date()])
+                    .eq("member_id", value: memberID)
+                    .eq("kind", value: "parental")
+                    .is("revoked_at", value: nil)
+                    .execute()
             }
         )
     }
@@ -125,5 +154,19 @@ private struct OpenInvite: Decodable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case memberID = "member_id"
+    }
+}
+
+private struct NewParentalConsent: Encodable, Sendable {
+    let householdID: UUID
+    let memberID: UUID
+    let kind = "parental"
+    let textVersion = ParentalConsent.textVersion
+
+    enum CodingKeys: String, CodingKey {
+        case kind
+        case householdID = "household_id"
+        case memberID = "member_id"
+        case textVersion = "text_version"
     }
 }

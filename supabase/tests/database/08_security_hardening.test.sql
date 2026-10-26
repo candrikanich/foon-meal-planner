@@ -34,6 +34,11 @@ insert into public.members (id, household_id, first_name, role, guardian, user_i
   ('00000000-0000-0000-0000-0000000000a6', '00000000-0000-0000-0000-0000000000a0', 'Owen', 'member', false, null, 'kid');
 insert into public.items (household_id, canonical_name) values ('00000000-0000-0000-0000-0000000000a0', 'Milk');
 
+-- Parents have consented for the kids they invite (#12).
+insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', 'parental', 'a0000000-0000-0000-0000-00000000000a', 'test-v1'),
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'parental', 'a0000000-0000-0000-0000-00000000000a', 'test-v1');
+
 -- Sign out everywhere -----------------------------------------------------------------------
 select pg_temp.as_session('a0000000-0000-0000-0000-00000000000a', '5e550000-0000-0000-0000-0000000000a1');
 select is((select count(*)::int from public.members), 4, 'a live session reads the household');

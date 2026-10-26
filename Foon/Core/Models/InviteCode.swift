@@ -38,6 +38,8 @@ enum RedeemResult: String, Decodable, Sendable, CaseIterable {
     case used
     case hasHousehold = "has_household"
     case rateLimited = "rate_limited"
+    case needsConsent = "needs_consent"
+    case ageMismatch = "age_mismatch"
 
     var message: String? {
         switch self {
@@ -47,6 +49,24 @@ enum RedeemResult: String, Decodable, Sendable, CaseIterable {
         case .used: "That invite has already been used. Ask for a new one."
         case .hasHousehold: "You're already in a household. Foon supports one household per person for now."
         case .rateLimited: "Too many tries. Wait 15 minutes and try again."
+        case .needsConsent: "This invite needs a parent's OK first. Ask them to send a new one."
+        case .ageMismatch: "This invite is for an adult's profile. Ask your family for the right invite."
         }
+    }
+}
+
+/// What a parent agrees to before a kid's invite goes out (COPPA, #12). The version is logged with
+/// the consent, so a later wording change can ask parents again.
+enum ParentalConsent {
+    static let textVersion = "parental-invite-v1"
+
+    static func statement(firstName: String) -> String {
+        """
+        I'm \(firstName)'s parent or guardian, and I agree to \(firstName) using Foon on their own device. \
+        Foon stores what our family enters about \(firstName) (first name, avatar, allergies, and schedule), \
+        what \(firstName) adds (requests, ratings, comments, and list items), and an age range from Apple, \
+        never a birthdate. It's shared only with this household and never used for ads. \
+        I can withdraw this at any time.
+        """
     }
 }

@@ -116,3 +116,66 @@ struct HouseholdStoreInviteTests {
         #expect(store.errorMessage != nil)
     }
 }
+
+@MainActor
+struct ParentalConsentTests {
+    private let me = UUID()
+    private var owned: Household { Household(id: Household.sample.id, name: "The Smiths", emoji: nil, owner: me) }
+
+    @Test func aKidNeedsAParentsConsentBeforeAnInvite() async {
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        let adult = Member.fixture(firstName: "Ben")
+        let store = HouseholdStore(userID: me, client: .preview(household: owned, members: [kid, adult]))
+        await store.load()
+        #expect(store.needsParentalConsent(kid))
+        #expect(!store.needsParentalConsent(adult))
+    }
+
+    @Test func consentingRecordsItAndInvites() async {
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        let consented = Mutex<[UUID]>([])
+        var client = HouseholdClient.preview(household: owned, members: [kid])
+        client.recordParentalConsent = { _, memberID in consented.withLock { $0.append(memberID) } }
+        client.createInvite = { _ in "THESM-7KQ4-M9XP" }
+        let store = HouseholdStore(userID: me, client: client)
+        await store.load()
+        #expect(await store.consentAndInvite(kid) == "THESM-7KQ4-M9XP")
+        #expect(consented.withLock { $0 } == [kid.id])
+        #expect(!store.needsParentalConsent(kid))
+    }
+
+    @Test func withdrawingConsentUnlinksTheKidLocally() async {
+        let kid = Member.fixture(firstName: "Kim", ageGroup: .kid, userID: UUID())
+        var client = HouseholdClient.preview(household: owned, members: [kid])
+        client.parentalConsentMemberIDs = { _ in [kid.id] }
+        client.revokeParentalConsent = { _ in }
+        let store = HouseholdStore(userID: me, client: client)
+        await store.load()
+        #expect(store.canWithdrawConsent(kid))
+        #expect(await store.withdrawConsent(kid))
+        #expect(store.needsParentalConsent(kid))
+        #expect(store.members.first?.userID == nil)
+    }
+
+    @Test func anExistingConsentThatFailedToLoadStillLetsTheInviteGoOut() async {
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        let loads = Mutex(0)
+        var client = HouseholdClient.preview(household: owned, members: [kid])
+        client.parentalConsentMemberIDs = { _ in
+            loads.withLock { $0 += 1 }
+            if loads.withLock({ $0 }) == 1 { throw URLError(.timedOut) }
+            return [kid.id]
+        }
+        client.recordParentalConsent = { _, _ in throw URLError(.badServerResponse) }  // already consented
+        client.createInvite = { _ in "THESM-7KQ4-M9XP" }
+        let store = HouseholdStore(userID: me, client: client)
+        await store.load()
+        #expect(store.needsParentalConsent(kid))
+        #expect(await store.consentAndInvite(kid) == "THESM-7KQ4-M9XP")
+    }
+
+    @Test(arguments: [RedeemResult.needsConsent, .ageMismatch])
+    func newRedeemResultsExplainThemselves(result: RedeemResult) {
+        #expect(result.message != nil)
+    }
+}

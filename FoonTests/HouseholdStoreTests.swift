@@ -246,7 +246,10 @@ private extension HouseholdClient {
 ,
             createInvite: { _ in throw URLError(.unknown) },
             redeemInvite: { _ in .invalid },
-            invitedMemberIDs: { _ in [] }
+            invitedMemberIDs: { _ in [] },
+            parentalConsentMemberIDs: { _ in [] },
+            recordParentalConsent: { _, _ in },
+            revokeParentalConsent: { _ in }
         )
     }
 }
