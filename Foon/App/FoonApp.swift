@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 @main
@@ -6,17 +7,29 @@ struct FoonApp: App {
         ? SessionStore(auth: .live(SupabaseService.shared.client)) : nil
 
     private static let configured = (try? SupabaseConfig.fromMainBundle()) != nil
+    // The offline cache. If the store can't open, the app still runs with an in-memory cache.
+    private static let cache = (try? SyncService.persistentContainer()) ?? (try! SyncService.inMemoryContainer())
 
+    // One window (Mac) or scene (iPad): each would run its own sync service against the same cache.
     var body: some Scene {
-        WindowGroup {
-            if let session {
-                RootView(householdClient: .live(SupabaseService.shared.client))
-                    .environment(session)
-                    .task { await session.start() }
-                    .onOpenURL { session.open($0) }
-            } else {
-                ConfigurationMissingView()
-            }
+        #if os(macOS)
+        Window("Foon", id: "main") { root }
+        #else
+        WindowGroup { root }
+        #endif
+    }
+
+    @ViewBuilder
+    private var root: some View {
+        if let session {
+            RootView(householdClient: .live(SupabaseService.shared.client),
+                     syncClient: .live(SupabaseService.shared.client))
+                .environment(session)
+                .modelContainer(Self.cache)
+                .task { await session.start() }
+                .onOpenURL { session.open($0) }
+        } else {
+            ConfigurationMissingView()
         }
     }
 }

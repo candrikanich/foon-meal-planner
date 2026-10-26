@@ -41,3 +41,12 @@ struct CalendarDay: Hashable, Comparable, Codable, Sendable {
         (lhs.year, lhs.month, lhs.day) < (rhs.year, rhs.month, rhs.day)
     }
 }
+
+extension CalendarDay {
+    /// `yyyy-MM-dd`, as Postgres and PostgREST filters expect.
+    var isoString: String { String(format: "%04d-%02d-%02d", year, month, day) }
+
+    func adding(days: Int, calendar: Calendar = .current) -> CalendarDay {
+        CalendarDay(calendar.date(byAdding: .day, value: days, to: date(in: calendar)) ?? date(in: calendar), calendar: calendar)
+    }
+}
