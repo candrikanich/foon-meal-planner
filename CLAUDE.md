@@ -4,7 +4,7 @@ Foon is an iOS family dinner planner. Mission: **take the weight of dinner off o
 
 Every feature must pass one test: *does it make it easier for more people to contribute, or lighten the planner's load?* If not, it waits.
 
-Full product spec: see the "Family Dinner App — Product Spec" doc (Starter Pack is its second tab). When a ticket and the spec disagree, ask in the PR rather than guessing.
+Full product spec: [docs/spec.md](docs/spec.md). Starter dishes: [docs/starter-pack.md](docs/starter-pack.md). App Store listing and compliance: [docs/app-store-submission.md](docs/app-store-submission.md). These are exports of the living spec doc; if they disagree with a ticket, ask in the PR rather than guessing.
 
 ## Stack
 
