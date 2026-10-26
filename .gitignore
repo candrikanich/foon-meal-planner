@@ -17,3 +17,6 @@ supabase/.temp/
 .env.*
 # macOS
 .DS_Store
+
+# XcodeGen output (regenerate with `xcodegen generate`)
+Foon.xcodeproj/
