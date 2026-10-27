@@ -264,6 +264,21 @@ struct HouseholdClientLiveTests {
         #expect(swapped.nights[2].reason == nil)
         #expect(swapped.nights[2].locked)
 
+        // Traditions: set, change, remove; and Build saving a tradition night locked.
+        try await weeks.setTradition(household.id, 2, Tradition(weekday: 2, pick: .meal(mealID), name: "Taco Tuesday"))
+        try await weeks.setTradition(household.id, 5, Tradition(weekday: 5, pick: .quickPick(.takeout), name: nil))
+        try await weeks.setTradition(household.id, 5, Tradition(weekday: 5, pick: .quickPick(.eatOut), name: "Out Friday"))
+        #expect(try await weeks.traditions(household.id) == [
+            Tradition(weekday: 2, pick: .meal(mealID), name: "Taco Tuesday"),
+            Tradition(weekday: 5, pick: .quickPick(.eatOut), name: "Out Friday")
+        ])
+        try await weeks.setTradition(household.id, 5, nil)
+        #expect(try await weeks.traditions(household.id).map(\.weekday) == [2])
+        try await weeks.setNights(week.planID, [
+            NightUpdate(nightID: week.nights[4].id, quickPick: .leftovers, reason: "Tradition", locked: true)
+        ])
+        #expect(try await weeks.week(household.id, sunday)?.nights[4].locked == true)
+
         let me = try #require(try await households.members(household.id).first { $0.firstName == "Ann" })
         var schedule = MemberDraft(me)
         schedule.usuallyAway = [6]

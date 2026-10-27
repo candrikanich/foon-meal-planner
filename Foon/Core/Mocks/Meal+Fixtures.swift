@@ -130,7 +130,9 @@ extension WeekClient {
             setEffort: { _, _ in },
             setLocked: { _, _ in },
             setNights: { _, _ in },
-            setNight: { _, _ in }
+            setNight: { _, _ in },
+            traditions: { _ in [Tradition(weekday: 2, pick: .meal(LibraryMeal.sampleLibrary[0].id), name: "Taco Tuesday")] },
+            setTradition: { _, _, _ in }
         )
     }
 }

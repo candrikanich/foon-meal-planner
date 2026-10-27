@@ -21,6 +21,10 @@ final class WeekStore {
     /// The last write queued per night, so the next one waits for it.
     private var lastWrite: [UUID: Task<Void, Never>] = [:]
     private(set) var isBuilding = false
+    /// The household's standing traditions, at most one per weekday.
+    private(set) var traditions: [Tradition] = []
+    /// False until traditions load: Build won't run without them, or it would quietly skip Taco Tuesday.
+    private(set) var traditionsLoaded = false
 
     init(householdID: UUID, client: WeekClient, today: @escaping () -> CalendarDay = { CalendarDay(Date()) },
          seed: @escaping () -> UInt64 = { UInt64.random(in: .min ... .max) }) {
@@ -40,8 +44,12 @@ final class WeekStore {
         isLoading = true
         defer { isLoading = false }
         do {
-            let loaded = try await client.week(householdID, start)
+            async let loadedTraditions = client.traditions(householdID)
+            async let loadedWeek = client.week(householdID, start)
+            let (traditions, loaded) = try await (loadedTraditions, loadedWeek)
             guard start == self.start else { return }
+            self.traditions = traditions
+            traditionsLoaded = true
             week = loaded
             hasLoaded = true
             errorMessage = nil
@@ -164,6 +172,10 @@ final class WeekStore {
             errorMessage = String(localized: "Couldn't load your library. Check your connection and try again.")
             return
         }
+        guard traditionsLoaded else {
+            errorMessage = String(localized: "Couldn't load your traditions. Pull to refresh, then try again.")
+            return
+        }
         guard context.meals.contains(where: \.status.isInRotation) else {
             errorMessage = String(localized: "Add some meals to your library first, then Foon can plan the week.")
             return
@@ -179,7 +191,7 @@ final class WeekStore {
         let kept = Set(inputs.nights.filter { $0.locked || $0.effort == .event || $0.date < inputs.today }.map(\.id))
         let updates = plans.filter { !kept.contains($0.nightID) && $0.pick != nil }.map { plan in
             NightUpdate(nightID: plan.nightID, mealID: plan.pick?.mealID, quickPick: plan.pick?.quickPick,
-                        reason: plan.reason?.text)
+                        reason: plan.reason?.text, locked: plan.locks ? true : nil)
         }
         guard !updates.isEmpty else { return }
         let names = Dictionary(inputs.meals.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
@@ -189,6 +201,7 @@ final class WeekStore {
             week?.nights[index].mealName = update.mealID.flatMap { names[$0] }
             week?.nights[index].quickPick = update.quickPick
             week?.nights[index].reason = update.reason
+            week?.nights[index].locked = update.locked == true
         }
         do {
             try await client.setNights(planID, updates)
@@ -239,6 +252,27 @@ final class WeekStore {
 
     func clearError() {
         errorMessage = nil
+    }
+
+    // MARK: - Traditions
+
+    func tradition(on weekday: Int) -> Tradition? {
+        traditions.first { $0.weekday == weekday }
+    }
+
+    /// Sets a weekday's tradition (nil removes it). Nights already planned stay as they are until a rebuild.
+    @discardableResult
+    func setTradition(_ tradition: Tradition?, on weekday: Int) async -> Bool {
+        do {
+            try await client.setTradition(householdID, weekday, tradition)
+            traditions = (traditions.filter { $0.weekday != weekday } + [tradition].compactMap { $0 })
+                .sorted { $0.weekday < $1.weekday }
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = String(localized: "Couldn't save the tradition. Check your connection and try again.")
+            return false
+        }
     }
 
     /// One DayCard per night, with attendance in the family's order.
@@ -323,6 +357,7 @@ struct PlanningContext {
     let members: [Member]
     /// Dated requests (M2); empty until requests exist.
     var requests: [DatedRequest] = []
+    var traditions: [Tradition] = []
 
     func inputs(for week: Week, today: CalendarDay) -> PlanningInputs {
         PlanningInputs(
@@ -332,6 +367,7 @@ struct PlanningContext {
             settings: settings,
             memberNames: Dictionary(members.map { ($0.id, $0.firstName) }, uniquingKeysWith: { first, _ in first }),
             requests: requests,
+            traditions: traditions,
             today: max(today, week.start)
         )
     }

@@ -30,12 +30,14 @@ struct NightUpdate: Equatable, Sendable, Encodable {
     var mealID: UUID?
     var quickPick: QuickPick?
     var reason: String?
+    /// Saved locked when true (a tradition); unlocked otherwise.
+    var locked: Bool?
 
     private enum CodingKeys: String, CodingKey {
         case nightID = "id"
         case mealID = "meal_id"
         case quickPick = "quick_pick"
-        case reason
+        case reason, locked
     }
 }
 
@@ -51,6 +53,10 @@ struct WeekClient: Sendable {
     var setNights: @Sendable (_ planID: UUID, _ nights: [NightUpdate]) async throws -> Void
     /// Swap: one night's pick and lock, set directly (a planner may swap a locked night).
     var setNight: @Sendable (_ night: NightUpdate, _ locked: Bool) async throws -> Void
+    var traditions: @Sendable (_ householdID: UUID) async throws -> [Tradition] = { _ in [] }
+    /// Sets or replaces a weekday's tradition; nil removes it.
+    var setTradition: @Sendable (_ householdID: UUID, _ weekday: Int, _ tradition: Tradition?) async throws -> Void
+        = { _, _, _ in }
 }
 
 extension WeekClient {
@@ -118,8 +124,50 @@ extension WeekClient {
                     .execute()
                     .value
                 guard !updated.isEmpty else { throw LibraryClientError.notAllowed }
+            },
+            traditions: { householdID in
+                try await client.from("traditions")
+                    .select("weekday, meal_id, quick_pick, name")
+                    .eq("household_id", value: householdID)
+                    .order("weekday")
+                    .execute()
+                    .value
+            },
+            setTradition: { householdID, weekday, tradition in
+                guard let tradition else {
+                    try await client.from("traditions").delete()
+                        .eq("household_id", value: householdID).eq("weekday", value: weekday).execute()
+                    return
+                }
+                try await client.rpc("set_tradition", params: SetTraditionParams(
+                    householdID: householdID, weekday: weekday, tradition: tradition
+                )).execute()
             }
         )
+    }
+}
+
+/// Every argument sent, nulls included: PostgREST matches functions by argument names.
+private struct SetTraditionParams: Encodable, Sendable {
+    let householdID: UUID
+    let weekday: Int
+    let tradition: Tradition
+
+    enum CodingKeys: String, CodingKey {
+        case householdID = "target_household"
+        case weekday = "tradition_weekday"
+        case meal = "tradition_meal"
+        case quickPick = "tradition_quick_pick"
+        case name = "tradition_name"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(householdID, forKey: .householdID)
+        try container.encode(weekday, forKey: .weekday)
+        try container.encode(tradition.pick.mealID, forKey: .meal)
+        try container.encode(tradition.pick.quickPick, forKey: .quickPick)
+        try container.encode(tradition.name, forKey: .name)
     }
 }
 

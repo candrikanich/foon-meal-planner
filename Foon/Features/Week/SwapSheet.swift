@@ -172,7 +172,7 @@ struct SwapSheet: View {
         if !library.hasLoaded { await library.load(members: household.members) }
         guard let week = week.week else { return }
         let context = PlanningContext(meals: library.meals, history: library.history, settings: settings,
-                                      members: household.visibleMembers)
+                                      members: household.visibleMembers, traditions: self.week.traditions)
         suggestions = BuildMyWeek.suggestions(night: nightID, inputs: context.inputs(for: week, today: self.week.todayDay),
                                               seed: UInt64.random(in: .min ... .max))
     }
