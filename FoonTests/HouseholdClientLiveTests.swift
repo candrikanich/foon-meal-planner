@@ -235,9 +235,24 @@ struct HouseholdClientLiveTests {
 
         try await weeks.setExpected(week.nights[1].id, owen.id, true)
         try await weeks.setEffort(week.nights[1].id, .rushed)
+        try await weeks.setLocked(week.nights[1].id, true)
         let reloaded = try #require(try await weeks.week(household.id, sunday))
         #expect(reloaded.nights[1].attendance[owen.id] == true)
         #expect(reloaded.nights[1].effort == .rushed)
+        #expect(reloaded.nights[1].locked)
+
+        let library = LibraryClient.live(supabase)
+        let tacos = try #require(try await library.catalog().first { $0.name == "Tacos" })
+        let mealID = try await library.addFromCatalog(household.id, tacos.id)
+        try await weeks.setNights(week.planID, [
+            NightUpdate(nightID: week.nights[2].id, mealID: mealID, reason: "Haven't had it in 3 weeks"),
+            NightUpdate(nightID: week.nights[3].id, quickPick: .takeout, reason: "Takeout on the busiest night")
+        ])
+        let planned = try #require(try await weeks.week(household.id, sunday))
+        #expect(planned.nights[2].mealID == mealID)
+        #expect(planned.nights[2].mealName == "Tacos")
+        #expect(planned.nights[2].reason == "Haven't had it in 3 weeks")
+        #expect(planned.nights[3].quickPick == .takeout)
 
         let me = try #require(try await households.members(household.id).first { $0.firstName == "Ann" })
         var schedule = MemberDraft(me)

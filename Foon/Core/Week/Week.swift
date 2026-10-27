@@ -20,6 +20,23 @@ struct WeekNight: Identifiable, Equatable, Sendable {
     var locked: Bool
     /// Member id → expected home. Members without a row (added after the week was made) are left off.
     var attendance: [UUID: Bool]
+    /// The chip Build my week gave the pick ("Haven't had it in 3 weeks").
+    var reason: String? = nil
+}
+
+/// One night's pick, as `set_nights` saves it. No meal and no quick pick clears the night.
+struct NightUpdate: Equatable, Sendable, Encodable {
+    let nightID: UUID
+    var mealID: UUID?
+    var quickPick: QuickPick?
+    var reason: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case nightID = "id"
+        case mealID = "meal_id"
+        case quickPick = "quick_pick"
+        case reason
+    }
 }
 
 /// Reads and writes the planner's week. Planners own the plan, efforts, and attendance (row-level security).
@@ -29,6 +46,9 @@ struct WeekClient: Sendable {
     var create: @Sendable (_ householdID: UUID, _ start: CalendarDay) async throws -> Week
     var setExpected: @Sendable (_ nightID: UUID, _ memberID: UUID, _ expected: Bool) async throws -> Void
     var setEffort: @Sendable (_ nightID: UUID, _ effort: NightEffort) async throws -> Void
+    var setLocked: @Sendable (_ nightID: UUID, _ locked: Bool) async throws -> Void
+    /// Saves several nights' picks in one transaction.
+    var setNights: @Sendable (_ planID: UUID, _ nights: [NightUpdate]) async throws -> Void
 }
 
 extension WeekClient {
@@ -37,7 +57,7 @@ extension WeekClient {
             let rows: [PlanWithNights] = try await client.from("plans")
                 .select("""
                     id, week_start, approved_at, \
-                    plan_nights(id, date, effort, dinner_time, meal_id, quick_pick, locked, meals(name), \
+                    plan_nights(id, date, effort, dinner_time, meal_id, quick_pick, locked, reason, meals(name), \
                     night_attendance(member_id, expected))
                     """)
                 .eq("household_id", value: householdID)
@@ -75,8 +95,30 @@ extension WeekClient {
                     .execute()
                     .value
                 guard !updated.isEmpty else { throw LibraryClientError.notAllowed }
+            },
+            setLocked: { nightID, locked in
+                let updated: [IDOnly] = try await client.from("plan_nights")
+                    .update(["locked": locked])
+                    .eq("id", value: nightID)
+                    .select("id")
+                    .execute()
+                    .value
+                guard !updated.isEmpty else { throw LibraryClientError.notAllowed }
+            },
+            setNights: { planID, nights in
+                try await client.rpc("set_nights", params: SetNightsParams(targetPlan: planID, nights: nights)).execute()
             }
         )
+    }
+}
+
+private struct SetNightsParams: Encodable, Sendable {
+    let targetPlan: UUID
+    let nights: [NightUpdate]
+
+    enum CodingKeys: String, CodingKey {
+        case targetPlan = "target_plan"
+        case nights
     }
 }
 
@@ -104,11 +146,12 @@ private struct PlanWithNights: Decodable, Sendable {
         let mealID: UUID?
         let quickPick: QuickPick?
         let locked: Bool
+        let reason: String?
         let meals: Meal?
         let nightAttendance: [Attendance]
 
         enum CodingKeys: String, CodingKey {
-            case id, date, effort, locked, meals
+            case id, date, effort, locked, reason, meals
             case dinnerTime = "dinner_time"
             case mealID = "meal_id"
             case quickPick = "quick_pick"
@@ -133,7 +176,8 @@ private struct PlanWithNights: Decodable, Sendable {
             WeekNight(id: $0.id, date: $0.date, effort: $0.effort, dinnerTime: $0.dinnerTime, mealID: $0.mealID,
                       mealName: $0.meals?.name, quickPick: $0.quickPick, locked: $0.locked,
                       attendance: Dictionary($0.nightAttendance.map { ($0.memberID, $0.expected) },
-                                             uniquingKeysWith: { first, _ in first }))
+                                             uniquingKeysWith: { first, _ in first }),
+                      reason: $0.reason)
         })
     }
 }

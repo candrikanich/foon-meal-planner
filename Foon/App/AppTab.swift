@@ -1,3 +1,5 @@
+import SwiftUI
+
 enum AppTab: String, CaseIterable, Identifiable, Sendable {
     case week, library, lists, ideas, family
 
@@ -22,4 +24,9 @@ enum AppTab: String, CaseIterable, Identifiable, Sendable {
         case .family: "person.3"
         }
     }
+}
+
+extension EnvironmentValues {
+    /// Switches the app's tab, e.g. the cart on This Week opens Lists. Set by RootTabView.
+    @Entry var showTab: (AppTab) -> Void = { _ in }
 }

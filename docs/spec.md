@@ -169,6 +169,8 @@ v1 rules (#24, `Foon/Core/Planning/BuildMyWeek.swift`, a pure function of the in
 
 **Day cards.** Each night is a card holding everything: effort chip, tap-to-toggle attendance avatars, meal with reason chip, inline lock, shuffle, and swap, and badges. Cards stack like Apple Wallet with tonight on top. The same card is the This Week view and the planning view; an empty card offers Pick for me or Choose. Kids see cards read-only with vote and suggest-a-swap. No family approval step: the planner approves and the list is built.
 
+- v1 This Week (#23): tonight's card on top, then the rest of the week; past nights fold into "Earlier this week." With no week yet, planners get Build my week (or start with empty nights) and members get "Add your requests." A started week that's still empty offers Build my week; a partly planned one shows how many nights are open with Fill remaining nights, which drafts only empty nights. Rebuild unlocked nights redraws everything not locked; a draft that finds nothing for a night never clears what it had, and the save refuses a night another planner has locked since. Each card has lock and shuffle (Pick for me on an empty night; quick-pick nights change through Swap). Tapping a card opens the night: meal and sides, dinner time, effort, who's home, and lock. Reason chips are saved with the night so everyone sees them. Allergy badges name only who's home that night, and the first prep step shows as a badge. The cart button shows open list items and opens Lists.
+
 **Event nights.** Holidays and dinner parties are marked on the plan and skipped by voting and ratings. Leftovers from them are still logged.
 
 ## After-dinner loop

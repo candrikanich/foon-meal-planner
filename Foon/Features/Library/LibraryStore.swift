@@ -19,9 +19,10 @@ final class LibraryStore {
     var sort: LibrarySort = .notLately
     var search = ""
 
-    private var history: [MealHistory] = []
+    private(set) var history: [MealHistory] = []
     private var itemNames: [String] = []
-    private var allergies: [MemberAllergies] = []
+    /// Allergies of everyone still in the family, for flags on the library and on day cards.
+    private(set) var allergies: [MemberAllergies] = []
     private var members: [Member] = []
     /// Bumped per load, so a slower, older load never overwrites a newer one.
     private var loadGeneration = 0
