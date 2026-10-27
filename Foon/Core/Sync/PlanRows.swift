@@ -91,9 +91,11 @@ struct ListItemRow: Decodable, Equatable, Sendable {
     let source: ListItemSource
     let note: String?
     let checkedAt: Date?
+    /// The amounts the week's plan calls for ("1 lb + 1 lb").
+    var quantity: String? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, list, urgency, source, note
+        case id, list, urgency, source, note, quantity
         case householdID = "household_id"
         case itemID = "item_id"
         case checkedAt = "checked_at"

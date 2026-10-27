@@ -10,6 +10,9 @@ struct WeekView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.showTab) private var showTab
     @Query(filter: #Predicate<CachedListItem> { $0.checkedAt == nil }) private var openListItems: [CachedListItem]
+    @Query private var cachedItems: [CachedItem]
+    @Environment(SyncService.self) private var sync: SyncService?
+    @State private var isApproving = false
     @State private var openNight: UUID?
     @State private var swappingNight: UUID?
     @State private var showingTraditions = false
@@ -132,6 +135,9 @@ struct WeekView: View {
         ForEach(layout.ahead) { night in
             card(night)
         }
+        if canPlan, layout.ahead.contains(where: \.isPlanned) {
+            approveSection(layout)
+        }
         if !layout.past.isEmpty {
             DisclosureGroup(isExpanded: $showingPast) {
                 VStack(spacing: 12) {
@@ -151,6 +157,55 @@ struct WeekView: View {
             .contentShape(Rectangle())
             .onTapGesture { openNight = night.id }
             .accessibilityAction(named: Text("Open night")) { openNight = night.id }
+    }
+
+    /// The weekly list for the nights still ahead: their meals and sides merged by item, minus what's in stock,
+    /// plus low or out staples, with allergy notes for whoever's home.
+    private func weeklyList(_ layout: WeekLayout) -> [WeeklyList.Line] {
+        let stock = Dictionary(cachedItems.compactMap { item in item.stockState.map { (item.id, $0) } },
+                               uniquingKeysWith: { first, _ in first })
+        let staples = cachedItems.filter(\.keepOnHand).compactMap { item in
+            item.stockState.map { WeeklyList.Staple(itemID: item.id, name: item.name, state: $0) }
+        }
+        let nights = layout.ahead.map { WeeklyList.Night(mealID: $0.mealID, home: Set($0.attendance.filter(\.value).keys)) }
+        return WeeklyList.build(nights: nights, library: library.meals, stock: stock, staples: staples,
+                                allergies: library.allergies)
+    }
+
+    private func approveSection(_ layout: WeekLayout) -> some View {
+        let lines = weeklyList(layout)
+        let approved = week.week?.approvedAt != nil
+        return VStack(spacing: 6) {
+            Button { Task { await approve(lines) } } label: {
+                Label(approved ? approveText(lines.count, update: true) : approveText(lines.count, update: false),
+                      systemImage: approved ? "arrow.triangle.2.circlepath" : "checkmark.seal")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(approved ? Palette.herb : Palette.paprika)
+            // The list leans on the offline cache for stock and staples, so wait for its first sync.
+            .disabled(isApproving || week.isBuilding || !library.hasLoaded || (sync != nil && sync?.lastPulled == nil))
+            Text(approved ? "Approved. Changed a night? Update the list."
+                          : "Approving builds the weekly list from these nights.")
+                .font(.foonCaption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func approve(_ lines: [WeeklyList.Line]) async {
+        isApproving = true
+        defer { isApproving = false }
+        // Pull right away so the cart badge and Lists show the new list without waiting for Realtime.
+        if await week.approve(lines) { await sync?.pull() }
+    }
+
+    private func approveText(_ count: Int, update: Bool) -> String {
+        switch (update, count == 1) {
+        case (false, true): String(localized: "Approve · 1 item")
+        case (false, false): String(localized: "Approve · \(count) items")
+        case (true, true): String(localized: "Update the list · 1 item")
+        case (true, false): String(localized: "Update the list · \(count) items")
+        }
     }
 
     /// Build left nights open rather than repeat a dish or break a rule, so offer a few starters to widen the choice.
