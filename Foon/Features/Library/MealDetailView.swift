@@ -37,6 +37,7 @@ struct MealDetailView: View {
                     Text(message).font(.callout).foregroundStyle(.red)
                 }
                 ingredients(meal)
+                if !meal.sides.isEmpty { sides(meal) }
                 if !meal.prepSteps.isEmpty { prep(meal.prepSteps) }
                 if !meal.steps.isEmpty { steps(meal.steps) }
                 if let url = meal.sourceURL {
@@ -183,6 +184,26 @@ struct MealDetailView: View {
             .buttonStyle(.borderless)
             .tint(Palette.paprika)
             .accessibilityLabel("Add \(line.name) to the list")
+        }
+    }
+
+    private func sides(_ meal: LibraryMeal) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Goes with").font(.foonTitle)
+            ForEach(meal.sides, id: \.self) { side in
+                switch side {
+                case .meal(let id):
+                    if let sideMeal = library.meal(id), sideMeal.status != .retired {
+                        NavigationLink(value: id) {
+                            Label(sideMeal.name, systemImage: "fork.knife")
+                        }
+                        .tint(Palette.paprika)
+                    }
+                case .item(_, let name):
+                    Label(name, systemImage: "basket").foregroundStyle(Palette.ink)
+                }
+            }
+            .font(.foonBody)
         }
     }
 

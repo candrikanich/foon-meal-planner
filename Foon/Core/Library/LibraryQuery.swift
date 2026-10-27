@@ -59,7 +59,8 @@ enum LibraryQuery {
             LibraryEntry(
                 meal: meal,
                 history: historyByMeal[meal.id],
-                flags: AllergyMatcher.flags(ingredients: meal.ingredients.map(\.name), members: allergies),
+                flags: AllergyMatcher.flags(ingredients: ShoppingLines.lines(for: meal, library: meals).map(\.name),
+                                            members: allergies),
                 isFavorite: favorites.contains(meal.id)
             )
         }

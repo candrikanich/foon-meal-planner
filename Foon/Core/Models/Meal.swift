@@ -68,6 +68,14 @@ struct LibraryMeal: Identifiable, Equatable, Sendable {
     var sourceURL: URL?
     /// Things to start ahead of dinner (thaw, marinate, slow cooker).
     var prepSteps: [PrepStep]
+    /// What it's served with, in order.
+    var sides: [MealSide] = []
+}
+
+/// A side dish: another meal from the library (Caesar salad) or a simple item (garlic bread).
+enum MealSide: Equatable, Hashable, Sendable {
+    case meal(UUID)
+    case item(itemID: UUID, name: String)
 }
 
 /// One `meals.prep_steps` entry: `{"step": "Thaw the beef", "lead_hours": 24}`.

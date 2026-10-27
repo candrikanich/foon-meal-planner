@@ -5,7 +5,7 @@ import Foundation
 struct DayCardModel: Identifiable, Equatable, Sendable {
     enum Slot: Equatable, Sendable {
         case empty
-        case meal(name: String, photoURL: URL?, reason: String?)
+        case meal(name: String, photoURL: URL?, reason: String?, sides: [String] = [])
         case quickPick(QuickPick)
     }
 
@@ -78,6 +78,13 @@ enum DayCardText {
         }
     }
 
+    /// "with salad and garlic bread", or nil without sides.
+    static func sidesLabel(_ sides: [String], locale: Locale = .current) -> String? {
+        guard !sides.isEmpty else { return nil }
+        let list = sides.formatted(.list(type: .and).locale(locale))
+        return String(localized: "with \(list)", comment: "Side dishes after a meal name: a list of sides")
+    }
+
     static func badgeLabel(_ badge: DayCardModel.Badge) -> String {
         switch badge {
         case .allergy(let text), .tradition(let text), .prep(let text): text
@@ -90,7 +97,8 @@ enum DayCardText {
         var parts = ["\(dayLabel(for: card.date, today: today, calendar: calendar)), \(dateLabel(for: card.date, calendar: calendar))"]
         switch card.slot {
         case .empty: parts.append(String(localized: "Nothing planned yet"))
-        case .meal(let name, _, let reason): parts.append([name, reason].compactMap { $0 }.joined(separator: ", "))
+        case .meal(let name, _, let reason, let sides):
+            parts.append([name, reason, sidesLabel(sides)].compactMap { $0 }.joined(separator: ", "))
         case .quickPick(let pick): parts.append(quickPickLabel(pick))
         }
         parts.append(effortLabel(card.effort))

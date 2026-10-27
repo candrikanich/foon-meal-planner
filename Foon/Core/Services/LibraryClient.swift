@@ -51,7 +51,8 @@ extension LibraryClient {
                     .select("""
                         id, household_id, catalog_meal_id, name, servings, tags, status, photo_path, made_by_member_id, \
                         created_at, steps, source_url, prep_steps, \
-                        meal_ingredients(item_id, position, quantity_text, items(canonical_name, category, note, keep_on_hand))
+                        meal_ingredients(item_id, position, quantity_text, items(canonical_name, category, note, keep_on_hand)), \
+                        meal_sides!meal_sides_meal_fkey(position, side_meal_id, item_id, items(canonical_name))
                         """)
                     .eq("household_id", value: householdID)
                     .execute()
@@ -181,6 +182,32 @@ private struct MealRow: Decodable, Sendable {
     let sourceURL: String?
     let prepSteps: [PrepStep]
     let mealIngredients: [Line]
+    let mealSides: [Side]
+
+    struct Side: Decodable, Sendable {
+        struct Item: Decodable, Sendable {
+            let canonicalName: String
+
+            enum CodingKeys: String, CodingKey { case canonicalName = "canonical_name" }
+        }
+
+        let position: Int
+        let sideMealID: UUID?
+        let itemID: UUID?
+        let items: Item?
+
+        enum CodingKeys: String, CodingKey {
+            case position, items
+            case sideMealID = "side_meal_id"
+            case itemID = "item_id"
+        }
+
+        var side: MealSide? {
+            if let sideMealID { return .meal(sideMealID) }
+            if let itemID, let items { return .item(itemID: itemID, name: items.canonicalName) }
+            return nil
+        }
+    }
 
     enum CodingKeys: String, CodingKey {
         case id, name, servings, tags, status
@@ -193,6 +220,7 @@ private struct MealRow: Decodable, Sendable {
         case sourceURL = "source_url"
         case prepSteps = "prep_steps"
         case mealIngredients = "meal_ingredients"
+        case mealSides = "meal_sides"
     }
 
     var meal: LibraryMeal {
@@ -204,7 +232,8 @@ private struct MealRow: Decodable, Sendable {
                                position: $0.position, note: $0.items.note, category: $0.items.category,
                                keepOnHand: $0.items.keepOnHand)
             },
-            steps: steps, sourceURL: sourceURL.flatMap(URL.init(string:)), prepSteps: prepSteps
+            steps: steps, sourceURL: sourceURL.flatMap(URL.init(string:)), prepSteps: prepSteps,
+            sides: mealSides.sorted { $0.position < $1.position }.compactMap(\.side)
         )
     }
 }
@@ -248,12 +277,15 @@ private struct SaveMealParams: Encodable, Sendable {
         case sourceURL = "meal_source_url"
         case madeBy = "made_by"
         case lines
+        case sides
     }
 
     // Every argument is sent, nulls included: PostgREST matches functions by argument names.
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(mealID, forKey: .mealID)
+        // Always sent from this build, so removing every side reaches the database. create_meal has no sides yet.
+        try container.encode(meal.sides, forKey: .sides)
         try Self.encodeFields(of: meal, to: encoder)
     }
 

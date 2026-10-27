@@ -83,11 +83,14 @@ struct DayCard: View {
                     .overlay(Image(systemName: "plus").foregroundStyle(.tertiary))
                 Text("Nothing planned yet").font(.foonBody).foregroundStyle(.secondary)
             }
-        case .meal(let name, let photoURL, let reason):
+        case .meal(let name, let photoURL, let reason, let sides):
             HStack(spacing: 12) {
                 MealThumbnail(url: photoURL)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(name).font(.foonTitle).foregroundStyle(Palette.ink).lineLimit(2)
+                    if let sides = DayCardText.sidesLabel(sides) {
+                        Text(sides).font(.foonCaption).foregroundStyle(.secondary).lineLimit(2)
+                    }
                     if let reason { Chip(text: reason, systemImage: "sparkles") }
                 }
             }
@@ -230,7 +233,8 @@ private enum DayCardPreview {
                                  attendance: DayCardPreview.family, badges: [.tradition("Taco Tuesday")], isLocked: false),
                     actions: DayCardPreview.actions)
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 2), effort: .full,
-                                 slot: .meal(name: "Pot roast", photoURL: nil, reason: "Haven't had it in 7 weeks"),
+                                 slot: .meal(name: "Pot roast", photoURL: nil, reason: "Haven't had it in 7 weeks",
+                                             sides: ["mashed potatoes", "green beans"]),
                                  attendance: DayCardPreview.family, badges: [.prep("Thaw tonight")], isLocked: true),
                     actions: DayCardPreview.actions)
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 3), effort: .event,

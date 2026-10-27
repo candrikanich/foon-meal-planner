@@ -140,6 +140,16 @@ final class LibraryStore {
                              favorites: favorites).first
     }
 
+    /// What a meal is served with, by name. A side meal no longer in the library, or retired, is left out.
+    func sideNames(for meal: LibraryMeal) -> [String] {
+        meal.sides.compactMap { side in
+            switch side {
+            case .meal(let id): self.meal(id).flatMap { $0.status == .retired ? nil : $0.name }
+            case .item(_, let name): name
+            }
+        }
+    }
+
     /// Every item the household has used, in meals or on lists, for autocomplete while typing.
     var ingredientNames: [String] {
         Array(Set(meals.flatMap { $0.ingredients.map(\.name) } + itemNames))

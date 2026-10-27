@@ -289,6 +289,7 @@ iOS-only, multiplatform SwiftUI (iPhone, iPad, Mac) on Supabase, with a local ca
 | consents | household, member (kid, for parental), kind (allergy data, parental), granted by, granted at, revoked at, wording version; append-only |
 | meals | household, name, servings, tags, prep steps, recipe steps, source URL, photo, made by, status (active, trial, archived, retired) |
 | meal\_ingredients | meal, item, quantity (optional) |
+| meal\_sides | meal, side meal or item, position |
 | items | household, canonical name, category (groceries, household, personal care), keep-on-hand flag, stock state (in, low, out), note or brand preference |
 | plans / plan\_nights | week start; per night: date, meal, effort, dinner time, locked, event flag |
 | night\_attendance | plan night, member, expected, confirmed |
@@ -310,7 +311,7 @@ Every family is different; these are all in, each optional and off or unobtrusiv
 | Feature | What it does | Phase |
 | --- | --- | --- |
 | Standing traditions | Recurring nights (Taco Tuesday, Pizza Friday) auto-fill each week unless swapped | 1 |
-| Side dishes | Optional side pairings per meal (salad, garlic bread) so the list is complete | 1 |
+| Side dishes | Optional side pairings per meal (salad, garlic bread) so the list is complete. A side is a library meal (its ingredients join the list) or a simple item (added itself); one level, so sides of sides aren't followed. Shown on day cards ("with salad and garlic bread") and meal detail ("Goes with"); Copy and tweak keeps them. Archived meals can be sides; retired ones can't, and a side retired later drops off. Allergy flags include sides | 1 |
 | Non-food items | Household and personal care items (paper towels, toothpaste) live on the same list, sorted after groceries in store mode, and can be keep-on-hand staples | 1 |
 | Item notes and brands | "Vanilla yogurt, not plain," "store brand": a standing note per item (80 characters), set by anyone at home and shown with the item on meals, lists, and in store mode | 1 |
 | Claim a night | Anyone taps "I'll cook Thursday"; voluntary, visible, feeds cook credit | 2 |
