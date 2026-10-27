@@ -17,11 +17,7 @@ struct MealEditorView: View {
     }
 
     private var suggestions: [String] {
-        // Suggest only while typing a single ingredient, not a pasted list.
-        guard !newIngredients.contains(where: { $0 == "," || $0.isNewline }) else { return [] }
-        let typed = IngredientParser.parse(newIngredients).first?.name ?? ""
-        return IngredientAutocomplete.suggestions(for: typed, from: library.ingredientNames)
-            .filter { $0.caseInsensitiveCompare(typed) != .orderedSame }
+        IngredientAutocomplete.suggestions(whileTyping: newIngredients, from: library.ingredientNames)
     }
 
     var body: some View {
@@ -116,9 +112,7 @@ struct MealEditorView: View {
                 .accessibilityHint("Type or paste several, separated by commas or new lines")
             ForEach(suggestions, id: \.self) { suggestion in
                 Button {
-                    let quantity = IngredientParser.parse(newIngredients).first?.quantity
-                    newIngredients = [quantity, suggestion].compactMap { $0 }.joined(separator: " ")
-                    commitNewIngredients()
+                    newIngredients = IngredientAutocomplete.completing(newIngredients, with: suggestion)
                 } label: {
                     Label(suggestion, systemImage: "text.badge.plus")
                 }

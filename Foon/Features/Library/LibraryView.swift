@@ -6,6 +6,8 @@ struct LibraryView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(HouseholdStore.self) private var household
     @State private var browsingCatalog = false
+    @State private var quickAdding = false
+    @State private var path: [UUID] = []
 
     private var canEdit: Bool {
         LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID)
@@ -15,7 +17,7 @@ struct LibraryView: View {
 
     var body: some View {
         @Bindable var library = library
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     FilterChips(selection: $library.filter)
@@ -36,6 +38,9 @@ struct LibraryView: View {
             .refreshable { await library.load(members: household.members) }
             .sheet(isPresented: $browsingCatalog) {
                 CatalogBrowserView(canAdd: canEdit)
+            }
+            .sheet(isPresented: $quickAdding) {
+                QuickAddView { id in path = [id] }
             }
         }
         .task(id: household.members) { await library.load(members: household.members) }
@@ -84,6 +89,9 @@ struct LibraryView: View {
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
             Menu {
+                if canEdit {
+                    Button("Quick add", systemImage: "square.and.pencil") { quickAdding = true }
+                }
                 Button("Browse ideas", systemImage: "sparkles") { browsingCatalog = true }
             } label: {
                 Label("Add", systemImage: "plus")
@@ -108,8 +116,13 @@ struct LibraryView: View {
             Text(copy.message)
         } actions: {
             if library.filter == nil && library.search.isEmpty {
+                if canEdit {
+                    Button("Quick add") { quickAdding = true }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Palette.paprika)
+                }
                 Button("Browse ideas") { browsingCatalog = true }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bordered)
                     .tint(Palette.paprika)
             }
         }

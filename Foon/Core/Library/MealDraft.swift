@@ -66,6 +66,17 @@ struct MealDraft: Equatable, Sendable {
         madeByMemberID = meal.madeByMemberID
     }
 
+    /// A new meal for quick add: just a name, the usual servings, nothing else yet.
+    init(newNamed name: String) {
+        self.name = name
+        servings = 4
+        tags = []
+        lines = []
+        stepsText = ""
+        link = ""
+        madeByMemberID = nil
+    }
+
     /// Adds typed or pasted ingredients ("1 lb ground beef, taco shells") as lines.
     mutating func addIngredients(_ text: String) {
         lines += IngredientParser.parse(text).map { Line(quantity: $0.quantity ?? "", name: $0.name) }

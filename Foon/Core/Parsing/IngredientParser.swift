@@ -29,7 +29,7 @@ enum IngredientParser {
     private static let rangeDashes: Set<Character> = ["-", "–"]
     /// Matched case-insensitively, so recipe shorthand "T" (tablespoon) vs "t" (teaspoon) and "c"
     /// (cup) are left out: guessing between them would invent an amount.
-    private static let units: Set<String> = [
+    static let units: Set<String> = [
         "lb", "lbs", "pound", "pounds", "oz", "ounce", "ounces", "g", "kg", "ml", "l",
         "cup", "cups", "tbsp", "tablespoon", "tablespoons", "tsp", "teaspoon", "teaspoons",
         "can", "cans", "jar", "jars", "bag", "bags", "box", "boxes",

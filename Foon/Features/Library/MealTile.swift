@@ -74,6 +74,10 @@ struct MealTile: View {
             if !entry.flags.isEmpty {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Palette.caution)
             }
+            if meal.ingredients.isEmpty {
+                // The spec's reminder for quick-added meals: ingredients can come later.
+                Chip(text: String(localized: "Add ingredients"), systemImage: "plus", tint: Palette.paprika)
+            }
             Spacer(minLength: 0)
             if let madeBy {
                 MemberAvatar(member: madeBy, size: 22)
@@ -93,6 +97,7 @@ enum LibraryText {
         if entry.meal.tags.contains(.quick) { parts.append(String(localized: "Quick")) }
         if let madeBy { parts.append(String(localized: "Made by \(madeBy.firstName)")) }
         parts.append(contentsOf: entry.flags.map(\.summary))
+        if entry.meal.ingredients.isEmpty { parts.append(String(localized: "Add ingredients")) }
         return parts.joined(separator: ", ")
     }
 }

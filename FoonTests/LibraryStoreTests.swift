@@ -333,9 +333,12 @@ extension LibraryClient {
         photoURL: @escaping @Sendable (String) async throws -> URL = { _ in throw URLError(.fileDoesNotExist) },
         save: @escaping @Sendable (UUID, MealDraft.Saved) async throws -> Void = { _, _ in },
         copy: @escaping @Sendable (UUID, String) async throws -> UUID = { _, _ in UUID() },
+        create: @escaping @Sendable (UUID, MealDraft.Saved) async throws -> UUID = { _, _ in UUID() },
+        itemNames: @escaping @Sendable (UUID) async throws -> [String] = { _ in [] },
         setPhoto: @escaping @Sendable (LibraryMeal, Data) async throws -> Void = { _, _ in }
     ) -> LibraryClient {
         LibraryClient(meals: meals, history: history, catalog: catalog, allergies: allergies, setStatus: setStatus,
-                      addFromCatalog: addFromCatalog, photoURL: photoURL, save: save, copy: copy, setPhoto: setPhoto)
+                      addFromCatalog: addFromCatalog, photoURL: photoURL, save: save, copy: copy, create: create,
+                      itemNames: itemNames, setPhoto: setPhoto)
     }
 }

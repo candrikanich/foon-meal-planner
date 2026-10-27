@@ -174,6 +174,15 @@ struct HouseholdClientLiveTests {
         let (_, response) = try await URLSession.shared.data(from: try await library.photoURL(photoPath))
         #expect((response as? HTTPURLResponse)?.statusCode == 200, "the new photo is readable through a signed URL")
 
+        var quick = MealDraft(newNamed: "Soup night")
+        quick.addIngredients("1 carton chicken broth, egg noodles")
+        let soupID = try await library.create(household.id, quick.validated())
+        let soup = try #require(try await library.meals(household.id).first { $0.id == soupID })
+        #expect(soup.ingredients.map(\.name) == ["chicken broth", "egg noodles"])
+        let nameOnly = try await library.create(household.id, MealDraft(newNamed: "Leftovers bowl").validated())
+        #expect(try await library.meals(household.id).first { $0.id == nameOnly }?.ingredients.isEmpty == true)
+        #expect(Set(try await library.itemNames(household.id)).isSuperset(of: ["chicken broth", "egg noodles"]))
+
         try await library.setStatus(id, .archived)
         #expect(try await library.meals(household.id).first { $0.id == id }?.status == .archived)
         #expect(try await library.history(household.id).isEmpty, "nothing has been made yet")
