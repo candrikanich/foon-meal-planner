@@ -179,6 +179,12 @@
     "Couldn't archive that meal. Check your connection and try again." : {
 
     },
+    "Couldn't change the night. Check your connection and try again." : {
+
+    },
+    "Couldn't change who's home. Check your connection and try again." : {
+
+    },
     "Couldn't check that code. Check your connection and try again." : {
 
     },
@@ -189,6 +195,9 @@
 
     },
     "Couldn't create your household. Check your connection and try again." : {
+
+    },
+    "Couldn't load the week. Check your connection and try again." : {
 
     },
     "Couldn't load your household" : {
@@ -221,6 +230,9 @@
     "Couldn't sign out your other devices. Check your connection and try again." : {
 
     },
+    "Couldn't start the week. Check your connection and try again." : {
+
+    },
     "Couldn't upload the photo. Check your connection and try again." : {
 
     },
@@ -243,6 +255,9 @@
 
     },
     "Drinks" : {
+
+    },
+    "Each new week starts from this. Tap a day they're usually out, like a work or practice night." : {
 
     },
     "Eat out" : {
@@ -458,6 +473,9 @@
     "New dishes you're trying out show up here." : {
 
     },
+    "Next week" : {
+
+    },
     "No allergy flags" : {
 
     },
@@ -483,6 +501,9 @@
 
     },
     "No one in particular" : {
+
+    },
+    "No plan yet" : {
 
     },
     "No quick meals" : {
@@ -519,6 +540,9 @@
 
     },
     "Other" : {
+
+    },
+    "Out" : {
 
     },
     "Pantry" : {
@@ -653,6 +677,12 @@
     "Staples like milk or paper towels stay on the keep-on-hand list, marked in, low, or out." : {
 
     },
+    "Start the week" : {
+
+    },
+    "Start the week to lay out the nights, with who's home from everyone's usual schedule." : {
+
+    },
     "Status" : {
 
     },
@@ -719,7 +749,13 @@
     "This invite needs a parent's OK first. Ask them to send a new one." : {
 
     },
+    "This week" : {
+
+    },
     "Toggles whether they're home this night" : {
+
+    },
+    "Toggles whether they're usually home this day" : {
 
     },
     "Tomorrow" : {
@@ -752,10 +788,16 @@
     "Use this if a phone is lost or shared. Every device, this one included, signs out right away." : {
 
     },
+    "Usually home for dinner" : {
+
+    },
     "Vanilla, not plain" : {
 
     },
     "View the original recipe" : {
+
+    },
+    "Week" : {
 
     },
     "Welcome to Foon" : {
@@ -791,7 +833,7 @@
     "Your household is ready. Pull to refresh to see your family." : {
 
     },
-    "Your week of dinners will show up here." : {
+    "Your planner hasn't started this week yet." : {
 
     },
     "eggs" : {

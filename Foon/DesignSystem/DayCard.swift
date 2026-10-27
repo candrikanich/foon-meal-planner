@@ -4,12 +4,15 @@ import SwiftUI
 /// its reason chip, badges, and inline lock, shuffle, and swap. The same card serves This Week and
 /// planning. Members get the read-only variant: pass no actions.
 struct DayCard: View {
+    /// What the planner can do on a card. Lock, shuffle, and swap appear once they're wired up.
     struct Actions {
         var toggleAttendance: (UUID) -> Void
         var cycleEffort: () -> Void
-        var toggleLock: () -> Void
-        var shuffle: () -> Void
-        var swap: () -> Void
+        var toggleLock: (() -> Void)? = nil
+        var shuffle: (() -> Void)? = nil
+        var swap: (() -> Void)? = nil
+
+        var hasNightActions: Bool { toggleLock != nil || shuffle != nil || swap != nil }
     }
 
     let model: DayCardModel
@@ -24,7 +27,7 @@ struct DayCard: View {
             mealSlot
             if !model.badges.isEmpty { badges }
             if !model.attendance.isEmpty { attendance }
-            if let actions { actionRow(actions) }
+            if let actions, actions.hasNightActions { actionRow(actions) }
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Palette.cardSurface))
@@ -166,15 +169,21 @@ struct DayCard: View {
     private func actionRow(_ actions: Actions) -> some View {
         HStack(spacing: 8) {
             Spacer()
-            Button(action: actions.toggleLock) {
-                Image(systemName: model.isLocked ? "lock.fill" : "lock.open")
+            if let toggleLock = actions.toggleLock {
+                Button(action: toggleLock) {
+                    Image(systemName: model.isLocked ? "lock.fill" : "lock.open")
+                }
+                .accessibilityLabel(model.isLocked ? String(localized: "Unlock night") : String(localized: "Lock night"))
             }
-            .accessibilityLabel(model.isLocked ? String(localized: "Unlock night") : String(localized: "Lock night"))
-            Button(action: actions.shuffle) { Image(systemName: "shuffle") }
-                .disabled(model.isLocked)
-                .accessibilityLabel(String(localized: "Shuffle this night"))
-            Button(action: actions.swap) { Image(systemName: "arrow.triangle.2.circlepath") }
-                .accessibilityLabel(String(localized: "Swap this night"))
+            if let shuffle = actions.shuffle {
+                Button(action: shuffle) { Image(systemName: "shuffle") }
+                    .disabled(model.isLocked)
+                    .accessibilityLabel(String(localized: "Shuffle this night"))
+            }
+            if let swap = actions.swap {
+                Button(action: swap) { Image(systemName: "arrow.triangle.2.circlepath") }
+                    .accessibilityLabel(String(localized: "Swap this night"))
+            }
         }
         .buttonStyle(.bordered)
         .tint(Palette.paprika)

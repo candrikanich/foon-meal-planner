@@ -26,6 +26,8 @@ final class HouseholdStore {
         var name: Bool { [.everything, .ownProfileAsOwner, .nameAndAvatar].contains(self) }
         var identity: Bool { self == .everything }
         var planning: Bool { [.everything, .ownProfileAsOwner].contains(self) }
+        /// Everyone edits their own usual schedule; parents can change anyone's.
+        var schedule: Bool { self != .none }
     }
 
     private(set) var phase: Phase = .loading

@@ -64,6 +64,16 @@ struct MemberEditorView: View {
                     }
                 }
 
+                if scope.schedule {
+                    Section {
+                        WeekdayAwayPicker(usuallyAway: $draft.usuallyAway)
+                    } header: {
+                        Text("Usually home for dinner")
+                    } footer: {
+                        Text("Each new week starts from this. Tap a day they're usually out, like a work or practice night.")
+                    }
+                }
+
                 if let member, store.canInvite(member) {
                     inviteSection(for: member)
                 }
@@ -224,4 +234,35 @@ struct MemberEditorView: View {
     MemberEditorView(member: Member.sampleFamily[0])
         .environment(store)
         .task { await store.load() }
+}
+
+/// Seven day chips; a filled chip means home for dinner that weekday.
+struct WeekdayAwayPicker: View {
+    @Binding var usuallyAway: Set<Int>
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(WeekMath.weekdays) { weekday in
+                let home = !usuallyAway.contains(weekday.iso)
+                Button {
+                    if home { usuallyAway.insert(weekday.iso) } else { usuallyAway.remove(weekday.iso) }
+                } label: {
+                    Text(weekday.shortName())
+                        .font(.foonCaption)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                        .foregroundStyle(home ? Palette.onPaprika : Palette.ink)
+                        .background(Capsule().fill(home ? Palette.herb : Palette.cardSurface))
+                        .overlay(Capsule().strokeBorder(.quaternary))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(weekday.name())
+                .accessibilityValue(home ? String(localized: "Home") : String(localized: "Out"))
+                .accessibilityAddTraits(.isToggle)
+                .accessibilityHint(String(localized: "Toggles whether they're usually home this day"))
+            }
+        }
+        .padding(.vertical, 4)
+    }
 }

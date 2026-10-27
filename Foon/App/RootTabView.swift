@@ -3,9 +3,11 @@ import SwiftUI
 struct RootTabView: View {
     @State private var selection: AppTab = .week
     @State private var library: LibraryStore
+    @State private var week: WeekStore
 
-    init(householdID: UUID, libraryClient: LibraryClient) {
+    init(householdID: UUID, libraryClient: LibraryClient, weekClient: WeekClient) {
         _library = State(initialValue: LibraryStore(householdID: householdID, client: libraryClient))
+        _week = State(initialValue: WeekStore(householdID: householdID, client: weekClient))
     }
 
     var body: some View {
@@ -17,6 +19,7 @@ struct RootTabView: View {
             }
         }
         .environment(library)
+        .environment(week)
     }
 
     @ViewBuilder
@@ -33,7 +36,7 @@ struct RootTabView: View {
 
 #Preview {
     let store = HouseholdStore.preview()
-    RootTabView(householdID: Household.sample.id, libraryClient: .preview())
+    RootTabView(householdID: Household.sample.id, libraryClient: .preview(), weekClient: .preview(started: true))
         .environment(SessionStore(auth: .preview()))
         .environment(store)
         .task { await store.load() }

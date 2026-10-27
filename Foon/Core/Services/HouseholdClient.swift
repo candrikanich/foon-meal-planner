@@ -27,7 +27,7 @@ extension HouseholdClient {
         HouseholdClient(
             myHousehold: {
                 let rows: [Household] = try await client.from("households")
-                    .select("id, name, emoji, owner")
+                    .select("id, name, emoji, owner, settings")
                     .limit(1)
                     .execute()
                     .value

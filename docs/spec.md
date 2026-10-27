@@ -129,7 +129,11 @@ The planner taps "Build my week," gets a solid draft, and shapes it. The algorit
 
 **Household planning settings.** Planning day and time (ours: Sunday morning, before shopping), week start (the shopping day), new dishes per week, takeout nights, leftover nights, minimum days before a repeat (e.g. 10), dinner time per night.
 
+- Stored in `households.settings` (#22), every key optional with a default: `week_start` (ISO weekday, default 7 = Sunday), `dinner_time` ("18:00"), `new_dishes_per_week` (1), `takeout_nights` (0), `leftover_nights` (1), `repeat_window_days` (10). Out-of-range values fall back to the default.
+
 **Attendance per night.** Each night has a checklist of who's expected home, pre-filled from per-person recurring defaults ("Owen works Mon to Thu") and edited for exceptions. Planners own attendance; real-life changes happen by text and get reconciled by the day-of check-in and the after-dinner prompt.
+
+- v1 (#22): `members.attendance_defaults` is `{"usually_away": [ISO weekdays]}`, set on the member's profile ("Usually home for dinner"; everyone edits their own, parents anyone's). Starting a week (`create_week`) makes seven nights from the shopping day at normal effort and the household dinner time, with a row for everyone not removed: out on their usual nights away, and away members out until their return date (all week without one). Someone added later gets their nights filled in when a planner next opens the week. A week starts on the shopping day; a dinner time that isn't HH:MM falls back to 18:00. Tapping an avatar toggles it; tapping the effort chip cycles normal, rushed, full evening, event.
 
 **Night effort.** Each night is set to full evening, normal, or rushed. Rushed nights only get quick meals, takeout, or leftovers.
 
