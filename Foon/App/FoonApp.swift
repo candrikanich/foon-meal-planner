@@ -23,7 +23,8 @@ struct FoonApp: App {
     private var root: some View {
         if let session {
             RootView(householdClient: .live(SupabaseService.shared.client),
-                     syncClient: .live(SupabaseService.shared.client))
+                     syncClient: .live(SupabaseService.shared.client),
+                     libraryClient: .live(SupabaseService.shared.client))
                 .environment(session)
                 .modelContainer(Self.cache)
                 .task { await session.start() }

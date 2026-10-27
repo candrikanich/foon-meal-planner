@@ -124,6 +124,35 @@ struct HouseholdClientLiveTests {
         #expect((publicResponse as? HTTPURLResponse)?.statusCode != 200, "there is no public URL")
     }
 
+    @Test func aPlannerAddsStarterDishesAndArchivesThem() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let library = LibraryClient.live(supabase)
+        let household = try await households.createHousehold("Library family", nil, "Ann")
+
+        let catalog = try await library.catalog()
+        #expect(catalog.count >= 40, "the starter pack is seeded")
+        #expect(catalog.map(\.sortOrder) == catalog.map(\.sortOrder).sorted())
+        let tacos = try #require(catalog.first { $0.name == "Tacos" })
+        #expect(!tacos.ingredients.isEmpty)
+
+        let id = try await library.addFromCatalog(household.id, tacos.id)
+        #expect(try await library.addFromCatalog(household.id, tacos.id) == id, "adding twice returns the same copy")
+        let meal = try #require(try await library.meals(household.id).first)
+        #expect(meal.id == id)
+        #expect(meal.catalogMealID == tacos.id)
+        #expect(meal.tags == tacos.tags)
+        #expect(meal.ingredients.map(\.name) == tacos.ingredients)
+        #expect(meal.ingredients.map(\.position) == meal.ingredients.map(\.position).sorted())
+
+        try await library.setStatus(id, .archived)
+        #expect(try await library.meals(household.id).first?.status == .archived)
+        #expect(try await library.history(household.id).isEmpty, "nothing has been made yet")
+        #expect(try await library.allergies(household.id).isEmpty)
+    }
+
     private static let config = try! SupabaseConfig.fromMainBundle()
     private static func sampleJPEG() throws -> Data {
         let context = try #require(CGContext(

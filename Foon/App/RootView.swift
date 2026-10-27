@@ -6,6 +6,7 @@ struct RootView: View {
     @Environment(\.modelContext) private var context
     let householdClient: HouseholdClient
     let syncClient: SyncClient
+    let libraryClient: LibraryClient
 
     @ViewBuilder
     private var content: some View {
@@ -15,7 +16,7 @@ struct RootView: View {
         case .signedOut:
             WelcomeView()
         case .signedIn(let userID):
-            HouseholdGate(userID: userID, client: householdClient, syncClient: syncClient)
+            HouseholdGate(userID: userID, client: householdClient, syncClient: syncClient, libraryClient: libraryClient)
                 .id(userID)
         }
     }
@@ -33,10 +34,12 @@ struct RootView: View {
 struct HouseholdGate: View {
     @State private var store: HouseholdStore
     let syncClient: SyncClient
+    let libraryClient: LibraryClient
 
-    init(userID: UUID, client: HouseholdClient, syncClient: SyncClient) {
+    init(userID: UUID, client: HouseholdClient, syncClient: SyncClient, libraryClient: LibraryClient) {
         _store = State(initialValue: HouseholdStore(userID: userID, client: client))
         self.syncClient = syncClient
+        self.libraryClient = libraryClient
     }
 
     var body: some View {
@@ -49,7 +52,7 @@ struct HouseholdGate: View {
                 CreateHouseholdView()
             case .ready(let household):
                 SyncGate(householdID: household.id, client: syncClient) {
-                    RootTabView()
+                    RootTabView(householdID: household.id, libraryClient: libraryClient)
                 }
             case .failed:
                 ContentUnavailableView {
@@ -81,7 +84,7 @@ struct ConfigurationMissingView: View {
 
 #Preview("Signed out") {
     let session = SessionStore(auth: .preview())
-    RootView(householdClient: .preview(), syncClient: .preview)
+    RootView(householdClient: .preview(), syncClient: .preview, libraryClient: .preview())
         .environment(session)
         .modelContainer(try! SyncService.inMemoryContainer())
         .task { await session.start() }
@@ -89,7 +92,7 @@ struct ConfigurationMissingView: View {
 
 #Preview("Signed in, new") {
     let session = SessionStore(auth: .preview(signedIn: UUID()))
-    RootView(householdClient: .preview(household: nil), syncClient: .preview)
+    RootView(householdClient: .preview(household: nil), syncClient: .preview, libraryClient: .preview())
         .environment(session)
         .modelContainer(try! SyncService.inMemoryContainer())
         .task { await session.start() }
@@ -97,7 +100,7 @@ struct ConfigurationMissingView: View {
 
 #Preview("Signed in") {
     let session = SessionStore(auth: .preview(signedIn: UUID()))
-    RootView(householdClient: .preview(), syncClient: .preview)
+    RootView(householdClient: .preview(), syncClient: .preview, libraryClient: .preview())
         .environment(session)
         .modelContainer(try! SyncService.inMemoryContainer())
         .task { await session.start() }
