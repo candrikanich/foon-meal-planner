@@ -1,0 +1,257 @@
+import SwiftUI
+
+/// One night of the week (docs/spec.md → Day cards): effort chip, attendance avatars, the meal with
+/// its reason chip, badges, and inline lock, shuffle, and swap. The same card serves This Week and
+/// planning. Members get the read-only variant: pass no actions.
+struct DayCard: View {
+    struct Actions {
+        var toggleAttendance: (UUID) -> Void
+        var cycleEffort: () -> Void
+        var toggleLock: () -> Void
+        var shuffle: () -> Void
+        var swap: () -> Void
+    }
+
+    let model: DayCardModel
+    var today = CalendarDay(Date())
+    var actions: Actions?
+
+    private var isTonight: Bool { model.date == today }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            header
+            mealSlot
+            if !model.badges.isEmpty { badges }
+            if !model.attendance.isEmpty { attendance }
+            if let actions { actionRow(actions) }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Palette.cardSurface))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(isTonight ? Palette.paprika : .clear, lineWidth: 2)
+        }
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+        .accessibilityElement(children: actions == nil ? .ignore : .contain)
+        .accessibilityLabel(DayCardText.accessibilitySummary(model, today: today))
+    }
+
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(DayCardText.dayLabel(for: model.date, today: today))
+                .font(.foonHeadline)
+                .foregroundStyle(isTonight ? Palette.paprika : Palette.ink)
+            Text(DayCardText.dateLabel(for: model.date))
+                .font(.foonCaption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            if let actions {
+                Button(action: actions.cycleEffort) { effortChip }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "Effort: \(DayCardText.effortLabel(model.effort))"))
+                    .accessibilityHint(String(localized: "Changes the night's effort"))
+            } else {
+                effortChip
+            }
+        }
+    }
+
+    private var effortChip: some View {
+        Chip(text: DayCardText.effortLabel(model.effort), systemImage: effortSymbol,
+             tint: model.effort == .event ? Palette.paprika : .secondary)
+    }
+
+    private var effortSymbol: String {
+        switch model.effort {
+        case .normal: "fork.knife"
+        case .rushed: "hare"
+        case .full: "clock"
+        case .event: "party.popper"
+        }
+    }
+
+    @ViewBuilder
+    private var mealSlot: some View {
+        switch model.slot {
+        case .empty:
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [5]))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 56, height: 56)
+                    .overlay(Image(systemName: "plus").foregroundStyle(.tertiary))
+                Text("Nothing planned yet").font(.foonBody).foregroundStyle(.secondary)
+            }
+        case .meal(let name, let photoURL, let reason):
+            HStack(spacing: 12) {
+                MealThumbnail(url: photoURL)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(name).font(.foonTitle).foregroundStyle(Palette.ink).lineLimit(2)
+                    if let reason { Chip(text: reason, systemImage: "sparkles") }
+                }
+            }
+        case .quickPick(let pick):
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Palette.paprika.opacity(0.14))
+                    .frame(width: 56, height: 56)
+                    .overlay(Image(systemName: quickPickSymbol(pick)).font(.title2).foregroundStyle(Palette.paprika))
+                Text(DayCardText.quickPickLabel(pick)).font(.foonTitle).foregroundStyle(Palette.ink)
+            }
+        }
+    }
+
+    private func quickPickSymbol(_ pick: QuickPick) -> String {
+        switch pick {
+        case .leftovers: "takeoutbag.and.cup.and.straw"
+        case .takeout: "bag"
+        case .eatOut: "fork.knife.circle"
+        case .fendForYourselves: "figure.wave"
+        case .freezerRaid: "snowflake"
+        }
+    }
+
+    private var badges: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) { badgeChips }
+            VStack(alignment: .leading, spacing: 6) { badgeChips }
+        }
+    }
+
+    @ViewBuilder
+    private var badgeChips: some View {
+        ForEach(model.badges, id: \.self) { badge in
+            switch badge {
+            case .allergy:
+                Chip(text: DayCardText.badgeLabel(badge), systemImage: "exclamationmark.triangle.fill", tint: Palette.caution)
+            case .tradition:
+                Chip(text: DayCardText.badgeLabel(badge), systemImage: "repeat", tint: Palette.paprika)
+            case .request:
+                Chip(text: DayCardText.badgeLabel(badge), systemImage: "hand.raised.fill", tint: Palette.herb)
+            case .prep:
+                Chip(text: DayCardText.badgeLabel(badge), systemImage: "timer", tint: .secondary)
+            }
+        }
+    }
+
+    private var attendance: some View {
+        HStack(spacing: -6) {
+            ForEach(model.attendance) { attendee in
+                let avatar = MemberAvatar(member: .fixture(id: attendee.memberID, firstName: attendee.firstName,
+                                                            avatar: attendee.avatar), size: 32)
+                    .opacity(attendee.isHome ? 1 : 0.35)
+                    .overlay(alignment: .bottomTrailing) {
+                        if !attendee.isHome {
+                            Image(systemName: "moon.zzz.fill").font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                if let actions {
+                    Button { actions.toggleAttendance(attendee.memberID) } label: { avatar }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(attendee.isHome
+                            ? String(localized: "\(attendee.firstName), home")
+                            : String(localized: "\(attendee.firstName), away"))
+                        .accessibilityHint(String(localized: "Toggles whether they're home this night"))
+                } else {
+                    avatar
+                }
+            }
+        }
+    }
+
+    private func actionRow(_ actions: Actions) -> some View {
+        HStack(spacing: 8) {
+            Spacer()
+            Button(action: actions.toggleLock) {
+                Image(systemName: model.isLocked ? "lock.fill" : "lock.open")
+            }
+            .accessibilityLabel(model.isLocked ? String(localized: "Unlock night") : String(localized: "Lock night"))
+            Button(action: actions.shuffle) { Image(systemName: "shuffle") }
+                .disabled(model.isLocked)
+                .accessibilityLabel(String(localized: "Shuffle this night"))
+            Button(action: actions.swap) { Image(systemName: "arrow.triangle.2.circlepath") }
+                .accessibilityLabel(String(localized: "Swap this night"))
+        }
+        .buttonStyle(.bordered)
+        .tint(Palette.paprika)
+        .controlSize(.small)
+    }
+}
+
+/// A meal's photo, or a warm placeholder tile until there is one.
+struct MealThumbnail: View {
+    let url: URL?
+    var size: CGFloat = 56
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(Palette.herb.opacity(0.14))
+            .frame(width: size, height: size)
+            .overlay {
+                if let url {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        ProgressView()
+                    }
+                } else {
+                    Image(systemName: "fork.knife").font(.title2).foregroundStyle(Palette.herb)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Previews
+
+private enum DayCardPreview {
+    static let today = CalendarDay(Date())
+    static let family: [DayCardModel.Attendee] = [
+        .init(memberID: UUID(), firstName: "Ann", avatar: "🦉", isHome: true),
+        .init(memberID: UUID(), firstName: "Ben", avatar: "🐻", isHome: true),
+        .init(memberID: UUID(), firstName: "Owen", avatar: "🦊", isHome: false),
+        .init(memberID: UUID(), firstName: "Nora", avatar: "🐢", isHome: true)
+    ]
+    static var actions: DayCard.Actions {
+        DayCard.Actions(toggleAttendance: { _ in }, cycleEffort: {}, toggleLock: {}, shuffle: {}, swap: {})
+    }
+}
+
+#Preview("States") {
+    ScrollView {
+        VStack(spacing: 16) {
+            DayCard(model: .init(date: DayCardPreview.today, effort: .normal, slot: .empty,
+                                 attendance: DayCardPreview.family, badges: [], isLocked: false),
+                    actions: DayCardPreview.actions)
+            DayCard(model: .init(date: DayCardPreview.today.adding(days: 1), effort: .rushed,
+                                 slot: .meal(name: "Tacos", photoURL: nil, reason: "Nora's favorite"),
+                                 attendance: DayCardPreview.family, badges: [.tradition("Taco Tuesday")], isLocked: false),
+                    actions: DayCardPreview.actions)
+            DayCard(model: .init(date: DayCardPreview.today.adding(days: 2), effort: .full,
+                                 slot: .meal(name: "Pot roast", photoURL: nil, reason: "Haven't had it in 7 weeks"),
+                                 attendance: DayCardPreview.family, badges: [.prep("Thaw tonight")], isLocked: true),
+                    actions: DayCardPreview.actions)
+            DayCard(model: .init(date: DayCardPreview.today.adding(days: 3), effort: .event,
+                                 slot: .quickPick(.eatOut), attendance: DayCardPreview.family,
+                                 badges: [], isLocked: true),
+                    actions: DayCardPreview.actions)
+            DayCard(model: .init(date: DayCardPreview.today.adding(days: 4), effort: .normal,
+                                 slot: .meal(name: "Homemade mac and cheese", photoURL: nil, reason: "Owen's request"),
+                                 attendance: DayCardPreview.family,
+                                 badges: [.allergy("Contains milk (Nora)"), .request(from: "Owen")], isLocked: false),
+                    actions: DayCardPreview.actions)
+        }
+        .padding()
+    }
+    .background(Palette.cream)
+}
+
+#Preview("Read-only (member)") {
+    DayCard(model: .init(date: DayCardPreview.today, effort: .rushed,
+                         slot: .meal(name: "Tacos", photoURL: nil, reason: "Nora's favorite"),
+                         attendance: DayCardPreview.family, badges: [.allergy("Contains milk (Nora)")], isLocked: true))
+        .padding()
+        .background(Palette.cream)
+}

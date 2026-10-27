@@ -1,0 +1,105 @@
+import Foundation
+
+/// Everything a DayCard shows for one night. Plain values so This Week, planning, and previews
+/// can build it from the cache, the algorithm's draft, or fixtures alike.
+struct DayCardModel: Identifiable, Equatable, Sendable {
+    enum Slot: Equatable, Sendable {
+        case empty
+        case meal(name: String, photoURL: URL?, reason: String?)
+        case quickPick(QuickPick)
+    }
+
+    struct Attendee: Equatable, Identifiable, Sendable {
+        let memberID: UUID
+        let firstName: String
+        let avatar: String?
+        let isHome: Bool
+
+        var id: UUID { memberID }
+    }
+
+    enum Badge: Equatable, Hashable, Sendable {
+        case allergy(String)
+        case tradition(String)
+        case request(from: String)
+        case prep(String)
+    }
+
+    let date: CalendarDay
+    var effort: NightEffort
+    var slot: Slot
+    var attendance: [Attendee]
+    var badges: [Badge]
+    var isLocked: Bool
+
+    var id: CalendarDay { date }
+}
+
+extension NightEffort {
+    /// Tapping the effort chip cycles normal → rushed → full → event.
+    var next: NightEffort {
+        switch self {
+        case .normal: .rushed
+        case .rushed: .full
+        case .full: .event
+        case .event: .normal
+        }
+    }
+}
+
+/// The words on a DayCard, kept out of the view so they're testable and localizable.
+enum DayCardText {
+    static func dayLabel(for day: CalendarDay, today: CalendarDay, calendar: Calendar = .current) -> String {
+        if day == today { return String(localized: "Tonight") }
+        if day == today.adding(days: 1, calendar: calendar) { return String(localized: "Tomorrow") }
+        return day.date(in: calendar).formatted(Date.FormatStyle(calendar: calendar).weekday(.wide))
+    }
+
+    static func dateLabel(for day: CalendarDay, calendar: Calendar = .current) -> String {
+        day.date(in: calendar).formatted(Date.FormatStyle(calendar: calendar).month(.abbreviated).day())
+    }
+
+    static func effortLabel(_ effort: NightEffort) -> String {
+        switch effort {
+        case .normal: String(localized: "Normal")
+        case .rushed: String(localized: "Rushed")
+        case .full: String(localized: "Full evening")
+        case .event: String(localized: "Event")
+        }
+    }
+
+    static func quickPickLabel(_ pick: QuickPick) -> String {
+        switch pick {
+        case .leftovers: String(localized: "Leftovers")
+        case .takeout: String(localized: "Takeout")
+        case .eatOut: String(localized: "Eat out")
+        case .fendForYourselves: String(localized: "Fend for yourselves")
+        case .freezerRaid: String(localized: "Freezer raid")
+        }
+    }
+
+    static func badgeLabel(_ badge: DayCardModel.Badge) -> String {
+        switch badge {
+        case .allergy(let text), .tradition(let text), .prep(let text): text
+        case .request(let name): String(localized: "\(name)'s request")
+        }
+    }
+
+    /// One sentence VoiceOver reads for the whole card.
+    static func accessibilitySummary(_ card: DayCardModel, today: CalendarDay, calendar: Calendar = .current) -> String {
+        var parts = ["\(dayLabel(for: card.date, today: today, calendar: calendar)), \(dateLabel(for: card.date, calendar: calendar))"]
+        switch card.slot {
+        case .empty: parts.append(String(localized: "Nothing planned yet"))
+        case .meal(let name, _, let reason): parts.append([name, reason].compactMap { $0 }.joined(separator: ", "))
+        case .quickPick(let pick): parts.append(quickPickLabel(pick))
+        }
+        parts.append(effortLabel(card.effort))
+        let home = card.attendance.filter(\.isHome).map(\.firstName)
+        let away = card.attendance.filter { !$0.isHome }.map(\.firstName)
+        if !home.isEmpty { parts.append(String(localized: "Home: \(home.joined(separator: ", "))")) }
+        if !away.isEmpty { parts.append(String(localized: "Away: \(away.joined(separator: ", "))")) }
+        parts.append(contentsOf: card.badges.map(badgeLabel))
+        if card.isLocked { parts.append(String(localized: "Locked")) }
+        return parts.joined(separator: ". ") + "."
+    }
+}
