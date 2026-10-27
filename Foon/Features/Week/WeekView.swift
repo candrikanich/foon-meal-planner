@@ -12,6 +12,7 @@ struct WeekView: View {
     @Query(filter: #Predicate<CachedListItem> { $0.checkedAt == nil }) private var openListItems: [CachedListItem]
     @State private var openNight: UUID?
     @State private var swappingNight: UUID?
+    @State private var showingTraditions = false
     @State private var showingPast = false
 
     private var canPlan: Bool {
@@ -46,6 +47,9 @@ struct WeekView: View {
             }
             .sheet(item: Binding(get: { swappingNight.map(NightID.init) }, set: { swappingNight = $0?.id })) { night in
                 SwapSheet(nightID: night.id)
+            }
+            .sheet(isPresented: $showingTraditions) {
+                TraditionsView()
             }
         }
         .task(id: LoadKey(householdID: household.household?.id, next: week.showingNextWeek,
@@ -166,6 +170,11 @@ struct WeekView: View {
 
     @ToolbarContentBuilder
     private var cart: some ToolbarContent {
+        if canPlan {
+            ToolbarItem(placement: .secondaryAction) {
+                Button("Traditions", systemImage: "repeat") { showingTraditions = true }
+            }
+        }
         if canPlan, let layout = week.layout, layout.progress != .unplanned {
             ToolbarItem(placement: .secondaryAction) {
                 Button("Rebuild unlocked nights", systemImage: "wand.and.stars") { Task { await build() } }
@@ -212,7 +221,7 @@ struct WeekView: View {
         if !library.hasLoaded { await library.load(members: household.members) }
         guard library.hasLoaded else { return nil }
         return PlanningContext(meals: library.meals, history: library.history, settings: settings,
-                               members: household.visibleMembers)
+                               members: household.visibleMembers, traditions: week.traditions)
     }
 
     private func build() async {

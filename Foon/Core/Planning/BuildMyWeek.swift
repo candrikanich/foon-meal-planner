@@ -6,7 +6,7 @@ import Foundation
 ///
 /// Steps, in order:
 /// 1. **Keep** pinned nights, event nights, and nights before `today` as they are, then land dated requests
-///    on their nights. (Standing traditions, #31, will slot in here as another kind of kept night.)
+///    on their nights, then standing traditions on their weekdays (saved locked).
 /// 2. **Special slots:** takeout on the busiest nights, trial dishes on full-attendance nights, then leftover
 ///    nights, each after a big-batch meal when one fits. Kept nights, past ones too, count toward each setting.
 /// 3. **Fill** the rest, rushed nights first and then in date order, with a weighted draw from dishes that
@@ -42,6 +42,7 @@ enum BuildMyWeek {
         var rng = SeededGenerator(seed: seed)
         var state = DraftState(planner: planner)
         state.landRequests()
+        state.landTraditions()
         state.placeTakeout()
         state.placeNewDishes(rng: &rng)
         state.placeLeftovers(rng: &rng)
@@ -291,6 +292,26 @@ private struct DraftState {
                   let index = openIndices.first(where: { plans[$0].date == request.date }) else { continue }
             fill(index, with: .meal(meal.id), reason: .request(name: planner.name(of: request.requesterID)),
                  kept: true)
+        }
+    }
+
+    /// Taco Tuesday lands on every open Tuesday, kept and saved locked. A dated request for that night wins, and
+    /// a tradition meal no longer in rotation, or already in the week, is skipped. It also sits out a week when
+    /// it's snoozed or someone home that night said "not for me" (the dislike rule); the repeat window, rushed
+    /// nights, and prep time don't apply, since a weekly tradition is chosen on purpose. Quick picks count toward
+    /// their settings like any other.
+    mutating func landTraditions() {
+        for tradition in planner.inputs.traditions {
+            for index in openIndices where plans[index].date.isoWeekday == tradition.weekday {
+                if let mealID = tradition.pick.mealID {
+                    guard let meal = planner.mealsByID[mealID], meal.status.isInRotation, !used.contains(mealID),
+                          !planner.inputs.snoozedMealIDs.contains(mealID) else { continue }
+                    let notForMe = planner.inputs.notForMe[mealID] ?? [:]
+                    if planner.nights[index].home.contains(where: { (notForMe[$0] ?? 0) >= 1 }) { continue }
+                }
+                fill(index, with: tradition.pick, reason: .tradition(name: tradition.name), kept: true)
+                plans[index].locks = true
+            }
         }
     }
 

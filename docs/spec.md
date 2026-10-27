@@ -139,7 +139,7 @@ The planner taps "Build my week," gets a solid draft, and shapes it. The algorit
 
 **Build my week algorithm**
 
-1. **Lock** what's decided: dated requests, event nights, pinned meals.
+1. **Lock** what's decided: dated requests, event nights, pinned meals, standing traditions.
 2. **Fill special slots:** leftover night after a big-batch meal; takeout on the busiest night; new dishes on full-attendance nights.
 3. **Filter candidates per night:** drop dishes inside the repeat window or snoozed; dishes disliked by anyone home that night; retired dishes; non-quick meals on rushed nights; grill or advance-prep meals where they don't fit.
 4. **Score and draw** with weighted randomness: days since last made (higher is better), a favorite of someone home (big boost), ingredients already on hand (boost), overall thumbs-up (small boost).
@@ -328,7 +328,7 @@ Every family is different; these are all in, each optional and off or unobtrusiv
 
 | Feature | What it does | Phase |
 | --- | --- | --- |
-| Standing traditions | Recurring nights (Taco Tuesday, Pizza Friday) auto-fill each week unless swapped | 1 |
+| Standing traditions | Recurring nights (Taco Tuesday, Pizza Friday) auto-fill each week unless swapped. v1: one per weekday, a library meal or quick pick with an optional name for the chip; planners set them from This Week → Traditions. Build my week lands them after dated requests (a request wins its night) and saves them locked; a meal no longer in rotation is skipped, and a tradition sits out a week when it's snoozed or someone home that night said "not for me" (the repeat window, rushed nights, and prep time don't apply, since it's chosen on purpose); quick-pick traditions count toward the takeout and leftovers settings. Swapping a tradition night changes only that week | 1 |
 | Side dishes | Optional side pairings per meal (salad, garlic bread) so the list is complete. A side is a library meal (its ingredients join the list) or a simple item (added itself); one level, so sides of sides aren't followed. Shown on day cards ("with salad and garlic bread") and meal detail ("Goes with"); Copy and tweak keeps them. Archived meals can be sides; retired ones can't, and a side retired later drops off. Allergy flags include sides | 1 |
 | Non-food items | Household and personal care items (paper towels, toothpaste) live on the same list, sorted after groceries in store mode, and can be keep-on-hand staples | 1 |
 | Item notes and brands | "Vanilla yogurt, not plain," "store brand": a standing note per item (80 characters), set by anyone at home and shown with the item on meals, lists, and in store mode | 1 |

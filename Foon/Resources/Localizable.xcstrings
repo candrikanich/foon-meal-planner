@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ (archived, skipped)" : {
+      "comment" : "Tradition row: meal out of rotation"
+    },
     "%@ (copy)" : {
       "comment" : "Copy and tweak: the copied meal's starting name"
     },
@@ -43,6 +46,17 @@
         }
       }
     },
+    "%@: %@" : {
+      "comment" : "Tradition row: its name, then the meal",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
     "%lld" : {
 
     },
@@ -77,6 +91,9 @@
       "comment" : "Reason chip"
     },
     "A last name or a nickname. Everyone you invite will see it." : {
+
+    },
+    "A meal" : {
 
     },
     "A meal from your library, or something simple like salad or garlic bread" : {
@@ -202,6 +219,9 @@
     "Build my week and shuffles leave locked nights as they are." : {
 
     },
+    "Build my week fills these in and locks them. Swapping one changes just that week." : {
+
+    },
     "Cancel" : {
 
     },
@@ -258,6 +278,9 @@
     "Couldn't load your library. Check your connection and try again." : {
 
     },
+    "Couldn't load your traditions. Pull to refresh, then try again." : {
+
+    },
     "Couldn't open that photo. Try another one." : {
 
     },
@@ -274,6 +297,9 @@
 
     },
     "Couldn't save the plan. Check your connection and try again." : {
+
+    },
+    "Couldn't save the tradition. Check your connection and try again." : {
 
     },
     "Couldn't save. Pull to refresh in case someone else changed this, then try again." : {
@@ -579,6 +605,9 @@
     "Name" : {
 
     },
+    "Name (optional)" : {
+
+    },
     "Needs grill" : {
 
     },
@@ -612,6 +641,9 @@
     "No matches" : {
 
     },
+    "No meals match." : {
+
+    },
     "No meals yet" : {
 
     },
@@ -625,6 +657,9 @@
 
     },
     "No suggestions fit this night. Search your meals instead." : {
+
+    },
+    "None" : {
 
     },
     "None of your meals contain anything your family avoids." : {
@@ -741,6 +776,9 @@
     "Remove from household" : {
 
     },
+    "Remove this tradition" : {
+
+    },
     "Replace with yours" : {
 
     },
@@ -757,6 +795,9 @@
 
     },
     "Save" : {
+
+    },
+    "Search your meals" : {
 
     },
     "Search your meals or add one" : {
@@ -849,6 +890,9 @@
     "Swap this night" : {
 
     },
+    "Taco %@" : {
+      "comment" : "Tradition name placeholder"
+    },
     "Tags" : {
 
     },
@@ -928,6 +972,12 @@
 
     },
     "Too many tries. Wait 15 minutes and try again." : {
+
+    },
+    "Tradition" : {
+      "comment" : "Reason chip: a standing weekday tradition"
+    },
+    "Traditions" : {
 
     },
     "Try again" : {
