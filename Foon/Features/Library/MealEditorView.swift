@@ -9,6 +9,7 @@ struct MealEditorView: View {
 
     @State private var draft: MealDraft
     @State private var newIngredients = ""
+    @State private var newSide = ""
     @State private var isSaving = false
 
     init(meal: LibraryMeal) {
@@ -47,6 +48,8 @@ struct MealEditorView: View {
 
                 ingredientsSection
 
+                sidesSection
+
                 Section {
                     TextEditor(text: $draft.stepsText)
                         .frame(minHeight: 120)
@@ -83,6 +86,7 @@ struct MealEditorView: View {
                         Task {
                             isSaving = true
                             commitNewIngredients()
+                            commitNewSide()
                             if await library.save(draft, mealID: meal.id) { dismiss() }
                             isSaving = false
                         }
@@ -122,6 +126,49 @@ struct MealEditorView: View {
         } footer: {
             Text("Type them naturally, like \"1 lb ground beef, taco shells, cheese\".")
         }
+    }
+
+    /// Library meals first (they bring their own ingredients), then household items.
+    private var sideSuggestions: [String] {
+        let mealNames = library.meals.filter { $0.id != meal.id && $0.status.isInRotation }.map(\.name)
+        return IngredientAutocomplete.suggestions(for: newSide, from: mealNames + library.ingredientNames, limit: 4)
+            .filter { $0.caseInsensitiveCompare(newSide.trimmingCharacters(in: .whitespaces)) != .orderedSame }
+    }
+
+    private var sidesSection: some View {
+        Section {
+            ForEach(draft.sides, id: \.self) { side in
+                switch side {
+                case .meal(let id):
+                    Label(library.meal(id)?.name ?? String(localized: "A removed meal"), systemImage: "fork.knife")
+                case .item(let name):
+                    Label(name, systemImage: "basket")
+                }
+            }
+            .onDelete { draft.sides.remove(atOffsets: $0) }
+            .onMove { draft.sides.move(fromOffsets: $0, toOffset: $1) }
+
+            TextField("Add a side", text: $newSide)
+                .onSubmit(commitNewSide)
+                .accessibilityHint("A meal from your library, or something simple like salad or garlic bread")
+            ForEach(sideSuggestions, id: \.self) { suggestion in
+                Button {
+                    newSide = suggestion
+                    commitNewSide()
+                } label: {
+                    Label(suggestion, systemImage: "text.badge.plus")
+                }
+            }
+        } header: {
+            Text("Sides")
+        } footer: {
+            Text("Optional. A side from your library brings its ingredients to the list.")
+        }
+    }
+
+    private func commitNewSide() {
+        draft.addSide(newSide, library: library.meals)
+        newSide = ""
     }
 
     private func commitNewIngredients() {

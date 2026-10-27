@@ -51,6 +51,12 @@
     "A last name or a nickname. Everyone you invite will see it." : {
 
     },
+    "A meal from your library, or something simple like salad or garlic bread" : {
+
+    },
+    "A removed meal" : {
+
+    },
     "Add" : {
 
     },
@@ -61,6 +67,9 @@
 
     },
     "Add a household name and your first name." : {
+
+    },
+    "Add a side" : {
 
     },
     "Add all to list" : {
@@ -293,6 +302,9 @@
     "Give the meal a name." : {
 
     },
+    "Goes with" : {
+
+    },
     "Haven't had in a while" : {
 
     },
@@ -500,6 +512,9 @@
     "Nothing planned yet" : {
 
     },
+    "Optional. A side from your library brings its ingredients to the list." : {
+
+    },
     "Optional. One step per line." : {
 
     },
@@ -603,6 +618,9 @@
 
     },
     "Shuffle this night" : {
+
+    },
+    "Sides" : {
 
     },
     "Sign in didn't work. Check your connection and try again." : {
@@ -811,6 +829,9 @@
     },
     "wheat" : {
       "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "with %@" : {
+      "comment" : "Side dishes after a meal name: a list of sides"
     }
   },
   "version" : "1.0"

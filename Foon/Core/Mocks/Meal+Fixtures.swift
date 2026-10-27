@@ -28,7 +28,13 @@ extension LibraryMeal {
     }
 
     /// A small library for previews: a mix of quick, trial, backup, flagged, and archived dishes.
-    static let sampleLibrary: [LibraryMeal] = [
+    static let sampleLibrary: [LibraryMeal] = {
+        var meals = sampleMeals
+        meals[0].sides = [.meal(meals[4].id), .item(itemID: UUID(), name: "chips and salsa")]
+        return meals
+    }()
+
+    private static let sampleMeals: [LibraryMeal] = [
         .fixture(name: "Tacos", tags: [.quick, .beginner], ingredients: ["ground beef", "taco shells", "cheddar cheese"],
                  madeByMemberID: Member.sampleFamily[1].id,
                  steps: ["Brown the beef with the seasoning.", "Warm the shells.", "Set out the toppings."],

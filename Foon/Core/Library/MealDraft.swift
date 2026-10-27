@@ -22,6 +22,25 @@ struct MealDraft: Equatable, Sendable {
             let quantity: String?
         }
 
+        /// `{"meal_id": …}` or `{"name": …}`, as save_meal reads them.
+        enum Side: Equatable, Sendable, Encodable {
+            case meal(UUID)
+            case item(String)
+
+            private enum CodingKeys: String, CodingKey {
+                case mealID = "meal_id"
+                case name
+            }
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                switch self {
+                case .meal(let id): try container.encode(id, forKey: .mealID)
+                case .item(let name): try container.encode(name, forKey: .name)
+                }
+            }
+        }
+
         let name: String
         let servings: Int
         let tags: [MealTag]
@@ -29,6 +48,13 @@ struct MealDraft: Equatable, Sendable {
         let sourceURL: URL?
         let madeByMemberID: UUID?
         let lines: [Line]
+        var sides: [Side] = []
+    }
+
+    /// A side while editing: a library meal by id, or an item by name.
+    enum Side: Equatable, Hashable, Sendable {
+        case meal(UUID)
+        case item(String)
     }
 
     enum Problem: Error, Equatable {
@@ -55,6 +81,7 @@ struct MealDraft: Equatable, Sendable {
     var stepsText: String
     var link: String
     var madeByMemberID: UUID?
+    var sides: [Side]
 
     init(_ meal: LibraryMeal) {
         name = meal.name
@@ -64,6 +91,13 @@ struct MealDraft: Equatable, Sendable {
         stepsText = meal.steps.joined(separator: "\n")
         link = meal.sourceURL?.absoluteString ?? ""
         madeByMemberID = meal.madeByMemberID
+        sides = meal.sides.map { side in
+            switch side {
+            case .meal(let id): .meal(id)
+            case .item(_, let name): .item(name)
+            }
+        }
+        mealID = meal.id
     }
 
     /// A new meal for quick add: just a name, the usual servings, nothing else yet.
@@ -75,6 +109,29 @@ struct MealDraft: Equatable, Sendable {
         stepsText = ""
         link = ""
         madeByMemberID = nil
+        sides = []
+        mealID = nil
+    }
+
+    /// The meal being edited, so it's never offered as its own side.
+    private let mealID: UUID?
+
+    /// Adds a side typed by name: a library meal when the name matches one, otherwise a simple item.
+    mutating func addSide(_ typed: String, library: [LibraryMeal]) {
+        let name = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        // A retired dish is one the family voted out; it doesn't come back as a side.
+        let match = library.first {
+            $0.id != mealID && $0.status != .retired && $0.name.caseInsensitiveCompare(name) == .orderedSame
+        }
+        let side: Side = match.map { .meal($0.id) } ?? .item(name)
+        let isRepeat = sides.contains { existing in
+            switch (existing, side) {
+            case let (.item(old), .item(new)): old.caseInsensitiveCompare(new) == .orderedSame
+            default: existing == side
+            }
+        }
+        if !isRepeat { sides.append(side) }
     }
 
     /// Adds typed or pasted ingredients ("1 lb ground beef, taco shells") as lines.
@@ -101,9 +158,22 @@ struct MealDraft: Equatable, Sendable {
         guard steps.count <= 50 else { throw .tooManySteps }
         guard Self.length(steps.joined()) <= 20_000 else { throw .stepsTooLong }
 
+        var savedSides: [Saved.Side] = []
+        for side in sides {
+            switch side {
+            case .meal(let id):
+                savedSides.append(.meal(id))
+            case .item(let typed):
+                let name = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !name.isEmpty else { continue }
+                guard Self.length(name) <= 60 else { throw .ingredientTooLong }
+                savedSides.append(.item(name))
+            }
+        }
+
         return Saved(
             name: name, servings: servings, tags: MealTag.allCases.filter(tags.contains), steps: steps,
-            sourceURL: try Self.webLink(link), madeByMemberID: madeByMemberID, lines: savedLines
+            sourceURL: try Self.webLink(link), madeByMemberID: madeByMemberID, lines: savedLines, sides: savedSides
         )
     }
 

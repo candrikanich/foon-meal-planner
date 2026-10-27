@@ -183,6 +183,20 @@ struct HouseholdClientLiveTests {
         #expect(try await library.meals(household.id).first { $0.id == nameOnly }?.ingredients.isEmpty == true)
         #expect(Set(try await library.itemNames(household.id)).isSuperset(of: ["chicken broth", "egg noodles"]))
 
+        var withSides = MealDraft(saved)
+        withSides.addSide("Soup night", library: try await library.meals(household.id))
+        withSides.addSide("Garlic bread", library: [])
+        try await library.save(id, withSides.validated())
+        let sided = try #require(try await library.meals(household.id).first { $0.id == id })
+        #expect(sided.sides.first == .meal(soupID))
+        #expect(sided.sides.count == 2)
+        if case .item(_, let name) = sided.sides.last { #expect(name == "Garlic bread") } else { Issue.record("item side") }
+        var noSides = MealDraft(sided)
+        noSides.sides = []
+        try await library.save(id, noSides.validated())
+        #expect(try await library.meals(household.id).first { $0.id == id }?.sides.isEmpty == true,
+                "removing every side reaches the database")
+
         let items = ItemClient.live(supabase)
         let broth = try #require(soup.ingredients.first)
         try await items.update(broth.itemID, ItemChanges(note: .some("low sodium"), category: .pantry))
