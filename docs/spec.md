@@ -105,7 +105,13 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 - Long-press: Archive, or Back in rotation for archived meals (planners only). Plan it joins the menu with This Week (#23).
 - Browse ideas lists the catalog by category; planners copy a dish into the library with one tap, and adding it again returns the copy already there, even a retired one: a dish the dislike rule retired stays retired.
 
-**Meal detail.** Hero photo with "Replace with yours"; tags and allergy flags with Make it safe; every family member's current verdict, visible to all; history and frequency ("Made 8 times, about every 2 weeks"); editable ingredients with Add to list; optional recipe steps and source link; prep steps; comments; per-person serving notes ("Nora: keep everything separate before mixing"), shown on day cards and in cook mode when that person is home; actions Plan it, Copy and tweak, Archive.
+**Meal detail.** Hero photo with "Replace with yours"; tags and allergy flags (Make it safe comes later; see Allergies); every family member's current verdict, visible to all; history and frequency ("Made 8 times, about every 2 weeks"); editable ingredients with Add to list; optional recipe steps and source link; prep steps; comments; per-person serving notes ("Nora: keep everything separate before mixing"), shown on day cards and in cook mode when that person is home; actions Plan it, Copy and tweak, Archive.
+
+- v1 (#19): ingredients are edited as lines (amount and name), typed or pasted naturally with autocomplete from the library. New items take the starter pack's category for the same name, else Other. Saving writes the meal and its lines together.
+- Add to list puts an ingredient (or all of them) on the quick list; anyone in the family can, offline too.
+- Copy and tweak makes "Name (copy)" with the recipe, prep, and ingredients, but not the photo or the catalog link, and opens the editor on it. Retired meals aren't copied, so the dislike rule holds.
+- Steps are optional, one per line; typed numbering ("1.", "Step 2:") is dropped. Links must be web addresses; "example.com" gains https.
+- Verdicts, comments, serving notes, and frequency ("about every 2 weeks") need ratings and dinner logs (M2). Plan it joins with This Week (#23).
 
 **Frequency awareness.** Overuse nudges ("Tacos 3 times in 2 weeks"), neglect nudges ("No pot roast in 7 weeks"), and recap callouts make the log the planner's memory.
 
@@ -281,7 +287,7 @@ iOS-only, multiplatform SwiftUI (iPhone, iPad, Mac) on Supabase, with a local ca
 | members | household, first name, avatar, adult or kid, guardian, role (planner, member), status (active, away, removed), user link (null until claimed), attendance defaults |
 | allergies | member, category, custom text (guardians edit; needs allergy consent) |
 | consents | household, member (kid, for parental), kind (allergy data, parental), granted by, granted at, revoked at, wording version; append-only |
-| meals | household, name, servings, tags, prep steps, source URL, status (active, trial, archived, retired) |
+| meals | household, name, servings, tags, prep steps, recipe steps, source URL, photo, made by, status (active, trial, archived, retired) |
 | meal\_ingredients | meal, item, quantity (optional) |
 | items | household, canonical name, keep-on-hand flag, stock state (in, low, out) |
 | plans / plan\_nights | week start; per night: date, meal, effort, dinner time, locked, event flag |

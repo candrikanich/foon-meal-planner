@@ -29,7 +29,7 @@ struct LibraryView: View {
             .background(Palette.cream)
             .navigationTitle("Library")
             .navigationDestination(for: UUID.self) { id in
-                MealSummaryView(mealID: id)
+                MealDetailView(mealID: id, canEdit: canEdit)
             }
             .searchable(text: $library.search, prompt: Text("Meals or ingredients"))
             .toolbar { toolbar }
@@ -160,28 +160,6 @@ private struct CatalogMatches: View {
             }
         }
         .padding(.top, 8)
-    }
-}
-
-/// Until meal detail (#19) lands: the meal's name and ingredients.
-private struct MealSummaryView: View {
-    @Environment(LibraryStore.self) private var library
-    let mealID: UUID
-
-    var body: some View {
-        if let meal = library.meals.first(where: { $0.id == mealID }) {
-            List {
-                Section("Ingredients") {
-                    if meal.ingredients.isEmpty {
-                        Text("No ingredients yet").foregroundStyle(.secondary)
-                    }
-                    ForEach(Array(meal.ingredients.enumerated()), id: \.offset) { _, line in
-                        LabeledContent(line.name, value: line.quantityText ?? "")
-                    }
-                }
-            }
-            .navigationTitle(meal.name)
-        }
     }
 }
 

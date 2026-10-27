@@ -147,8 +147,35 @@ struct HouseholdClientLiveTests {
         #expect(meal.ingredients.map(\.name) == tacos.ingredients)
         #expect(meal.ingredients.map(\.position) == meal.ingredients.map(\.position).sorted())
 
+        var draft = MealDraft(meal)
+        draft.name = "Our tacos"
+        draft.stepsText = "Brown the beef\nWarm the shells"
+        draft.link = "example.com/tacos"
+        draft.tags = [.quick, .backup]
+        draft.addIngredients("2 cups shredded cheese, Grandma's spice mix")
+        try await library.save(id, draft.validated())
+        let saved = try #require(try await library.meals(household.id).first { $0.id == id })
+        #expect(saved.name == "Our tacos")
+        #expect(saved.steps == ["Brown the beef", "Warm the shells"])
+        #expect(saved.sourceURL?.absoluteString == "https://example.com/tacos")
+        #expect(saved.tags == [.quick, .backup])
+        #expect(saved.ingredients.suffix(2).map(\.name) == ["shredded cheese", "Grandma's spice mix"])
+        #expect(saved.ingredients.last?.quantityText == nil)
+        #expect(saved.prepSteps == meal.prepSteps)
+
+        let copyID = try await library.copy(id, "Our tacos, spicy")
+        let copy = try #require(try await library.meals(household.id).first { $0.id == copyID })
+        #expect(copy.ingredients.map(\.name) == saved.ingredients.map(\.name))
+        #expect(copy.catalogMealID == nil)
+
+        try await library.setPhoto(saved, try PhotoPreparation.prepare(try Self.sampleJPEG()))
+        let photoPath = try #require(try await library.meals(household.id).first { $0.id == id }?.photoPath)
+        #expect(photoPath.hasPrefix(household.id.uuidString.lowercased() + "/meals/"))
+        let (_, response) = try await URLSession.shared.data(from: try await library.photoURL(photoPath))
+        #expect((response as? HTTPURLResponse)?.statusCode == 200, "the new photo is readable through a signed URL")
+
         try await library.setStatus(id, .archived)
-        #expect(try await library.meals(household.id).first?.status == .archived)
+        #expect(try await library.meals(household.id).first { $0.id == id }?.status == .archived)
         #expect(try await library.history(household.id).isEmpty, "nothing has been made yet")
         #expect(try await library.allergies(household.id).isEmpty)
     }

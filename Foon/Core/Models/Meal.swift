@@ -9,6 +9,18 @@ enum MealTag: String, Codable, CaseIterable, Sendable {
     case leftovers
     case backup
     case beginner
+
+    var title: String {
+        switch self {
+        case .quick: String(localized: "Quick")
+        case .grill: String(localized: "Needs grill")
+        case .slowCooker: String(localized: "Slow cooker")
+        case .thawFirst: String(localized: "Thaw first")
+        case .leftovers: String(localized: "Makes leftovers")
+        case .backup: String(localized: "Backup dinner")
+        case .beginner: String(localized: "Beginner-friendly")
+        }
+    }
 }
 
 /// Mirrors Postgres `meal_status`. Archived meals are recoverable; retired ones were dropped by dislike rules.
@@ -22,6 +34,8 @@ enum MealStatus: String, Codable, Sendable {
 }
 
 struct MealIngredient: Codable, Equatable, Sendable {
+    /// The household item the line points at, for Add to list.
+    let itemID: UUID
     let name: String
     let quantityText: String?
     let position: Int
@@ -41,6 +55,22 @@ struct LibraryMeal: Identifiable, Equatable, Sendable {
     let createdAt: Date
     /// In recipe order.
     var ingredients: [MealIngredient]
+    /// Optional recipe steps, in order.
+    var steps: [String]
+    var sourceURL: URL?
+    /// Things to start ahead of dinner (thaw, marinate, slow cooker).
+    var prepSteps: [PrepStep]
+}
+
+/// One `meals.prep_steps` entry: `{"step": "Thaw the beef", "lead_hours": 24}`.
+struct PrepStep: Codable, Equatable, Sendable {
+    let step: String
+    let leadHours: Int?
+
+    private enum CodingKeys: String, CodingKey {
+        case step
+        case leadHours = "lead_hours"
+    }
 }
 
 /// Times made and last made, from the `meal_history` view.

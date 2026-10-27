@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import Supabase
 
 /// The library screen's state: the household's meals, the catalog, and the chosen filter, sort, and search.
 @Observable @MainActor
@@ -11,6 +12,8 @@ final class LibraryStore {
     private(set) var errorMessage: String?
     /// Dishes being copied in, so their Add buttons don't fire twice.
     private(set) var addingDishIDs: Set<UUID> = []
+    /// Meals being copied (Copy and tweak), for the same reason.
+    private(set) var copyingMealIDs: Set<UUID> = []
 
     var filter: LibraryFilter?
     var sort: LibrarySort = .notLately
@@ -120,12 +123,116 @@ final class LibraryStore {
         }
     }
 
+    func meal(_ id: UUID) -> LibraryMeal? {
+        meals.first { $0.id == id }
+    }
+
+    func entry(_ id: UUID) -> LibraryEntry? {
+        LibraryQuery.entries(meals: meals.filter { $0.id == id }, history: history, allergies: allergies,
+                             favorites: favorites).first
+    }
+
+    /// Every ingredient name in the library, for autocomplete while typing.
+    var ingredientNames: [String] {
+        Array(Set(meals.flatMap { $0.ingredients.map(\.name) }))
+    }
+
+    var activeMembers: [Member] {
+        members.filter { $0.status != .removed }
+    }
+
+    /// Saves an edited meal. Problems the editor can explain stop before the server.
+    func save(_ draft: MealDraft, mealID: UUID) async -> Bool {
+        let saved: MealDraft.Saved
+        do {
+            saved = try draft.validated()
+        } catch {
+            errorMessage = error.message
+            return false
+        }
+        do {
+            try await client.save(mealID, saved)
+            await load(members: members)
+            return true
+        } catch {
+            errorMessage = Self.refusal(error)
+                ?? String(localized: "Couldn't save the meal. Check your connection and try again.")
+            return false
+        }
+    }
+
+    func isCopying(_ meal: LibraryMeal) -> Bool {
+        copyingMealIDs.contains(meal.id)
+    }
+
+    /// Copy and tweak. Returns the copy's id once it's loaded, so the editor can open on it.
+    func copy(_ meal: LibraryMeal) async -> UUID? {
+        guard Self.canCopy(meal), !copyingMealIDs.contains(meal.id) else { return nil }
+        copyingMealIDs.insert(meal.id)
+        defer { copyingMealIDs.remove(meal.id) }
+        do {
+            let id = try await client.copy(meal.id, MealDraft.copyName(for: meal.name))
+            await load(members: members)
+            guard self.meal(id) != nil else {
+                errorMessage = String(localized: "The copy was made but hasn't loaded yet. Pull to refresh the library.")
+                return nil
+            }
+            return id
+        } catch {
+            errorMessage = Self.refusal(error)
+                ?? String(localized: "Couldn't copy \(meal.name). Check your connection and try again.")
+            return nil
+        }
+    }
+
+    func reportPhotoLoadFailure() {
+        errorMessage = String(localized: "Couldn't open that photo. Try another one.")
+    }
+
+    /// Replaces the meal's photo. The picture is re-encoded first, which strips location and other metadata.
+    func setPhoto(_ imageData: Data, for meal: LibraryMeal) async -> Bool {
+        let prepared: Data
+        do {
+            prepared = try PhotoPreparation.prepare(imageData)
+        } catch {
+            errorMessage = String(localized: "That file isn't a photo Foon can use.")
+            return false
+        }
+        do {
+            try await client.setPhoto(meal, prepared)
+            await load(members: members)
+            return true
+        } catch {
+            errorMessage = Self.refusal(error)
+                ?? String(localized: "Couldn't upload the photo. Check your connection and try again.")
+            return false
+        }
+    }
+
     func photoURL(for path: String) async throws -> URL {
         if let cached = photoURLs[path], cached.expires > .now { return cached.url }
         let url = try await client.photoURL(path)
         // Refresh a little before the signed URL lapses.
         photoURLs[path] = (url, .now.addingTimeInterval(Double(PhotoStorageClient.signedURLLifetime) - 60))
         return url
+    }
+
+    /// A retired meal isn't copied: the copy would start its ratings over and undo the dislike rule.
+    static func canCopy(_ meal: LibraryMeal) -> Bool {
+        meal.status != .retired
+    }
+
+    /// The server said no for a reason worth showing, rather than a connection problem.
+    static func refusal(_ error: any Error) -> String? {
+        if case LibraryClientError.notAllowed = error {
+            return String(localized: "You can't change this meal. Only planners can.")
+        }
+        switch (error as? PostgrestError)?.code {
+        case "42501": return String(localized: "You can't change this meal. Only planners can.")
+        case "P0002": return String(localized: "That meal isn't in your library anymore. Pull to refresh.")
+        case "23514", "22001": return String(localized: "Something in this meal is too long to save.")
+        default: return nil
+        }
     }
 
     /// Only archived meals come back; retired ones were dropped by the family's dislikes.

@@ -1,4 +1,5 @@
 import Foundation
+import Supabase
 import Synchronization
 import Testing
 @testable import Foon
@@ -174,6 +175,144 @@ struct LibraryStoreTests {
         #expect(store.catalogMatches.map(\.name) == ["Fish tacos"])
     }
 
+    @Test func savingSendsTheValidatedMealAndReloads() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let saved = Mutex<MealDraft.Saved?>(nil)
+        let store = LibraryStore(householdID: household, client: .fake(
+            meals: { _ in [saved.withLock { $0 }.map { LibraryMeal.fixture(id: tacos.id, name: $0.name) } ?? tacos] },
+            save: { id, meal in
+                #expect(id == tacos.id)
+                saved.withLock { $0 = meal }
+            }
+        ))
+        await store.load(members: [])
+        var draft = MealDraft(tacos)
+        draft.name = "  Our tacos "
+        #expect(await store.save(draft, mealID: tacos.id))
+        #expect(saved.withLock { $0 }?.name == "Our tacos")
+        #expect(store.meals.first?.name == "Our tacos")
+    }
+
+    @Test func anInvalidDraftNeverReachesTheServer() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let store = LibraryStore(householdID: household, client: .fake(
+            meals: { _ in [tacos] },
+            save: { _, _ in Issue.record("should not be called") }
+        ))
+        await store.load(members: [])
+        var draft = MealDraft(tacos)
+        draft.name = ""
+        #expect(!(await store.save(draft, mealID: tacos.id)))
+        #expect(store.errorMessage == MealDraft.Problem.nameMissing.message)
+    }
+
+    @Test func aFailedSaveSaysSo() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let store = LibraryStore(householdID: household, client: .fake(
+            meals: { _ in [tacos] },
+            save: { _, _ in throw URLError(.notConnectedToInternet) }
+        ))
+        await store.load(members: [])
+        #expect(!(await store.save(MealDraft(tacos), mealID: tacos.id)))
+        #expect(store.errorMessage != nil)
+    }
+
+    @Test func copyAndTweakMakesANamedCopy() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let copyID = UUID()
+        let copied = Mutex(false)
+        let store = LibraryStore(householdID: household, client: .fake(
+            meals: { _ in copied.withLock { $0 } ? [tacos, .fixture(id: copyID, name: "Tacos (copy)")] : [tacos] },
+            copy: { id, name in
+                #expect(id == tacos.id)
+                #expect(name == "Tacos (copy)")
+                copied.withLock { $0 = true }
+                return copyID
+            }
+        ))
+        await store.load(members: [])
+        #expect(await store.copy(tacos) == copyID)
+        #expect(store.meal(copyID)?.name == "Tacos (copy)")
+    }
+
+    @Test func copyingTwiceAtOnceMakesOneCopy() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let gate = AsyncStream<Void>.makeStream()
+        let copies = Mutex(0)
+        let store = LibraryStore(householdID: household, client: .fake(
+            meals: { _ in [tacos] },
+            copy: { _, _ in
+                copies.withLock { $0 += 1 }
+                for await _ in gate.stream { break }
+                return UUID()
+            }
+        ))
+        await store.load(members: [])
+        async let first = store.copy(tacos)
+        while copies.withLock({ $0 }) == 0 { await Task.yield() }
+        #expect(store.isCopying(tacos))
+        #expect(await store.copy(tacos) == nil)
+        gate.continuation.yield()
+        _ = await first
+        #expect(copies.withLock { $0 } == 1)
+        #expect(!store.isCopying(tacos))
+    }
+
+    @Test func aCopyThatDoesNotShowUpSaysSo() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let store = LibraryStore(householdID: household, client: .fake(meals: { _ in [tacos] }))
+        await store.load(members: [])
+        #expect(await store.copy(tacos) == nil)
+        #expect(store.errorMessage != nil)
+    }
+
+    @Test func retiredMealsAreNotCopied() {
+        #expect(LibraryStore.canCopy(.fixture(status: .active)))
+        #expect(LibraryStore.canCopy(.fixture(status: .archived)))
+        #expect(!LibraryStore.canCopy(.fixture(status: .retired)))
+    }
+
+    @Test(arguments: [
+        ("42501", "You can't change this meal. Only planners can."),
+        ("P0002", "That meal isn't in your library anymore. Pull to refresh.")
+    ])
+    func serverRefusalsAreNotBlamedOnTheConnection(code: String, message: String) async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let store = LibraryStore(householdID: household, client: .fake(
+            meals: { _ in [tacos] },
+            save: { _, _ in throw PostgrestError(code: code, message: "refused") }
+        ))
+        await store.load(members: [])
+        #expect(!(await store.save(MealDraft(tacos), mealID: tacos.id)))
+        #expect(store.errorMessage == message)
+    }
+
+    @Test func aPickedPhotoThatWontOpenSaysSo() async {
+        let store = LibraryStore(householdID: household, client: .fake())
+        store.reportPhotoLoadFailure()
+        #expect(store.errorMessage == "Couldn't open that photo. Try another one.")
+    }
+
+    @Test func aPhotoThatIsNotAnImageIsRefusedBeforeUpload() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let store = LibraryStore(householdID: household, client: .fake(
+            meals: { _ in [tacos] },
+            setPhoto: { _, _ in Issue.record("should not upload") }
+        ))
+        await store.load(members: [])
+        #expect(!(await store.setPhoto(Data("not a picture".utf8), for: tacos)))
+        #expect(store.errorMessage != nil)
+    }
+
+    @Test func autocompleteDrawsOnEveryIngredientInTheLibrary() async {
+        let store = LibraryStore(householdID: household, client: .fake(meals: { _ in [
+            .fixture(name: "Tacos", ingredients: ["ground beef", "taco shells"]),
+            .fixture(name: "Chili", ingredients: ["ground beef", "kidney beans"])
+        ] }))
+        await store.load(members: [])
+        #expect(store.ingredientNames.sorted() == ["ground beef", "kidney beans", "taco shells"])
+    }
+
     @Test func onlyPlannersChangeTheLibrary() {
         let ann = Member.fixture(firstName: "Ann", role: .planner, userID: UUID())
         let nora = Member.fixture(firstName: "Nora", ageGroup: .kid, userID: UUID())
@@ -191,9 +330,12 @@ extension LibraryClient {
         allergies: @escaping @Sendable (UUID) async throws -> [AllergyRow] = { _ in [] },
         setStatus: @escaping @Sendable (UUID, MealStatus) async throws -> Void = { _, _ in },
         addFromCatalog: @escaping @Sendable (UUID, UUID) async throws -> UUID = { _, _ in UUID() },
-        photoURL: @escaping @Sendable (String) async throws -> URL = { _ in throw URLError(.fileDoesNotExist) }
+        photoURL: @escaping @Sendable (String) async throws -> URL = { _ in throw URLError(.fileDoesNotExist) },
+        save: @escaping @Sendable (UUID, MealDraft.Saved) async throws -> Void = { _, _ in },
+        copy: @escaping @Sendable (UUID, String) async throws -> UUID = { _, _ in UUID() },
+        setPhoto: @escaping @Sendable (LibraryMeal, Data) async throws -> Void = { _, _ in }
     ) -> LibraryClient {
         LibraryClient(meals: meals, history: history, catalog: catalog, allergies: allergies, setStatus: setStatus,
-                      addFromCatalog: addFromCatalog, photoURL: photoURL)
+                      addFromCatalog: addFromCatalog, photoURL: photoURL, save: save, copy: copy, setPhoto: setPhoto)
     }
 }
