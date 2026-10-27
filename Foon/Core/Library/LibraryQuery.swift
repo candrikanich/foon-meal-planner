@@ -90,6 +90,20 @@ enum LibraryQuery {
             .sorted { $0.sortOrder < $1.sortOrder }
     }
 
+    /// Starter dishes to offer a family whose library can't fill the week: popular ones first, then catalog order,
+    /// skipping any already copied in.
+    static func starterIdeas(_ catalog: [CatalogDish], library: [LibraryMeal], count: Int) -> [CatalogDish] {
+        let copied = copiedDishIDs(library)
+        return Array(catalog.filter { !copied.contains($0.id) }
+            .sorted { ($0.popular ? 0 : 1, $0.sortOrder) < ($1.popular ? 0 : 1, $1.sortOrder) }
+            .prefix(count))
+    }
+
+    /// Dishes in rotation not already planned this week: what Build could still draw from.
+    static func unusedInRotation(_ library: [LibraryMeal], planned: Set<UUID>) -> Int {
+        library.filter { $0.status.isInRotation && !planned.contains($0.id) }.count
+    }
+
     /// Catalog dishes the library already holds, in any status. A retired copy counts: re-adding it would
     /// start its ratings over and undo the dislike rule.
     static func copiedDishIDs(_ library: [LibraryMeal]) -> Set<UUID> {

@@ -13,6 +13,7 @@ struct WeekView: View {
     @State private var openNight: UUID?
     @State private var swappingNight: UUID?
     @State private var showingTraditions = false
+    @State private var browsingIdeas = false
     @State private var showingPast = false
 
     private var canPlan: Bool {
@@ -51,6 +52,9 @@ struct WeekView: View {
             .sheet(isPresented: $showingTraditions) {
                 TraditionsView()
             }
+            .sheet(isPresented: $browsingIdeas) {
+                CatalogBrowserView(canAdd: true)
+            }
         }
         .task(id: LoadKey(householdID: household.household?.id, next: week.showingNextWeek,
                           weekStart: settings.weekStart, today: week.todayDay)) {
@@ -79,7 +83,10 @@ struct WeekView: View {
     /// Waits for the household, so the first load uses its real shopping day.
     private func load() async {
         guard household.household != nil else { return }
+        // The library (for flags, sides, and Build) loads alongside the week, not before it.
+        async let libraryLoad: Void = canPlan && !library.hasLoaded ? library.load(members: household.members) : ()
         await week.load(settings: settings)
+        await libraryLoad
         if canPlan { await week.fillInMissing(members: household.members) }
     }
 
@@ -118,6 +125,10 @@ struct WeekView: View {
                     .disabled(week.isBuilding)
             }
         }
+        let unfillable = layout.emptyNights.filter { week.unfillableNights.contains($0.id) }.count
+        if canPlan, library.hasLoaded, unfillable > 0 {
+            smallLibrary(unfillable: unfillable, planned: Set(layout.ahead.compactMap(\.mealID)))
+        }
         ForEach(layout.ahead) { night in
             card(night)
         }
@@ -140,6 +151,41 @@ struct WeekView: View {
             .contentShape(Rectangle())
             .onTapGesture { openNight = night.id }
             .accessibilityAction(named: Text("Open night")) { openNight = night.id }
+    }
+
+    /// Build left nights open rather than repeat a dish or break a rule, so offer a few starters to widen the choice.
+    private func smallLibrary(unfillable: Int, planned: Set<UUID>) -> some View {
+        let count = library.meals.filter(\.status.isInRotation).count
+        let tooFew = LibraryQuery.unusedInRotation(library.meals, planned: planned) < unfillable
+        return VStack(alignment: .leading, spacing: 10) {
+            Group {
+                if tooFew {
+                    Text(count == 1 ? String(localized: "Your library has 1 meal")
+                                    : String(localized: "Your library has \(count) meals"))
+                } else {
+                    Text(unfillable == 1 ? String(localized: "Nothing fit 1 night")
+                                         : String(localized: "Nothing fit \(unfillable) nights"))
+                }
+            }
+            .font(.foonHeadline)
+            Text(tooFew ? String(localized: "Add a few family favorites so Foon can fill the week.")
+                        : String(localized: "Add a few dishes to widen the choice, then fill the rest."))
+                .font(.foonCaption)
+                .foregroundStyle(.secondary)
+            if let message = library.errorMessage {
+                Text(message).font(.callout).foregroundStyle(.red)
+            }
+            ForEach(LibraryQuery.starterIdeas(library.catalog, library: library.meals, count: 3)) { dish in
+                CatalogDishRow(dish: dish, canAdd: true)
+            }
+            Button("Browse ideas") { browsingIdeas = true }
+                .font(.foonCaption)
+                .tint(Palette.paprika)
+        }
+        .onAppear { library.clearError() }
+        .onDisappear { library.clearError() }
+        .padding()
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Palette.cardSurface))
     }
 
     private var emptyState: some View {

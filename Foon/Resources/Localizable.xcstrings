@@ -66,6 +66,9 @@
     "%lld hours ahead" : {
 
     },
+    "%lld more people" : {
+
+    },
     "%lld nights still open" : {
 
     },
@@ -73,6 +76,9 @@
 
     },
     "%lld." : {
+
+    },
+    "+%lld" : {
 
     },
     "1 day ahead" : {
@@ -109,6 +115,12 @@
 
     },
     "Add %@ to your library" : {
+
+    },
+    "Add a few dishes to widen the choice, then fill the rest." : {
+
+    },
+    "Add a few family favorites so Foon can fill the week." : {
 
     },
     "Add a household name and your first name." : {
@@ -659,6 +671,9 @@
     "No suggestions fit this night. Search your meals instead." : {
 
     },
+    "Nobody's home" : {
+      "comment" : "Reason chip: everyone is out that night"
+    },
     "None" : {
 
     },
@@ -680,6 +695,12 @@
     "Nothing archived" : {
 
     },
+    "Nothing fit %lld nights" : {
+
+    },
+    "Nothing fit 1 night" : {
+
+    },
     "Nothing fits tonight" : {
       "comment" : "Reason chip: no dish passed the filters"
     },
@@ -693,6 +714,9 @@
 
     },
     "Open night" : {
+
+    },
+    "Opens the night to see everyone" : {
 
     },
     "Optional. A side from your library brings its ingredients to the list." : {
@@ -1050,6 +1074,12 @@
 
     },
     "Your household is ready. Pull to refresh to see your family." : {
+
+    },
+    "Your library has %lld meals" : {
+
+    },
+    "Your library has 1 meal" : {
 
     },
     "Your meals" : {

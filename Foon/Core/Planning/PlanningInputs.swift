@@ -15,6 +15,8 @@ struct PlanningNight: Identifiable, Equatable, Sendable {
     var home: Set<UUID> { Set(attendance.filter(\.value).keys) }
     /// Everyone with a row is home. A night with no rows (a household of nobody yet) counts as full.
     var isFullAttendance: Bool { attendance.values.allSatisfy { $0 } }
+    /// Everyone's out. A night with no rows isn't: it just hasn't been laid out.
+    var isNobodyHome: Bool { !attendance.isEmpty && home.isEmpty }
 
     init(id: UUID, date: CalendarDay, effort: NightEffort = .normal, attendance: [UUID: Bool] = [:],
          locked: Bool = false, mealID: UUID? = nil, quickPick: QuickPick? = nil) {
@@ -163,6 +165,8 @@ enum PlanReason: Equatable, Hashable, Sendable {
     case leftoversNight
     case takeoutOnBusiestNight
     case tradition(name: String?)
+    /// Everyone's out: no dinner to plan, so nothing lands on the list.
+    case nobodyHome
     case nothingFits
 
     var text: String {
@@ -192,6 +196,7 @@ enum PlanReason: Equatable, Hashable, Sendable {
         case .takeoutOnBusiestNight: String(localized: "Takeout on the busiest night", comment: "Reason chip")
         case .tradition(let name?): name
         case .tradition(nil): String(localized: "Tradition", comment: "Reason chip: a standing weekday tradition")
+        case .nobodyHome: String(localized: "Nobody's home", comment: "Reason chip: everyone is out that night")
         case .nothingFits: String(localized: "Nothing fits tonight", comment: "Reason chip: no dish passed the filters")
         }
     }

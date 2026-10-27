@@ -21,6 +21,8 @@ final class WeekStore {
     /// The last write queued per night, so the next one waits for it.
     private var lastWrite: [UUID: Task<Void, Never>] = [:]
     private(set) var isBuilding = false
+    /// Nights the last build couldn't fill (nothing passed the filters): This Week offers starter dishes for them.
+    private(set) var unfillableNights: Set<UUID> = []
     /// The household's standing traditions, at most one per weekday.
     private(set) var traditions: [Tradition] = []
     /// False until traditions load: Build won't run without them, or it would quietly skip Taco Tuesday.
@@ -189,6 +191,9 @@ final class WeekStore {
     private func apply(_ plans: [NightPlan], inputs: PlanningInputs) async {
         guard let planID = week?.planID else { return }
         let kept = Set(inputs.nights.filter { $0.locked || $0.effort == .event || $0.date < inputs.today }.map(\.id))
+        let drafted = Set(plans.map(\.nightID))
+        unfillableNights = unfillableNights.subtracting(drafted)
+            .union(plans.filter { $0.reason == .nothingFits }.map(\.nightID))
         let updates = plans.filter { !kept.contains($0.nightID) && $0.pick != nil }.map { plan in
             NightUpdate(nightID: plan.nightID, mealID: plan.pick?.mealID, quickPick: plan.pick?.quickPick,
                         reason: plan.reason?.text, locked: plan.locks ? true : nil)
@@ -240,6 +245,7 @@ final class WeekStore {
         }
         let lock = choice != .empty
         let saved = update
+        if lock { unfillableNights.remove(nightID) }
         week?.nights[index].mealID = update.mealID
         week?.nights[index].mealName = mealName
         week?.nights[index].quickPick = update.quickPick

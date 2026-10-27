@@ -99,6 +99,15 @@ enum DayCardText {
         return String(localized: "with \(list)", comment: "Side dishes after a meal name: a list of sides")
     }
 
+    /// A big family's card shows six avatars and a "+N"; VoiceOver and night detail still list everyone. Whoever's
+    /// away goes first, so the exception is never the one hidden.
+    static func visibleAttendees(_ attendees: [DayCardModel.Attendee], limit: Int = 6)
+        -> (visible: [DayCardModel.Attendee], hidden: Int) {
+        guard attendees.count > limit else { return (attendees, 0) }
+        let awayFirst = attendees.filter { !$0.isHome } + attendees.filter(\.isHome)
+        return (Array(awayFirst.prefix(limit)), attendees.count - limit)
+    }
+
     static func badgeLabel(_ badge: DayCardModel.Badge) -> String {
         switch badge {
         case .allergy(let text), .tradition(let text), .prep(let text): text
