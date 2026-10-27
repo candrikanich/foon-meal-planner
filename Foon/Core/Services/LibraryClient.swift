@@ -34,6 +34,10 @@ struct LibraryClient: Sendable {
     var save: @Sendable (_ mealID: UUID, _ meal: MealDraft.Saved) async throws -> Void
     /// Copy and tweak: returns the new meal's id.
     var copy: @Sendable (_ mealID: UUID, _ name: String) async throws -> UUID
+    /// Quick add: creates a meal with its ingredient lines and returns its id.
+    var create: @Sendable (_ householdID: UUID, _ meal: MealDraft.Saved) async throws -> UUID
+    /// Every item the household has used (meals and lists), for autocomplete.
+    var itemNames: @Sendable (_ householdID: UUID) async throws -> [String]
     /// Uploads a prepared JPEG and points the meal at it.
     var setPhoto: @Sendable (_ meal: LibraryMeal, _ preparedJPEG: Data) async throws -> Void
 }
@@ -105,6 +109,22 @@ extension LibraryClient {
                 .execute()
                 .value
                 return meal.id
+            },
+            create: { householdID, meal in
+                let created: AddedMeal = try await client.rpc(
+                    "create_meal", params: CreateMealParams(householdID: householdID, meal: meal)
+                )
+                .execute()
+                .value
+                return created.id
+            },
+            itemNames: { householdID in
+                let rows: [ItemName] = try await client.from("items")
+                    .select("canonical_name")
+                    .eq("household_id", value: householdID)
+                    .execute()
+                    .value
+                return rows.map(\.canonicalName)
             },
             setPhoto: { meal, preparedJPEG in
                 let path = try await photos.upload(meal.householdID, preparedJPEG)
@@ -226,6 +246,11 @@ private struct SaveMealParams: Encodable, Sendable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(mealID, forKey: .mealID)
+        try Self.encodeFields(of: meal, to: encoder)
+    }
+
+    static func encodeFields(of meal: MealDraft.Saved, to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(meal.name, forKey: .name)
         try container.encode(meal.servings, forKey: .servings)
         try container.encode(meal.tags, forKey: .tags)
@@ -234,6 +259,28 @@ private struct SaveMealParams: Encodable, Sendable {
         try container.encode(meal.madeByMemberID, forKey: .madeBy)
         try container.encode(meal.lines, forKey: .lines)
     }
+}
+
+private struct CreateMealParams: Encodable, Sendable {
+    let householdID: UUID
+    let meal: MealDraft.Saved
+
+    private enum CodingKeys: String, CodingKey {
+        case householdID = "target_household"
+    }
+
+    /// The same arguments as save_meal, with the household in place of the meal.
+    func encode(to encoder: Encoder) throws {
+        try SaveMealParams.encodeFields(of: meal, to: encoder)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(householdID, forKey: .householdID)
+    }
+}
+
+private struct ItemName: Decodable, Sendable {
+    let canonicalName: String
+
+    enum CodingKeys: String, CodingKey { case canonicalName = "canonical_name" }
 }
 
 private struct AddedMeal: Decodable, Sendable {

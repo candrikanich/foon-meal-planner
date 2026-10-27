@@ -45,6 +45,9 @@
     "1 hour ahead" : {
 
     },
+    "1 lb ground beef, taco shells, cheese" : {
+
+    },
     "A last name or a nickname. Everyone you invite will see it." : {
 
     },
@@ -313,6 +316,9 @@
     "Ingredients" : {
 
     },
+    "Ingredients (optional)" : {
+
+    },
     "Invite" : {
 
     },
@@ -378,6 +384,9 @@
 
     },
     "Makes leftovers" : {
+
+    },
+    "Meal name" : {
 
     },
     "Meal names need 80 characters or fewer." : {
@@ -485,6 +494,9 @@
     "Quick" : {
 
     },
+    "Quick add" : {
+
+    },
     "Recently added" : {
 
     },
@@ -522,6 +534,9 @@
 
     },
     "Sends a link and a code so %@ can join on their own device. Codes work once and expire in 7 days." : {
+
+    },
+    "Separate them with commas or new lines. You can add them later too." : {
 
     },
     "Serves %lld" : {
@@ -666,6 +681,9 @@
 
     },
     "Who they are" : {
+
+    },
+    "Will add" : {
 
     },
     "Withdraw consent" : {

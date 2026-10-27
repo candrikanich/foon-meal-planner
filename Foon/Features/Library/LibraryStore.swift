@@ -20,6 +20,7 @@ final class LibraryStore {
     var search = ""
 
     private var history: [MealHistory] = []
+    private var itemNames: [String] = []
     private var allergies: [MemberAllergies] = []
     private var members: [Member] = []
     /// Bumped per load, so a slower, older load never overwrites a newer one.
@@ -78,12 +79,14 @@ final class LibraryStore {
             async let history = client.history(householdID)
             async let catalog = client.catalog()
             async let allergyRows = client.allergies(householdID)
-            let loaded = try await (meals, history, catalog, allergyRows)
+            async let itemNames = client.itemNames(householdID)
+            let loaded = try await (meals, history, catalog, allergyRows, itemNames)
             guard generation == loadGeneration else { return }
             self.meals = loaded.0
             self.history = loaded.1
             self.catalog = loaded.2
             allergies = Self.memberAllergies(loaded.3, members: members)
+            self.itemNames = loaded.4
             hasLoaded = true
             errorMessage = nil
         } catch {
@@ -132,9 +135,9 @@ final class LibraryStore {
                              favorites: favorites).first
     }
 
-    /// Every ingredient name in the library, for autocomplete while typing.
+    /// Every item the household has used, in meals or on lists, for autocomplete while typing.
     var ingredientNames: [String] {
-        Array(Set(meals.flatMap { $0.ingredients.map(\.name) }))
+        Array(Set(meals.flatMap { $0.ingredients.map(\.name) } + itemNames))
     }
 
     var activeMembers: [Member] {
@@ -163,6 +166,28 @@ final class LibraryStore {
 
     func isCopying(_ meal: LibraryMeal) -> Bool {
         copyingMealIDs.contains(meal.id)
+    }
+
+    /// Quick add: a name and, optionally, ingredients typed naturally. Returns the new meal's id.
+    func quickAdd(name: String, ingredients: String) async -> UUID? {
+        var draft = MealDraft(newNamed: name)
+        draft.addIngredients(ingredients)
+        let saved: MealDraft.Saved
+        do {
+            saved = try draft.validated()
+        } catch {
+            errorMessage = error.message
+            return nil
+        }
+        do {
+            let id = try await client.create(householdID, saved)
+            await load(members: members)
+            return id
+        } catch {
+            errorMessage = Self.refusal(error)
+                ?? String(localized: "Couldn't add \(saved.name). Check your connection and try again.")
+            return nil
+        }
     }
 
     /// Copy and tweak. Returns the copy's id once it's loaded, so the editor can open on it.

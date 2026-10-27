@@ -91,6 +91,8 @@ extension LibraryClient {
             photoURL: { _ in throw URLError(.fileDoesNotExist) },
             save: { _, _ in },
             copy: { _, _ in UUID() },
+            create: { _, _ in UUID() },
+            itemNames: { _ in ["paper towels", "milk", "bananas"] },
             setPhoto: { _, _ in }
         )
     }

@@ -85,7 +85,7 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 
 **Adding a meal**
 
-1. **Quick add:** type a name and save. Ingredients optional; an "add ingredients" badge reminds later. Ingredients typed naturally ("1 lb ground beef, taco shells, cheese") are split into items, with autocomplete from past items.
+1. **Quick add:** type a name and save. Ingredients optional; an "add ingredients" badge reminds later. Ingredients typed naturally ("1 lb ground beef, taco shells, cheese") are split into items, with autocomplete from past items. (v1: Library → Add → Quick add, for planners; autocomplete offers the household's items for the ingredient being typed, keeping its amount; the new meal opens when added.)
 2. **Copy and tweak:** duplicate a starter dish ("Tacos" to "Our tacos") and edit.
 3. **From a link:** recipe websites parse via embedded schema.org recipe data.
 4. **From a photo, screenshot, or PDF:** text recognition, then ingredient parsing (AI on capable devices).
