@@ -1,20 +1,23 @@
 import Foundation
 
 /// Build my week (docs/spec.md → Build my week algorithm): a pure `(inputs, seed) -> draft`.
-/// The same inputs and seed always give the same draft, on every device, so tests can pin exact results.
+/// The same inputs and seed always give the same draft, on every device and whatever order the library
+/// arrives in, so tests can pin exact results.
 ///
 /// Steps, in order:
-/// 1. **Keep** pinned nights and event nights as they are, then land dated requests on their nights.
-///    (Standing traditions, #31, will slot in here as another kind of kept night.)
-/// 2. **Special slots:** takeout on the busiest nights, new dishes on full-attendance nights, then leftover
-///    nights, each after a big-batch meal when one fits. Kept nights count toward each setting.
-/// 3. **Fill** the rest in date order with a weighted draw from dishes that pass every filter.
+/// 1. **Keep** pinned nights, event nights, and nights before `today` as they are, then land dated requests
+///    on their nights. (Standing traditions, #31, will slot in here as another kind of kept night.)
+/// 2. **Special slots:** takeout on the busiest nights, trial dishes on full-attendance nights, then leftover
+///    nights, each after a big-batch meal when one fits. Kept nights, past ones too, count toward each setting.
+/// 3. **Fill** the rest, rushed nights first and then in date order, with a weighted draw from dishes that
+///    pass every filter.
 enum BuildMyWeek {
     /// Scoring weights. A dish's weight is
     /// `recency × (1 + favorite × favoritesHome) × (1 + onHand × fractionOnHand) × (1 + like × likes)`.
     enum Weight {
-        /// Recency is days since last made, capped: past three months a dish is simply "due", and an uncapped
-        /// value would let one long-forgotten dish crowd out everything else.
+        /// Recency is days from last made to that night, capped: past three months a dish is simply "due",
+        /// and an uncapped value would let one long-forgotten dish crowd out everything else. A dish never
+        /// made counts as fully due.
         static let recencyCapDays = 90
         /// One favorite-er at the table triples the odds, two make it five times: the spec's "big boost",
         /// since cooking what someone home loves is the surest way to a happy table.
@@ -24,8 +27,14 @@ enum BuildMyWeek {
         /// A gentle nudge per thumbs-up, capped, so popular dishes lean ahead without taking over the week.
         static let likePerReaction = 0.1
         static let likeCap = 5
-        /// Advance-prep steps at least this long (thawing overnight) can't be done for the first night.
-        static let advancePrepLeadHours = 12
+    }
+
+    /// Advance prep (thawing, marinating) is measured in hours before dinner.
+    enum Prep {
+        /// Roughly morning to dinner on the day itself: an 8-hour slow cooker works tonight, a thaw doesn't.
+        static let hoursBeforeDinnerToday = 8
+        /// A thaw-first dish with no longer prep step needs a day in the fridge.
+        static let thawFirstLeadHours = 24
     }
 
     static func draft(_ inputs: PlanningInputs, seed: UInt64) -> [NightPlan] {
@@ -40,29 +49,40 @@ enum BuildMyWeek {
         return state.plans
     }
 
-    /// Re-rolls one night, leaving every other night exactly as it is. Never repeats a meal used elsewhere
-    /// in the week, and avoids the current pick so the night actually changes. Kept nights don't move, and a
-    /// night with no alternative stays as it was.
-    static func shuffle(night nightID: UUID, in draft: [NightPlan], inputs: PlanningInputs,
-                        seed: UInt64) -> [NightPlan] {
+    /// Re-rolls one night from the week as saved, leaving every other night alone. Returns nil when the night
+    /// stays as it is: it's kept (pinned, event, past, or a dated request), it holds a quick pick (changing a
+    /// night's kind is Swap's job, #25), or nothing else fits.
+    ///
+    /// Never picks a meal already in the week, the night's own included, so the night actually changes.
+    /// The slot keeps its kind: a trial dish draws trials first, and a big batch feeding tomorrow's leftovers
+    /// draws another big batch or stays put.
+    static func shuffle(night nightID: UUID, inputs: PlanningInputs, seed: UInt64) -> NightPlan? {
         let planner = Planner(inputs)
-        guard let index = draft.firstIndex(where: { $0.nightID == nightID }), !draft[index].isKept,
-              let night = planner.nights.first(where: { $0.id == nightID }), !planner.isKept(night)
-        else { return draft }
-        let used = Set(draft.compactMap(\.pick?.mealID))
-        var rng = SeededGenerator(seed: seed)
-        // A new-dish slot stays a new-dish slot, so a shuffle doesn't quietly change the week's mix.
-        let pools = draft[index].reason == .somethingNew
-            ? [planner.newMeals, planner.knownMeals] : [planner.knownMeals, planner.newMeals]
-        for pool in pools {
-            if let meal = planner.draw(for: night, from: pool, excluding: used, rng: &rng) {
-                var result = draft
-                result[index].pick = .meal(meal.id)
-                result[index].reason = planner.reason(for: meal, on: night)
-                return result
-            }
+        guard let index = planner.nights.firstIndex(where: { $0.id == nightID }) else { return nil }
+        let night = planner.nights[index]
+        guard !planner.isKept(night), !planner.isRequested(night), night.quickPick == nil else { return nil }
+        let used = Set(planner.nights.compactMap(\.mealID))
+        let current = night.mealID.flatMap { planner.mealsByID[$0] }
+        let feedsLeftovers = current?.tags.contains(.leftovers) == true && planner.nights.indices.contains(index + 1)
+            && planner.nights[index + 1].quickPick == .leftovers
+            && planner.nights[index + 1].date.days(since: night.date) == 1
+        let trialsElsewhere = planner.nights.filter { $0.id != nightID && planner.isTrial($0.mealID) }.count
+        let budgetLeft = trialsElsewhere < inputs.settings.newDishesPerWeek
+        let pools: [[LibraryMeal]] = if current?.status == .trial {
+            [planner.trialMeals, planner.knownMeals]
+        } else if current == nil || budgetLeft {
+            [planner.knownMeals, planner.trialMeals]
+        } else {
+            [planner.knownMeals]
         }
-        return draft
+        var rng = SeededGenerator(seed: seed)
+        for pool in pools {
+            guard let meal = planner.draw(for: night, from: pool, excluding: used,
+                                          requiring: feedsLeftovers ? .leftovers : nil, rng: &rng) else { continue }
+            return NightPlan(nightID: night.id, date: night.date, pick: .meal(meal.id),
+                             reason: feedsLeftovers ? .bigBatch : planner.reason(for: meal, on: night), isKept: false)
+        }
+        return nil
     }
 }
 
@@ -74,28 +94,34 @@ private struct Planner {
     let nights: [PlanningNight]
     let historyByMeal: [UUID: MealHistory]
     let mealsByID: [UUID: LibraryMeal]
-    /// Dishes the family knows: in rotation, made before, out of trial.
+    /// In-rotation dishes out of trial, including ones never made: onboarding copies dishes the family
+    /// already cooks, so no history doesn't mean new.
     let knownMeals: [LibraryMeal]
-    /// Trials and dishes never made. Kept apart so "new dishes per week" means what it says.
-    let newMeals: [LibraryMeal]
+    /// Dishes on trial: what "new dishes per week" counts and caps.
+    let trialMeals: [LibraryMeal]
 
     init(_ inputs: PlanningInputs) {
         self.inputs = inputs
         nights = inputs.nights.sorted { ($0.date, $0.id.uuidString) < ($1.date, $1.id.uuidString) }
-        let history = Dictionary(inputs.history.map { ($0.mealID, $0) }, uniquingKeysWith: { first, _ in first })
-        historyByMeal = history
+        historyByMeal = Dictionary(inputs.history.map { ($0.mealID, $0) }, uniquingKeysWith: { first, _ in first })
         mealsByID = Dictionary(inputs.meals.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let rotation = inputs.meals.filter(\.status.isInRotation)
-        let isNew: (LibraryMeal) -> Bool = { $0.status == .trial || history[$0.id] == nil }
-        knownMeals = rotation.filter { !isNew($0) }
-        newMeals = rotation.filter(isNew)
+        // A fixed order, so the same seed draws the same dish however the library was loaded.
+        let rotation = inputs.meals.filter(\.status.isInRotation).sorted { $0.id.uuidString < $1.id.uuidString }
+        knownMeals = rotation.filter { $0.status != .trial }
+        trialMeals = rotation.filter { $0.status == .trial }
     }
 
-    var firstDate: CalendarDay? { nights.first?.date }
+    func isKept(_ night: PlanningNight) -> Bool {
+        night.locked || night.effort == .event || night.date < inputs.today
+    }
 
-    func isKept(_ night: PlanningNight) -> Bool { night.locked || night.effort == .event }
+    func isRequested(_ night: PlanningNight) -> Bool {
+        inputs.requests.contains { $0.date == night.date && $0.mealID == night.mealID }
+    }
 
-    func isNew(_ mealID: UUID) -> Bool { newMeals.contains { $0.id == mealID } }
+    func isTrial(_ mealID: UUID?) -> Bool {
+        mealID.flatMap { mealsByID[$0] }?.status == .trial
+    }
 
     func hasTag(_ tag: MealTag, _ pick: NightPick?) -> Bool {
         pick?.mealID.flatMap { mealsByID[$0] }?.tags.contains(tag) ?? false
@@ -106,6 +132,7 @@ private struct Planner {
     // MARK: Filters
 
     /// Step 3 of the spec. Allergies are never a filter: they're flagged on the card, and the planner decides.
+    /// Grill dishes fit any night until a setting says otherwise.
     func fits(_ meal: LibraryMeal, on night: PlanningNight) -> Bool {
         guard meal.status.isInRotation, !inputs.snoozedMealIDs.contains(meal.id) else { return false }
         if let lastMade = historyByMeal[meal.id]?.lastMade,
@@ -113,21 +140,24 @@ private struct Planner {
         let notForMe = inputs.notForMe[meal.id] ?? [:]
         if night.home.contains(where: { (notForMe[$0] ?? 0) >= 1 }) { return false }
         if night.effort == .rushed, !meal.tags.contains(.quick) { return false }
-        // The first night is the shopping day: there's no time to thaw or marinate what was just bought.
-        // Grill dishes fit any night until a setting says otherwise.
-        if night.date == firstDate, needsAdvancePrep(meal) { return false }
-        return true
+        return hoursUntilDinner(on: night) >= leadHours(meal)
     }
 
-    private func needsAdvancePrep(_ meal: LibraryMeal) -> Bool {
-        meal.tags.contains(.thawFirst)
-            || meal.prepSteps.contains { ($0.leadHours ?? 0) >= BuildMyWeek.Weight.advancePrepLeadHours }
+    /// Time from this morning to that night's dinner: tonight leaves the day, each night after adds a full one.
+    private func hoursUntilDinner(on night: PlanningNight) -> Int {
+        24 * night.date.days(since: inputs.today) + BuildMyWeek.Prep.hoursBeforeDinnerToday
+    }
+
+    private func leadHours(_ meal: LibraryMeal) -> Int {
+        let steps = meal.prepSteps.compactMap(\.leadHours).max() ?? 0
+        return meal.tags.contains(.thawFirst) ? max(steps, BuildMyWeek.Prep.thawFirstLeadHours) : steps
     }
 
     // MARK: Scoring
 
     func weight(of meal: LibraryMeal, on night: PlanningNight) -> Double {
-        let recency = Double(min(max(daysSinceMade(meal) ?? .max, 1), BuildMyWeek.Weight.recencyCapDays))
+        let cap = BuildMyWeek.Weight.recencyCapDays
+        let recency = Double(min(max(daysSinceMade(meal, on: night) ?? cap, 1), cap))
         let favorites = Double(favoritersHome(meal, on: night).count)
         let likes = Double(min(inputs.likes[meal.id] ?? 0, BuildMyWeek.Weight.likeCap))
         return recency
@@ -155,7 +185,7 @@ private struct Planner {
 
     /// The single most telling reason for the chip, from most to least personal.
     func reason(for meal: LibraryMeal, on night: PlanningNight) -> PlanReason {
-        if isNew(meal.id) { return .somethingNew }
+        if meal.status == .trial { return .somethingNew }
         let favoriters = favoritersHome(meal, on: night)
         if !favoriters.isEmpty {
             let names = favoriters.compactMap(name(of:)).sorted()
@@ -163,14 +193,14 @@ private struct Planner {
         }
         if night.effort == .rushed { return .quickForRushedNight }
         if fractionOnHand(meal) >= 0.5 { return .usesWhatsOnHand }
-        let days = daysSinceMade(meal) ?? 0
-        if days < 14, (inputs.likes[meal.id] ?? 0) >= 3 { return .familyLikesIt }
-        return .notHadIn(days: days)
+        let days = daysSinceMade(meal, on: night)
+        if (days ?? 0) < 14, (inputs.likes[meal.id] ?? 0) >= 3 { return .familyLikesIt }
+        if let days, days >= 1 { return .notHadIn(days: days) }
+        return .dueForATurn
     }
 
-    /// Measured from the start of the week, so a dish scores the same on every night of it.
-    private func daysSinceMade(_ meal: LibraryMeal) -> Int? {
-        historyByMeal[meal.id].map { (firstDate ?? $0.lastMade).days(since: $0.lastMade) }
+    private func daysSinceMade(_ meal: LibraryMeal, on night: PlanningNight) -> Int? {
+        historyByMeal[meal.id].map { night.date.days(since: $0.lastMade) }
     }
 
     private func favoritersHome(_ meal: LibraryMeal, on night: PlanningNight) -> [UUID] {
@@ -207,6 +237,10 @@ private struct DraftState {
         plans.compactMap(\.pick).filter(matches).count
     }
 
+    private var trialBudgetLeft: Int {
+        planner.inputs.settings.newDishesPerWeek - count { planner.isTrial($0.mealID) }
+    }
+
     private mutating func fill(_ index: Int, with pick: NightPick, reason: PlanReason, kept: Bool = false) {
         plans[index].pick = pick
         plans[index].reason = reason
@@ -214,8 +248,9 @@ private struct DraftState {
         if let mealID = pick.mealID { used.insert(mealID) }
     }
 
-    /// A request is the family asking out loud, so it skips the filters; it still needs a dish in rotation
-    /// and an open night, and never doubles a dish already in the week. First request for a night wins.
+    /// A request is the family asking out loud, so it skips the filters (a rushed night, someone home who
+    /// doesn't love it); it still needs a dish in rotation and an open night, and never doubles a dish already
+    /// in the week. First request for a night wins.
     mutating func landRequests() {
         for request in planner.inputs.requests {
             guard let meal = planner.mealsByID[request.mealID], meal.status.isInRotation, !used.contains(meal.id),
@@ -225,36 +260,37 @@ private struct DraftState {
         }
     }
 
-    /// Busiest = rushed first, then the most people home, then the earliest night.
+    /// Busiest = rushed first, then the most people home. Ties skip the first night, the shopping day, when
+    /// the fridge is full; then the earliest night.
     mutating func placeTakeout() {
         let needed = planner.inputs.settings.takeoutNights - count { $0 == .quickPick(.takeout) }
+        let firstDate = planner.nights.first?.date
         for _ in 0..<max(needed, 0) {
             let busiest = openIndices.min { lhs, rhs in
                 let left = planner.nights[lhs], right = planner.nights[rhs]
-                return (left.effort == .rushed ? 0 : 1, -left.home.count, lhs)
-                    < (right.effort == .rushed ? 0 : 1, -right.home.count, rhs)
+                return (left.effort == .rushed ? 0 : 1, -left.home.count, left.date == firstDate ? 1 : 0, lhs)
+                    < (right.effort == .rushed ? 0 : 1, -right.home.count, right.date == firstDate ? 1 : 0, rhs)
             }
             guard let busiest else { return }
             fill(busiest, with: .quickPick(.takeout), reason: .takeoutOnBusiestNight)
         }
     }
 
-    /// Full-attendance nights first so everyone gets to react; then nights with the most time and people.
+    /// Trial dishes go to full-attendance nights first so everyone gets to react; then nights with the most
+    /// time and people.
     mutating func placeNewDishes(rng: inout SeededGenerator) {
-        var needed = planner.inputs.settings.newDishesPerWeek - count { $0.mealID.map(planner.isNew) ?? false }
         let effortRank: [NightEffort: Int] = [.full: 0, .normal: 1, .rushed: 2, .event: 3]
         let ordered = openIndices.sorted { lhs, rhs in
             let left = planner.nights[lhs], right = planner.nights[rhs]
             return (left.isFullAttendance ? 0 : 1, effortRank[left.effort] ?? 3, -left.home.count, lhs)
                 < (right.isFullAttendance ? 0 : 1, effortRank[right.effort] ?? 3, -right.home.count, rhs)
         }
-        for index in ordered where needed > 0 {
+        for index in ordered where trialBudgetLeft > 0 {
             let night = planner.nights[index]
-            guard let meal = planner.draw(for: night, from: planner.newMeals, excluding: used, rng: &rng) else {
+            guard let meal = planner.draw(for: night, from: planner.trialMeals, excluding: used, rng: &rng) else {
                 continue
             }
             fill(index, with: .meal(meal.id), reason: .somethingNew)
-            needed -= 1
         }
     }
 
@@ -276,18 +312,18 @@ private struct DraftState {
         }
     }
 
-    /// Prefers a rushed night for the leftovers, since that's when reheating beats cooking.
+    /// Prefers a rushed night for the leftovers, since that's when reheating beats cooking. A trial dish can
+    /// be the big batch only while the week's new-dish budget has room.
     private mutating func placeBigBatchPair(rng: inout SeededGenerator) -> Bool {
-        let open = Set(openIndices)
-        let pairs = open.filter(isOpenNextNight).sorted { lhs, rhs in
+        let pairs = openIndices.filter(isOpenNextNight).sorted { lhs, rhs in
             (planner.nights[lhs + 1].effort == .rushed ? 0 : 1, lhs)
                 < (planner.nights[rhs + 1].effort == .rushed ? 0 : 1, rhs)
         }
+        let pools = trialBudgetLeft > 0 ? [planner.knownMeals, planner.trialMeals] : [planner.knownMeals]
         for index in pairs {
-            let night = planner.nights[index]
-            for pool in [planner.knownMeals, planner.newMeals] {
-                guard let meal = planner.draw(for: night, from: pool, excluding: used, requiring: .leftovers,
-                                              rng: &rng) else { continue }
+            for pool in pools {
+                guard let meal = planner.draw(for: planner.nights[index], from: pool, excluding: used,
+                                              requiring: .leftovers, rng: &rng) else { continue }
                 fill(index, with: .meal(meal.id), reason: .bigBatch)
                 fill(index + 1, with: .quickPick(.leftovers), reason: .leftoversAfterBigBatch)
                 return true
@@ -303,8 +339,7 @@ private struct DraftState {
     }
 
     /// Rushed nights go first: they have the fewest candidates, and filling in date order could spend the
-    /// quick dishes on nights that didn't need them. Known dishes first; new ones only when nothing familiar
-    /// fits, so a fresh library still fills the week.
+    /// quick dishes on nights that didn't need them. A trial dish fills a night only when nothing else fits.
     mutating func fillTheRest(rng: inout SeededGenerator) {
         let rushedFirst = openIndices.sorted { lhs, rhs in
             (planner.nights[lhs].effort == .rushed ? 0 : 1, lhs) < (planner.nights[rhs].effort == .rushed ? 0 : 1, rhs)
@@ -312,7 +347,7 @@ private struct DraftState {
         for index in rushedFirst {
             let night = planner.nights[index]
             let meal = planner.draw(for: night, from: planner.knownMeals, excluding: used, rng: &rng)
-                ?? planner.draw(for: night, from: planner.newMeals, excluding: used, rng: &rng)
+                ?? planner.draw(for: night, from: planner.trialMeals, excluding: used, rng: &rng)
             if let meal {
                 fill(index, with: .meal(meal.id), reason: planner.reason(for: meal, on: night))
             } else {

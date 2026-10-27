@@ -57,6 +57,24 @@ struct PlanningInputs: Equatable, Sendable {
     var requests: [DatedRequest] = []
     /// Household items in stock (in or low), matched against meal ingredients.
     var onHandItemIDs: Set<UUID> = []
+    /// The day the planner is building on. Nights before it already happened and are kept as they are,
+    /// and advance prep (thawing) is counted from it.
+    var today: CalendarDay
+
+    /// `today` defaults to the first night, the usual Sunday-morning build. With no nights there's nothing
+    /// to plan, so its value doesn't matter.
+    init(
+        nights: [PlanningNight], meals: [LibraryMeal], history: [MealHistory] = [],
+        settings: HouseholdSettings = HouseholdSettings(), memberNames: [UUID: String] = [:],
+        notForMe: [UUID: [UUID: Int]] = [:], snoozedMealIDs: Set<UUID> = [], favorites: [UUID: Set<UUID>] = [:],
+        likes: [UUID: Int] = [:], requests: [DatedRequest] = [], onHandItemIDs: Set<UUID> = [],
+        today: CalendarDay? = nil
+    ) {
+        (self.nights, self.meals, self.history, self.settings) = (nights, meals, history, settings)
+        (self.memberNames, self.notForMe, self.snoozedMealIDs) = (memberNames, notForMe, snoozedMealIDs)
+        (self.favorites, self.likes, self.requests, self.onHandItemIDs) = (favorites, likes, requests, onHandItemIDs)
+        self.today = today ?? nights.map(\.date).min() ?? CalendarDay(year: 1970, month: 1, day: 1)
+    }
 }
 
 /// What a night ends up holding.
@@ -79,9 +97,9 @@ struct NightPlan: Identifiable, Equatable, Sendable {
     let date: CalendarDay
     /// Nil when nothing fits: the card offers Pick for me or Choose.
     var pick: NightPick?
-    /// The chip on the card. Nil only on nights the planner already decided (pinned or events).
+    /// The chip on the card. Nil only on nights already decided (pinned, events, or past).
     var reason: PlanReason?
-    /// Pinned, event, or a dated request: shuffle and rebuilds leave it alone.
+    /// Pinned, event, a dated request, or already past: shuffle and rebuilds leave it alone.
     var isKept: Bool
 
     var id: UUID { nightID }
@@ -94,7 +112,9 @@ enum PlanReason: Equatable, Hashable, Sendable {
     case somethingNew
     case quickForRushedNight
     case usesWhatsOnHand
+    /// Days since it was last made; one or more.
     case notHadIn(days: Int)
+    case dueForATurn
     case familyLikesIt
     case bigBatch
     case leftoversAfterBigBatch
@@ -114,8 +134,13 @@ enum PlanReason: Equatable, Hashable, Sendable {
         case .usesWhatsOnHand: String(localized: "Uses what's on hand", comment: "Reason chip: ingredients in stock")
         case .notHadIn(let days) where days >= 14:
             String(localized: "Haven't had it in \(days / 7) weeks", comment: "Reason chip: weeks since last made")
+        case .notHadIn(let days) where days >= 7:
+            String(localized: "Haven't had it in a week", comment: "Reason chip: last made 7 to 13 days ago")
+        case .notHadIn(let days) where days <= 1:
+            String(localized: "Haven't had it since yesterday", comment: "Reason chip: last made yesterday")
         case .notHadIn(let days):
             String(localized: "Haven't had it in \(days) days", comment: "Reason chip: days since last made")
+        case .dueForATurn: String(localized: "Due for a turn", comment: "Reason chip: a regular in the rotation")
         case .familyLikesIt: String(localized: "The family likes it", comment: "Reason chip")
         case .bigBatch: String(localized: "Makes leftovers for tomorrow", comment: "Reason chip: a big-batch meal")
         case .leftoversAfterBigBatch:

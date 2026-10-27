@@ -263,6 +263,9 @@
     "Drinks" : {
 
     },
+    "Due for a turn" : {
+      "comment" : "Reason chip: a regular in the rotation"
+    },
     "Each new week starts from this. Tap a day they're usually out, like a work or practice night." : {
 
     },
@@ -334,6 +337,12 @@
     },
     "Haven't had it in %lld weeks" : {
       "comment" : "Reason chip: weeks since last made"
+    },
+    "Haven't had it in a week" : {
+      "comment" : "Reason chip: last made 7 to 13 days ago"
+    },
+    "Haven't had it since yesterday" : {
+      "comment" : "Reason chip: last made yesterday"
     },
     "Home" : {
 
