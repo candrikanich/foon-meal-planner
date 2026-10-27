@@ -51,7 +51,7 @@ extension LibraryClient {
                     .select("""
                         id, household_id, catalog_meal_id, name, servings, tags, status, photo_path, made_by_member_id, \
                         created_at, steps, source_url, prep_steps, \
-                        meal_ingredients(item_id, position, quantity_text, items(canonical_name))
+                        meal_ingredients(item_id, position, quantity_text, items(canonical_name, category, note, keep_on_hand))
                         """)
                     .eq("household_id", value: householdID)
                     .execute()
@@ -144,8 +144,15 @@ private struct MealRow: Decodable, Sendable {
     struct Line: Decodable, Sendable {
         struct Item: Decodable, Sendable {
             let canonicalName: String
+            let category: ItemCategory
+            let note: String?
+            let keepOnHand: Bool
 
-            enum CodingKeys: String, CodingKey { case canonicalName = "canonical_name" }
+            enum CodingKeys: String, CodingKey {
+                case category, note
+                case canonicalName = "canonical_name"
+                case keepOnHand = "keep_on_hand"
+            }
         }
 
         let itemID: UUID
@@ -194,7 +201,8 @@ private struct MealRow: Decodable, Sendable {
             status: status, photoPath: photoPath, madeByMemberID: madeByMemberID, createdAt: createdAt,
             ingredients: mealIngredients.sorted { $0.position < $1.position }.map {
                 MealIngredient(itemID: $0.itemID, name: $0.items.canonicalName, quantityText: $0.quantityText,
-                               position: $0.position)
+                               position: $0.position, note: $0.items.note, category: $0.items.category,
+                               keepOnHand: $0.items.keepOnHand)
             },
             steps: steps, sourceURL: sourceURL.flatMap(URL.init(string:)), prepSteps: prepSteps
         )

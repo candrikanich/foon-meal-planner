@@ -15,6 +15,8 @@ struct MealDetailView: View {
     @State private var isUploading = false
     @State private var addedItemIDs: Set<UUID> = []
     @State private var photoURL: URL?
+    @State private var openItem: ItemDetails?
+    @Environment(\.itemClient) private var itemClient
 
     var body: some View {
         if let entry = library.entry(mealID) {
@@ -54,6 +56,9 @@ struct MealDetailView: View {
         .toolbar { toolbar(meal) }
         .sheet(item: $editing) { meal in
             MealEditorView(meal: meal)
+        }
+        .sheet(item: $openItem) { item in
+            ItemSheet(item: item, canRecategorize: canEdit, client: itemClient) { await library.reload() }
         }
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
@@ -149,16 +154,16 @@ struct MealDetailView: View {
             }
             ForEach(Array(meal.ingredients.enumerated()), id: \.offset) { _, line in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    if let quantity = line.quantityText {
-                        Text(quantity).foregroundStyle(.secondary)
+                    Button { openItem = line.details } label: {
+                        ItemLabel(name: line.name, note: line.note, quantity: line.quantityText)
                     }
-                    Text(line.name).foregroundStyle(Palette.ink)
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Shows the item's note, aisle, and keep on hand")
                     Spacer(minLength: 8)
                     if sync != nil {
                         addButton(for: line)
                     }
                 }
-                .font(.foonBody)
             }
         }
     }

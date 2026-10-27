@@ -289,7 +289,7 @@ iOS-only, multiplatform SwiftUI (iPhone, iPad, Mac) on Supabase, with a local ca
 | consents | household, member (kid, for parental), kind (allergy data, parental), granted by, granted at, revoked at, wording version; append-only |
 | meals | household, name, servings, tags, prep steps, recipe steps, source URL, photo, made by, status (active, trial, archived, retired) |
 | meal\_ingredients | meal, item, quantity (optional) |
-| items | household, canonical name, keep-on-hand flag, stock state (in, low, out) |
+| items | household, canonical name, category (groceries, household, personal care), keep-on-hand flag, stock state (in, low, out), note or brand preference |
 | plans / plan\_nights | week start; per night: date, meal, effort, dinner time, locked, event flag |
 | night\_attendance | plan night, member, expected, confirmed |
 | meal\_logs | plan night, meal actually eaten, cooked by, leftovers, verified |
@@ -311,8 +311,8 @@ Every family is different; these are all in, each optional and off or unobtrusiv
 | --- | --- | --- |
 | Standing traditions | Recurring nights (Taco Tuesday, Pizza Friday) auto-fill each week unless swapped | 1 |
 | Side dishes | Optional side pairings per meal (salad, garlic bread) so the list is complete | 1 |
-| Non-food items | Household items (paper towels, toothpaste) live on the same list | 1 |
-| Item notes and brands | "Vanilla yogurt, not plain," "store brand" | 1 |
+| Non-food items | Household and personal care items (paper towels, toothpaste) live on the same list, sorted after groceries in store mode, and can be keep-on-hand staples | 1 |
+| Item notes and brands | "Vanilla yogurt, not plain," "store brand": a standing note per item (80 characters), set by anyone at home and shown with the item on meals, lists, and in store mode | 1 |
 | Claim a night | Anyone taps "I'll cook Thursday"; voluntary, visible, feeds cook credit | 2 |
 | Heading to the store | One tap tells the family to add items in the next 10 minutes | 2 |
 | Vacation or pause mode | Skip planning, notifications, and lists for away days | 2 |

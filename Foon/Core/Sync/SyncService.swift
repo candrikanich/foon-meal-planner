@@ -115,6 +115,11 @@ final class SyncService {
         return lineAliases[lineID] ?? lineID
     }
 
+    /// Whether the cached item is a staple, including changes still queued. Nil when it isn't cached.
+    func isKeptOnHand(_ itemID: UUID) -> Bool? {
+        item(itemID)?.keepOnHand
+    }
+
     /// Device line ids the server merged into existing lines (kept for this session).
     private var lineAliases: [UUID: UUID] = [:]
 

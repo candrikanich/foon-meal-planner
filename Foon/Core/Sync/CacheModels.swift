@@ -89,6 +89,7 @@ final class CachedItem {
     var categoryRaw: String
     var keepOnHand: Bool
     var stockStateRaw: String?
+    var note: String?
 
     init(_ row: ItemRow) {
         id = row.id
@@ -97,7 +98,10 @@ final class CachedItem {
         categoryRaw = row.category.rawValue
         keepOnHand = row.keepOnHand
         stockStateRaw = row.stockState?.rawValue
+        note = row.note
     }
+
+    var category: ItemCategory { ItemCategory(rawValue: categoryRaw) ?? .other }
 
     var stockState: StockState? {
         get { stockStateRaw.flatMap(StockState.init(rawValue:)) }

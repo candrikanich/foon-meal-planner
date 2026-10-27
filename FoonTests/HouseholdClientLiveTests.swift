@@ -183,6 +183,15 @@ struct HouseholdClientLiveTests {
         #expect(try await library.meals(household.id).first { $0.id == nameOnly }?.ingredients.isEmpty == true)
         #expect(Set(try await library.itemNames(household.id)).isSuperset(of: ["chicken broth", "egg noodles"]))
 
+        let items = ItemClient.live(supabase)
+        let broth = try #require(soup.ingredients.first)
+        try await items.update(broth.itemID, ItemChanges(note: .some("low sodium"), category: .pantry))
+        let noted = try #require(try await library.meals(household.id).first { $0.id == soupID }?.ingredients.first)
+        #expect(noted.note == "low sodium")
+        #expect(noted.category == .pantry)
+        try await items.update(broth.itemID, ItemChanges(note: .some(nil)))
+        #expect(try await library.meals(household.id).first { $0.id == soupID }?.ingredients.first?.note == nil)
+
         try await library.setStatus(id, .archived)
         #expect(try await library.meals(household.id).first { $0.id == id }?.status == .archived)
         #expect(try await library.history(household.id).isEmpty, "nothing has been made yet")

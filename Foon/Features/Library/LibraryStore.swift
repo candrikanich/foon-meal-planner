@@ -66,6 +66,11 @@ final class LibraryStore {
         errorMessage = nil
     }
 
+    /// Reloads with the members from the last load, after a change made elsewhere (an item's note).
+    func reload() async {
+        await load(members: members)
+    }
+
     /// Loads everything the screen shows. A failure keeps what was already on screen; a cancelled load
     /// (the view went away, or members changed and a new load started) is not an error.
     func load(members: [Member]) async {
