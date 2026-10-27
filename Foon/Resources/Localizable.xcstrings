@@ -99,6 +99,9 @@
     "Add member" : {
 
     },
+    "Add some meals to your library first, then Foon can plan the week." : {
+
+    },
     "Add the dinners your family already makes." : {
 
     },
@@ -174,6 +177,9 @@
     "Browse ideas" : {
 
     },
+    "Build my week" : {
+
+    },
     "Build my week and shuffles leave locked nights as they are." : {
 
     },
@@ -246,6 +252,9 @@
 
     },
     "Couldn't save the meal. Check your connection and try again." : {
+
+    },
+    "Couldn't save the plan. Check your connection and try again." : {
 
     },
     "Couldn't save. Pull to refresh in case someone else changed this, then try again." : {
@@ -329,6 +338,9 @@
     "Fend for yourselves" : {
 
     },
+    "Fill remaining nights" : {
+
+    },
     "First name" : {
 
     },
@@ -336,6 +348,9 @@
 
     },
     "Foon" : {
+
+    },
+    "Foon drafts the week from your library and who's home each night. You can change any night." : {
 
     },
     "Foon signs out on every phone, tablet, and Mac using your account, including this one." : {
@@ -638,6 +653,9 @@
     "Pick an emoji" : {
 
     },
+    "Pick for me" : {
+
+    },
     "Planner" : {
 
     },
@@ -661,6 +679,9 @@
     },
     "Quick for a rushed night" : {
       "comment" : "Reason chip"
+    },
+    "Rebuild unlocked nights" : {
+
     },
     "Recently added" : {
 
@@ -761,10 +782,7 @@
     "Staples like milk or paper towels stay on the keep-on-hand list, marked in, low, or out." : {
 
     },
-    "Start the week" : {
-
-    },
-    "Start the week to lay out the nights, with who's home from everyone's usual schedule." : {
+    "Start with empty nights" : {
 
     },
     "Status" : {

@@ -128,7 +128,8 @@ extension WeekClient {
             create: { _, start in make(start) },
             setExpected: { _, _, _ in },
             setEffort: { _, _ in },
-            setLocked: { _, _ in }
+            setLocked: { _, _ in },
+            setNights: { _, _ in }
         )
     }
 }

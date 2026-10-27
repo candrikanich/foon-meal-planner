@@ -11,8 +11,10 @@ struct DayCard: View {
         var toggleLock: (() -> Void)? = nil
         var shuffle: (() -> Void)? = nil
         var swap: (() -> Void)? = nil
+        /// Opens the night's detail; a real button so VoiceOver can reach it on an editable card.
+        var open: (() -> Void)? = nil
 
-        var hasNightActions: Bool { toggleLock != nil || shuffle != nil || swap != nil }
+        var hasNightActions: Bool { toggleLock != nil || shuffle != nil || swap != nil || open != nil }
     }
 
     let model: DayCardModel
@@ -176,13 +178,18 @@ struct DayCard: View {
                 .accessibilityLabel(model.isLocked ? String(localized: "Unlock night") : String(localized: "Lock night"))
             }
             if let shuffle = actions.shuffle {
-                Button(action: shuffle) { Image(systemName: "shuffle") }
+                Button(action: shuffle) { Image(systemName: model.slot == .empty ? "wand.and.stars" : "shuffle") }
                     .disabled(model.isLocked)
-                    .accessibilityLabel(String(localized: "Shuffle this night"))
+                    .accessibilityLabel(model.slot == .empty
+                        ? String(localized: "Pick for me") : String(localized: "Shuffle this night"))
             }
             if let swap = actions.swap {
                 Button(action: swap) { Image(systemName: "arrow.triangle.2.circlepath") }
                     .accessibilityLabel(String(localized: "Swap this night"))
+            }
+            if let open = actions.open {
+                Button(action: open) { Image(systemName: "info.circle") }
+                    .accessibilityLabel(String(localized: "Open night"))
             }
         }
         .buttonStyle(.bordered)

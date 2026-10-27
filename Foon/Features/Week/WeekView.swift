@@ -90,11 +90,25 @@ struct WeekView: View {
 
     @ViewBuilder
     private func planned(_ layout: WeekLayout) -> some View {
-        if canPlan, layout.progress != .planned, !layout.emptyNights.isEmpty {
-            Label(openNightsText(layout.emptyNights.count), systemImage: "square.dashed")
-                .font(.foonCaption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        if canPlan, layout.progress == .unplanned, !layout.ahead.isEmpty {
+            Button { Task { await build() } } label: {
+                Label("Build my week", systemImage: "wand.and.stars").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Palette.paprika)
+            .disabled(week.isBuilding)
+        } else if canPlan, layout.progress == .partlyPlanned {
+            HStack {
+                Label(openNightsText(layout.emptyNights.count), systemImage: "square.dashed")
+                    .font(.foonCaption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Fill remaining nights") { Task { await fillRemaining() } }
+                    .font(.foonCaption)
+                    .buttonStyle(.bordered)
+                    .tint(Palette.paprika)
+                    .disabled(week.isBuilding)
+            }
         }
         ForEach(layout.ahead) { night in
             card(night)
@@ -125,16 +139,18 @@ struct WeekView: View {
             Label("No plan yet", systemImage: "calendar.badge.plus")
         } description: {
             if canPlan {
-                Text("Start the week to lay out the nights, with who's home from everyone's usual schedule.")
+                Text("Foon drafts the week from your library and who's home each night. You can change any night.")
             } else {
                 Text("Your planner hasn't planned this week yet. Tell them what you'd like.")
             }
         } actions: {
             if canPlan {
-                Button("Start the week") { Task { await week.startWeek() } }
+                Button("Build my week") { Task { await build() } }
                     .buttonStyle(.borderedProminent)
                     .tint(Palette.paprika)
-                    .disabled(week.isStarting)
+                    .disabled(week.isStarting || week.isBuilding)
+                Button("Start with empty nights") { Task { await week.startWeek() } }
+                    .disabled(week.isStarting || week.isBuilding)
             } else {
                 Button("Add your requests") { showTab(.ideas) }
                     .buttonStyle(.borderedProminent)
@@ -146,6 +162,12 @@ struct WeekView: View {
 
     @ToolbarContentBuilder
     private var cart: some ToolbarContent {
+        if canPlan, let layout = week.layout, layout.progress != .unplanned {
+            ToolbarItem(placement: .secondaryAction) {
+                Button("Rebuild unlocked nights", systemImage: "wand.and.stars") { Task { await build() } }
+                    .disabled(week.isBuilding)
+            }
+        }
         ToolbarItem(placement: .primaryAction) {
             Button { showTab(.lists) } label: {
                 Image(systemName: "cart")
@@ -171,8 +193,33 @@ struct WeekView: View {
         DayCard.Actions(
             toggleAttendance: { memberID in Task { await week.toggleAttendance(nightID: night.id, memberID: memberID) } },
             cycleEffort: { Task { await week.cycleEffort(nightID: night.id) } },
-            toggleLock: { Task { await week.toggleLock(nightID: night.id) } }
+            toggleLock: { Task { await week.toggleLock(nightID: night.id) } },
+            // Quick-pick nights change through Swap (#25); shuffle re-rolls meals and fills empty nights.
+            shuffle: night.quickPick == nil && !week.isBuilding ? { Task { await shuffle(night.id) } } : nil,
+            open: { openNight = night.id }
         )
+    }
+
+    // MARK: - Build my week
+
+    /// The library must load before drafting from it; nil when it didn't.
+    private func planningContext() async -> PlanningContext? {
+        if !library.hasLoaded { await library.load(members: household.members) }
+        guard library.hasLoaded else { return nil }
+        return PlanningContext(meals: library.meals, history: library.history, settings: settings,
+                               members: household.visibleMembers)
+    }
+
+    private func build() async {
+        await week.buildWeek { await planningContext() }
+    }
+
+    private func fillRemaining() async {
+        await week.fillRemaining { await planningContext() }
+    }
+
+    private func shuffle(_ nightID: UUID) async {
+        await week.shuffle(nightID: nightID) { await planningContext() }
     }
 
     private func sideNames(_ mealID: UUID) -> [String] {
