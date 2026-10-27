@@ -10,7 +10,8 @@ struct ParsedIngredient: Hashable, Sendable {
 /// Items break at commas, semicolons, newlines, and "•"; "-", "*" and "•" at a line start are bullets.
 /// " and " never splits, because "mac and cheese" and "salt and pepper" are single items.
 /// A quantity is only what the text says: a leading number (whole, decimal, 1/2, 1 1/2, ½, 1½, or a
-/// range like 2-3), an optional size in parentheses ("1 (15 oz) can"), and an optional unit.
+/// range like 2-3), an optional unit, and a size in parentheses before or after the unit
+/// ("1 (15 oz) can", "1 can (15 oz)").
 /// "a"/"an" count only before a unit ("a dozen", "a can") or as "a few"/"a couple"; otherwise they
 /// and "some" are dropped, since they carry no amount. "of" after a unit is dropped too.
 enum IngredientParser {
@@ -26,13 +27,18 @@ enum IngredientParser {
     private static let fractions: Set<Character> = ["½", "¼", "¾", "⅓", "⅔", "⅛", "⅜", "⅝", "⅞"]
     private static let fractionSlashes: Set<Character> = ["/", "⁄"]
     private static let rangeDashes: Set<Character> = ["-", "–"]
+    /// Matched case-insensitively, so recipe shorthand "T" (tablespoon) vs "t" (teaspoon) and "c"
+    /// (cup) are left out: guessing between them would invent an amount.
     private static let units: Set<String> = [
         "lb", "lbs", "pound", "pounds", "oz", "ounce", "ounces", "g", "kg", "ml", "l",
         "cup", "cups", "tbsp", "tablespoon", "tablespoons", "tsp", "teaspoon", "teaspoons",
         "can", "cans", "jar", "jars", "bag", "bags", "box", "boxes",
         "pack", "packs", "package", "packages", "bottle", "bottles", "clove", "cloves",
         "bunch", "bunches", "head", "heads", "pint", "pints", "dozen",
-        "slice", "slices", "stick", "sticks", "pinch"
+        "slice", "slices", "stick", "sticks", "pinch",
+        "loaf", "loaves", "carton", "cartons", "packet", "packets", "stalk", "stalks",
+        "gallon", "gallons", "gal", "quart", "quarts", "qt", "pt", "pkg",
+        "container", "containers", "piece", "pieces"
     ]
 
     /// Separators inside parentheses don't split, so "1 (14.5 oz, diced) can" stays whole. An
@@ -103,6 +109,10 @@ enum IngredientParser {
             }
         } else if end < chars.count {
             return nil
+        }
+        if hasUnit, end < chars.count, chars[end] == " ",
+           let sizeEnd = parentheticalSizeEnd(in: chars, at: end + 1) {
+            end = sizeEnd
         }
 
         let quantity = String(chars[..<end])
