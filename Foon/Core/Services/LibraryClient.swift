@@ -30,6 +30,12 @@ struct LibraryClient: Sendable {
     /// Copies a starter dish into the library (or returns the copy already there) and returns its id.
     var addFromCatalog: @Sendable (_ householdID: UUID, _ dishID: UUID) async throws -> UUID
     var photoURL: @Sendable (_ path: String) async throws -> URL
+    /// Saves the meal's fields and replaces its ingredient lines in one transaction.
+    var save: @Sendable (_ mealID: UUID, _ meal: MealDraft.Saved) async throws -> Void
+    /// Copy and tweak: returns the new meal's id.
+    var copy: @Sendable (_ mealID: UUID, _ name: String) async throws -> UUID
+    /// Uploads a prepared JPEG and points the meal at it.
+    var setPhoto: @Sendable (_ meal: LibraryMeal, _ preparedJPEG: Data) async throws -> Void
 }
 
 extension LibraryClient {
@@ -40,7 +46,8 @@ extension LibraryClient {
                 let rows: [MealRow] = try await client.from("meals")
                     .select("""
                         id, household_id, catalog_meal_id, name, servings, tags, status, photo_path, made_by_member_id, \
-                        created_at, meal_ingredients(position, quantity_text, items(canonical_name))
+                        created_at, steps, source_url, prep_steps, \
+                        meal_ingredients(item_id, position, quantity_text, items(canonical_name))
                         """)
                     .eq("household_id", value: householdID)
                     .execute()
@@ -87,7 +94,28 @@ extension LibraryClient {
                 .value
                 return meal.id
             },
-            photoURL: photos.signedURL
+            photoURL: photos.signedURL,
+            save: { mealID, meal in
+                try await client.rpc("save_meal", params: SaveMealParams(mealID: mealID, meal: meal)).execute()
+            },
+            copy: { mealID, name in
+                let meal: AddedMeal = try await client.rpc(
+                    "copy_meal", params: ["source_meal": mealID.uuidString, "copy_name": name]
+                )
+                .execute()
+                .value
+                return meal.id
+            },
+            setPhoto: { meal, preparedJPEG in
+                let path = try await photos.upload(meal.householdID, preparedJPEG)
+                let updated: [AddedMeal] = try await client.from("meals")
+                    .update(["photo_path": path])
+                    .eq("id", value: meal.id)
+                    .select("id")
+                    .execute()
+                    .value
+                guard !updated.isEmpty else { throw LibraryClientError.notAllowed }
+            }
         )
     }
 }
@@ -100,12 +128,14 @@ private struct MealRow: Decodable, Sendable {
             enum CodingKeys: String, CodingKey { case canonicalName = "canonical_name" }
         }
 
+        let itemID: UUID
         let position: Int
         let quantityText: String?
         let items: Item
 
         enum CodingKeys: String, CodingKey {
             case position, items
+            case itemID = "item_id"
             case quantityText = "quantity_text"
         }
     }
@@ -120,6 +150,9 @@ private struct MealRow: Decodable, Sendable {
     let photoPath: String?
     let madeByMemberID: UUID?
     let createdAt: Date
+    let steps: [String]
+    let sourceURL: String?
+    let prepSteps: [PrepStep]
     let mealIngredients: [Line]
 
     enum CodingKeys: String, CodingKey {
@@ -129,6 +162,9 @@ private struct MealRow: Decodable, Sendable {
         case photoPath = "photo_path"
         case madeByMemberID = "made_by_member_id"
         case createdAt = "created_at"
+        case steps
+        case sourceURL = "source_url"
+        case prepSteps = "prep_steps"
         case mealIngredients = "meal_ingredients"
     }
 
@@ -137,8 +173,10 @@ private struct MealRow: Decodable, Sendable {
             id: id, householdID: householdID, catalogMealID: catalogMealID, name: name, servings: servings, tags: tags,
             status: status, photoPath: photoPath, madeByMemberID: madeByMemberID, createdAt: createdAt,
             ingredients: mealIngredients.sorted { $0.position < $1.position }.map {
-                MealIngredient(name: $0.items.canonicalName, quantityText: $0.quantityText, position: $0.position)
-            }
+                MealIngredient(itemID: $0.itemID, name: $0.items.canonicalName, quantityText: $0.quantityText,
+                               position: $0.position)
+            },
+            steps: steps, sourceURL: sourceURL.flatMap(URL.init(string:)), prepSteps: prepSteps
         )
     }
 }
@@ -166,6 +204,35 @@ private struct CatalogRow: Decodable, Sendable {
     var dish: CatalogDish {
         CatalogDish(id: id, name: name, category: category, tags: tags, popular: popular, sortOrder: sortOrder,
                     ingredients: catalogIngredients.sorted { $0.position < $1.position }.map(\.name))
+    }
+}
+
+private struct SaveMealParams: Encodable, Sendable {
+    let mealID: UUID
+    let meal: MealDraft.Saved
+
+    enum CodingKeys: String, CodingKey {
+        case mealID = "target_meal"
+        case name = "meal_name"
+        case servings = "meal_servings"
+        case tags = "meal_tags"
+        case steps = "meal_steps"
+        case sourceURL = "meal_source_url"
+        case madeBy = "made_by"
+        case lines
+    }
+
+    // Every argument is sent, nulls included: PostgREST matches functions by argument names.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(mealID, forKey: .mealID)
+        try container.encode(meal.name, forKey: .name)
+        try container.encode(meal.servings, forKey: .servings)
+        try container.encode(meal.tags, forKey: .tags)
+        try container.encode(meal.steps, forKey: .steps)
+        try container.encode(meal.sourceURL?.absoluteString, forKey: .sourceURL)
+        try container.encode(meal.madeByMemberID, forKey: .madeBy)
+        try container.encode(meal.lines, forKey: .lines)
     }
 }
 

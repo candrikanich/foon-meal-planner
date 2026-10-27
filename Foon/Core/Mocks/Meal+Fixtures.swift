@@ -11,19 +11,27 @@ extension LibraryMeal {
         createdAt: Date = Date(timeIntervalSince1970: 1_800_000_000),
         catalogMealID: UUID? = nil,
         photoPath: String? = nil,
-        madeByMemberID: UUID? = nil
+        madeByMemberID: UUID? = nil,
+        steps: [String] = [],
+        sourceURL: URL? = nil,
+        prepSteps: [PrepStep] = []
     ) -> LibraryMeal {
         LibraryMeal(
             id: id, householdID: Household.sample.id, catalogMealID: catalogMealID, name: name, servings: servings,
             tags: tags, status: status, photoPath: photoPath, madeByMemberID: madeByMemberID, createdAt: createdAt,
-            ingredients: ingredients.enumerated().map { MealIngredient(name: $1, quantityText: nil, position: $0 + 1) }
+            ingredients: ingredients.enumerated().map {
+                MealIngredient(itemID: UUID(), name: $1, quantityText: nil, position: $0 + 1)
+            },
+            steps: steps, sourceURL: sourceURL, prepSteps: prepSteps
         )
     }
 
     /// A small library for previews: a mix of quick, trial, backup, flagged, and archived dishes.
     static let sampleLibrary: [LibraryMeal] = [
         .fixture(name: "Tacos", tags: [.quick, .beginner], ingredients: ["ground beef", "taco shells", "cheddar cheese"],
-                 madeByMemberID: Member.sampleFamily[1].id),
+                 madeByMemberID: Member.sampleFamily[1].id,
+                 steps: ["Brown the beef with the seasoning.", "Warm the shells.", "Set out the toppings."],
+                 sourceURL: URL(string: "https://example.com/tacos")),
         .fixture(name: "Homemade mac and cheese", tags: [.leftovers], ingredients: ["elbow macaroni", "milk", "butter"],
                  createdAt: Date(timeIntervalSince1970: 1_799_000_000)),
         .fixture(name: "Salsa chicken over rice", tags: [.slowCooker], status: .trial,
@@ -31,7 +39,8 @@ extension LibraryMeal {
         .fixture(name: "Frozen pizza", tags: [.quick, .backup], ingredients: ["frozen pizza"],
                  createdAt: Date(timeIntervalSince1970: 1_797_000_000)),
         .fixture(name: "Grilled chicken", tags: [.grill, .thawFirst], ingredients: ["chicken thighs"],
-                 createdAt: Date(timeIntervalSince1970: 1_796_000_000)),
+                 createdAt: Date(timeIntervalSince1970: 1_796_000_000),
+                 prepSteps: [PrepStep(step: "Move the chicken to the fridge to thaw", leadHours: 24)]),
         .fixture(name: "Tuna casserole", status: .archived, ingredients: ["tuna", "egg noodles", "cream of mushroom soup"],
                  createdAt: Date(timeIntervalSince1970: 1_795_000_000))
     ]
@@ -79,7 +88,10 @@ extension LibraryClient {
             allergies: { _ in [AllergyRow(memberID: Member.sampleFamily[4].id, allergen: .milk, customText: nil)] },
             setStatus: { _, _ in },
             addFromCatalog: { _, _ in UUID() },
-            photoURL: { _ in throw URLError(.fileDoesNotExist) }
+            photoURL: { _ in throw URLError(.fileDoesNotExist) },
+            save: { _, _ in },
+            copy: { _, _ in UUID() },
+            setPhoto: { _, _ in }
         )
     }
 }

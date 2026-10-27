@@ -1,6 +1,12 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ (copy)" : {
+      "comment" : "Copy and tweak: the copied meal's starting name"
+    },
+    "%@ is on the list" : {
+
+    },
     "%@ signs out right away and can rejoin only with your consent and a new invite." : {
 
     },
@@ -24,10 +30,28 @@
         }
       }
     },
+    "%lld days ahead" : {
+
+    },
+    "%lld hours ahead" : {
+
+    },
+    "%lld." : {
+
+    },
+    "1 day ahead" : {
+
+    },
+    "1 hour ahead" : {
+
+    },
     "A last name or a nickname. Everyone you invite will see it." : {
 
     },
     "Add" : {
+
+    },
+    "Add %@ to the list" : {
 
     },
     "Add %@ to your library" : {
@@ -36,10 +60,19 @@
     "Add a household name and your first name." : {
 
     },
+    "Add all to list" : {
+
+    },
+    "Add ingredients" : {
+
+    },
     "Add member" : {
 
     },
     "Add the dinners your family already makes." : {
+
+    },
+    "Add your photo" : {
 
     },
     "Adult" : {
@@ -52,6 +85,12 @@
 
     },
     "Allergy flags" : {
+
+    },
+    "Amount" : {
+
+    },
+    "Amount of %@" : {
 
     },
     "Archive" : {
@@ -81,10 +120,16 @@
     "Back on" : {
 
     },
+    "Backup dinner" : {
+
+    },
     "Backup dinners" : {
 
     },
     "Backup dinners are the ones you can make from the freezer or pantry." : {
+
+    },
+    "Beginner-friendly" : {
 
     },
     "Browse ideas" : {
@@ -107,6 +152,9 @@
         }
       }
     },
+    "Copy and tweak" : {
+
+    },
     "Couldn't add %@. Check your connection and try again." : {
 
     },
@@ -114,6 +162,9 @@
 
     },
     "Couldn't check that code. Check your connection and try again." : {
+
+    },
+    "Couldn't copy %@. Check your connection and try again." : {
 
     },
     "Couldn't create an invite. Check your connection and try again." : {
@@ -131,16 +182,25 @@
     "Couldn't load your library. Check your connection and try again." : {
 
     },
+    "Couldn't open that photo. Try another one." : {
+
+    },
     "Couldn't record your consent. Check your connection and try again." : {
 
     },
     "Couldn't restore that meal. Check your connection and try again." : {
 
     },
+    "Couldn't save the meal. Check your connection and try again." : {
+
+    },
     "Couldn't save. Pull to refresh in case someone else changed this, then try again." : {
 
     },
     "Couldn't sign out your other devices. Check your connection and try again." : {
+
+    },
+    "Couldn't upload the photo. Check your connection and try again." : {
 
     },
     "Couldn't withdraw consent. Check your connection and try again." : {
@@ -209,6 +269,9 @@
     "Full evening" : {
 
     },
+    "Give the meal a name." : {
+
+    },
     "Haven't had in a while" : {
 
     },
@@ -241,6 +304,12 @@
     "In your library" : {
 
     },
+    "Ingredient" : {
+
+    },
+    "Ingredient names and amounts need 60 characters or fewer." : {
+
+    },
     "Ingredients" : {
 
     },
@@ -260,6 +329,9 @@
 
     },
     "Invite sent" : {
+
+    },
+    "It may have been removed on another device." : {
 
     },
     "Join family" : {
@@ -286,7 +358,32 @@
     "Locked" : {
 
     },
+    "Made %lld times, last on %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Made %1$lld times, last on %2$@"
+          }
+        }
+      }
+    },
+    "Made by" : {
+
+    },
     "Made by %@" : {
+
+    },
+    "Made once, last on %@" : {
+
+    },
+    "Makes leftovers" : {
+
+    },
+    "Meal names need 80 characters or fewer." : {
+
+    },
+    "Meal not found" : {
 
     },
     "Meals or ingredients" : {
@@ -299,6 +396,12 @@
 
     },
     "Most made" : {
+
+    },
+    "Name" : {
+
+    },
+    "Needs grill" : {
 
     },
     "New dishes you're trying out show up here." : {
@@ -316,13 +419,19 @@
     "No ideas yet" : {
 
     },
-    "No ingredients yet" : {
+    "No ingredients yet." : {
+
+    },
+    "No ingredients yet. Tap Edit to add them." : {
 
     },
     "No matches" : {
 
     },
     "No meals yet" : {
+
+    },
+    "No one in particular" : {
 
     },
     "No quick meals" : {
@@ -334,6 +443,9 @@
     "Normal" : {
 
     },
+    "Not made yet" : {
+
+    },
     "Nothing archived" : {
 
     },
@@ -341,6 +453,9 @@
 
     },
     "Nothing planned yet" : {
+
+    },
+    "Optional. One step per line." : {
 
     },
     "Parent" : {
@@ -361,6 +476,9 @@
     "Planning" : {
 
     },
+    "Prep ahead" : {
+
+    },
     "Pull to refresh the library, then try again." : {
 
     },
@@ -370,6 +488,15 @@
     "Recently added" : {
 
     },
+    "Recipe link" : {
+
+    },
+    "Recipe steps" : {
+
+    },
+    "Recipes can have up to 50 steps." : {
+
+    },
     "Remove" : {
 
     },
@@ -377,6 +504,9 @@
 
     },
     "Remove from household" : {
+
+    },
+    "Replace with yours" : {
 
     },
     "Return date" : {
@@ -392,6 +522,12 @@
 
     },
     "Sends a link and a code so %@ can join on their own device. Codes work once and expire in 7 days." : {
+
+    },
+    "Serves %lld" : {
+
+    },
+    "Servings go from 1 to 50." : {
 
     },
     "Shopping lists will show up here." : {
@@ -415,13 +551,25 @@
     "Sign out of all devices?" : {
 
     },
+    "Slow cooker" : {
+
+    },
+    "Something in this meal is too long to save." : {
+
+    },
     "Sort" : {
 
     },
     "Status" : {
 
     },
+    "Steps" : {
+
+    },
     "Swap this night" : {
+
+    },
+    "Tags" : {
 
     },
     "Takeout" : {
@@ -430,13 +578,31 @@
     "That code didn't work. Check it and try again." : {
 
     },
+    "That file isn't a photo Foon can use." : {
+
+    },
     "That invite has already been used. Ask for a new one." : {
 
     },
     "That invite has expired. Ask for a new one." : {
 
     },
+    "That link doesn't look like a web address." : {
+
+    },
+    "That meal isn't in your library anymore. Pull to refresh." : {
+
+    },
+    "Thaw first" : {
+
+    },
     "The Smiths" : {
+
+    },
+    "The copy was made but hasn't loaded yet. Pull to refresh the library." : {
+
+    },
+    "The recipe steps are too long." : {
 
     },
     "Their ratings and cooking history stay." : {
@@ -481,10 +647,19 @@
     "Trying" : {
 
     },
+    "Type or paste several, separated by commas or new lines" : {
+
+    },
+    "Type them naturally, like \"1 lb ground beef, taco shells, cheese\"." : {
+
+    },
     "Unlock night" : {
 
     },
     "Use this if a phone is lost or shared. Every device, this one included, signs out right away." : {
+
+    },
+    "View the original recipe" : {
 
     },
     "Welcome to Foon" : {
@@ -500,6 +675,9 @@
 
     },
     "You" : {
+
+    },
+    "You can't change this meal. Only planners can." : {
 
     },
     "You're already in a household. Foon supports one household per person for now." : {
@@ -522,6 +700,9 @@
     },
     "fish" : {
       "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "https://" : {
+
     },
     "milk" : {
       "comment" : "Allergen, lowercase inside a sentence"

@@ -1,0 +1,145 @@
+import SwiftUI
+
+/// Edits a meal: name, servings, tags, who makes it, ingredients (typed or pasted naturally,
+/// with autocomplete from the library), recipe steps, and the source link.
+struct MealEditorView: View {
+    @Environment(LibraryStore.self) private var library
+    @Environment(\.dismiss) private var dismiss
+    let meal: LibraryMeal
+
+    @State private var draft: MealDraft
+    @State private var newIngredients = ""
+    @State private var isSaving = false
+
+    init(meal: LibraryMeal) {
+        self.meal = meal
+        _draft = State(initialValue: MealDraft(meal))
+    }
+
+    private var suggestions: [String] {
+        // Suggest only while typing a single ingredient, not a pasted list.
+        guard !newIngredients.contains(where: { $0 == "," || $0.isNewline }) else { return [] }
+        let typed = IngredientParser.parse(newIngredients).first?.name ?? ""
+        return IngredientAutocomplete.suggestions(for: typed, from: library.ingredientNames)
+            .filter { $0.caseInsensitiveCompare(typed) != .orderedSame }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Name", text: $draft.name)
+                    Stepper("Serves \(draft.servings)", value: $draft.servings, in: 1...50)
+                    Picker("Made by", selection: $draft.madeByMemberID) {
+                        Text("No one in particular").tag(UUID?.none)
+                        ForEach(library.activeMembers) { member in
+                            Text(member.firstName).tag(UUID?.some(member.id))
+                        }
+                    }
+                }
+
+                Section("Tags") {
+                    ForEach(MealTag.allCases, id: \.self) { tag in
+                        Toggle(tag.title, isOn: Binding(
+                            get: { draft.tags.contains(tag) },
+                            set: { isOn in
+                                if isOn { draft.tags.insert(tag) } else { draft.tags.remove(tag) }
+                            }
+                        ))
+                    }
+                }
+
+                ingredientsSection
+
+                Section {
+                    TextEditor(text: $draft.stepsText)
+                        .frame(minHeight: 120)
+                        .accessibilityLabel("Recipe steps")
+                } header: {
+                    Text("Steps")
+                } footer: {
+                    Text("Optional. One step per line.")
+                }
+
+                Section("Recipe link") {
+                    TextField("https://", text: $draft.link)
+                        .autocorrectionDisabled()
+                        #if os(iOS)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        #endif
+                }
+
+                if let message = library.errorMessage {
+                    Section {
+                        Text(message).foregroundStyle(.red)
+                    }
+                }
+            }
+            .navigationTitle(meal.name)
+            .onAppear { library.clearError() }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        Task {
+                            isSaving = true
+                            commitNewIngredients()
+                            if await library.save(draft, mealID: meal.id) { dismiss() }
+                            isSaving = false
+                        }
+                    }
+                    .disabled(isSaving)
+                }
+            }
+        }
+    }
+
+    private var ingredientsSection: some View {
+        Section {
+            ForEach($draft.lines) { $line in
+                HStack {
+                    TextField("Amount", text: $line.quantity)
+                        .frame(maxWidth: 90)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Amount of \(line.name)")
+                    TextField("Ingredient", text: $line.name)
+                }
+            }
+            .onDelete { draft.lines.remove(atOffsets: $0) }
+            .onMove { draft.lines.move(fromOffsets: $0, toOffset: $1) }
+
+            TextField("Add ingredients", text: $newIngredients, axis: .vertical)
+                .onSubmit(commitNewIngredients)
+                .accessibilityHint("Type or paste several, separated by commas or new lines")
+            ForEach(suggestions, id: \.self) { suggestion in
+                Button {
+                    let quantity = IngredientParser.parse(newIngredients).first?.quantity
+                    newIngredients = [quantity, suggestion].compactMap { $0 }.joined(separator: " ")
+                    commitNewIngredients()
+                } label: {
+                    Label(suggestion, systemImage: "text.badge.plus")
+                }
+            }
+        } header: {
+            Text("Ingredients")
+        } footer: {
+            Text("Type them naturally, like \"1 lb ground beef, taco shells, cheese\".")
+        }
+    }
+
+    private func commitNewIngredients() {
+        guard !newIngredients.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        draft.addIngredients(newIngredients)
+        newIngredients = ""
+    }
+}
+
+#Preview {
+    let library = LibraryStore(householdID: Household.sample.id, client: .preview())
+    MealEditorView(meal: LibraryMeal.sampleLibrary[0])
+        .environment(library)
+        .task { await library.load(members: Member.sampleFamily) }
+}
