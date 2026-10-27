@@ -25,3 +25,6 @@ Foon.xcodeproj/project.xcworkspace/*
 !Foon.xcodeproj/project.xcworkspace/xcshareddata/
 Foon.xcodeproj/project.xcworkspace/xcshareddata/*
 !Foon.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+
+# Agent worktrees (parallel worker checkouts)
+.claude/worktrees/
