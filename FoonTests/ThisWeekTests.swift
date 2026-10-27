@@ -274,6 +274,21 @@ struct BuildMyWeekStoreTests {
         #expect(!store.isBuilding)
     }
 
+    @Test func nightsNothingFitIsRememberedUntilTheyArePlanned() async {
+        let only = [LibraryMeal.fixture(name: "Only one", tags: [.quick])]
+        let existing = emptyWeek()
+        let store = store(.fake(week: { _, _ in existing }))
+        await store.load(settings: HouseholdSettings())
+        var plain = HouseholdSettings()
+        plain.leftoverNights = 0
+        let settings = plain
+        await store.buildWeek { PlanningContext(meals: only, history: [], settings: settings, members: [self.ann]) }
+        #expect(store.unfillableNights.count == 6)
+        let open = store.week!.nights.first { !$0.isPlanned }!
+        await store.swap(nightID: open.id, to: .quickPick(.takeout))
+        #expect(store.unfillableNights.count == 5)
+    }
+
     @Test func reasonsShowOnTheCard() {
         var night = emptyWeek().nights[0]
         night.mealID = meals[0].id

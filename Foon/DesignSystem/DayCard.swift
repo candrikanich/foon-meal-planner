@@ -134,8 +134,9 @@ struct DayCard: View {
     }
 
     private var attendance: some View {
-        HStack(spacing: -6) {
-            ForEach(model.attendance) { attendee in
+        let shown = DayCardText.visibleAttendees(model.attendance)
+        return HStack(spacing: -6) {
+            ForEach(shown.visible) { attendee in
                 let avatar = MemberAvatar(member: .fixture(id: attendee.memberID, firstName: attendee.firstName,
                                                             avatar: attendee.avatar), size: 32)
                     .opacity(attendee.isHome ? 1 : 0.35)
@@ -153,6 +154,21 @@ struct DayCard: View {
                         .accessibilityHint(String(localized: "Toggles whether they're home this night"))
                 } else {
                     avatar
+                }
+            }
+            if shown.hidden > 0 {
+                let more = Text("+\(shown.hidden)")
+                    .font(.foonCaption)
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 32, minHeight: 32)
+                    .background(Circle().fill(.fill.tertiary))
+                if let open = actions?.open {
+                    Button(action: open) { more }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(localized: "\(shown.hidden) more people"))
+                        .accessibilityHint(String(localized: "Opens the night to see everyone"))
+                } else {
+                    more.accessibilityHidden(true)
                 }
             }
         }
@@ -256,6 +272,19 @@ private enum DayCardPreview {
         .padding()
     }
     .background(Palette.cream)
+}
+
+#Preview("Big family") {
+    let family = (0..<10).map { index in
+        DayCardModel.Attendee(memberID: UUID(), firstName: "Kid \(index)", avatar: ["🦊", "🐻", "🐢", "🦉"][index % 4],
+                              isHome: index != 8)
+    }
+    DayCard(model: .init(date: DayCardPreview.today, effort: .normal,
+                         slot: .meal(name: "Spaghetti", photoURL: nil, reason: "Due for a turn", sides: ["garlic bread"]),
+                         attendance: family, badges: [], isLocked: false),
+            actions: DayCard.Actions(toggleAttendance: { _ in }, cycleEffort: {}, open: {}))
+        .padding()
+        .background(Palette.cream)
 }
 
 #Preview("Read-only (member)") {

@@ -401,7 +401,8 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
 - Babies and toddlers: "eats separately" flag, excluded from ratings and votes.
 - Recurring household food rules (no meat on Lent Fridays, kosher, halal).
 - Any household shape: single parent, couple, roommates, multigenerational, 8+ members.
-- Fewer than 7 library meals: fill what's possible and suggest catalog dishes.
+- Fewer than 7 library meals: fill what's possible and suggest catalog dishes. (v1, #30: Build my week fills what it can without repeating a dish and leaves the rest open; This Week then shows, for the nights nothing fit, "Your library has N meals" (or "Nothing fit N nights" when the rules, not the count, left them open) with three popular starter dishes to add and Browse ideas.)
+- Households of one and of eight or more plan like any other (#30). A night nobody's home gets no dinner (a "Nobody's home" chip, nothing on the list; Swap can still plan one). A big family's day card shows six avatars, whoever's away first, and "+N" (VoiceOver and the night's detail list everyone).
 - Lapsed subscription: read-only, never delete history.
 - Owner transfer and clean removal of an adult when families change.
 - Planners can hide a comment.

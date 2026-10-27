@@ -61,7 +61,8 @@ enum BuildMyWeek {
         let planner = Planner(inputs)
         guard let index = planner.nights.firstIndex(where: { $0.id == nightID }) else { return nil }
         let night = planner.nights[index]
-        guard !planner.isKept(night), !planner.isRequested(night), night.quickPick == nil else { return nil }
+        guard !planner.isKept(night), !planner.isRequested(night), night.quickPick == nil, !night.isNobodyHome
+        else { return nil }
         let used = Set(planner.nights.compactMap(\.mealID))
         let current = night.mealID.flatMap { planner.mealsByID[$0] }
         let feedsLeftovers = current?.tags.contains(.leftovers) == true && planner.nights.indices.contains(index + 1)
@@ -261,12 +262,16 @@ private struct DraftState {
         plans = planner.nights.map { night in
             let kept = planner.isKept(night)
             let pick: NightPick? = night.mealID.map(NightPick.meal) ?? night.quickPick.map(NightPick.quickPick)
-            return NightPlan(nightID: night.id, date: night.date, pick: kept ? pick : nil, reason: nil, isKept: kept)
+            let reason: PlanReason? = !kept && night.isNobodyHome ? .nobodyHome : nil
+            return NightPlan(nightID: night.id, date: night.date, pick: kept ? pick : nil, reason: reason, isKept: kept)
         }
         used = Set(plans.compactMap(\.pick?.mealID))
     }
 
-    private var openIndices: [Int] { plans.indices.filter { !plans[$0].isKept && plans[$0].pick == nil } }
+    /// Nights still to fill. A night nobody's home stays empty: there's no dinner to plan.
+    private var openIndices: [Int] {
+        plans.indices.filter { !plans[$0].isKept && plans[$0].pick == nil && plans[$0].reason != .nobodyHome }
+    }
 
     private func count(_ matches: (NightPick) -> Bool) -> Int {
         plans.compactMap(\.pick).filter(matches).count
