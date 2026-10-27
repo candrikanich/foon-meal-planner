@@ -254,6 +254,16 @@ struct HouseholdClientLiveTests {
         #expect(planned.nights[2].reason == "Haven't had it in 3 weeks")
         #expect(planned.nights[3].quickPick == .takeout)
 
+        // Swap works on a locked night (night 1 was locked above) and replaces a meal with a quick pick.
+        try await weeks.setNight(NightUpdate(nightID: week.nights[1].id, mealID: mealID), true)
+        try await weeks.setNight(NightUpdate(nightID: week.nights[2].id, quickPick: .eatOut), true)
+        let swapped = try #require(try await weeks.week(household.id, sunday))
+        #expect(swapped.nights[1].mealID == mealID)
+        #expect(swapped.nights[2].mealID == nil)
+        #expect(swapped.nights[2].quickPick == .eatOut)
+        #expect(swapped.nights[2].reason == nil)
+        #expect(swapped.nights[2].locked)
+
         let me = try #require(try await households.members(household.id).first { $0.firstName == "Ann" })
         var schedule = MemberDraft(me)
         schedule.usuallyAway = [6]

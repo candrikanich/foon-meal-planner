@@ -129,7 +129,8 @@ extension WeekClient {
             setExpected: { _, _, _ in },
             setEffort: { _, _ in },
             setLocked: { _, _ in },
-            setNights: { _, _ in }
+            setNights: { _, _ in },
+            setNight: { _, _ in }
         )
     }
 }

@@ -320,9 +320,10 @@ extension WeekClient {
         setExpected: @escaping @Sendable (UUID, UUID, Bool) async throws -> Void = { _, _, _ in },
         setEffort: @escaping @Sendable (UUID, NightEffort) async throws -> Void = { _, _ in },
         setLocked: @escaping @Sendable (UUID, Bool) async throws -> Void = { _, _ in },
-        setNights: @escaping @Sendable (UUID, [NightUpdate]) async throws -> Void = { _, _ in }
+        setNights: @escaping @Sendable (UUID, [NightUpdate]) async throws -> Void = { _, _ in },
+        setNight: @escaping @Sendable (NightUpdate, Bool) async throws -> Void = { _, _ in }
     ) -> WeekClient {
         WeekClient(week: week, create: create, setExpected: setExpected, setEffort: setEffort, setLocked: setLocked,
-                   setNights: setNights)
+                   setNights: setNights, setNight: setNight)
     }
 }

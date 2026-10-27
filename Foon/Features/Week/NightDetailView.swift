@@ -8,6 +8,7 @@ struct NightDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let nightID: UUID
     let canPlan: Bool
+    @State private var swapping = false
 
     private static let efforts: [NightEffort] = [.normal, .rushed, .full, .event]
 
@@ -30,6 +31,11 @@ struct NightDetailView: View {
                 dinner(night)
                 if let time = night.dinnerTime {
                     LabeledContent("Dinner at", value: String(time.prefix(5)))
+                }
+                if canPlan {
+                    Button("Swap", systemImage: "arrow.triangle.2.circlepath") { swapping = true }
+                        .tint(Palette.paprika)
+                        .disabled(week.isBuilding)
                 }
             } header: {
                 Text(DayCardText.dateLabel(for: night.date))
@@ -88,6 +94,9 @@ struct NightDetailView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Done") { dismiss() }
             }
+        }
+        .sheet(isPresented: $swapping) {
+            SwapSheet(nightID: nightID)
         }
     }
 

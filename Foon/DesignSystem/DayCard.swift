@@ -104,19 +104,9 @@ struct DayCard: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Palette.paprika.opacity(0.14))
                     .frame(width: 56, height: 56)
-                    .overlay(Image(systemName: quickPickSymbol(pick)).font(.title2).foregroundStyle(Palette.paprika))
+                    .overlay(Image(systemName: pick.systemImage).font(.title2).foregroundStyle(Palette.paprika))
                 Text(DayCardText.quickPickLabel(pick)).font(.foonTitle).foregroundStyle(Palette.ink)
             }
-        }
-    }
-
-    private func quickPickSymbol(_ pick: QuickPick) -> String {
-        switch pick {
-        case .leftovers: "takeoutbag.and.cup.and.straw"
-        case .takeout: "bag"
-        case .eatOut: "fork.knife.circle"
-        case .fendForYourselves: "figure.wave"
-        case .freezerRaid: "snowflake"
         }
     }
 

@@ -199,6 +199,48 @@ final class WeekStore {
         }
     }
 
+    // MARK: - Swap
+
+    /// What the swap sheet can put on a night.
+    enum SwapChoice: Equatable, Sendable {
+        case meal(id: UUID, name: String)
+        case quickPick(QuickPick)
+        /// Back to an empty night, open for Fill again.
+        case empty
+    }
+
+    /// The planner's own pick replaces the night and locks it, so a later Rebuild keeps it. Clearing unlocks.
+    /// Returns whether it saved. Not while a build is saving: the two writes would race.
+    @discardableResult
+    func swap(nightID: UUID, to choice: SwapChoice) async -> Bool {
+        guard !isBuilding, let index = nightIndex(nightID) else { return false }
+        var update = NightUpdate(nightID: nightID)
+        var mealName: String?
+        switch choice {
+        case .meal(let id, let name):
+            update.mealID = id
+            mealName = name
+        case .quickPick(let pick):
+            update.quickPick = pick
+        case .empty:
+            break
+        }
+        let lock = choice != .empty
+        let saved = update
+        week?.nights[index].mealID = update.mealID
+        week?.nights[index].mealName = mealName
+        week?.nights[index].quickPick = update.quickPick
+        week?.nights[index].reason = nil
+        week?.nights[index].locked = lock
+        return await send(nightID: nightID, failure: String(localized: "Couldn't swap the night. Check your connection and try again.")) {
+            [client] in try await client.setNight(saved, lock)
+        }
+    }
+
+    func clearError() {
+        errorMessage = nil
+    }
+
     /// One DayCard per night, with attendance in the family's order.
     func cards(members: [Member], sides: (UUID) -> [String] = { _ in [] }) -> [DayCardModel] {
         (week?.nights ?? []).map { Self.card(for: $0, members: members, sides: sides) }
@@ -238,19 +280,24 @@ final class WeekStore {
     // MARK: - Private
 
     /// Queues a write behind the night's previous one, so rapid taps reach the server in the order made.
-    private func send(nightID: UUID, failure: String, _ write: @escaping @Sendable () async throws -> Void) async {
+    /// Returns whether this write saved.
+    @discardableResult
+    private func send(nightID: UUID, failure: String, _ write: @escaping @Sendable () async throws -> Void) async -> Bool {
         let previous = lastWrite[nightID]
-        let task = Task {
-            await previous?.value
+        let task = Task { () -> Bool in
+            _ = await previous?.value
             do {
                 try await write()
+                errorMessage = nil
+                return true
             } catch {
                 errorMessage = failure
                 await reload()
+                return false
             }
         }
-        lastWrite[nightID] = task
-        await task.value
+        lastWrite[nightID] = Task { _ = await task.value }
+        return await task.value
     }
 
     /// After a refused write, show what the server has rather than guessing which tap to undo.

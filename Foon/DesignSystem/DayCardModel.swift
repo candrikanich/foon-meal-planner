@@ -35,6 +35,20 @@ struct DayCardModel: Identifiable, Equatable, Sendable {
     var id: CalendarDay { date }
 }
 
+extension QuickPick {
+    static let all: [QuickPick] = [.leftovers, .takeout, .eatOut, .fendForYourselves, .freezerRaid]
+
+    var systemImage: String {
+        switch self {
+        case .leftovers: "takeoutbag.and.cup.and.straw"
+        case .takeout: "bag"
+        case .eatOut: "fork.knife.circle"
+        case .fendForYourselves: "figure.wave"
+        case .freezerRaid: "snowflake"
+        }
+    }
+}
+
 extension NightEffort {
     /// Tapping the effort chip cycles normal → rushed → full → event.
     var next: NightEffort {
