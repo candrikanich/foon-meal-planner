@@ -5,11 +5,11 @@ enum AppTab: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .week: "This Week"
-        case .library: "Library"
-        case .lists: "Lists"
-        case .ideas: "Ideas"
-        case .family: "Family"
+        case .week: String(localized: "This Week")
+        case .library: String(localized: "Library")
+        case .lists: String(localized: "Lists")
+        case .ideas: String(localized: "Ideas")
+        case .family: String(localized: "Family")
         }
     }
 

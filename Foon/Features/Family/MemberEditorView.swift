@@ -98,7 +98,7 @@ struct MemberEditorView: View {
                     }
                 }
             }
-            .navigationTitle(member.map { "Edit \($0.firstName)" } ?? "Add member")
+            .navigationTitle(member.map { String(localized: "Edit \($0.firstName)", comment: "Member editor title: first name") } ?? String(localized: "Add member"))
             .onAppear { store.clearError() }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -157,7 +157,7 @@ struct MemberEditorView: View {
                 ShareLink(
                     "Send invite",
                     item: InviteCode.shareMessage(
-                        householdName: store.household?.name ?? "our family", firstName: member.firstName, code: inviteCode
+                        householdName: store.household?.name ?? String(localized: "our family"), firstName: member.firstName, code: inviteCode
                     )
                 )
             } else if store.needsParentalConsent(member) {

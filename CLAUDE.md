@@ -62,6 +62,7 @@ supabase/
 - Use Swift Testing (`@Test`) for unit tests; cover the algorithm, parsers, allergy matching, and list merging.
 - SwiftUI previews for every new view, with mock data from `Core/Mocks`.
 - Accessibility: Dynamic Type and VoiceOver labels on all interactive elements.
+- Every user-facing string is localizable: SwiftUI literals, or `String(localized:)` for strings built outside a view. Command-line builds don't update `Foon/Resources/Localizable.xcstrings`, so run `scripts/sync-strings.sh` after `scripts/test.sh` and commit the catalog; CI fails on strings missing from it.
 
 ## Workflow
 

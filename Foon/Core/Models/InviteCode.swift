@@ -23,10 +23,10 @@ enum InviteCode {
     }
 
     static func shareMessage(householdName: String, firstName: String, code: String) -> String {
-        """
-        \(firstName), join \(householdName) on Foon, our family dinner planner.
-        Open \(link(for: code).absoluteString), or sign in and enter code \(code).
-        """
+        String(localized: """
+            \(firstName), join \(householdName) on Foon, our family dinner planner.
+            Open \(link(for: code).absoluteString), or sign in and enter code \(code).
+            """, comment: "Invite text: invitee's first name, household name, link, invite code")
     }
 }
 
@@ -44,29 +44,33 @@ enum RedeemResult: String, Decodable, Sendable, CaseIterable {
     var message: String? {
         switch self {
         case .claimed: nil
-        case .invalid: "That code didn't work. Check it and try again."
-        case .expired: "That invite has expired. Ask for a new one."
-        case .used: "That invite has already been used. Ask for a new one."
-        case .hasHousehold: "You're already in a household. Foon supports one household per person for now."
-        case .rateLimited: "Too many tries. Wait 15 minutes and try again."
-        case .needsConsent: "This invite needs a parent's OK first. Ask them to send a new one."
-        case .ageMismatch: "This invite is for an adult's profile. Ask your family for the right invite."
+        case .invalid: String(localized: "That code didn't work. Check it and try again.")
+        case .expired: String(localized: "That invite has expired. Ask for a new one.")
+        case .used: String(localized: "That invite has already been used. Ask for a new one.")
+        case .hasHousehold: String(localized: "You're already in a household. Foon supports one household per person for now.")
+        case .rateLimited: String(localized: "Too many tries. Wait 15 minutes and try again.")
+        case .needsConsent: String(localized: "This invite needs a parent's OK first. Ask them to send a new one.")
+        case .ageMismatch: String(localized: "This invite is for an adult's profile. Ask your family for the right invite.")
         }
     }
 }
 
 /// What a parent agrees to before a kid's invite goes out (COPPA, #12). The version is logged with
-/// the consent, so a later wording change can ask parents again.
+/// the consent, so a later wording change can ask parents again. A translation must say exactly what the
+/// English says; changing what it promises means a new version.
 enum ParentalConsent {
     static let textVersion = "parental-invite-v1"
 
     static func statement(firstName: String) -> String {
-        """
+        String(localized: """
         I'm \(firstName)'s parent or guardian, and I agree to \(firstName) using Foon on their own device. \
         Foon stores what our family enters about \(firstName) (first name, avatar, allergies, and schedule), \
         what \(firstName) adds (requests, ratings, comments, and list items), and an age range from Apple, \
         never a birthdate. It's shared only with this household and never used for ads. \
         I can withdraw this at any time.
-        """
+        """, comment: """
+            Parental consent (COPPA). Every placeholder is the child's first name. Must say exactly what the \
+            English says; see ParentalConsent.textVersion.
+            """)
     }
 }

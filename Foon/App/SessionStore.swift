@@ -87,11 +87,13 @@ final class SessionStore {
         errorMessage = nil
         pendingInviteCode = nil
         guard await auth.signOutEverywhere() else {
-            errorMessage = "Couldn't sign out your other devices. Check your connection and try again."
+            errorMessage = String(localized: "Couldn't sign out your other devices. Check your connection and try again.")
             return false
         }
         return true
     }
 
-    private static let signInFailed = "Sign in didn't work. Check your connection and try again."
+    private static var signInFailed: String {
+        String(localized: "Sign in didn't work. Check your connection and try again.")
+    }
 }

@@ -70,11 +70,12 @@ struct HouseholdGate: View {
 /// Debug builds run without Supabase settings (CI, fresh clones); Staging and Release refuse to build without them.
 struct ConfigurationMissingView: View {
     var body: some View {
-        ContentUnavailableView(
-            "Supabase isn't configured",
-            systemImage: "wrench.and.screwdriver",
-            description: Text("Run scripts/write-local-config.sh after supabase start. See README → Local Supabase.")
-        )
+        // Developer-only, so it stays out of the String Catalog.
+        ContentUnavailableView {
+            Label { Text(verbatim: "Supabase isn't configured") } icon: { Image(systemName: "wrench.and.screwdriver") }
+        } description: {
+            Text(verbatim: "Run scripts/write-local-config.sh after supabase start. See README → Local Supabase.")
+        }
     }
 }
 

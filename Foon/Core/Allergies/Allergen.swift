@@ -18,9 +18,16 @@ enum Allergen: String, Codable, Sendable, CaseIterable, Comparable {
     /// Lowercase, so it reads inside a sentence: "Contains tree nuts (Nora)".
     var displayName: String {
         switch self {
-        case .treeNuts: "tree nuts"
-        case .custom: "other"
-        default: rawValue
+        case .milk: String(localized: "milk", comment: "Allergen, lowercase inside a sentence")
+        case .eggs: String(localized: "eggs", comment: "Allergen, lowercase inside a sentence")
+        case .fish: String(localized: "fish", comment: "Allergen, lowercase inside a sentence")
+        case .shellfish: String(localized: "shellfish", comment: "Allergen, lowercase inside a sentence")
+        case .treeNuts: String(localized: "tree nuts", comment: "Allergen, lowercase inside a sentence")
+        case .peanuts: String(localized: "peanuts", comment: "Allergen, lowercase inside a sentence")
+        case .wheat: String(localized: "wheat", comment: "Allergen, lowercase inside a sentence")
+        case .soy: String(localized: "soy", comment: "Allergen, lowercase inside a sentence")
+        case .sesame: String(localized: "sesame", comment: "Allergen, lowercase inside a sentence")
+        case .custom: String(localized: "other", comment: "Allergen, lowercase inside a sentence")
         }
     }
 

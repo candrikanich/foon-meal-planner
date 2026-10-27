@@ -104,7 +104,7 @@ final class HouseholdStore {
             // A view going away cancels its load; that isn't a failure to show.
             guard !Task.isCancelled else { return }
             if household == nil { phase = .failed }
-            errorMessage = "Couldn't load your household. Check your connection and try again."
+            errorMessage = String(localized: "Couldn't load your household. Check your connection and try again.")
         }
     }
 
@@ -113,7 +113,7 @@ final class HouseholdStore {
         var owner = MemberDraft()
         owner.firstName = firstName
         guard let name = Household.validatedName(name), let owner = owner.validated() else {
-            errorMessage = "Add a household name and your first name."
+            errorMessage = String(localized: "Add a household name and your first name.")
             return
         }
         let emoji = emoji?.trimmingCharacters(in: .whitespaces)
@@ -121,7 +121,7 @@ final class HouseholdStore {
         do {
             household = try await client.createHousehold(name, emoji?.isEmpty == false ? emoji : nil, owner.firstName)
         } catch {
-            errorMessage = "Couldn't create your household. Check your connection and try again."
+            errorMessage = String(localized: "Couldn't create your household. Check your connection and try again.")
             return
         }
         // The household exists now; a members hiccup must not send the user back to create it again.
@@ -129,7 +129,7 @@ final class HouseholdStore {
         do {
             members = try await client.members(household.id)
         } catch {
-            errorMessage = "Your household is ready. Pull to refresh to see your family."
+            errorMessage = String(localized: "Your household is ready. Pull to refresh to see your family.")
         }
     }
 
@@ -138,7 +138,7 @@ final class HouseholdStore {
         errorMessage = nil
         guard let household else { return false }
         guard let draft = draft.validated() else {
-            errorMessage = "First names need 1 to 30 characters."
+            errorMessage = String(localized: "First names need 1 to 30 characters.")
             return false
         }
         do {
@@ -153,7 +153,7 @@ final class HouseholdStore {
             }
             return true
         } catch {
-            errorMessage = "Couldn't save. Pull to refresh in case someone else changed this, then try again."
+            errorMessage = String(localized: "Couldn't save. Pull to refresh in case someone else changed this, then try again.")
             return false
         }
     }
@@ -178,7 +178,7 @@ final class HouseholdStore {
             invitedMemberIDs.insert(member.id)
             return code
         } catch {
-            errorMessage = "Couldn't create an invite. Check your connection and try again."
+            errorMessage = String(localized: "Couldn't create an invite. Check your connection and try again.")
             return nil
         }
     }
@@ -200,7 +200,7 @@ final class HouseholdStore {
                 // Consent may already exist (it failed to load earlier); check before giving up.
                 parentalConsentMemberIDs = (try? await client.parentalConsentMemberIDs(household.id)) ?? parentalConsentMemberIDs
                 guard !needsParentalConsent(member) else {
-                    errorMessage = "Couldn't record your consent. Check your connection and try again."
+                    errorMessage = String(localized: "Couldn't record your consent. Check your connection and try again.")
                     return nil
                 }
             }
@@ -228,7 +228,7 @@ final class HouseholdStore {
             }
             return true
         } catch {
-            errorMessage = "Couldn't withdraw consent. Check your connection and try again."
+            errorMessage = String(localized: "Couldn't withdraw consent. Check your connection and try again.")
             return false
         }
     }
@@ -248,7 +248,7 @@ final class HouseholdStore {
             }
             await load()
         } catch {
-            errorMessage = "Couldn't check that code. Check your connection and try again."
+            errorMessage = String(localized: "Couldn't check that code. Check your connection and try again.")
         }
     }
 

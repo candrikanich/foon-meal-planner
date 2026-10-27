@@ -26,7 +26,7 @@ Goal: an **internal TestFlight** build our family can use for a real Sunday. The
   - substitutions and "Make it safe" struck from #16 and #19 (the spec says later).
 - **Design** comes from the spec (warm palette, DayCard per the spec), reviewed live by Chris and iterated.
 - **Pure-logic tickets run as parallel worker agents** in worktrees, each reviewed before its PR.
-- **#37:** Chris creates the App Store Connect app record now. A hosted Supabase project (needed for TestFlight on phones) is decided when we reach #37.
+- **#37:** Chris creates the App Store Connect app record now (done 2026-10-27). A hosted Supabase project (needed for TestFlight on phones) is decided when we reach #37.
 
 ## Working mode
 - One ticket per PR, test first, with review and fix before each PR, as in M0.

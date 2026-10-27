@@ -21,7 +21,7 @@ struct CreateHouseholdView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Invite code", text: $inviteCode, prompt: Text("SMITH-7KQ4-M9XP"))
+                    TextField("Invite code", text: $inviteCode, prompt: Text(verbatim: "SMITH-7KQ4-M9XP"))
                         .autocorrectionDisabled()
                         .font(.body.monospaced())
                     Button {
