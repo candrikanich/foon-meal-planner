@@ -86,6 +86,38 @@ enum BuildMyWeek {
     }
 }
 
+// MARK: - Swap suggestions
+
+extension BuildMyWeek {
+    /// A dish the swap sheet offers, with the chip saying why.
+    struct Suggestion: Equatable, Sendable {
+        let mealID: UUID
+        let reason: PlanReason
+    }
+
+    /// Up to `count` different dishes for one night, drawn by the same filters and weights as a build: never a
+    /// dish already in the week (the night's own included), trial dishes only while the week's budget has room.
+    /// Unlike Shuffle, any night can be swapped, so kept nights get suggestions too. A night before today is
+    /// logging what was eaten, so prep time and the repeat window don't apply to it.
+    static func suggestions(night nightID: UUID, inputs: PlanningInputs, seed: UInt64, count: Int = 3) -> [Suggestion] {
+        let planner = Planner(inputs)
+        guard let night = planner.nights.first(where: { $0.id == nightID }) else { return [] }
+        var used = Set(planner.nights.compactMap(\.mealID))
+        let trialsElsewhere = planner.nights.filter { $0.id != nightID && planner.isTrial($0.mealID) }.count
+        let pool = trialsElsewhere < inputs.settings.newDishesPerWeek
+            ? planner.knownMeals + planner.trialMeals : planner.knownMeals
+        var rng = SeededGenerator(seed: seed)
+        var picks: [Suggestion] = []
+        let past = night.date < inputs.today
+        while picks.count < count,
+              let meal = planner.draw(for: night, from: pool, excluding: used, loggingPast: past, rng: &rng) {
+            used.insert(meal.id)
+            picks.append(Suggestion(mealID: meal.id, reason: planner.reason(for: meal, on: night)))
+        }
+        return picks
+    }
+}
+
 // MARK: - Lookups and rules
 
 private struct Planner {
@@ -133,8 +165,9 @@ private struct Planner {
 
     /// Step 3 of the spec. Allergies are never a filter: they're flagged on the card, and the planner decides.
     /// Grill dishes fit any night until a setting says otherwise.
-    func fits(_ meal: LibraryMeal, on night: PlanningNight) -> Bool {
+    func fits(_ meal: LibraryMeal, on night: PlanningNight, loggingPast: Bool = false) -> Bool {
         guard meal.status.isInRotation, !inputs.snoozedMealIDs.contains(meal.id) else { return false }
+        if loggingPast { return true }
         if let lastMade = historyByMeal[meal.id]?.lastMade,
            night.date.days(since: lastMade) < inputs.settings.repeatWindowDays { return false }
         let notForMe = inputs.notForMe[meal.id] ?? [:]
@@ -168,9 +201,10 @@ private struct Planner {
 
     /// A weighted draw among the pool's dishes that fit this night and aren't already in the week.
     func draw(for night: PlanningNight, from pool: [LibraryMeal], excluding used: Set<UUID>,
-              requiring tag: MealTag? = nil, rng: inout SeededGenerator) -> LibraryMeal? {
+              requiring tag: MealTag? = nil, loggingPast: Bool = false, rng: inout SeededGenerator) -> LibraryMeal? {
         let candidates = pool.filter { meal in
-            !used.contains(meal.id) && fits(meal, on: night) && (tag.map { meal.tags.contains($0) } ?? true)
+            !used.contains(meal.id) && fits(meal, on: night, loggingPast: loggingPast)
+                && (tag.map { meal.tags.contains($0) } ?? true)
         }
         let weights = candidates.map { weight(of: $0, on: night) }
         let total = weights.reduce(0, +)

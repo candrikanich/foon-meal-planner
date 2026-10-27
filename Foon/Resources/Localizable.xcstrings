@@ -16,6 +16,16 @@
     "%@'s request" : {
       "comment" : "Day card badge: the member who asked for this dish"
     },
+    "%@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
     "%@, away" : {
 
     },
@@ -109,6 +119,15 @@
 
     },
     "Add your requests" : {
+
+    },
+    "Add “%@” as a new dish" : {
+
+    },
+    "Adds it to your library and plans it" : {
+
+    },
+    "Adds it to your library; you can add ingredients later." : {
 
     },
     "Adult" : {
@@ -266,6 +285,9 @@
     "Couldn't start the week. Check your connection and try again." : {
 
     },
+    "Couldn't swap the night. Check your connection and try again." : {
+
+    },
     "Couldn't upload the photo. Check your connection and try again." : {
 
     },
@@ -336,6 +358,9 @@
 
     },
     "Fend for yourselves" : {
+
+    },
+    "Fill or Pick for me can plan it again." : {
 
     },
     "Fill remaining nights" : {
@@ -454,6 +479,9 @@
     "It may have been removed on another device." : {
 
     },
+    "It's archived; this puts it back in rotation." : {
+
+    },
     "Join family" : {
 
     },
@@ -467,6 +495,9 @@
 
     },
     "Kid" : {
+
+    },
+    "Leave it empty" : {
 
     },
     "Leftovers" : {
@@ -539,6 +570,9 @@
     "Member" : {
 
     },
+    "More ideas" : {
+
+    },
     "Most made" : {
 
     },
@@ -588,6 +622,9 @@
 
     },
     "No quick meals" : {
+
+    },
+    "No suggestions fit this night. Search your meals instead." : {
 
     },
     "None of your meals contain anything your family avoids." : {
@@ -710,6 +747,9 @@
     "Requested" : {
       "comment" : "Reason chip: someone asked for this dish"
     },
+    "Restore %@ and plan it" : {
+
+    },
     "Return date" : {
 
     },
@@ -717,6 +757,9 @@
 
     },
     "Save" : {
+
+    },
+    "Search your meals or add one" : {
 
     },
     "Send invite" : {
@@ -770,6 +813,9 @@
     "Snacks" : {
 
     },
+    "Something else" : {
+
+    },
     "Something in this meal is too long to save." : {
 
     },
@@ -790,6 +836,15 @@
     },
     "Steps" : {
 
+    },
+    "Suggestions" : {
+
+    },
+    "Swap" : {
+
+    },
+    "Swap %@" : {
+      "comment" : "Swap sheet title: the night, e.g. Tonight or Thursday"
     },
     "Swap this night" : {
 
@@ -945,6 +1000,9 @@
 
     },
     "Your household is ready. Pull to refresh to see your family." : {
+
+    },
+    "Your meals" : {
 
     },
     "Your planner hasn't planned this week yet. Tell them what you'd like." : {

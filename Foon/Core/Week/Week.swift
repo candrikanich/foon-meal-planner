@@ -49,6 +49,8 @@ struct WeekClient: Sendable {
     var setLocked: @Sendable (_ nightID: UUID, _ locked: Bool) async throws -> Void
     /// Saves several nights' picks in one transaction.
     var setNights: @Sendable (_ planID: UUID, _ nights: [NightUpdate]) async throws -> Void
+    /// Swap: one night's pick and lock, set directly (a planner may swap a locked night).
+    var setNight: @Sendable (_ night: NightUpdate, _ locked: Bool) async throws -> Void
 }
 
 extension WeekClient {
@@ -107,8 +109,37 @@ extension WeekClient {
             },
             setNights: { planID, nights in
                 try await client.rpc("set_nights", params: SetNightsParams(targetPlan: planID, nights: nights)).execute()
+            },
+            setNight: { night, locked in
+                let updated: [IDOnly] = try await client.from("plan_nights")
+                    .update(NightPatch(update: night, locked: locked))
+                    .eq("id", value: night.nightID)
+                    .select("id")
+                    .execute()
+                    .value
+                guard !updated.isEmpty else { throw LibraryClientError.notAllowed }
             }
         )
+    }
+}
+
+/// Every column written, nulls included, so a swap from a meal to a quick pick clears the meal.
+private struct NightPatch: Encodable, Sendable {
+    let update: NightUpdate
+    let locked: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case mealID = "meal_id"
+        case quickPick = "quick_pick"
+        case reason, locked
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(update.mealID, forKey: .mealID)
+        try container.encode(update.quickPick, forKey: .quickPick)
+        try container.encode(update.reason, forKey: .reason)
+        try container.encode(locked, forKey: .locked)
     }
 }
 

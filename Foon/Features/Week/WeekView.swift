@@ -11,6 +11,7 @@ struct WeekView: View {
     @Environment(\.showTab) private var showTab
     @Query(filter: #Predicate<CachedListItem> { $0.checkedAt == nil }) private var openListItems: [CachedListItem]
     @State private var openNight: UUID?
+    @State private var swappingNight: UUID?
     @State private var showingPast = false
 
     private var canPlan: Bool {
@@ -42,6 +43,9 @@ struct WeekView: View {
             .refreshable { await load() }
             .sheet(item: Binding(get: { openNight.map(NightID.init) }, set: { openNight = $0?.id })) { night in
                 NightDetailView(nightID: night.id, canPlan: canPlan)
+            }
+            .sheet(item: Binding(get: { swappingNight.map(NightID.init) }, set: { swappingNight = $0?.id })) { night in
+                SwapSheet(nightID: night.id)
             }
         }
         .task(id: LoadKey(householdID: household.household?.id, next: week.showingNextWeek,
@@ -196,6 +200,7 @@ struct WeekView: View {
             toggleLock: { Task { await week.toggleLock(nightID: night.id) } },
             // Quick-pick nights change through Swap (#25); shuffle re-rolls meals and fills empty nights.
             shuffle: night.quickPick == nil && !week.isBuilding ? { Task { await shuffle(night.id) } } : nil,
+            swap: week.isBuilding ? nil : { swappingNight = night.id },
             open: { openNight = night.id }
         )
     }
