@@ -51,6 +51,9 @@ jobs:
       - name: Unit tests (Swift Testing, macOS)
         run: scripts/test.sh
 
+      - name: String Catalog has every string
+        run: scripts/sync-strings.sh --check
+
   database:
     name: Migrations and pgTAP
     runs-on: ubuntu-latest

@@ -81,7 +81,7 @@ enum DayCardText {
     static func badgeLabel(_ badge: DayCardModel.Badge) -> String {
         switch badge {
         case .allergy(let text), .tradition(let text), .prep(let text): text
-        case .request(let name): String(localized: "\(name)'s request")
+        case .request(let name): String(localized: "\(name)'s request", comment: "Day card badge: the member who asked for this dish")
         }
     }
 

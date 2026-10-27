@@ -40,7 +40,8 @@ struct AllergyFlag: Hashable, Sendable {
     let ingredients: [String]
 
     var summary: String {
-        "Contains \(trigger.displayName) (\(members.map(\.firstName).joined(separator: ", ")))"
+        let names = members.map(\.firstName).joined(separator: ", ")
+        return String(localized: "Contains \(trigger.displayName) (\(names))", comment: "Allergy flag: allergen, then who")
     }
 }
 

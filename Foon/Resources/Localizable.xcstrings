@@ -1,0 +1,429 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ signs out right away and can rejoin only with your consent and a new invite." : {
+
+    },
+    "%@'s request" : {
+      "comment" : "Day card badge: the member who asked for this dish"
+    },
+    "%@, away" : {
+
+    },
+    "%@, home" : {
+
+    },
+    "%@, join %@ on Foon, our family dinner planner.\nOpen %@, or sign in and enter code %@." : {
+      "comment" : "Invite text: invitee's first name, household name, link, invite code",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, join %2$@ on Foon, our family dinner planner.\nOpen %3$@, or sign in and enter code %4$@."
+          }
+        }
+      }
+    },
+    "A last name or a nickname. Everyone you invite will see it." : {
+
+    },
+    "Add" : {
+
+    },
+    "Add a household name and your first name." : {
+
+    },
+    "Add member" : {
+
+    },
+    "Adult" : {
+
+    },
+    "Age" : {
+
+    },
+    "Agree and invite %@" : {
+
+    },
+    "Avatar %@" : {
+
+    },
+    "Away" : {
+
+    },
+    "Away until %@" : {
+      "comment" : "Member status: a short date such as Nov 4"
+    },
+    "Away: %@" : {
+
+    },
+    "Back on" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Changes the night's effort" : {
+
+    },
+    "Contains %@ (%@)" : {
+      "comment" : "Allergy flag: allergen, then who",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Contains %1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "Couldn't check that code. Check your connection and try again." : {
+
+    },
+    "Couldn't create an invite. Check your connection and try again." : {
+
+    },
+    "Couldn't create your household. Check your connection and try again." : {
+
+    },
+    "Couldn't load your household" : {
+
+    },
+    "Couldn't load your household. Check your connection and try again." : {
+
+    },
+    "Couldn't record your consent. Check your connection and try again." : {
+
+    },
+    "Couldn't save. Pull to refresh in case someone else changed this, then try again." : {
+
+    },
+    "Couldn't sign out your other devices. Check your connection and try again." : {
+
+    },
+    "Couldn't withdraw consent. Check your connection and try again." : {
+
+    },
+    "Create household" : {
+
+    },
+    "Different tastes. Same table." : {
+
+    },
+    "Dinner ideas from the family will show up here." : {
+
+    },
+    "Eat out" : {
+
+    },
+    "Edit" : {
+
+    },
+    "Edit %@" : {
+      "comment" : "Member editor title: first name"
+    },
+    "Effort: %@" : {
+
+    },
+    "Enter the code from your invite. Otherwise, start your own household below." : {
+
+    },
+    "Event" : {
+
+    },
+    "Family" : {
+
+    },
+    "Fend for yourselves" : {
+
+    },
+    "First name" : {
+
+    },
+    "First names need 1 to 30 characters." : {
+
+    },
+    "Foon" : {
+
+    },
+    "Foon signs out on every phone, tablet, and Mac using your account, including this one." : {
+
+    },
+    "Freezer raid" : {
+
+    },
+    "Full evening" : {
+
+    },
+    "Home" : {
+
+    },
+    "Home: %@" : {
+
+    },
+    "Household emoji %@" : {
+
+    },
+    "Household name" : {
+
+    },
+    "I'm %@'s parent or guardian, and I agree to %@ using Foon on their own device. Foon stores what our family enters about %@ (first name, avatar, allergies, and schedule), what %@ adds (requests, ratings, comments, and list items), and an age range from Apple, never a birthdate. It's shared only with this household and never used for ads. I can withdraw this at any time." : {
+      "comment" : "Parental consent (COPPA). Every placeholder is the child's first name. Must say exactly what the English says; see ParentalConsent.textVersion.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "I'm %1$@'s parent or guardian, and I agree to %2$@ using Foon on their own device. Foon stores what our family enters about %3$@ (first name, avatar, allergies, and schedule), what %4$@ adds (requests, ratings, comments, and list items), and an age range from Apple, never a birthdate. It's shared only with this household and never used for ads. I can withdraw this at any time."
+          }
+        }
+      }
+    },
+    "Ideas" : {
+
+    },
+    "Invite" : {
+
+    },
+    "Invite %@" : {
+
+    },
+    "Invite again" : {
+
+    },
+    "Invite code" : {
+
+    },
+    "Invite code %@" : {
+
+    },
+    "Invite sent" : {
+
+    },
+    "Join family" : {
+
+    },
+    "Joining a family?" : {
+
+    },
+    "Kid" : {
+
+    },
+    "Leftovers" : {
+
+    },
+    "Library" : {
+
+    },
+    "Lists" : {
+
+    },
+    "Lock night" : {
+
+    },
+    "Locked" : {
+
+    },
+    "Member" : {
+
+    },
+    "Normal" : {
+
+    },
+    "Nothing planned yet" : {
+
+    },
+    "Parent" : {
+
+    },
+    "Parental consent" : {
+
+    },
+    "Parents manage the family, allergies, and privacy choices. Planners build the week and manage meals." : {
+
+    },
+    "Pick an emoji" : {
+
+    },
+    "Planner" : {
+
+    },
+    "Planning" : {
+
+    },
+    "Remove" : {
+
+    },
+    "Remove %@?" : {
+
+    },
+    "Remove from household" : {
+
+    },
+    "Return date" : {
+
+    },
+    "Rushed" : {
+
+    },
+    "Save" : {
+
+    },
+    "Send invite" : {
+
+    },
+    "Sends a link and a code so %@ can join on their own device. Codes work once and expire in 7 days." : {
+
+    },
+    "Shopping lists will show up here." : {
+
+    },
+    "Shuffle this night" : {
+
+    },
+    "Sign in didn't work. Check your connection and try again." : {
+
+    },
+    "Sign out" : {
+
+    },
+    "Sign out everywhere" : {
+
+    },
+    "Sign out of all devices" : {
+
+    },
+    "Sign out of all devices?" : {
+
+    },
+    "Status" : {
+
+    },
+    "Swap this night" : {
+
+    },
+    "Takeout" : {
+
+    },
+    "That code didn't work. Check it and try again." : {
+
+    },
+    "That invite has already been used. Ask for a new one." : {
+
+    },
+    "That invite has expired. Ask for a new one." : {
+
+    },
+    "The Smiths" : {
+
+    },
+    "Their ratings and cooking history stay." : {
+
+    },
+    "They lose access right away. Their ratings and history stay." : {
+
+    },
+    "They're signed out of the household on their own device now, and stay in the family on yours. If you don't consent again within 30 days, what they added themselves is erased." : {
+
+    },
+    "This Week" : {
+
+    },
+    "This code is shown only now. Inviting again replaces it." : {
+
+    },
+    "This invite is for an adult's profile. Ask your family for the right invite." : {
+
+    },
+    "This invite needs a parent's OK first. Ask them to send a new one." : {
+
+    },
+    "Toggles whether they're home this night" : {
+
+    },
+    "Tomorrow" : {
+
+    },
+    "Tonight" : {
+
+    },
+    "Too many tries. Wait 15 minutes and try again." : {
+
+    },
+    "Try again" : {
+
+    },
+    "Unlock night" : {
+
+    },
+    "Use this if a phone is lost or shared. Every device, this one included, signs out right away." : {
+
+    },
+    "Welcome to Foon" : {
+
+    },
+    "Who they are" : {
+
+    },
+    "Withdraw consent" : {
+
+    },
+    "Withdraw consent for %@?" : {
+
+    },
+    "You" : {
+
+    },
+    "You're already in a household. Foon supports one household per person for now." : {
+
+    },
+    "Your family's meals will live here." : {
+
+    },
+    "Your first name" : {
+
+    },
+    "Your household" : {
+
+    },
+    "Your household is ready. Pull to refresh to see your family." : {
+
+    },
+    "Your week of dinners will show up here." : {
+
+    },
+    "eggs" : {
+      "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "fish" : {
+      "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "milk" : {
+      "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "other" : {
+      "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "our family" : {
+
+    },
+    "peanuts" : {
+      "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "sesame" : {
+      "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "shellfish" : {
+      "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "soy" : {
+      "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "tree nuts" : {
+      "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "wheat" : {
+      "comment" : "Allergen, lowercase inside a sentence"
+    }
+  },
+  "version" : "1.0"
+}

@@ -126,15 +126,16 @@ struct MemberRow: View {
     }
 
     private var details: String {
-        let age = member.ageGroup == .adult ? "Adult" : "Kid"
-        let role = member.role == .planner ? "Planner" : "Member"
-        return ([age, role, status] + (invited ? ["Invite sent"] : [])).joined(separator: " · ")
+        let age = member.ageGroup == .adult ? String(localized: "Adult") : String(localized: "Kid")
+        let role = member.role == .planner ? String(localized: "Planner") : String(localized: "Member")
+        return ([age, role, status] + (invited ? [String(localized: "Invite sent")] : [])).joined(separator: " · ")
     }
 
     private var status: String {
-        guard member.status == .away else { return "Home" }
-        guard let day = member.awayUntil else { return "Away" }
-        return "Away until \(day.date().formatted(.dateTime.month(.abbreviated).day()))"
+        guard member.status == .away else { return String(localized: "Home") }
+        guard let day = member.awayUntil else { return String(localized: "Away") }
+        let date = day.date().formatted(.dateTime.month(.abbreviated).day())
+        return String(localized: "Away until \(date)", comment: "Member status: a short date such as Nov 4")
     }
 }
 
