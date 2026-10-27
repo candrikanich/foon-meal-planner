@@ -39,6 +39,14 @@ struct MealIngredient: Codable, Equatable, Sendable {
     let name: String
     let quantityText: String?
     let position: Int
+    /// The item's standing note or brand preference.
+    var note: String? = nil
+    var category: ItemCategory = .other
+    var keepOnHand = false
+
+    var details: ItemDetails {
+        ItemDetails(id: itemID, name: name, category: category, note: note, keepOnHand: keepOnHand)
+    }
 }
 
 /// A meal in the household's library, with its ingredient lines.

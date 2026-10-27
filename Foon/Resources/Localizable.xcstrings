@@ -87,6 +87,9 @@
     "Agree and invite %@" : {
 
     },
+    "Aisle" : {
+
+    },
     "Allergy flags" : {
 
     },
@@ -130,6 +133,9 @@
 
     },
     "Backup dinners are the ones you can make from the freezer or pantry." : {
+
+    },
+    "Bakery" : {
 
     },
     "Beginner-friendly" : {
@@ -194,6 +200,9 @@
     "Couldn't restore that meal. Check your connection and try again." : {
 
     },
+    "Couldn't save %@. Check your connection and try again." : {
+
+    },
     "Couldn't save the meal. Check your connection and try again." : {
 
     },
@@ -212,6 +221,9 @@
     "Create household" : {
 
     },
+    "Dairy and eggs" : {
+
+    },
     "Different tastes. Same table." : {
 
     },
@@ -219,6 +231,9 @@
 
     },
     "Done" : {
+
+    },
+    "Drinks" : {
 
     },
     "Eat out" : {
@@ -269,6 +284,9 @@
     "From Foon's ideas" : {
 
     },
+    "Frozen" : {
+
+    },
     "Full evening" : {
 
     },
@@ -282,6 +300,9 @@
 
     },
     "Home: %@" : {
+
+    },
+    "Household" : {
 
     },
     "Household emoji %@" : {
@@ -346,6 +367,12 @@
     "Joining a family?" : {
 
     },
+    "Keep on hand" : {
+
+    },
+    "Keep on hand is saved. The note needs a connection; try again." : {
+
+    },
     "Kid" : {
 
     },
@@ -399,6 +426,9 @@
 
     },
     "Meals tagged quick take under 30 minutes." : {
+
+    },
+    "Meat and seafood" : {
 
     },
     "Member" : {
@@ -455,6 +485,12 @@
     "Not made yet" : {
 
     },
+    "Note or brand" : {
+
+    },
+    "Notes need 80 characters or fewer." : {
+
+    },
     "Nothing archived" : {
 
     },
@@ -467,6 +503,12 @@
     "Optional. One step per line." : {
 
     },
+    "Other" : {
+
+    },
+    "Pantry" : {
+
+    },
     "Parent" : {
 
     },
@@ -474,6 +516,9 @@
 
     },
     "Parents manage the family, allergies, and privacy choices. Planners build the week and manage meals." : {
+
+    },
+    "Personal care" : {
 
     },
     "Pick an emoji" : {
@@ -486,6 +531,9 @@
 
     },
     "Prep ahead" : {
+
+    },
+    "Produce" : {
 
     },
     "Pull to refresh the library, then try again." : {
@@ -548,6 +596,12 @@
     "Shopping lists will show up here." : {
 
     },
+    "Shown with %@ on meals, lists, and in the store." : {
+
+    },
+    "Shows the item's note, aisle, and keep on hand" : {
+
+    },
     "Shuffle this night" : {
 
     },
@@ -569,10 +623,16 @@
     "Slow cooker" : {
 
     },
+    "Snacks" : {
+
+    },
     "Something in this meal is too long to save." : {
 
     },
     "Sort" : {
+
+    },
+    "Staples like milk or paper towels stay on the keep-on-hand list, marked in, low, or out." : {
 
     },
     "Status" : {
@@ -672,6 +732,9 @@
 
     },
     "Use this if a phone is lost or shared. Every device, this one included, signs out right away." : {
+
+    },
+    "Vanilla, not plain" : {
 
     },
     "View the original recipe" : {

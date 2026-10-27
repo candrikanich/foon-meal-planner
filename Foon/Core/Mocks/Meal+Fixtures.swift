@@ -14,13 +14,14 @@ extension LibraryMeal {
         madeByMemberID: UUID? = nil,
         steps: [String] = [],
         sourceURL: URL? = nil,
-        prepSteps: [PrepStep] = []
+        prepSteps: [PrepStep] = [],
+        notes: [String: String] = [:]
     ) -> LibraryMeal {
         LibraryMeal(
             id: id, householdID: Household.sample.id, catalogMealID: catalogMealID, name: name, servings: servings,
             tags: tags, status: status, photoPath: photoPath, madeByMemberID: madeByMemberID, createdAt: createdAt,
             ingredients: ingredients.enumerated().map {
-                MealIngredient(itemID: UUID(), name: $1, quantityText: nil, position: $0 + 1)
+                MealIngredient(itemID: UUID(), name: $1, quantityText: nil, position: $0 + 1, note: notes[$1])
             },
             steps: steps, sourceURL: sourceURL, prepSteps: prepSteps
         )
@@ -33,7 +34,8 @@ extension LibraryMeal {
                  steps: ["Brown the beef with the seasoning.", "Warm the shells.", "Set out the toppings."],
                  sourceURL: URL(string: "https://example.com/tacos")),
         .fixture(name: "Homemade mac and cheese", tags: [.leftovers], ingredients: ["elbow macaroni", "milk", "butter"],
-                 createdAt: Date(timeIntervalSince1970: 1_799_000_000)),
+                 createdAt: Date(timeIntervalSince1970: 1_799_000_000),
+                 notes: ["milk": "Whole, not skim"]),
         .fixture(name: "Salsa chicken over rice", tags: [.slowCooker], status: .trial,
                  ingredients: ["chicken breasts", "salsa", "rice"], createdAt: Date(timeIntervalSince1970: 1_798_000_000)),
         .fixture(name: "Frozen pizza", tags: [.quick, .backup], ingredients: ["frozen pizza"],

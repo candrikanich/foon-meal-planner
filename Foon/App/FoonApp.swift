@@ -26,6 +26,7 @@ struct FoonApp: App {
                      syncClient: .live(SupabaseService.shared.client),
                      libraryClient: .live(SupabaseService.shared.client))
                 .environment(session)
+                .environment(\.itemClient, .live(SupabaseService.shared.client))
                 .modelContainer(Self.cache)
                 .task { await session.start() }
                 .onOpenURL { session.open($0) }

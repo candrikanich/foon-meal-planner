@@ -13,10 +13,17 @@ enum QuickPick: String, Codable, Sendable {
     case fendForYourselves = "fend_for_yourselves"
     case freezerRaid = "freezer_raid"
 }
-enum ItemCategory: String, Codable, Sendable {
+/// Mirrors Postgres `item_category`. Household and personal care are the non-food categories.
+enum ItemCategory: String, Codable, CaseIterable, Sendable {
     case produce, bakery, pantry, frozen, snacks, beverages, household, other
     case meatSeafood = "meat_seafood"
     case dairyEggs = "dairy_eggs"
+    case personalCare = "personal_care"
+
+    /// A category this app version doesn't know yet reads as Other, so a new one never breaks sync.
+    init(from decoder: Decoder) throws {
+        self = Self(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .other
+    }
 }
 
 struct PlanRow: Decodable, Equatable, Sendable {
@@ -100,9 +107,11 @@ struct ItemRow: Decodable, Equatable, Sendable {
     let category: ItemCategory
     let keepOnHand: Bool
     let stockState: StockState?
+    /// The family's standing preference ("Vanilla, not plain").
+    var note: String? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, category
+        case id, category, note
         case householdID = "household_id"
         case canonicalName = "canonical_name"
         case keepOnHand = "keep_on_hand"

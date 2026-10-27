@@ -50,7 +50,7 @@ extension SyncClient {
                     .value
 
                 let items: [ItemRow] = try await client.from("items")
-                    .select("id, household_id, canonical_name, category, keep_on_hand, stock_state")
+                    .select("id, household_id, canonical_name, category, keep_on_hand, stock_state, note")
                     .eq("household_id", value: householdID)
                     .execute()
                     .value
