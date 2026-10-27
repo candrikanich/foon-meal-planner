@@ -89,29 +89,51 @@ final class WeekStore {
 
     func cycleEffort(nightID: UUID) async {
         guard let index = nightIndex(nightID), let current = week?.nights[index].effort else { return }
-        week?.nights[index].effort = current.next
+        await setEffort(current.next, nightID: nightID)
+    }
+
+    func setEffort(_ effort: NightEffort, nightID: UUID) async {
+        guard let index = nightIndex(nightID), week?.nights[index].effort != effort else { return }
+        week?.nights[index].effort = effort
         await send(nightID: nightID, failure: String(localized: "Couldn't change the night. Check your connection and try again.")) {
-            [client] in try await client.setEffort(nightID, current.next)
+            [client] in try await client.setEffort(nightID, effort)
         }
+    }
+
+    func toggleLock(nightID: UUID) async {
+        guard let index = nightIndex(nightID), let current = week?.nights[index].locked else { return }
+        week?.nights[index].locked = !current
+        await send(nightID: nightID, failure: String(localized: "Couldn't change the night. Check your connection and try again.")) {
+            [client] in try await client.setLocked(nightID, !current)
+        }
+    }
+
+    var layout: WeekLayout? {
+        week.map { WeekLayout(nights: $0.nights, today: today()) }
     }
 
     /// One DayCard per night, with attendance in the family's order.
     func cards(members: [Member], sides: (UUID) -> [String] = { _ in [] }) -> [DayCardModel] {
-        (week?.nights ?? []).map { night in
-            DayCardModel(
-                date: night.date,
-                effort: night.effort,
-                slot: Self.slot(for: night, sides: night.mealID.map(sides) ?? []),
-                attendance: members.compactMap { member in
-                    night.attendance[member.id].map {
-                        DayCardModel.Attendee(memberID: member.id, firstName: member.firstName, avatar: member.avatar,
-                                              isHome: $0)
-                    }
-                },
-                badges: [],
-                isLocked: night.locked
-            )
-        }
+        (week?.nights ?? []).map { Self.card(for: $0, members: members, sides: sides) }
+    }
+
+    /// A night's card. Badges are worked out by the caller, who knows the meal and the family's allergies.
+    static func card(for night: WeekNight, members: [Member], sides: (UUID) -> [String] = { _ in [] },
+                     badges: (UUID, Set<UUID>) -> [DayCardModel.Badge] = { _, _ in [] }) -> DayCardModel {
+        let home = Set(night.attendance.filter(\.value).keys)
+        return DayCardModel(
+            date: night.date,
+            effort: night.effort,
+            slot: slot(for: night, sides: night.mealID.map(sides) ?? []),
+            attendance: members.compactMap { member in
+                night.attendance[member.id].map {
+                    DayCardModel.Attendee(memberID: member.id, firstName: member.firstName, avatar: member.avatar,
+                                          isHome: $0)
+                }
+            },
+            badges: night.mealID.map { badges($0, home) } ?? [],
+            isLocked: night.locked
+        )
     }
 
     static func slot(for night: WeekNight, sides: [String]) -> DayCardModel.Slot {

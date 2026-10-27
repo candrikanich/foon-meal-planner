@@ -235,9 +235,11 @@ struct HouseholdClientLiveTests {
 
         try await weeks.setExpected(week.nights[1].id, owen.id, true)
         try await weeks.setEffort(week.nights[1].id, .rushed)
+        try await weeks.setLocked(week.nights[1].id, true)
         let reloaded = try #require(try await weeks.week(household.id, sunday))
         #expect(reloaded.nights[1].attendance[owen.id] == true)
         #expect(reloaded.nights[1].effort == .rushed)
+        #expect(reloaded.nights[1].locked)
 
         let me = try #require(try await households.members(household.id).first { $0.firstName == "Ann" })
         var schedule = MemberDraft(me)

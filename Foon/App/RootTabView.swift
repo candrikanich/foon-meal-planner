@@ -20,6 +20,7 @@ struct RootTabView: View {
         }
         .environment(library)
         .environment(week)
+        .environment(\.showTab) { selection = $0 }
     }
 
     @ViewBuilder

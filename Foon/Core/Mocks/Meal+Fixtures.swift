@@ -127,7 +127,8 @@ extension WeekClient {
             week: { _, start in started ? make(start) : nil },
             create: { _, start in make(start) },
             setExpected: { _, _, _ in },
-            setEffort: { _, _ in }
+            setEffort: { _, _ in },
+            setLocked: { _, _ in }
         )
     }
 }

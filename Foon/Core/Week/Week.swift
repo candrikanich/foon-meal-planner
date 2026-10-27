@@ -29,6 +29,7 @@ struct WeekClient: Sendable {
     var create: @Sendable (_ householdID: UUID, _ start: CalendarDay) async throws -> Week
     var setExpected: @Sendable (_ nightID: UUID, _ memberID: UUID, _ expected: Bool) async throws -> Void
     var setEffort: @Sendable (_ nightID: UUID, _ effort: NightEffort) async throws -> Void
+    var setLocked: @Sendable (_ nightID: UUID, _ locked: Bool) async throws -> Void
 }
 
 extension WeekClient {
@@ -70,6 +71,15 @@ extension WeekClient {
             setEffort: { nightID, effort in
                 let updated: [IDOnly] = try await client.from("plan_nights")
                     .update(["effort": effort.rawValue])
+                    .eq("id", value: nightID)
+                    .select("id")
+                    .execute()
+                    .value
+                guard !updated.isEmpty else { throw LibraryClientError.notAllowed }
+            },
+            setLocked: { nightID, locked in
+                let updated: [IDOnly] = try await client.from("plan_nights")
+                    .update(["locked": locked])
                     .eq("id", value: nightID)
                     .select("id")
                     .execute()

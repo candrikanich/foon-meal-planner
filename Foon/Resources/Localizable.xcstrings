@@ -33,10 +33,19 @@
         }
       }
     },
+    "%lld" : {
+
+    },
     "%lld days ahead" : {
 
     },
     "%lld hours ahead" : {
+
+    },
+    "%lld nights still open" : {
+
+    },
+    "%lld to buy" : {
 
     },
     "%lld." : {
@@ -49,6 +58,9 @@
 
     },
     "1 lb ground beef, taco shells, cheese" : {
+
+    },
+    "1 night still open" : {
 
     },
     "A family favorite" : {
@@ -91,6 +103,9 @@
 
     },
     "Add your photo" : {
+
+    },
+    "Add your requests" : {
 
     },
     "Adult" : {
@@ -157,6 +172,9 @@
 
     },
     "Browse ideas" : {
+
+    },
+    "Build my week and shuffles leave locked nights as they are." : {
 
     },
     "Cancel" : {
@@ -254,6 +272,9 @@
     "Different tastes. Same table." : {
 
     },
+    "Dinner at" : {
+
+    },
     "Dinner ideas from the family will show up here." : {
 
     },
@@ -269,6 +290,12 @@
     "Each new week starts from this. Tap a day they're usually out, like a work or practice night." : {
 
     },
+    "Earlier this week: %lld nights" : {
+
+    },
+    "Earlier this week: 1 night" : {
+
+    },
     "Eat out" : {
 
     },
@@ -277,6 +304,9 @@
     },
     "Edit %@" : {
       "comment" : "Member editor title: first name"
+    },
+    "Effort" : {
+
     },
     "Effort: %@" : {
 
@@ -442,6 +472,9 @@
     "Lock night" : {
 
     },
+    "Lock this night" : {
+
+    },
     "Locked" : {
 
     },
@@ -506,6 +539,9 @@
     "Next week" : {
 
     },
+    "Night not found" : {
+
+    },
     "No allergy flags" : {
 
     },
@@ -564,6 +600,12 @@
 
     },
     "Nothing planned yet" : {
+
+    },
+    "Nothing to buy" : {
+
+    },
+    "Open night" : {
 
     },
     "Optional. A side from your library brings its ingredients to the list." : {
@@ -857,6 +899,9 @@
     "Who they are" : {
 
     },
+    "Who's home" : {
+
+    },
     "Will add" : {
 
     },
@@ -884,7 +929,7 @@
     "Your household is ready. Pull to refresh to see your family." : {
 
     },
-    "Your planner hasn't started this week yet." : {
+    "Your planner hasn't planned this week yet. Tell them what you'd like." : {
 
     },
     "eggs" : {

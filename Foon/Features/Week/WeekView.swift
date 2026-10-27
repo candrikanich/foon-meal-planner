@@ -1,12 +1,17 @@
+import SwiftData
 import SwiftUI
 
-/// This week (or next): the planner starts it, then sets who's home and each night's effort on the day cards.
-/// Everyone else sees the same cards read-only. Build my week, swaps, and the wallet stack come with #23–#25.
+/// This Week (docs/spec.md → Day cards): tonight on top, the rest of the week below, past nights tucked away.
+/// Planners shape each night on its card or in its detail; everyone else sees the same cards read-only.
 struct WeekView: View {
     @Environment(WeekStore.self) private var week
     @Environment(HouseholdStore.self) private var household
     @Environment(LibraryStore.self) private var library
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.showTab) private var showTab
+    @Query(filter: #Predicate<CachedListItem> { $0.checkedAt == nil }) private var openListItems: [CachedListItem]
+    @State private var openNight: UUID?
+    @State private var showingPast = false
 
     private var canPlan: Bool {
         LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID)
@@ -33,7 +38,11 @@ struct WeekView: View {
             }
             .background(Palette.cream)
             .navigationTitle("This Week")
+            .toolbar { cart }
             .refreshable { await load() }
+            .sheet(item: Binding(get: { openNight.map(NightID.init) }, set: { openNight = $0?.id })) { night in
+                NightDetailView(nightID: night.id, canPlan: canPlan)
+            }
         }
         .task(id: LoadKey(householdID: household.household?.id, next: week.showingNextWeek,
                           weekStart: settings.weekStart, today: week.todayDay)) {
@@ -46,6 +55,10 @@ struct WeekView: View {
         .onChange(of: household.members) { _, members in
             if canPlan { Task { await week.fillInMissing(members: members) } }
         }
+    }
+
+    private struct NightID: Identifiable {
+        let id: UUID
     }
 
     private struct LoadKey: Equatable {
@@ -62,17 +75,49 @@ struct WeekView: View {
         if canPlan { await week.fillInMissing(members: household.members) }
     }
 
+    // MARK: - Content
+
     @ViewBuilder
     private var content: some View {
-        if week.week == nil && !week.hasLoaded && week.isLoading {
+        if let layout = week.layout {
+            planned(layout)
+        } else if !week.hasLoaded && week.isLoading {
             ProgressView().frame(maxWidth: .infinity, minHeight: 240)
-        } else if week.week == nil {
-            emptyState
         } else {
-            ForEach(week.cards(members: household.visibleMembers, sides: sideNames)) { card in
-                DayCard(model: card, today: week.todayDay, actions: canPlan ? actions(for: card) : nil)
-            }
+            emptyState
         }
+    }
+
+    @ViewBuilder
+    private func planned(_ layout: WeekLayout) -> some View {
+        if canPlan, layout.progress != .planned, !layout.emptyNights.isEmpty {
+            Label(openNightsText(layout.emptyNights.count), systemImage: "square.dashed")
+                .font(.foonCaption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        ForEach(layout.ahead) { night in
+            card(night)
+        }
+        if !layout.past.isEmpty {
+            DisclosureGroup(isExpanded: $showingPast) {
+                VStack(spacing: 12) {
+                    ForEach(layout.past) { night in card(night) }
+                }
+                .padding(.top, 8)
+            } label: {
+                Text(earlierText(layout.past.count)).font(.foonHeadline).foregroundStyle(Palette.ink)
+            }
+            .tint(Palette.paprika)
+        }
+    }
+
+    private func card(_ night: WeekNight) -> some View {
+        let model = WeekStore.card(for: night, members: household.visibleMembers, sides: sideNames, badges: badges)
+        return DayCard(model: model, today: week.todayDay, actions: canPlan ? actions(for: night) : nil)
+            .contentShape(Rectangle())
+            .onTapGesture { openNight = night.id }
+            .accessibilityAction(named: Text("Open night")) { openNight = night.id }
     }
 
     private var emptyState: some View {
@@ -82,7 +127,7 @@ struct WeekView: View {
             if canPlan {
                 Text("Start the week to lay out the nights, with who's home from everyone's usual schedule.")
             } else {
-                Text("Your planner hasn't started this week yet.")
+                Text("Your planner hasn't planned this week yet. Tell them what you'd like.")
             }
         } actions: {
             if canPlan {
@@ -90,40 +135,84 @@ struct WeekView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(Palette.paprika)
                     .disabled(week.isStarting)
+            } else {
+                Button("Add your requests") { showTab(.ideas) }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Palette.paprika)
             }
         }
         .frame(minHeight: 320)
     }
 
-    private func actions(for card: DayCardModel) -> DayCard.Actions? {
-        guard let night = week.night(card.date) else { return nil }
-        return DayCard.Actions(
+    @ToolbarContentBuilder
+    private var cart: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Button { showTab(.lists) } label: {
+                Image(systemName: "cart")
+                    .overlay(alignment: .topTrailing) {
+                        if !openListItems.isEmpty {
+                            Text("\(openListItems.count)")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(Palette.onPaprika)
+                                .padding(.horizontal, 5)
+                                .background(Capsule().fill(Palette.paprika))
+                                .offset(x: 10, y: -8)
+                        }
+                    }
+            }
+            .accessibilityLabel("Lists")
+            .accessibilityValue(openListItems.isEmpty ? Text("Nothing to buy") : Text("\(openListItems.count) to buy"))
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func actions(for night: WeekNight) -> DayCard.Actions {
+        DayCard.Actions(
             toggleAttendance: { memberID in Task { await week.toggleAttendance(nightID: night.id, memberID: memberID) } },
-            cycleEffort: { Task { await week.cycleEffort(nightID: night.id) } }
+            cycleEffort: { Task { await week.cycleEffort(nightID: night.id) } },
+            toggleLock: { Task { await week.toggleLock(nightID: night.id) } }
         )
     }
 
     private func sideNames(_ mealID: UUID) -> [String] {
         library.meal(mealID).map(library.sideNames(for:)) ?? []
     }
+
+    private func badges(_ mealID: UUID, home: Set<UUID>) -> [DayCardModel.Badge] {
+        guard let meal = library.meal(mealID) else { return [] }
+        return NightBadges.badges(meal: meal, library: library.meals, allergies: library.allergies, home: home)
+    }
+
+    private func openNightsText(_ count: Int) -> String {
+        count == 1 ? String(localized: "1 night still open") : String(localized: "\(count) nights still open")
+    }
+
+    private func earlierText(_ count: Int) -> String {
+        count == 1 ? String(localized: "Earlier this week: 1 night") : String(localized: "Earlier this week: \(count) nights")
+    }
 }
 
 #Preview("Planner, no week yet") {
     let household = HouseholdStore.preview()
-    let week = WeekStore(householdID: Household.sample.id, client: .preview())
     WeekView()
         .environment(household)
-        .environment(week)
+        .environment(WeekStore(householdID: Household.sample.id, client: .preview()))
         .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
+        .modelContainer(try! SyncService.inMemoryContainer())
         .task { await household.load() }
 }
 
-#Preview("Planner, started") {
+#Preview("Planner, partly planned") {
     let household = HouseholdStore.preview()
-    let week = WeekStore(householdID: Household.sample.id, client: .preview(started: true))
+    let library = LibraryStore(householdID: Household.sample.id, client: .preview())
     WeekView()
         .environment(household)
-        .environment(week)
-        .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
-        .task { await household.load() }
+        .environment(WeekStore(householdID: Household.sample.id, client: .preview(started: true)))
+        .environment(library)
+        .modelContainer(try! SyncService.inMemoryContainer())
+        .task {
+            await household.load()
+            await library.load(members: Member.sampleFamily)
+        }
 }
