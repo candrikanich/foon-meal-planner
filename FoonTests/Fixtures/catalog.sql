@@ -1,0 +1,1 @@
+../../supabase/seed/catalog.sql
