@@ -10,6 +10,9 @@
     "%@ signs out right away and can rejoin only with your consent and a new invite." : {
 
     },
+    "%@'s favorite" : {
+      "comment" : "Reason chip: a member's favorite"
+    },
     "%@'s request" : {
       "comment" : "Day card badge: the member who asked for this dish"
     },
@@ -47,6 +50,9 @@
     },
     "1 lb ground beef, taco shells, cheese" : {
 
+    },
+    "A family favorite" : {
+      "comment" : "Reason chip"
     },
     "A last name or a nickname. Everyone you invite will see it." : {
 
@@ -257,6 +263,9 @@
     "Drinks" : {
 
     },
+    "Due for a turn" : {
+      "comment" : "Reason chip: a regular in the rotation"
+    },
     "Each new week starts from this. Tap a day they're usually out, like a work or practice night." : {
 
     },
@@ -322,6 +331,18 @@
     },
     "Haven't had in a while" : {
 
+    },
+    "Haven't had it in %lld days" : {
+      "comment" : "Reason chip: days since last made"
+    },
+    "Haven't had it in %lld weeks" : {
+      "comment" : "Reason chip: weeks since last made"
+    },
+    "Haven't had it in a week" : {
+      "comment" : "Reason chip: last made 7 to 13 days ago"
+    },
+    "Haven't had it since yesterday" : {
+      "comment" : "Reason chip: last made yesterday"
     },
     "Home" : {
 
@@ -406,6 +427,12 @@
     "Leftovers" : {
 
     },
+    "Leftovers from last night" : {
+      "comment" : "Reason chip: the night after a big batch"
+    },
+    "Leftovers night" : {
+      "comment" : "Reason chip"
+    },
     "Library" : {
 
     },
@@ -439,6 +466,9 @@
     },
     "Makes leftovers" : {
 
+    },
+    "Makes leftovers for tomorrow" : {
+      "comment" : "Reason chip: a big-batch meal"
     },
     "Meal name" : {
 
@@ -527,6 +557,9 @@
     "Nothing archived" : {
 
     },
+    "Nothing fits tonight" : {
+      "comment" : "Reason chip: no dish passed the filters"
+    },
     "Nothing on trial" : {
 
     },
@@ -584,6 +617,9 @@
     "Quick add" : {
 
     },
+    "Quick for a rushed night" : {
+      "comment" : "Reason chip"
+    },
     "Recently added" : {
 
     },
@@ -607,6 +643,9 @@
     },
     "Replace with yours" : {
 
+    },
+    "Requested" : {
+      "comment" : "Reason chip: someone asked for this dish"
     },
     "Return date" : {
 
@@ -671,6 +710,9 @@
     "Something in this meal is too long to save." : {
 
     },
+    "Something new" : {
+      "comment" : "Reason chip: a dish the family hasn't tried"
+    },
     "Sort" : {
 
     },
@@ -698,6 +740,9 @@
     "Takeout" : {
 
     },
+    "Takeout on the busiest night" : {
+      "comment" : "Reason chip"
+    },
     "That code didn't work. Check it and try again." : {
 
     },
@@ -724,6 +769,9 @@
     },
     "The copy was made but hasn't loaded yet. Pull to refresh the library." : {
 
+    },
+    "The family likes it" : {
+      "comment" : "Reason chip"
     },
     "The recipe steps are too long." : {
 
@@ -787,6 +835,9 @@
     },
     "Use this if a phone is lost or shared. Every device, this one included, signs out right away." : {
 
+    },
+    "Uses what's on hand" : {
+      "comment" : "Reason chip: ingredients in stock"
     },
     "Usually home for dinner" : {
 

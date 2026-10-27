@@ -145,6 +145,16 @@ The planner taps "Build my week," gets a solid draft, and shapes it. The algorit
 4. **Score and draw** with weighted randomness: days since last made (higher is better), a favorite of someone home (big boost), ingredients already on hand (boost), overall thumbs-up (small boost).
 5. **Planner edits:** swap, lock, shuffle any unlocked night, approve. Approval generates the weekly shopping list.
 
+v1 rules (#24, `Foon/Core/Planning/BuildMyWeek.swift`, a pure function of the inputs and a seed):
+
+- **Kept nights** (never changed): locked, event, nights before today, and a dated request's night. Requests skip the filters because the family asked out loud. Kept nights count toward the takeout, leftovers, and new-dish settings, so a mid-week rebuild doesn't add extras.
+- **A new dish** is a meal on trial. A dish that's never been made isn't new (onboarding copies dishes the family already makes); it's just due for a turn. New dishes are capped at the setting and go to full-attendance nights first; past the cap only when nothing else fits.
+- **Takeout** goes on the busiest night: rushed first, then most people home, then not the shopping day, then earliest. **Leftovers** follow a big-batch meal (tagged leftovers) in the week, else land on the most rushed night.
+- **Filters:** in rotation (not archived or retired), not snoozed, not already in the week, outside the repeat window for that night, not disliked by anyone home, quick only on rushed nights, and enough lead time for advance prep (thaw first counts as 24 hours; a night has 24 hours per day from today plus about 8 before dinner today). Allergies never filter; they flag.
+- **Score:** days since last made for that night (1–90; never made counts as 90), times boosts for a favorite of someone home, ingredients on hand, and family likes; drawn with a seeded generator, so the same inputs and seed give the same week on every device.
+- **Shuffle** re-rolls one unkept meal night from the saved week, keeping its kind: a big-batch night stays a big batch, a trial slot stays trial first. Quick-pick nights are changed with Swap, not shuffle.
+- **Reasons:** a request, a favorite of someone home, something new, quick for a rushed night, uses what's on hand, the family likes it, "Haven't had it since yesterday / in N days / in a week / in N weeks", or "Due for a turn".
+
 **AI layer (capable devices).** Reads the same inputs plus patterns scoring can't express ("soup when it gets cold," "Thursdays have been leftovers lately") and explains picks in plain language.
 
 **Family polls during planning.** Optional: "Everyone's home Wednesday. Breakfast for dinner, tacos, or eat out?"
