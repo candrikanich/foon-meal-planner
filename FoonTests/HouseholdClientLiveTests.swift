@@ -212,6 +212,41 @@ struct HouseholdClientLiveTests {
         #expect(try await library.allergies(household.id).isEmpty)
     }
 
+    @Test func aPlannerStartsTheWeekWithAttendanceFromSchedules() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let weeks = WeekClient.live(supabase)
+        let household = try await households.createHousehold("Week family", nil, "Ann")
+        var owenDraft = MemberDraft()
+        owenDraft.firstName = "Owen"
+        owenDraft.usuallyAway = [1, 2, 3, 4]
+        let owen = try await households.addMember(household.id, try #require(owenDraft.validated()))
+        #expect(owen.usuallyAway == [1, 2, 3, 4])
+
+        let sunday = CalendarDay(year: 2026, month: 11, day: 1)
+        #expect(try await weeks.week(household.id, sunday) == nil)
+        let week = try await weeks.create(household.id, sunday)
+        #expect(week.nights.map(\.date) == (0..<7).map { sunday.adding(days: $0) })
+        #expect(week.nights[0].attendance[owen.id] == true, "Owen is home Sunday")
+        #expect(week.nights[1].attendance[owen.id] == false, "and works Monday")
+        #expect(try await weeks.create(household.id, sunday).planID == week.planID, "creating it again returns it")
+
+        try await weeks.setExpected(week.nights[1].id, owen.id, true)
+        try await weeks.setEffort(week.nights[1].id, .rushed)
+        let reloaded = try #require(try await weeks.week(household.id, sunday))
+        #expect(reloaded.nights[1].attendance[owen.id] == true)
+        #expect(reloaded.nights[1].effort == .rushed)
+
+        let me = try #require(try await households.members(household.id).first { $0.firstName == "Ann" })
+        var schedule = MemberDraft(me)
+        schedule.usuallyAway = [6]
+        let saved = try await households.updateMember(me.id, schedule.changes(from: me))
+        #expect(saved.usuallyAway == [6])
+        #expect(try await households.myHousehold()?.planningSettings == HouseholdSettings())
+    }
+
     private static let config = try! SupabaseConfig.fromMainBundle()
     private static func sampleJPEG() throws -> Data {
         let context = try #require(CGContext(

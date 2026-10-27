@@ -5,6 +5,10 @@ struct Household: Codable, Equatable, Identifiable, Sendable {
     var name: String
     var emoji: String?
     var owner: UUID?
+    /// Raw from `households.settings`; read through `planningSettings`.
+    var settings: HouseholdSettings?
+
+    var planningSettings: HouseholdSettings { settings ?? HouseholdSettings() }
 
     /// Trimmed name if it fits the database's 1–50 character rule.
     static func validatedName(_ raw: String) -> String? {
@@ -36,6 +40,10 @@ struct Member: Decodable, Equatable, Identifiable, Sendable {
     var status: MemberStatus
     var awayUntil: CalendarDay?
     var userID: UUID?
+    var attendanceDefaults: AttendanceDefaults?
+
+    /// ISO weekdays (1 = Monday) they're usually out for dinner ("Owen works Mon to Thu").
+    var usuallyAway: Set<Int> { attendanceDefaults?.usuallyAway ?? [] }
 
     private enum CodingKeys: String, CodingKey {
         case id, avatar, guardian, role, status
@@ -44,6 +52,31 @@ struct Member: Decodable, Equatable, Identifiable, Sendable {
         case ageGroup = "age_group"
         case awayUntil = "away_until"
         case userID = "user_id"
+        case attendanceDefaults = "attendance_defaults"
+    }
+}
+
+/// `members.attendance_defaults`: the usual weekly schedule that pre-fills each new week's attendance.
+struct AttendanceDefaults: Codable, Equatable, Sendable {
+    var usuallyAway: Set<Int> = []
+
+    private enum CodingKeys: String, CodingKey {
+        case usuallyAway = "usually_away"
+    }
+
+    init(usuallyAway: Set<Int> = []) {
+        self.usuallyAway = usuallyAway
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let days = (try? container.decodeIfPresent([Int].self, forKey: .usuallyAway)) ?? nil
+        usuallyAway = Set((days ?? []).filter { (1...7).contains($0) })
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(usuallyAway.sorted(), forKey: .usuallyAway)
     }
 }
 
@@ -56,6 +89,7 @@ struct MemberDraft: Equatable, Sendable {
     var role: MemberRole = .member
     var status: MemberStatus = .active
     var awayUntil: CalendarDay?
+    var usuallyAway: Set<Int> = []
 
     init() {}
 
@@ -67,6 +101,7 @@ struct MemberDraft: Equatable, Sendable {
         role = member.role
         status = member.status
         awayUntil = member.awayUntil
+        usuallyAway = member.usuallyAway
     }
 
     /// Normalized for the database's rules, or nil if the name doesn't fit.
@@ -88,6 +123,7 @@ extension MemberDraft: Encodable {
         case firstName = "first_name"
         case ageGroup = "age_group"
         case awayUntil = "away_until"
+        case attendanceDefaults = "attendance_defaults"
     }
 
     // Nulls are written explicitly so clearing an avatar or a return date reaches the database.
@@ -100,6 +136,7 @@ extension MemberDraft: Encodable {
         try container.encode(role, forKey: .role)
         try container.encode(status, forKey: .status)
         try container.encode(awayUntil, forKey: .awayUntil)
+        try container.encode(AttendanceDefaults(usuallyAway: usuallyAway), forKey: .attendanceDefaults)
     }
 }
 
@@ -114,6 +151,7 @@ struct MemberChanges: Equatable, Sendable, Encodable {
     var role: MemberRole?
     var status: MemberStatus?
     var awayUntil: CalendarDay??
+    var attendanceDefaults: AttendanceDefaults?
 
     var isEmpty: Bool { self == MemberChanges() }
 
@@ -122,6 +160,7 @@ struct MemberChanges: Equatable, Sendable, Encodable {
         case firstName = "first_name"
         case ageGroup = "age_group"
         case awayUntil = "away_until"
+        case attendanceDefaults = "attendance_defaults"
     }
 
     func encode(to encoder: Encoder) throws {
@@ -133,6 +172,7 @@ struct MemberChanges: Equatable, Sendable, Encodable {
         if let role { try container.encode(role, forKey: .role) }
         if let status { try container.encode(status, forKey: .status) }
         if let awayUntil { try container.encode(awayUntil, forKey: .awayUntil) }
+        if let attendanceDefaults { try container.encode(attendanceDefaults, forKey: .attendanceDefaults) }
     }
 }
 
@@ -146,6 +186,7 @@ extension Member {
         if let role = changes.role { member.role = role }
         if let status = changes.status { member.status = status }
         if let awayUntil = changes.awayUntil { member.awayUntil = awayUntil }
+        if let attendanceDefaults = changes.attendanceDefaults { member.attendanceDefaults = attendanceDefaults }
         return member
     }
 }
@@ -160,6 +201,11 @@ extension MemberDraft {
         if role != member.role { changes.role = role }
         if status != member.status { changes.status = status }
         if awayUntil != member.awayUntil { changes.awayUntil = .some(awayUntil) }
+        if usuallyAway != member.usuallyAway {
+            var defaults = member.attendanceDefaults ?? AttendanceDefaults()
+            defaults.usuallyAway = usuallyAway
+            changes.attendanceDefaults = defaults
+        }
         return changes
     }
 }

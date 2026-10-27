@@ -105,3 +105,29 @@ extension LibraryClient {
         )
     }
 }
+
+extension WeekClient {
+    /// A week for the sample family, started or not. Owen (away at camp) is out until his return date.
+    static func preview(started: Bool = false) -> WeekClient {
+        let make: @Sendable (CalendarDay) -> Week = { start in
+            Week(planID: UUID(), start: start, approvedAt: nil, nights: (0..<7).map { offset in
+                let date = start.adding(days: offset)
+                return WeekNight(
+                    id: UUID(), date: date, effort: offset == 5 ? .event : .normal, dinnerTime: "18:00",
+                    mealID: offset == 2 ? LibraryMeal.sampleLibrary[0].id : nil,
+                    mealName: offset == 2 ? LibraryMeal.sampleLibrary[0].name : nil,
+                    quickPick: offset == 5 ? .eatOut : nil, locked: offset == 5,
+                    attendance: Dictionary(uniqueKeysWithValues: Member.sampleFamily.map { member in
+                        (member.id, member.status != .away && !(member.firstName == "Grace" && offset < 3))
+                    })
+                )
+            })
+        }
+        return WeekClient(
+            week: { _, start in started ? make(start) : nil },
+            create: { _, start in make(start) },
+            setExpected: { _, _, _ in },
+            setEffort: { _, _ in }
+        )
+    }
+}
