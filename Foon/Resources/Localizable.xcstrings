@@ -30,10 +30,16 @@
     "Add" : {
 
     },
+    "Add %@ to your library" : {
+
+    },
     "Add a household name and your first name." : {
 
     },
     "Add member" : {
+
+    },
+    "Add the dinners your family already makes." : {
 
     },
     "Adult" : {
@@ -43,6 +49,18 @@
 
     },
     "Agree and invite %@" : {
+
+    },
+    "Allergy flags" : {
+
+    },
+    "Archive" : {
+
+    },
+    "Archived" : {
+
+    },
+    "Archived meals leave the rotation but keep their history." : {
 
     },
     "Avatar %@" : {
@@ -57,7 +75,19 @@
     "Away: %@" : {
 
     },
+    "Back in rotation" : {
+
+    },
     "Back on" : {
+
+    },
+    "Backup dinners" : {
+
+    },
+    "Backup dinners are the ones you can make from the freezer or pantry." : {
+
+    },
+    "Browse ideas" : {
 
     },
     "Cancel" : {
@@ -77,6 +107,12 @@
         }
       }
     },
+    "Couldn't add %@. Check your connection and try again." : {
+
+    },
+    "Couldn't archive that meal. Check your connection and try again." : {
+
+    },
     "Couldn't check that code. Check your connection and try again." : {
 
     },
@@ -92,7 +128,13 @@
     "Couldn't load your household. Check your connection and try again." : {
 
     },
+    "Couldn't load your library. Check your connection and try again." : {
+
+    },
     "Couldn't record your consent. Check your connection and try again." : {
+
+    },
+    "Couldn't restore that meal. Check your connection and try again." : {
 
     },
     "Couldn't save. Pull to refresh in case someone else changed this, then try again." : {
@@ -111,6 +153,9 @@
 
     },
     "Dinner ideas from the family will show up here." : {
+
+    },
+    "Done" : {
 
     },
     "Eat out" : {
@@ -134,6 +179,12 @@
     "Family" : {
 
     },
+    "Favorites" : {
+
+    },
+    "Favorites come from how the family rates dinners." : {
+
+    },
     "Fend for yourselves" : {
 
     },
@@ -152,7 +203,13 @@
     "Freezer raid" : {
 
     },
+    "From Foon's ideas" : {
+
+    },
     "Full evening" : {
+
+    },
+    "Haven't had in a while" : {
 
     },
     "Home" : {
@@ -179,6 +236,12 @@
       }
     },
     "Ideas" : {
+
+    },
+    "In your library" : {
+
+    },
+    "Ingredients" : {
 
     },
     "Invite" : {
@@ -223,10 +286,58 @@
     "Locked" : {
 
     },
+    "Made by %@" : {
+
+    },
+    "Meals or ingredients" : {
+
+    },
+    "Meals tagged quick take under 30 minutes." : {
+
+    },
     "Member" : {
 
     },
+    "Most made" : {
+
+    },
+    "New dishes you're trying out show up here." : {
+
+    },
+    "No allergy flags" : {
+
+    },
+    "No backup dinners" : {
+
+    },
+    "No favorites yet" : {
+
+    },
+    "No ideas yet" : {
+
+    },
+    "No ingredients yet" : {
+
+    },
+    "No matches" : {
+
+    },
+    "No meals yet" : {
+
+    },
+    "No quick meals" : {
+
+    },
+    "None of your meals contain anything your family avoids." : {
+
+    },
     "Normal" : {
+
+    },
+    "Nothing archived" : {
+
+    },
+    "Nothing on trial" : {
 
     },
     "Nothing planned yet" : {
@@ -248,6 +359,15 @@
 
     },
     "Planning" : {
+
+    },
+    "Pull to refresh the library, then try again." : {
+
+    },
+    "Quick" : {
+
+    },
+    "Recently added" : {
 
     },
     "Remove" : {
@@ -293,6 +413,9 @@
 
     },
     "Sign out of all devices?" : {
+
+    },
+    "Sort" : {
 
     },
     "Status" : {
@@ -352,6 +475,12 @@
     "Try again" : {
 
     },
+    "Try another meal or ingredient." : {
+
+    },
+    "Trying" : {
+
+    },
     "Unlock night" : {
 
     },
@@ -374,9 +503,6 @@
 
     },
     "You're already in a household. Foon supports one household per person for now." : {
-
-    },
-    "Your family's meals will live here." : {
 
     },
     "Your first name" : {

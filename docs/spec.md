@@ -98,6 +98,13 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 
 **Library screen.** Search, a prominent Add button (quick add, link, photo, paste), filter chips (Favorites, Quick, Trying, Backup dinners, Allergy flags, Archived), a two-column photo grid with effort, made-by, and allergy indicators, and sorts (Haven't had in a while, Most made, Family favorites, Recently added).
 
+- Filters are one at a time; with none chosen, the grid shows meals in rotation (active and trying). Archived also lists retired dishes.
+- Search matches meal names and ingredients, ignoring case and accents. Matching starter dishes not yet in the library appear below the family's own ("From Foon's ideas").
+- History (times made, last made) counts past nights of approved plans until dinners are confirmed (meal logs, M2). Haven't had in a while puts never-made dishes last; they're new, not forgotten.
+- Favorites and the Family favorites sort need ratings (M2); until then the Favorites chip shows an empty state.
+- Long-press: Archive, or Back in rotation for archived meals (planners only). Plan it joins the menu with This Week (#23).
+- Browse ideas lists the catalog by category; planners copy a dish into the library with one tap, and adding it again returns the copy already there, even a retired one: a dish the dislike rule retired stays retired.
+
 **Meal detail.** Hero photo with "Replace with yours"; tags and allergy flags with Make it safe; every family member's current verdict, visible to all; history and frequency ("Made 8 times, about every 2 weeks"); editable ingredients with Add to list; optional recipe steps and source link; prep steps; comments; per-person serving notes ("Nora: keep everything separate before mixing"), shown on day cards and in cook mode when that person is home; actions Plan it, Copy and tweak, Archive.
 
 **Frequency awareness.** Overuse nudges ("Tacos 3 times in 2 weeks"), neglect nudges ("No pot roast in 7 weeks"), and recap callouts make the log the planner's memory.

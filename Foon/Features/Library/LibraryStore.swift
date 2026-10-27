@@ -1,0 +1,158 @@
+import Foundation
+import Observation
+
+/// The library screen's state: the household's meals, the catalog, and the chosen filter, sort, and search.
+@Observable @MainActor
+final class LibraryStore {
+    private(set) var meals: [LibraryMeal] = []
+    private(set) var catalog: [CatalogDish] = []
+    private(set) var isLoading = false
+    private(set) var hasLoaded = false
+    private(set) var errorMessage: String?
+    /// Dishes being copied in, so their Add buttons don't fire twice.
+    private(set) var addingDishIDs: Set<UUID> = []
+
+    var filter: LibraryFilter?
+    var sort: LibrarySort = .notLately
+    var search = ""
+
+    private var history: [MealHistory] = []
+    private var allergies: [MemberAllergies] = []
+    private var members: [Member] = []
+    /// Bumped per load, so a slower, older load never overwrites a newer one.
+    private var loadGeneration = 0
+    /// Signed photo URLs by path. Reusing one keeps `AsyncImage` on the URL cache while scrolling.
+    private var photoURLs: [String: (url: URL, expires: Date)] = [:]
+
+    let householdID: UUID
+    let client: LibraryClient
+
+    init(householdID: UUID, client: LibraryClient) {
+        self.householdID = householdID
+        self.client = client
+    }
+
+    /// Favorites come from ratings (M2); until then the Favorites chip shows its empty state.
+    private var favorites: Set<UUID> { [] }
+
+    var visibleEntries: [LibraryEntry] {
+        LibraryQuery.apply(
+            LibraryQuery.entries(meals: meals, history: history, allergies: allergies, favorites: favorites),
+            filter: filter, sort: sort, search: search
+        )
+    }
+
+    var catalogMatches: [CatalogDish] {
+        LibraryQuery.catalogMatches(catalog, search: search, library: meals)
+    }
+
+    var catalogSections: [LibraryQuery.CatalogSection] {
+        LibraryQuery.catalogSections(catalog)
+    }
+
+    func isInLibrary(_ dish: CatalogDish) -> Bool {
+        LibraryQuery.copiedDishIDs(meals).contains(dish.id)
+    }
+
+    func member(_ id: UUID?) -> Member? {
+        members.first { $0.id == id }
+    }
+
+    func clearError() {
+        errorMessage = nil
+    }
+
+    /// Loads everything the screen shows. A failure keeps what was already on screen; a cancelled load
+    /// (the view went away, or members changed and a new load started) is not an error.
+    func load(members: [Member]) async {
+        self.members = members
+        loadGeneration += 1
+        let generation = loadGeneration
+        isLoading = true
+        defer { if generation == loadGeneration { isLoading = false } }
+        do {
+            async let meals = client.meals(householdID)
+            async let history = client.history(householdID)
+            async let catalog = client.catalog()
+            async let allergyRows = client.allergies(householdID)
+            let loaded = try await (meals, history, catalog, allergyRows)
+            guard generation == loadGeneration else { return }
+            self.meals = loaded.0
+            self.history = loaded.1
+            self.catalog = loaded.2
+            allergies = Self.memberAllergies(loaded.3, members: members)
+            hasLoaded = true
+            errorMessage = nil
+        } catch {
+            guard generation == loadGeneration, !Self.isCancellation(error) else { return }
+            errorMessage = String(localized: "Couldn't load your library. Check your connection and try again.")
+        }
+    }
+
+    func setArchived(_ archived: Bool, mealID: UUID) async {
+        guard meals.contains(where: { $0.id == mealID }) else { return }
+        let status: MealStatus = archived ? .archived : .active
+        do {
+            try await client.setStatus(mealID, status)
+            // Look again: a reload may have replaced the list while the request was out.
+            if let index = meals.firstIndex(where: { $0.id == mealID }) { meals[index].status = status }
+            errorMessage = nil
+        } catch {
+            errorMessage = archived
+                ? String(localized: "Couldn't archive that meal. Check your connection and try again.")
+                : String(localized: "Couldn't restore that meal. Check your connection and try again.")
+        }
+    }
+
+    /// Copies a starter dish into the library and returns the new meal's id.
+    @discardableResult
+    func add(_ dish: CatalogDish) async -> UUID? {
+        guard !addingDishIDs.contains(dish.id) else { return nil }
+        addingDishIDs.insert(dish.id)
+        defer { addingDishIDs.remove(dish.id) }
+        do {
+            let id = try await client.addFromCatalog(householdID, dish.id)
+            await load(members: members)
+            return id
+        } catch {
+            errorMessage = String(localized: "Couldn't add \(dish.name). Check your connection and try again.")
+            return nil
+        }
+    }
+
+    func photoURL(for path: String) async throws -> URL {
+        if let cached = photoURLs[path], cached.expires > .now { return cached.url }
+        let url = try await client.photoURL(path)
+        // Refresh a little before the signed URL lapses.
+        photoURLs[path] = (url, .now.addingTimeInterval(Double(PhotoStorageClient.signedURLLifetime) - 60))
+        return url
+    }
+
+    /// Only archived meals come back; retired ones were dropped by the family's dislikes.
+    static func canRestore(_ meal: LibraryMeal) -> Bool {
+        meal.status == .archived
+    }
+
+    private static func isCancellation(_ error: any Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled
+    }
+
+    /// Planners (and the owner during onboarding) manage the library; everyone else browses.
+    static func canEdit(me: Member?, isOwner: Bool) -> Bool {
+        isOwner || me?.role == .planner
+    }
+
+    /// Allergies of everyone still in the family, as the matcher wants them. Removed members don't flag dishes.
+    static func memberAllergies(_ rows: [AllergyRow], members: [Member]) -> [MemberAllergies] {
+        members.filter { $0.status != .removed }.compactMap { member in
+            let own = rows.filter { $0.memberID == member.id }
+            guard !own.isEmpty else { return nil }
+            return MemberAllergies(
+                memberID: member.id,
+                firstName: member.firstName,
+                allergens: Set(own.map(\.allergen).filter { $0 != .custom }),
+                customTexts: own.filter { $0.allergen == .custom }.compactMap(\.customText)
+            )
+        }
+    }
+}

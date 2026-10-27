@@ -2,6 +2,11 @@ import SwiftUI
 
 struct RootTabView: View {
     @State private var selection: AppTab = .week
+    @State private var library: LibraryStore
+
+    init(householdID: UUID, libraryClient: LibraryClient) {
+        _library = State(initialValue: LibraryStore(householdID: householdID, client: libraryClient))
+    }
 
     var body: some View {
         TabView(selection: $selection) {
@@ -11,6 +16,7 @@ struct RootTabView: View {
                 }
             }
         }
+        .environment(library)
     }
 
     @ViewBuilder
@@ -27,7 +33,7 @@ struct RootTabView: View {
 
 #Preview {
     let store = HouseholdStore.preview()
-    RootTabView()
+    RootTabView(householdID: Household.sample.id, libraryClient: .preview())
         .environment(SessionStore(auth: .preview()))
         .environment(store)
         .task { await store.load() }
