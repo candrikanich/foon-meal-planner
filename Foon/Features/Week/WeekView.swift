@@ -91,11 +91,14 @@ struct WeekView: View {
     private func load() async {
         guard household.household != nil else { return }
         // The library (for flags, sides, and Build) loads alongside the week, not before it.
-        async let libraryLoad: Void = canPlan && !library.hasLoaded ? library.load(members: household.members) : ()
+        let loadsLibrary = canPlan && !library.hasLoaded
+        async let libraryLoad: Void = loadsLibrary ? library.load(members: household.members) : ()
         async let dinnerLoad: Void = dinner.load(settings: settings)
         await week.load(settings: settings)
         await libraryLoad
         await dinnerLoad
+        // A full library load just read them; otherwise last night's answers count in the next build.
+        if !loadsLibrary { await library.refreshReactions() }
         if canPlan { await week.fillInMissing(members: household.members) }
     }
 
@@ -328,7 +331,8 @@ struct WeekView: View {
         if !library.hasLoaded { await library.load(members: household.members) }
         guard library.hasLoaded else { return nil }
         return PlanningContext(meals: library.meals, history: library.history, settings: settings,
-                               members: household.visibleMembers, traditions: week.traditions)
+                               members: household.visibleMembers, traditions: week.traditions,
+                               reactions: library.reactions)
     }
 
     private func build() async {

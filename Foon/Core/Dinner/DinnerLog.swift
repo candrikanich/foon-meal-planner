@@ -16,6 +16,15 @@ enum ReactionKind: String, Codable, CaseIterable, Sendable {
         case .tiredOfIt: String(localized: "Tired of it")
         }
     }
+
+    var systemImage: String {
+        switch self {
+        case .favorite: "heart.fill"
+        case .good: "hand.thumbsup"
+        case .notForMe: "hand.thumbsdown"
+        case .tiredOfIt: "zzz"
+        }
+    }
 }
 
 /// One person's reaction to a confirmed dinner. Changeable for 24 hours, then it's history.

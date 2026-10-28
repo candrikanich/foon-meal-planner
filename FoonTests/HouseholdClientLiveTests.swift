@@ -384,6 +384,11 @@ struct HouseholdClientLiveTests {
         await #expect(throws: (any Error).self, "once rated, the dish stays") {
             try await dinners.correct(logID, .dish(mealID: chiliID, quickPick: nil))
         }
+
+        let verdicts = try await library.verdicts(household.id)
+        #expect(Set(verdicts.map(\.memberID)) == [ann.id, nora.id])
+        #expect(verdicts.allSatisfy { $0.mealID == tacosID })
+        #expect(try await library.likes(household.id) == [MealLikes(mealID: tacosID, likes: 1)], "Ann's favorite")
         #expect(try await dinners.logs(household.id, today.adding(days: 1)).isEmpty, "only from the date asked")
 
         let nights = try await dinners.nights(household.id, today, today)

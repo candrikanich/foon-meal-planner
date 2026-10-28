@@ -147,17 +147,6 @@ struct ReactionRow: View {
     }
 }
 
-extension ReactionKind {
-    var systemImage: String {
-        switch self {
-        case .favorite: "heart.fill"
-        case .good: "hand.thumbsup"
-        case .notForMe: "hand.thumbsdown"
-        case .tiredOfIt: "zzz"
-        }
-    }
-}
-
 /// After the first reaction: leftovers (pre-filled with the guess) and, for a dish, who cooked; then Save.
 struct DinnerExtrasCard: View {
     @Environment(DinnerStore.self) private var dinner

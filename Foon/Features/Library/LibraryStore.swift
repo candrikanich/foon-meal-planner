@@ -37,14 +37,20 @@ final class LibraryStore {
         self.client = client
     }
 
-    /// Favorites come from ratings (M2); until then the Favorites chip shows its empty state.
-    private var favorites: Set<UUID> { [] }
+    /// The family's reactions: current verdicts and likes, for favorites, the sorts, and Build my week.
+    private(set) var reactions = ReactionSummary()
+
+    /// Dishes that are someone's favorite now.
+    private var favorites: Set<UUID> { Set(reactions.favorites.values.flatMap { $0 }) }
 
     var visibleEntries: [LibraryEntry] {
-        LibraryQuery.apply(
-            LibraryQuery.entries(meals: meals, history: history, allergies: allergies, favorites: favorites),
-            filter: filter, sort: sort, search: search
-        )
+        LibraryQuery.apply(entries(meals), filter: filter, sort: sort, search: search)
+    }
+
+    private func entries(_ meals: [LibraryMeal]) -> [LibraryEntry] {
+        let counts = Dictionary(favorites.map { ($0, reactions.favoriteCount($0)) }, uniquingKeysWith: { first, _ in first })
+        return LibraryQuery.entries(meals: meals, history: history, allergies: allergies, favorites: favorites,
+                                    favoriteCounts: counts, likes: reactions.likes)
     }
 
     var catalogMatches: [CatalogDish] {
@@ -86,13 +92,17 @@ final class LibraryStore {
             async let catalog = client.catalog()
             async let allergyRows = client.allergies(householdID)
             async let itemNames = client.itemNames(householdID)
+            async let verdicts = client.verdicts(householdID)
+            async let likes = client.likes(householdID)
             let loaded = try await (meals, history, catalog, allergyRows, itemNames)
+            let reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
             guard generation == loadGeneration else { return }
             self.meals = loaded.0
             self.history = loaded.1
             self.catalog = loaded.2
             allergies = Self.memberAllergies(loaded.3, members: members)
             self.itemNames = loaded.4
+            self.reactions = reactions
             hasLoaded = true
             errorMessage = nil
         } catch {
@@ -132,13 +142,25 @@ final class LibraryStore {
         }
     }
 
+    /// Re-reads just the family's reactions (cheap), so a dislike from last night reaches Build my week without a
+    /// full library reload. Keeps what it had if the network says no.
+    func refreshReactions() async {
+        guard hasLoaded else { return }
+        do {
+            async let verdicts = client.verdicts(householdID)
+            async let likes = client.likes(householdID)
+            reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
+        } catch {
+            // Offline: last load's reactions still stand.
+        }
+    }
+
     func meal(_ id: UUID) -> LibraryMeal? {
         meals.first { $0.id == id }
     }
 
     func entry(_ id: UUID) -> LibraryEntry? {
-        LibraryQuery.entries(meals: meals.filter { $0.id == id }, history: history, allergies: allergies,
-                             favorites: favorites).first
+        entries(meals.filter { $0.id == id }).first
     }
 
     /// What a meal is served with, by name. A side meal no longer in the library, or retired, is left out.

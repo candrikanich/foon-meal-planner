@@ -109,8 +109,8 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 
 - Filters are one at a time; with none chosen, the grid shows meals in rotation (active and trying). Archived also lists retired dishes.
 - Search matches meal names and ingredients, ignoring case and accents. Matching starter dishes not yet in the library appear below the family's own ("From Foon's ideas").
-- History (times made, last made) counts past nights of approved plans until dinners are confirmed (meal logs, M2). Haven't had in a while puts never-made dishes last; they're new, not forgotten.
-- Favorites and the Family favorites sort need ratings (M2); until then the Favorites chip shows an empty state.
+- History (times made, last made) counts logged dinners: confirmed, or saved overnight unanswered (#42). A past night of an approved plan with no log (from before logs existed) still counts. Haven't had in a while puts never-made dishes last; they're new, not forgotten.
+- Favorites shows dishes that are someone's favorite now (their latest reaction). Family favorites sorts by how many people's favorite a dish is, then by how often anyone rated it Favorite or Good (#42).
 - Long-press: Plan it and Archive, or Back in rotation for archived meals (planners only).
 - Browse ideas lists the catalog by category; planners copy a dish into the library with one tap, and adding it again returns the copy already there, even a retired one: a dish the dislike rule retired stays retired.
 
@@ -120,7 +120,7 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 - Add to list puts an ingredient (or all of them) on the quick list; anyone in the family can, offline too.
 - Copy and tweak makes "Name (copy)" with the recipe, prep, and ingredients, but not the photo or the catalog link, and opens the editor on it. Retired meals aren't copied, so the dislike rule holds.
 - Steps are optional, one per line; typed numbering ("1.", "Step 2:") is dropped. Links must be web addresses; "example.com" gains https.
-- Verdicts, comments, serving notes, and frequency ("about every 2 weeks") need ratings and dinner logs (M2).
+- "What everyone thinks" shows each family member's current verdict (their latest reaction to the dish), visible to all (#42). Comments, serving notes, and frequency ("about every 2 weeks") come with #46.
 - v1 Plan it (#18, #19), planners, from the long-press menu and meal detail: pick a night from tonight on in the week This Week shows (each row says what it holds now; nights already set to this meal are left out). Like Swap, it replaces the night and locks it, so Rebuild keeps it. With no week yet, it points to This Week.
 
 **Frequency awareness.** Overuse nudges ("Tacos 3 times in 2 weeks"), neglect nudges ("No pot roast in 7 weeks"), and recap callouts make the log the planner's memory.
@@ -209,11 +209,18 @@ The plan is the log by default; one notification per person confirms it, rates i
 - 0 dislikes: full rotation.
 - 1 dislike: suggested only on nights that person is away.
 - 2 or more dislikes: retired (archived, still findable).
-- Dislikes never expire. Ratings are family-only; guests don't rate.
+- Dislikes never expire on their own: a dislike stands until that person rates the dish again (their latest reaction is their verdict). Removed members' verdicts don't count. Ratings are family-only; guests don't rate. New ratings are for the last week's dinners, and a retired dish stays retired.
 
 **Transparency.** Reactions are visible to the whole family. Always rate the dish, never the cook; the prompt asks about the food ("How was the chicken thing?").
 
 **Cook credit.** Every logged dinner records who made it, with no rating attached. A monthly "cooked this month" tally and a one-tap "Thanks, chef" make contributions visible and encourage more cooks. Beginner-friendly tags give kids a shortlist they can make on their own.
+
+**v1 effects (#42, part 3).** A person's current verdict on a dish is their latest reaction to it:
+- **Favorite:** pinned to them; Build my week boosts it on their home nights.
+- **Tired of it:** out of suggestions for three weeks after that dinner.
+- **Not for me:** lasting. With one person it's suggested only on nights that person is away. When two people's current verdict is Not for me, the server retires the dish (still findable under Archived).
+- **Likes:** every Favorite or Good ever adds a small boost.
+- **Freshness:** This Week re-reads reactions each time it loads, so last night's answers count in the next build.
 
 **Pass the phone.** At the table, everyone rates in about 20 seconds on one device; a natural ritual and a fallback for kids who ignore notifications.
 
