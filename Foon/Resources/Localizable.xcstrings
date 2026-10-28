@@ -341,6 +341,12 @@
     "Close" : {
 
     },
+    "Confirm with Apple to delete. Foon also stops using Sign in with Apple for your account." : {
+
+    },
+    "Confirms with Apple, then deletes your account" : {
+
+    },
     "Contains %@ (%@)" : {
       "comment" : "Allergy flag: allergen, then who",
       "localizations" : {
@@ -386,6 +392,12 @@
 
     },
     "Couldn't create your household. Check your connection and try again." : {
+
+    },
+    "Couldn't delete your account, and nothing was deleted. Check your connection and try again." : {
+
+    },
+    "Couldn't export your household. Check your connection and try again." : {
 
     },
     "Couldn't find it" : {
@@ -463,6 +475,24 @@
     "Dairy and eggs" : {
 
     },
+    "Delete my account" : {
+
+    },
+    "Delete your account and household?" : {
+
+    },
+    "Delete your account?" : {
+
+    },
+    "Deleting your account can't be undone." : {
+
+    },
+    "Deleting your account didn't finish. Confirm with Apple again to finish it." : {
+
+    },
+    "Deleting…" : {
+
+    },
     "Different tastes. Same table." : {
 
     },
@@ -527,6 +557,15 @@
 
     },
     "Everything's in the cart" : {
+
+    },
+    "Export household data" : {
+
+    },
+    "Export saves the household's meals, plans, lists, and family as a file. Deleting your account can't be undone." : {
+
+    },
+    "Exporting…" : {
 
     },
     "Family" : {
@@ -1105,6 +1144,9 @@
     "Setting up the sample family…" : {
 
     },
+    "Share or save the export" : {
+
+    },
     "Shop" : {
 
     },
@@ -1241,6 +1283,9 @@
     "That meal isn't in your library anymore. Pull to refresh." : {
 
     },
+    "That's a different Apple ID from the one you use with Foon. Confirm with the Apple ID you signed in with. Nothing was deleted." : {
+
+    },
     "Thaw first" : {
 
     },
@@ -1275,6 +1320,9 @@
 
     },
     "This code is shown only now. Inviting again replaces it." : {
+
+    },
+    "This deletes %@ for everyone: meals, plans, lists, photos, and family profiles. Family members keep their own accounts and can start or join another household. This can't be undone." : {
 
     },
     "This invite is for an adult's profile. Ask your family for the right invite." : {
@@ -1349,6 +1397,9 @@
     "View the original recipe" : {
 
     },
+    "Want a copy first? Export saves everything as a file." : {
+
+    },
     "Week" : {
 
     },
@@ -1394,6 +1445,15 @@
     "You're already in a household. Foon supports one household per person for now." : {
 
     },
+    "Your account is deleted. This can't be undone." : {
+
+    },
+    "Your account is deleted. Your profile stays in the family, and your parents manage it." : {
+
+    },
+    "Your data" : {
+
+    },
     "Your first name" : {
 
     },
@@ -1413,6 +1473,9 @@
 
     },
     "Your planner hasn't planned this week yet. Tell them what you'd like." : {
+
+    },
+    "Your profile leaves %@, and your ratings stay as \"Former member.\" Your allergies and settings are deleted. This can't be undone." : {
 
     },
     "Your rhythm" : {

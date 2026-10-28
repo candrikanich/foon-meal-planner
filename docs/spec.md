@@ -384,6 +384,11 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
 - **Legal review** happens before external TestFlight (founding families); internal TestFlight with our own family can go ahead first.
 - Allergies are consumer health data in some states (e.g. Washington's My Health My Data Act): explicit opt-in built into the allergy step (Agree and save is the opt-in, logged with who, when, and the wording version shown; the sample family logs its own version, since nobody read the sentence). Only guardians opt in or revoke; revoking erases the data.
 - Apple: in-app account deletion with Sign in with Apple token revocation, privacy manifest, accurate privacy label.
+- v1 account deletion and export (#29): Delete my account is in Family, Your data, and on the first screen before a household exists. It says what will happen, then the person confirms with Apple. The fresh authorization code lets the delete-account Edge Function revoke Foon's Sign in with Apple token. If Apple refuses, or the code is from a different Apple ID than the account's, nothing is deleted. Then:
+  - the owner's household is erased with everything in it, photos included (ownership can be transferred first to keep it); everyone else keeps their own account;
+  - another adult's profile is removed and anonymized at once ("Former member"; allergies and settings deleted; ratings and cook history kept as anonymous history);
+  - a kid's account is unlinked and the profile their parents entered stays.
+  The auth account goes last, and the device signs out and wipes its offline cache. Planners can export the household as a JSON file (meals, ingredients, sides, items, traditions, plans, nights, attendance, lists, members, allergies, consents); account ids and invite codes are left out.
 - No tracking and no ad SDKs, so no App Tracking Transparency prompt. Market it.
 - Delete receipt images after parsing. US-only launch at first.
 - Imported recipe instructions stay private to the household; never shared across families or added to the catalog.
@@ -440,7 +445,7 @@ Build everything, in order: Phase 1 (the Sunday flow) is what to sit down with y
 - [ ] Success test: download to first plan and list in under 15 minutes
 
 * [ ] Observability: Sentry with PII scrubbing; TelemetryDeck or anonymized PostHog; privacy manifest
-* [ ] Account deletion (with Sign in with Apple token revocation) and household data export
+* [x] Account deletion (with Sign in with Apple token revocation) and household data export (#29)
 * [ ] Edge cases: fewer than 7 meals, 1-member and 8+ member households, localizable strings
 
 - [ ] Standing traditions (recurring nights)

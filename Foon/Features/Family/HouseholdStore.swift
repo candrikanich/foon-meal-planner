@@ -79,6 +79,30 @@ final class HouseholdStore {
         return isSelf ? .ownProfileAsOwner : .nameAndAvatar
     }
 
+    /// Planners export the household's data; the owner counts even before their profile loads.
+    var canExport: Bool {
+        household?.owner == userID || me?.role == .planner
+    }
+
+    /// The household's data as a pretty-printed JSON file in the temporary folder, ready to share or save.
+    func exportFile() async -> URL? {
+        guard let household else { return nil }
+        do {
+            let raw = try await client.exportHousehold(household.id)
+            let pretty = try JSONSerialization.data(withJSONObject: JSONSerialization.jsonObject(with: raw),
+                                                    options: [.prettyPrinted, .sortedKeys])
+            let name = household.name.replacing(/[\/:]/, with: "-")
+            let day = Date.now.formatted(.iso8601.year().month().day())
+            let url = URL.temporaryDirectory.appending(path: "Foon - \(name) \(day).json")
+            try pretty.write(to: url, options: .atomic)
+            errorMessage = nil
+            return url
+        } catch {
+            errorMessage = String(localized: "Couldn't export your household. Check your connection and try again.")
+            return nil
+        }
+    }
+
     /// Nobody removes the owner (transfer ownership first) or themselves from inside the app.
     func canRemove(_ member: Member) -> Bool {
         canManagePeople && !isOwnerProfile(member) && member.userID != userID

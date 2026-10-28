@@ -93,6 +93,41 @@ final class SessionStore {
         return true
     }
 
+    /// Deletes the account, confirmed with Apple, then signs this device out (which wipes the offline cache).
+    /// Returns whether it was deleted.
+    func deleteAccount(authorizationCode: Data?) async -> Bool {
+        errorMessage = nil
+        guard let authorizationCode, let code = String(data: authorizationCode, encoding: .utf8), !code.isEmpty else {
+            errorMessage = Self.message(for: .nothingDeleted)
+            return false
+        }
+        do {
+            try await auth.deleteAccount(code)
+        } catch {
+            errorMessage = Self.message(for: error as? AccountDeletionError ?? .unfinished)
+            return false
+        }
+        pendingInviteCode = nil
+        await auth.signOut()
+        return true
+    }
+
+    /// Sign in with Apple failed (not cancelled) while confirming a deletion.
+    func appleConfirmationFailed() {
+        errorMessage = Self.message(for: .nothingDeleted)
+    }
+
+    private static func message(for error: AccountDeletionError) -> String {
+        switch error {
+        case .nothingDeleted:
+            String(localized: "Couldn't delete your account, and nothing was deleted. Check your connection and try again.")
+        case .otherAppleID:
+            String(localized: "That's a different Apple ID from the one you use with Foon. Confirm with the Apple ID you signed in with. Nothing was deleted.")
+        case .unfinished:
+            String(localized: "Deleting your account didn't finish. Confirm with Apple again to finish it.")
+        }
+    }
+
     private static var signInFailed: String {
         String(localized: "Sign in didn't work. Check your connection and try again.")
     }
