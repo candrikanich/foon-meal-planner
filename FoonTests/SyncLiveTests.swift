@@ -65,15 +65,21 @@ struct SyncLiveTests {
         // made elsewhere actually arrives, then test with a fresh one.
         let probe: IDRow = try await supabase.rpc("ensure_item", params: ["target_household": household.id.uuidString,
                                                                         "item_name": "Probe"]).select("id").single().execute().value
-        var streaming = false
-        for attempt in 0..<40 where !streaming {
-            let before = service.lastPulled
-            try await SyncClient.live(supabase).send(.setStock(itemID: probe.id, state: attempt.isMultiple(of: 2) ? .low : .out))
-            for _ in 0..<10 where !streaming {
+        // The probe's own change must show up in the cache, twice in a row: the one pull start() makes when
+        // subscribed can account for one, so at least one came from a Realtime event.
+        var deliveredInARow = 0
+        for attempt in 0..<40 where deliveredInARow < 2 {
+            let state: StockState = attempt.isMultiple(of: 2) ? .low : .out
+            try await SyncClient.live(supabase).send(.setStock(itemID: probe.id, state: state))
+            var arrived = false
+            for _ in 0..<20 where !arrived {
                 try await Task.sleep(for: .milliseconds(50))
-                streaming = service.lastPulled != before
+                arrived = try container.mainContext.fetch(FetchDescriptor<CachedItem>())
+                    .first { $0.id == probe.id }?.stockState == state
             }
+            deliveredInARow = arrived ? deliveredInARow + 1 : 0
         }
+        let streaming = deliveredInARow == 2
         try #require(streaming, "Realtime never delivered a change")
         let eggs: IDRow = try await supabase.rpc("ensure_item", params: ["target_household": household.id.uuidString,
                                                                        "item_name": "Eggs"]).select("id").single().execute().value
