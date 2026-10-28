@@ -22,6 +22,11 @@ enum IngredientParser {
             .map(ingredient)
     }
 
+    /// One ingredient line as a recipe site lists it ("1 (15 oz) can beans, drained"): never split at commas.
+    static func parseLine(_ line: String) -> ParsedIngredient? {
+        cleaned(Substring(line).drop { $0.isWhitespace || bullets.contains($0) }).map(ingredient)
+    }
+
     private static let bullets: Set<Character> = ["-", "*", "•"]
     private static let separators: Set<Character> = [",", ";", "•"]
     private static let fractions: Set<Character> = ["½", "¼", "¾", "⅓", "⅔", "⅛", "⅜", "⅝", "⅞"]

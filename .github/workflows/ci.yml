@@ -85,6 +85,13 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Lint, type-check, and test
-        working-directory: supabase/functions/delete-account
-        run: deno lint && deno check *.ts && deno test
+      - name: Lint, type-check, and test each function
+        working-directory: supabase/functions
+        run: |
+          set -e
+          for fn in */; do
+            # A shared folder without its own deno.json isn't a function.
+            [ -f "$fn/deno.json" ] || continue
+            echo "== $fn"
+            (cd "$fn" && deno lint && deno check *.ts && deno test)
+          done

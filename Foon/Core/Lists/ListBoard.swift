@@ -56,7 +56,15 @@ struct ShoppingTrip: Codable, Equatable, Sendable, RawRepresentable {
     }
 
     var rawValue: String {
-        (try? JSONEncoder().encode(self)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return (try? encoder.encode(self)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+    }
+
+    /// Field by field. Without this, RawRepresentable's `==` compares `rawValue` strings, and JSON key order isn't
+    /// guaranteed, so the same trip could compare unequal to itself (#115).
+    static func == (lhs: ShoppingTrip, rhs: ShoppingTrip) -> Bool {
+        lhs.start == rhs.start && lhs.skipped == rhs.skipped
     }
 
     private enum CodingKeys: String, CodingKey { case start, skipped }
