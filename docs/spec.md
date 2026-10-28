@@ -90,6 +90,13 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 1. **Quick add:** type a name and save. Ingredients optional; an "add ingredients" badge reminds later. Ingredients typed naturally ("1 lb ground beef, taco shells, cheese") are split into items, with autocomplete from past items. (v1: Library → Add → Quick add, for planners; autocomplete offers the household's items for the ingredient being typed, keeping its amount; the new meal opens when added.)
 2. **Copy and tweak:** duplicate a starter dish ("Tacos" to "Our tacos") and edit.
 3. **From a link:** recipe websites parse via embedded schema.org recipe data.
+   v1 (#21): Library → Add → From a link, for planners.
+   - **Reading the page:** the import-recipe Edge Function fetches the page and reads its JSON-LD Recipe: name, servings, ingredients, steps, and image URL.
+   - **Preview:** before adding, the app shows the recipe scaled from the recipe's servings to the family's size (amounts like "1 1/2 cups" scale; "to taste" doesn't), with the link kept as the source.
+   - **No recipe data:** the page title and link are saved. Ideas don't exist yet (M2); the plan is for this to go to the idea inbox then.
+   - **Page can't be read:** if it's down, or the site turns Foon away, "Save just the link" keeps the link.
+   - **Safety:** the function opens only public web pages, by name (IP-literal IPv6 hosts are refused). Private, loopback, link-local and mapped addresses are refused on the resolved addresses and on every redirect, with a 2 MB cap and a 10 s limit. The fetch resolves the name again, so a DNS server that answers differently the second time (rebinding) isn't caught; the platform's egress rules are the backstop. Only signed-in people can call it; the app's anon key isn't enough. It says honestly that it's Foon and doesn't try to get past sites that block apps.
+   - **Images:** not saved, because recipe photos belong to their sites; families add their own.
 4. **From a photo, screenshot, or PDF:** text recognition, then ingredient parsing (AI on capable devices).
 
 **Share Sheet extension (v1).** One share target for everything: recipe links and videos go to the library or idea inbox, screenshots to recipe capture, PDFs to import, plain text ("milk, eggs, bread") to the quick shopping list. Social posts (Instagram, TikTok, Facebook) fall back in order: parse the caption, then a screenshot of the ingredients, then save as an idea with title and link.

@@ -101,7 +101,16 @@ extension LibraryClient {
             copy: { _, _ in UUID() },
             create: { _, _ in UUID() },
             itemNames: { _ in ["paper towels", "milk", "bananas"] },
-            setPhoto: { _, _ in }
+            setPhoto: { _, _ in },
+            importRecipe: { link in
+                RecipeImport(
+                    recipe: .init(name: "Weeknight Chili", servings: 4,
+                                  ingredients: ["1 lb ground beef", "1 (15 oz) can kidney beans, drained",
+                                                "2 tbsp chili powder"],
+                                  steps: ["Brown the beef.", "Add everything and simmer 30 minutes."], imageURL: nil),
+                    title: "Weeknight Chili", url: URL(string: link) ?? URL(string: "https://example.com")!
+                )
+            }
         )
     }
 }

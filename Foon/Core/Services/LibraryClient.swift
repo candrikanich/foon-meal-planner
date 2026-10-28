@@ -40,6 +40,19 @@ struct LibraryClient: Sendable {
     var itemNames: @Sendable (_ householdID: UUID) async throws -> [String]
     /// Uploads a prepared JPEG and points the meal at it.
     var setPhoto: @Sendable (_ meal: LibraryMeal, _ preparedJPEG: Data) async throws -> Void
+    /// Reads a recipe link through the import-recipe Edge Function. Throws `RecipeImportError`.
+    var importRecipe: @Sendable (_ link: String) async throws -> RecipeImport = { _ in throw RecipeImportError.unavailable }
+}
+
+enum RecipeImportError: Error, Equatable {
+    /// Not a web link the server will open (private networks, other schemes).
+    case notAllowed
+    /// The page couldn't be reached or read.
+    case unavailable
+
+    init(status: Int?) {
+        self = status == 400 ? .notAllowed : .unavailable
+    }
 }
 
 extension LibraryClient {
@@ -136,6 +149,17 @@ extension LibraryClient {
                     .execute()
                     .value
                 guard !updated.isEmpty else { throw LibraryClientError.notAllowed }
+            },
+            importRecipe: { link in
+                do {
+                    return try await client.functions.invoke(
+                        "import-recipe", options: FunctionInvokeOptions(body: ["url": link])
+                    )
+                } catch FunctionsError.httpError(let code, _) {
+                    throw RecipeImportError(status: code)
+                } catch {
+                    throw RecipeImportError.unavailable
+                }
             }
         )
     }

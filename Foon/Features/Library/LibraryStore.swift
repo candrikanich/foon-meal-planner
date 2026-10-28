@@ -188,6 +188,39 @@ final class LibraryStore {
     func quickAdd(name: String, ingredients: String) async -> UUID? {
         var draft = MealDraft(newNamed: name)
         draft.addIngredients(ingredients)
+        return await create(draft)
+    }
+
+    /// Reads a recipe link. Nil (with a message) when the link can't be opened or read.
+    func importRecipe(_ link: String) async -> RecipeImport? {
+        guard let url = Self.webLink(link) else {
+            errorMessage = String(localized: "That doesn't look like a web link.")
+            return nil
+        }
+        do {
+            let imported = try await client.importRecipe(url.absoluteString)
+            errorMessage = nil
+            return imported
+        } catch RecipeImportError.notAllowed {
+            errorMessage = String(localized: "Foon can't open that link. Try the recipe's web page.")
+        } catch {
+            errorMessage = String(localized: "Couldn't read that page. Check your connection and try again.")
+        }
+        return nil
+    }
+
+    /// A typed or pasted link as a web address; "recipes.example/chili" gets https.
+    static func webLink(_ link: String) -> URL? {
+        let trimmed = link.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.contains(" ") else { return nil }
+        let withScheme = trimmed.contains("://") ? trimmed : "https://" + trimmed
+        guard let url = URL(string: withScheme), ["http", "https"].contains(url.scheme?.lowercased()),
+              url.host()?.contains(".") == true else { return nil }
+        return url
+    }
+
+    /// Adds a new meal from a draft (quick add, a recipe link) and returns its id.
+    func create(_ draft: MealDraft) async -> UUID? {
         let saved: MealDraft.Saved
         do {
             saved = try draft.validated()

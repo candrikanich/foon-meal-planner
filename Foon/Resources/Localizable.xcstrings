@@ -107,6 +107,9 @@
     "%lld nights still open" : {
 
     },
+    "%lld steps" : {
+
+    },
     "%lld to buy" : {
 
     },
@@ -129,6 +132,9 @@
 
     },
     "1 night still open" : {
+
+    },
+    "1 step" : {
 
     },
     "A demo family with dinners and a planned week, to look around first." : {
@@ -440,6 +446,9 @@
     "Couldn't plan it right now. Try again in a moment." : {
 
     },
+    "Couldn't read that page. Check your connection and try again." : {
+
+    },
     "Couldn't record your consent. Check your connection and try again." : {
 
     },
@@ -614,6 +623,9 @@
     "Foon" : {
 
     },
+    "Foon can't open that link. Try the recipe's web page." : {
+
+    },
     "Foon drafts the week from your library and who's home each night. You can change any night." : {
 
     },
@@ -642,6 +654,9 @@
 
     },
     "From Foon's ideas" : {
+
+    },
+    "From a link" : {
 
     },
     "Frozen" : {
@@ -896,6 +911,9 @@
     "Most made" : {
 
     },
+    "Most recipe sites work. Foon reads the recipe card, not the whole page." : {
+
+    },
     "Name" : {
 
     },
@@ -960,6 +978,9 @@
 
     },
     "No quick meals" : {
+
+    },
+    "No recipe card on that page, so Foon kept the title and link. Add ingredients when you can." : {
 
     },
     "No suggestions fit this night. Search your meals instead." : {
@@ -1112,6 +1133,12 @@
     "Quick for a rushed night" : {
       "comment" : "Reason chip"
     },
+    "Read recipe" : {
+
+    },
+    "Reading…" : {
+
+    },
     "Rebuild unlocked nights" : {
 
     },
@@ -1160,8 +1187,21 @@
     "Save" : {
 
     },
+    "Save just the link" : {
+
+    },
     "Saving" : {
 
+    },
+    "Scaled from %lld servings to %lld for your family." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Scaled from %1$lld servings to %2$lld for your family."
+          }
+        }
+      }
     },
     "Search dinners" : {
 
@@ -1241,6 +1281,9 @@
     "Snacks" : {
 
     },
+    "Some sites don't let apps read their recipes. You can add the ingredients yourself." : {
+
+    },
     "Something else" : {
 
     },
@@ -1318,6 +1361,9 @@
 
     },
     "That code didn't work. Check it and try again." : {
+
+    },
+    "That doesn't look like a web link." : {
 
     },
     "That file isn't a photo Foon can use." : {

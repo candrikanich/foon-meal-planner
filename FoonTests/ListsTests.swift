@@ -64,7 +64,11 @@ struct ListBoardTests {
         var trip = ShoppingTrip(start: tripStart)
         trip.skipped.insert(UUID())
         let restored = try #require(ShoppingTrip(rawValue: trip.rawValue))
-        #expect(restored == trip)
+        // Seen failing once in a full run (#115): say exactly what differed if it happens again.
+        #expect(restored == trip, """
+            start \(restored.start.timeIntervalSinceReferenceDate) vs \(trip.start.timeIntervalSinceReferenceDate), \
+            skipped \(restored.skipped) vs \(trip.skipped), raw \(trip.rawValue)
+            """)
         #expect(ShoppingTrip(rawValue: "") == nil)
     }
 

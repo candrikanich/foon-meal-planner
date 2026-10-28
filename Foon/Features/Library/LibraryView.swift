@@ -8,6 +8,7 @@ struct LibraryView: View {
     @State private var browsingCatalog = false
     @State private var quickAdding = false
     @State private var planning: LibraryMeal?
+    @State private var importingLink = false
     @State private var path: [UUID] = []
 
     private var canEdit: Bool {
@@ -43,6 +44,9 @@ struct LibraryView: View {
             }
             .sheet(isPresented: $quickAdding) {
                 QuickAddView { id in path = [id] }
+            }
+            .sheet(isPresented: $importingLink) {
+                LinkImportView { id in path = [id] }
             }
         }
         .task(id: household.members) { await library.load(members: household.members) }
@@ -94,6 +98,7 @@ struct LibraryView: View {
             Menu {
                 if canEdit {
                     Button("Quick add", systemImage: "square.and.pencil") { quickAdding = true }
+                    Button("From a link", systemImage: "link") { importingLink = true }
                 }
                 Button("Browse ideas", systemImage: "sparkles") { browsingCatalog = true }
             } label: {

@@ -335,10 +335,13 @@ extension LibraryClient {
         copy: @escaping @Sendable (UUID, String) async throws -> UUID = { _, _ in UUID() },
         create: @escaping @Sendable (UUID, MealDraft.Saved) async throws -> UUID = { _, _ in UUID() },
         itemNames: @escaping @Sendable (UUID) async throws -> [String] = { _ in [] },
-        setPhoto: @escaping @Sendable (LibraryMeal, Data) async throws -> Void = { _, _ in }
+        setPhoto: @escaping @Sendable (LibraryMeal, Data) async throws -> Void = { _, _ in },
+        importRecipe: @escaping @Sendable (String) async throws -> RecipeImport = { _ in
+            throw RecipeImportError.unavailable
+        }
     ) -> LibraryClient {
         LibraryClient(meals: meals, history: history, catalog: catalog, allergies: allergies, setStatus: setStatus,
                       addFromCatalog: addFromCatalog, photoURL: photoURL, save: save, copy: copy, create: create,
-                      itemNames: itemNames, setPhoto: setPhoto)
+                      itemNames: itemNames, setPhoto: setPhoto, importRecipe: importRecipe)
     }
 }
