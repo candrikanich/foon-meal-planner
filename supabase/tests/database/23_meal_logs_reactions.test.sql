@@ -1,6 +1,6 @@
 -- Dinner logs and reactions (#42, part 1).
 begin;
-select plan(39);
+select plan(40);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -125,6 +125,12 @@ select throws_ok($$ insert into public.reactions (household_id, meal_log_id, mem
   select '00000000-0000-0000-0000-0000000000a0', id, '00000000-0000-0000-0000-0000000000a3', 'good' from tonight_log $$,
   '42501', null, 'not even by writing the table, for their unclaimed kid');
 
+-- Whoever changes a reaction last is recorded --------------------------------------------------------
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.react_to_dinner('00000000-0000-0000-0000-0000000004a4', '00000000-0000-0000-0000-0000000000a3', 'not_for_me');
+select is((select entered_by_member_id from public.reactions where member_id = '00000000-0000-0000-0000-0000000000a3'),
+  '00000000-0000-0000-0000-0000000000a1'::uuid, 'Alice''s phone changed Nora''s rating last');
+
 -- 24 hours later, reactions lock --------------------------------------------------------------------
 reset role;
 update public.reactions set created_at = now() - interval '25 hours'
@@ -176,7 +182,7 @@ select is_empty($$ select 1 from public.reactions where member_id = '00000000-00
 select results_eq(
   $$ select reaction::text, comment from public.reactions where member_id = '00000000-0000-0000-0000-0000000000a3' $$,
   $$ values ('not_for_me', null::text) $$,
-  'Nora''s rating, entered on Bob''s phone, stays as anonymous history without her words');
+  'Nora''s rating, entered on a parent''s phone, stays as anonymous history without her words');
 
 select public.delete_account_data('a0000000-0000-0000-0000-00000000000a');
 select is((select count(*)::int from public.meal_logs) + (select count(*)::int from public.reactions), 0,

@@ -222,12 +222,12 @@ The plan is the log by default; one notification per person confirms it, rates i
 - Only a dinner that has happened and had something planned is logged; an empty night is logged by swapping in what was eaten first. Only dishes are rated, not quick picks.
 - Anyone in the family can then correct what was eaten ("We had something else"), leftovers, and who cooked. A confirmed dinner stays confirmed, and a log saved overnight follows later changes to the plan until someone confirms it.
 - People react for themselves. On a shared phone, anyone in the family can react for a profile nobody has claimed: kids without phones, or pass the phone.
-- The server records who confirmed and whose phone entered each reaction, as profiles, never accounts.
+- The server records who confirmed and whose phone last wrote each reaction, as profiles, never accounts.
 - A reaction can be changed for 24 hours, then it locks.
 - An hourly job saves the last week's unanswered, planned nights of approved weeks as unverified once the household's day is over.
 - The household's time zone (set when it's created) decides when that is; without one, the server uses America/New_York.
 - Deleting an adult's account keeps their reactions as anonymous history but clears their comments.
-- Retention covers reactions the same way: a removed kid's comments are cleared with their name. When a kid's own-device consent is withdrawn, the ratings they entered themselves are erased after 30 days; ratings a parent entered for them by passing the phone stay.
+- Retention covers reactions the same way: a removed kid's comments are cleared with their name. When a kid's own-device consent is withdrawn, after 30 days the ratings they last wrote themselves are erased and their comments are cleared; ratings a parent entered for them by passing the phone stay.
 
 ## Shopping and pantry
 

@@ -97,7 +97,7 @@ create table public.reactions (
   -- "It was off tonight": a bad night, not a bad recipe.
   off_tonight boolean not null default false,
   comment text check (char_length(btrim(comment)) between 1 and 140),
-  -- Whose phone it was: the member themselves, or someone passing the phone.
+  -- Whose phone last wrote it: the member themselves, or someone passing the phone.
   entered_by_member_id uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -167,7 +167,8 @@ begin
     if old.created_at < now() - interval '24 hours' then
       raise exception 'reactions lock after 24 hours' using errcode = '42501';
     end if;
-    new.entered_by_member_id := old.entered_by_member_id;
+    -- The last writer, so a rating a parent entered and a kid later changed counts as the kid's.
+    new.entered_by_member_id := public.my_member_id(new.household_id);
     return new;
   end if;
   if not public.is_household_member(new.household_id) then
@@ -372,6 +373,7 @@ begin
   update public.reactions set comment = null where member_id = any (removed);
   -- What a kid rated themselves (not what a parent entered for them by passing the phone) is theirs to lose.
   delete from public.reactions where member_id = any (withdrawn) and entered_by_member_id = member_id;
+  update public.reactions set comment = null where member_id = any (withdrawn);
   update public.members
   set first_name = 'Former member', avatar = null, attendance_defaults = '{}', notification_prefs = '{}',
       declared_age_band = null, anonymized_at = now()
