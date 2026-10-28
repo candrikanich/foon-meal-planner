@@ -102,6 +102,14 @@ extension LibraryClient {
             create: { _, _ in UUID() },
             itemNames: { _ in ["paper towels", "milk", "bananas"] },
             setPhoto: { _, _ in },
+            // Everyone's latest word on the first sample meals, so meal detail's verdicts show in previews.
+            verdicts: { _ in
+                guard let first = meals.first else { return [] }
+                return zip(Member.sampleFamily, [ReactionKind.favorite, .good, .notForMe, .good, .tiredOfIt]).map { member, kind in
+                    MealVerdict(mealID: first.id, memberID: member.id, kind: kind,
+                                reactedOn: CalendarDay(Date()).adding(days: -2))
+                }
+            },
             importRecipe: { link in
                 RecipeImport(
                     recipe: .init(name: "Weeknight Chili", servings: 4,

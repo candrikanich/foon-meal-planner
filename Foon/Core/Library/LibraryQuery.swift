@@ -19,7 +19,7 @@ enum LibraryFilter: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum LibrarySort: String, CaseIterable, Identifiable, Sendable {
-    case notLately, mostMade, recentlyAdded
+    case notLately, mostMade, familyFavorites, recentlyAdded
 
     var id: Self { self }
 
@@ -27,6 +27,7 @@ enum LibrarySort: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .notLately: String(localized: "Haven't had in a while")
         case .mostMade: String(localized: "Most made")
+        case .familyFavorites: String(localized: "Family favorites")
         case .recentlyAdded: String(localized: "Recently added")
         }
     }
@@ -38,6 +39,9 @@ struct LibraryEntry: Identifiable, Equatable, Sendable {
     let history: MealHistory?
     let flags: [AllergyFlag]
     let isFavorite: Bool
+    /// How many people's current verdict is favorite, and how often anyone liked it: the Family favorites sort.
+    var favoriteCount = 0
+    var likes = 0
 
     var id: UUID { meal.id }
 }
@@ -52,7 +56,8 @@ enum LibraryQuery {
     }
 
     static func entries(
-        meals: [LibraryMeal], history: [MealHistory], allergies: [MemberAllergies], favorites: Set<UUID>
+        meals: [LibraryMeal], history: [MealHistory], allergies: [MemberAllergies], favorites: Set<UUID>,
+        favoriteCounts: [UUID: Int] = [:], likes: [UUID: Int] = [:]
     ) -> [LibraryEntry] {
         let historyByMeal = Dictionary(history.map { ($0.mealID, $0) }, uniquingKeysWith: { first, _ in first })
         return meals.map { meal in
@@ -61,7 +66,9 @@ enum LibraryQuery {
                 history: historyByMeal[meal.id],
                 flags: AllergyMatcher.flags(ingredients: ShoppingLines.lines(for: meal, library: meals).map(\.name),
                                             members: allergies),
-                isFavorite: favorites.contains(meal.id)
+                isFavorite: favorites.contains(meal.id),
+                favoriteCount: favoriteCounts[meal.id] ?? 0,
+                likes: likes[meal.id] ?? 0
             )
         }
     }
@@ -153,6 +160,9 @@ enum LibraryQuery {
                 if let leftDay = lhs.history?.lastMade, let rightDay = rhs.history?.lastMade, leftDay != rightDay {
                     return leftDay > rightDay
                 }
+            case .familyFavorites:
+                if lhs.favoriteCount != rhs.favoriteCount { return lhs.favoriteCount > rhs.favoriteCount }
+                if lhs.likes != rhs.likes { return lhs.likes > rhs.likes }
             case .recentlyAdded:
                 if lhs.meal.createdAt != rhs.meal.createdAt { return lhs.meal.createdAt > rhs.meal.createdAt }
             }

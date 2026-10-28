@@ -447,7 +447,8 @@ private struct SampleFamilySetup: View {
         await week.load(settings: settings)
         await week.buildWeek {
             PlanningContext(meals: library.meals, history: library.history, settings: settings,
-                            members: household.visibleMembers, traditions: week.traditions)
+                            members: household.visibleMembers, traditions: week.traditions,
+                            reactions: library.reactions)
         }
         guard week.errorMessage == nil, week.week?.nights.contains(where: { $0.mealID != nil }) == true,
               await household.finishOnboarding(settings) else { failed = true; return }

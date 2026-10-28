@@ -385,14 +385,20 @@ struct PlanningContext {
     /// Dated requests (M2); empty until requests exist.
     var requests: [DatedRequest] = []
     var traditions: [Tradition] = []
+    /// The family's reactions: dislikes, snoozes, favorites, and likes (#42).
+    var reactions = ReactionSummary()
 
     func inputs(for week: Week, today: CalendarDay) -> PlanningInputs {
         PlanningInputs(
             nights: week.nights.map(PlanningNight.init),
-            meals: meals,
+            meals: meals.filter { !reactions.retired.contains($0.id) },
             history: history,
             settings: settings,
             memberNames: Dictionary(members.map { ($0.id, $0.firstName) }, uniquingKeysWith: { first, _ in first }),
+            notForMe: reactions.notForMe,
+            snoozedMealIDs: reactions.snoozed(today: today),
+            favorites: reactions.favorites,
+            likes: reactions.likes,
             requests: requests,
             traditions: traditions,
             today: max(today, week.start)

@@ -34,6 +34,7 @@ struct MealDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 hero(meal)
                 header(entry)
+                verdicts(meal)
                 if let message = library.errorMessage {
                     Text(message).font(.callout).foregroundStyle(.red)
                 }
@@ -134,6 +135,31 @@ struct MealDetailView: View {
                 .font(.foonCaption)
                 .foregroundStyle(.secondary)
             Text("Serves \(meal.servings)").font(.foonCaption).foregroundStyle(.secondary)
+        }
+    }
+
+    /// Every family member's current verdict on the dish, visible to all (docs/spec.md → Meal detail).
+    @ViewBuilder
+    private func verdicts(_ meal: LibraryMeal) -> some View {
+        let verdicts = library.reactions.verdicts(for: meal.id)
+        let members = library.activeMembers.filter { member in verdicts.contains { $0.memberID == member.id } }
+        if !members.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("What everyone thinks").font(.foonTitle).accessibilityAddTraits(.isHeader)
+                ForEach(members) { member in
+                    if let verdict = verdicts.first(where: { $0.memberID == member.id }) {
+                        HStack(spacing: 10) {
+                            MemberAvatar(member: member, size: 28)
+                            Text(member.firstName).font(.foonBody)
+                            Spacer()
+                            Label(verdict.kind.title, systemImage: verdict.kind.systemImage)
+                                .font(.foonCaption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            }
         }
     }
 

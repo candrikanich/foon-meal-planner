@@ -40,6 +40,9 @@ struct LibraryClient: Sendable {
     var itemNames: @Sendable (_ householdID: UUID) async throws -> [String]
     /// Uploads a prepared JPEG and points the meal at it.
     var setPhoto: @Sendable (_ meal: LibraryMeal, _ preparedJPEG: Data) async throws -> Void
+    /// Each member's current verdict on each dish, and how often each was liked: what reactions feed planning.
+    var verdicts: @Sendable (_ householdID: UUID) async throws -> [MealVerdict] = { _ in [] }
+    var likes: @Sendable (_ householdID: UUID) async throws -> [MealLikes] = { _ in [] }
     /// Reads a recipe link through the import-recipe Edge Function. Throws `RecipeImportError`.
     var importRecipe: @Sendable (_ link: String) async throws -> RecipeImport = { _ in throw RecipeImportError.unavailable }
 }
@@ -149,6 +152,20 @@ extension LibraryClient {
                     .execute()
                     .value
                 guard !updated.isEmpty else { throw LibraryClientError.notAllowed }
+            },
+            verdicts: { householdID in
+                try await client.from("meal_verdicts")
+                    .select("meal_id, member_id, reaction, reacted_on")
+                    .eq("household_id", value: householdID)
+                    .execute()
+                    .value
+            },
+            likes: { householdID in
+                try await client.from("meal_likes")
+                    .select("meal_id, likes")
+                    .eq("household_id", value: householdID)
+                    .execute()
+                    .value
             },
             importRecipe: { link in
                 do {
