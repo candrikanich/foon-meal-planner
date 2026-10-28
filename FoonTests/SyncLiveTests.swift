@@ -18,7 +18,7 @@ struct SyncLiveTests {
         )
         try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
                                        password: "local-test-password-1")
-        let household = try await HouseholdClient.live(supabase).createHousehold("Sync family", nil, "Ann")
+        let household = try await HouseholdClient.live(supabase).createHousehold("Sync family", nil, "Ann", HouseholdSettings())
 
         // A week with tonight's tacos, and milk on the quick list.
         let today = CalendarDay(Date())

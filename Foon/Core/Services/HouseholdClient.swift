@@ -6,7 +6,9 @@ import Supabase
 struct HouseholdClient: Sendable {
     /// The caller's household, if they have one (one per person in v1).
     var myHousehold: @Sendable () async throws -> Household?
-    var createHousehold: @Sendable (_ name: String, _ emoji: String?, _ ownerFirstName: String) async throws -> Household
+    /// Creates the household with its starting settings and the owner's profile, in one transaction.
+    var createHousehold: @Sendable (_ name: String, _ emoji: String?, _ ownerFirstName: String,
+                                    _ settings: HouseholdSettings) async throws -> Household
     var members: @Sendable (_ householdID: UUID) async throws -> [Member]
     var addMember: @Sendable (_ householdID: UUID, _ draft: MemberDraft) async throws -> Member
     var updateMember: @Sendable (_ memberID: UUID, _ changes: MemberChanges) async throws -> Member
@@ -20,6 +22,25 @@ struct HouseholdClient: Sendable {
     var recordParentalConsent: @Sendable (_ householdID: UUID, _ memberID: UUID) async throws -> Void
     /// Unlinks the kid's account at once (the database does it when consent is revoked).
     var revokeParentalConsent: @Sendable (_ memberID: UUID) async throws -> Void
+    /// The one plain sentence on onboarding's allergy screen; allergies can't be saved without it.
+    var grantAllergyConsent: @Sendable (_ householdID: UUID, _ textVersion: String) async throws -> Void = { _, _ in }
+    /// Replaces a member's allergies: standard allergens and Other text.
+    var setAllergies: @Sendable (_ memberID: UUID, _ allergens: [Allergen], _ custom: [String]) async throws -> Void
+        = { _, _, _ in }
+    /// Merges these settings into the household's, keeping keys this version doesn't know.
+    var updateSettings: @Sendable (_ householdID: UUID, _ settings: HouseholdSettings) async throws -> Void = { _, _ in }
+}
+
+/// The wording version logged with allergy consent; a change in what it promises means a new version.
+enum AllergyConsent {
+    static let textVersion = "allergy-data-v1"
+    /// Logged by "Load a sample family", where nobody read the sentence: the record says so.
+    static let sampleVersion = "sample-family-v1"
+
+    static var statement: String {
+        String(localized: "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime.",
+               comment: "Allergy consent: the one plain sentence parents agree to")
+    }
 }
 
 extension HouseholdClient {
@@ -33,11 +54,12 @@ extension HouseholdClient {
                     .value
                 return rows.first
             },
-            createHousehold: { name, emoji, ownerFirstName in
+            createHousehold: { name, emoji, ownerFirstName, settings in
                 try await client.rpc(
                     "create_household",
                     params: CreateHouseholdParams(
-                        householdName: name, householdEmoji: emoji, ownerFirstName: ownerFirstName
+                        householdName: name, householdEmoji: emoji, ownerFirstName: ownerFirstName,
+                        householdSettings: settings
                     )
                 )
                 .execute()
@@ -108,6 +130,21 @@ extension HouseholdClient {
                     .eq("kind", value: "parental")
                     .is("revoked_at", value: nil)
                     .execute()
+            },
+            grantAllergyConsent: { householdID, textVersion in
+                try await client.rpc("grant_allergy_consent", params: [
+                    "target_household": householdID.uuidString, "wording": textVersion
+                ]).execute()
+            },
+            setAllergies: { memberID, allergens, custom in
+                try await client.rpc("set_member_allergies", params: SetAllergiesParams(
+                    targetMember: memberID, allergens: allergens, custom: custom
+                )).execute()
+            },
+            updateSettings: { householdID, settings in
+                try await client.rpc("update_household_settings", params: SettingsParams(
+                    targetHousehold: householdID, patch: settings
+                )).execute()
             }
         )
     }
@@ -117,11 +154,13 @@ private struct CreateHouseholdParams: Encodable, Sendable {
     let householdName: String
     let householdEmoji: String?
     let ownerFirstName: String
+    let householdSettings: HouseholdSettings
 
     enum CodingKeys: String, CodingKey {
         case householdName = "household_name"
         case householdEmoji = "household_emoji"
         case ownerFirstName = "owner_first_name"
+        case householdSettings = "household_settings"
     }
 
     // Every argument is sent, null included: PostgREST matches functions by argument names, so an
@@ -131,6 +170,7 @@ private struct CreateHouseholdParams: Encodable, Sendable {
         try container.encode(householdName, forKey: .householdName)
         try container.encode(householdEmoji, forKey: .householdEmoji)
         try container.encode(ownerFirstName, forKey: .ownerFirstName)
+        try container.encode(householdSettings, forKey: .householdSettings)
     }
 }
 
@@ -146,6 +186,27 @@ private struct NewMember: Encodable, Sendable {
         try draft.encode(to: encoder)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(householdID, forKey: .householdID)
+    }
+}
+
+private struct SetAllergiesParams: Encodable, Sendable {
+    let targetMember: UUID
+    let allergens: [Allergen]
+    let custom: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case targetMember = "target_member"
+        case allergens, custom
+    }
+}
+
+private struct SettingsParams: Encodable, Sendable {
+    let targetHousehold: UUID
+    let patch: HouseholdSettings
+
+    enum CodingKeys: String, CodingKey {
+        case targetHousehold = "target_household"
+        case patch
     }
 }
 

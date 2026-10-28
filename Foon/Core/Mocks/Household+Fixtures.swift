@@ -46,7 +46,7 @@ extension HouseholdClient {
     static func preview(household: Household? = .sample, members: [Member] = Member.sampleFamily) -> HouseholdClient {
         HouseholdClient(
             myHousehold: { household },
-            createHousehold: { name, emoji, _ in Household(id: UUID(), name: name, emoji: emoji, owner: .previewUser) },
+            createHousehold: { name, emoji, _, _ in Household(id: UUID(), name: name, emoji: emoji, owner: .previewUser) },
             members: { _ in members },
             addMember: { householdID, draft in
                 .fixture(householdID: householdID, firstName: draft.firstName, avatar: draft.avatar,

@@ -39,7 +39,7 @@ struct ShoppingTrip: Codable, Equatable, Sendable, RawRepresentable {
     var skipped: Set<UUID> = []
 
     init(start: Date) {
-        self.start = start
+        self.start = Date(timeIntervalSince1970: (start.timeIntervalSince1970 * 1000).rounded() / 1000)
     }
 
     static func storageKey(_ householdID: UUID) -> String { "foon.trip.\(householdID.uuidString)" }
@@ -61,16 +61,17 @@ struct ShoppingTrip: Codable, Equatable, Sendable, RawRepresentable {
 
     private enum CodingKeys: String, CodingKey { case start, skipped }
 
+    /// The start is kept as whole milliseconds, so it reads back exactly.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        start = try container.decode(Date.self, forKey: .start)
+        start = Date(timeIntervalSince1970: Double(try container.decode(Int64.self, forKey: .start)) / 1000)
         skipped = try container.decodeIfPresent(Set<UUID>.self, forKey: .skipped) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(start, forKey: .start)
-        try container.encode(skipped, forKey: .skipped)
+        try container.encode(Int64((start.timeIntervalSince1970 * 1000).rounded()), forKey: .start)
+        try container.encode(skipped.sorted { $0.uuidString < $1.uuidString }, forKey: .skipped)
     }
 }
 

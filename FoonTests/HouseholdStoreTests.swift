@@ -18,7 +18,7 @@ struct HouseholdStoreTests {
         let owner = Member.fixture(firstName: "Ann", guardian: true, role: .planner, userID: me)
         let created = Household(id: household.id, name: "The Smiths", emoji: "🌮", owner: me)
         let store = HouseholdStore(userID: me, client: .fake(
-            createHousehold: { name, emoji, firstName in
+            createHousehold: { name, emoji, firstName, _ in
                 #expect(name == "The Smiths")
                 #expect(emoji == "🌮")
                 #expect(firstName == "Ann")
@@ -27,12 +27,13 @@ struct HouseholdStoreTests {
             members: { _ in [owner] }
         ))
         await store.createHousehold(name: " The Smiths ", emoji: "🌮", firstName: "Ann")
-        #expect(store.phase == .ready(created))
+        #expect(store.household?.id == created.id)
+        #expect(store.household?.planningSettings.onboarded == false, "a new household starts onboarding")
         #expect(store.members == [owner])
     }
 
     @Test func refusesAnInvalidHouseholdWithoutCallingTheServer() async {
-        let store = HouseholdStore(userID: me, client: .fake(createHousehold: { _, _, _ in
+        let store = HouseholdStore(userID: me, client: .fake(createHousehold: { _, _, _, _ in
             Issue.record("should not be called")
             throw URLError(.badURL)
         }))
@@ -186,11 +187,12 @@ struct HouseholdStoreTests {
     @Test func aCreatedHouseholdIsReadyEvenIfMembersFailToLoad() async {
         let created = Household(id: household.id, name: "The Smiths", emoji: nil, owner: me)
         let store = HouseholdStore(userID: me, client: .fake(
-            createHousehold: { _, _, _ in created },
+            createHousehold: { _, _, _, _ in created },
             members: { _ in throw URLError(.notConnectedToInternet) }
         ))
         await store.createHousehold(name: "The Smiths", emoji: nil, firstName: "Ann")
-        #expect(store.phase == .ready(created))
+        #expect(store.household?.id == created.id)
+        #expect(store.household?.planningSettings.onboarded == false, "a new household starts onboarding")
         #expect(store.canManagePeople, "the owner manages people before their profile loads")
     }
 
@@ -227,15 +229,18 @@ struct HouseholdStoreTests {
     }
 }
 
-private extension HouseholdClient {
+extension HouseholdClient {
     static func fake(
         myHousehold: @escaping @Sendable () async throws -> Household? = { nil },
-        createHousehold: @escaping @Sendable (String, String?, String) async throws -> Household = { _, _, _ in
+        createHousehold: @escaping @Sendable (String, String?, String, HouseholdSettings) async throws -> Household = { _, _, _, _ in
             throw URLError(.unknown)
         },
         members: @escaping @Sendable (UUID) async throws -> [Member] = { _ in [] },
         addMember: @escaping @Sendable (UUID, MemberDraft) async throws -> Member = { _, _ in throw URLError(.unknown) },
-        updateMember: @escaping @Sendable (UUID, MemberChanges) async throws -> Member = { _, _ in throw URLError(.unknown) }
+        updateMember: @escaping @Sendable (UUID, MemberChanges) async throws -> Member = { _, _ in throw URLError(.unknown) },
+        grantAllergyConsent: @escaping @Sendable (UUID, String) async throws -> Void = { _, _ in },
+        setAllergies: @escaping @Sendable (UUID, [Allergen], [String]) async throws -> Void = { _, _, _ in },
+        updateSettings: @escaping @Sendable (UUID, HouseholdSettings) async throws -> Void = { _, _ in }
     ) -> HouseholdClient {
         HouseholdClient(
             myHousehold: myHousehold,
@@ -249,7 +254,10 @@ private extension HouseholdClient {
             invitedMemberIDs: { _ in [] },
             parentalConsentMemberIDs: { _ in [] },
             recordParentalConsent: { _, _ in },
-            revokeParentalConsent: { _ in }
+            revokeParentalConsent: { _ in },
+            grantAllergyConsent: grantAllergyConsent,
+            setAllergies: setAllergies,
+            updateSettings: updateSettings
         )
     }
 }
