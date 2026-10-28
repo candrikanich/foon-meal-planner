@@ -5,10 +5,12 @@ struct RootTabView: View {
     @State private var selection: AppTab = .week
     @State private var library: LibraryStore
     @State private var week: WeekStore
+    @State private var dinner: DinnerStore
 
-    init(householdID: UUID, libraryClient: LibraryClient, weekClient: WeekClient) {
+    init(householdID: UUID, libraryClient: LibraryClient, weekClient: WeekClient, dinnerClient: DinnerClient) {
         _library = State(initialValue: LibraryStore(householdID: householdID, client: libraryClient))
         _week = State(initialValue: WeekStore(householdID: householdID, client: weekClient))
+        _dinner = State(initialValue: DinnerStore(householdID: householdID, client: dinnerClient))
     }
 
     var body: some View {
@@ -21,6 +23,7 @@ struct RootTabView: View {
         }
         .environment(library)
         .environment(week)
+        .environment(dinner)
         .environment(\.showTab) { selection = $0 }
         #if os(iOS)
         .fullScreenCover(isPresented: onboarding) { onboardingFlow }
@@ -55,7 +58,8 @@ struct RootTabView: View {
 
 #Preview {
     let store = HouseholdStore.preview()
-    RootTabView(householdID: Household.sample.id, libraryClient: .preview(), weekClient: .preview(started: true))
+    RootTabView(householdID: Household.sample.id, libraryClient: .preview(), weekClient: .preview(started: true),
+                dinnerClient: .preview)
         .environment(SessionStore(auth: .preview()))
         .environment(store)
         .task { await store.load() }

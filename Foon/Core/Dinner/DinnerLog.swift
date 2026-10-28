@@ -47,10 +47,13 @@ struct DinnerLog: Identifiable, Equatable, Sendable, Decodable {
     let leftovers: Bool?
     /// False when saved overnight because nobody answered.
     let verified: Bool
+    /// Whoever answered first: they get the leftovers and who-cooked questions.
+    let confirmedByMemberID: UUID?
     let reactions: [Reaction]
 
     init(id: UUID, nightID: UUID, date: CalendarDay, mealID: UUID?, mealName: String?, quickPick: QuickPick?,
-         cookedByMemberID: UUID? = nil, leftovers: Bool? = nil, verified: Bool = true, reactions: [Reaction] = []) {
+         cookedByMemberID: UUID? = nil, leftovers: Bool? = nil, verified: Bool = true, confirmedByMemberID: UUID? = nil,
+         reactions: [Reaction] = []) {
         self.id = id
         self.nightID = nightID
         self.date = date
@@ -60,6 +63,7 @@ struct DinnerLog: Identifiable, Equatable, Sendable, Decodable {
         self.cookedByMemberID = cookedByMemberID
         self.leftovers = leftovers
         self.verified = verified
+        self.confirmedByMemberID = confirmedByMemberID
         self.reactions = reactions
     }
 
@@ -70,6 +74,7 @@ struct DinnerLog: Identifiable, Equatable, Sendable, Decodable {
         case quickPick = "quick_pick"
         case cookedByMemberID = "cooked_by_member_id"
         case leftovers, verified, reactions
+        case confirmedByMemberID = "confirmed_by_member_id"
         case night = "plan_nights"
         case meal = "meals"
     }
@@ -88,6 +93,7 @@ struct DinnerLog: Identifiable, Equatable, Sendable, Decodable {
         cookedByMemberID = try container.decodeIfPresent(UUID.self, forKey: .cookedByMemberID)
         leftovers = try container.decodeIfPresent(Bool.self, forKey: .leftovers)
         verified = try container.decode(Bool.self, forKey: .verified)
+        confirmedByMemberID = try container.decodeIfPresent(UUID.self, forKey: .confirmedByMemberID)
         reactions = try container.decodeIfPresent([Reaction].self, forKey: .reactions) ?? []
     }
 
@@ -96,20 +102,13 @@ struct DinnerLog: Identifiable, Equatable, Sendable, Decodable {
     }
 }
 
-/// A correction to a dinner log: "We had something else", leftovers, and who cooked. Every field is sent, so
-/// switching from a meal to a quick pick clears the meal.
-struct DinnerCorrection: Equatable, Sendable, Encodable {
-    var mealID: UUID?
-    var quickPick: QuickPick?
-    var cookedByMemberID: UUID?
-    var leftovers: Bool?
-
-    init(_ log: DinnerLog) {
-        mealID = log.mealID
-        quickPick = log.quickPick
-        cookedByMemberID = log.cookedByMemberID
-        leftovers = log.leftovers
-    }
+/// A correction to a dinner log. Each kind sends only its own columns, so two phones answering different questions
+/// never overwrite each other's answers with stale ones.
+enum DinnerCorrection: Equatable, Sendable, Encodable {
+    /// "We had something else": a dish or a quick pick (sending both clears the other).
+    case dish(mealID: UUID?, quickPick: QuickPick?)
+    /// The first responder's follow-up.
+    case extras(leftovers: Bool, cookedByMemberID: UUID?)
 
     private enum CodingKeys: String, CodingKey {
         case mealID = "meal_id"
@@ -120,10 +119,14 @@ struct DinnerCorrection: Equatable, Sendable, Encodable {
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(mealID, forKey: .mealID)
-        try container.encode(quickPick, forKey: .quickPick)
-        try container.encode(cookedByMemberID, forKey: .cookedByMemberID)
-        try container.encode(leftovers, forKey: .leftovers)
+        switch self {
+        case .dish(let mealID, let quickPick):
+            try container.encode(mealID, forKey: .mealID)
+            try container.encode(quickPick, forKey: .quickPick)
+        case .extras(let leftovers, let cook):
+            try container.encode(leftovers, forKey: .leftovers)
+            try container.encode(cook, forKey: .cookedByMemberID)
+        }
     }
 }
 
@@ -137,6 +140,10 @@ struct DinnerClient: Sendable {
     /// One tap: confirms the dinner and saves or changes a person's reaction. Returns the log's id.
     var react: @Sendable (_ nightID: UUID, _ memberID: UUID, _ kind: ReactionKind) async throws -> UUID
     var correct: @Sendable (_ logID: UUID, _ correction: DinnerCorrection) async throws -> Void
+    /// The household's nights between two dates, whatever week they're in (last night may be last week's).
+    var nights: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ through: CalendarDay) async throws -> [WeekNight]
+    /// "Wasn't home": for yourself, or a profile nobody has claimed, on a night that's happened.
+    var setNotHome: @Sendable (_ nightID: UUID, _ memberID: UUID) async throws -> Void
 }
 
 extension DinnerClient {
@@ -146,6 +153,7 @@ extension DinnerClient {
                 let logs: [DinnerLog] = try await client.from("meal_logs")
                     .select("""
                         id, night_id, meal_id, quick_pick, cooked_by_member_id, leftovers, verified, \
+                        confirmed_by_member_id, \
                         plan_nights!inner(date), meals(name), \
                         reactions(member_id, reaction, off_tonight, comment, created_at)
                         """)
@@ -171,6 +179,22 @@ extension DinnerClient {
                     .execute()
                     .value
                 guard !updated.isEmpty else { throw DinnerClientError.notAllowed }
+            },
+            nights: { householdID, from, through in
+                let rows: [PlanNightRow] = try await client.from("plan_nights")
+                    .select(PlanNightRow.columns)
+                    .eq("household_id", value: householdID)
+                    .gte("date", value: from.isoString)
+                    .lte("date", value: through.isoString)
+                    .order("date")
+                    .execute()
+                    .value
+                return rows.map(\.night)
+            },
+            setNotHome: { nightID, memberID in
+                try await client.rpc("set_not_home", params: [
+                    "target_night": nightID.uuidString, "target_member": memberID.uuidString
+                ]).execute()
             }
         )
     }

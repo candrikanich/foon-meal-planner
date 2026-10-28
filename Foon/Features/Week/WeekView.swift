@@ -7,6 +7,7 @@ struct WeekView: View {
     @Environment(WeekStore.self) private var week
     @Environment(HouseholdStore.self) private var household
     @Environment(LibraryStore.self) private var library
+    @Environment(DinnerStore.self) private var dinner
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.showTab) private var showTab
     @Query(filter: #Predicate<CachedListItem> { $0.checkedAt == nil }) private var openListItems: [CachedListItem]
@@ -30,6 +31,9 @@ struct WeekView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    if !week.showingNextWeek {
+                        DinnerPromptsSection()
+                    }
                     Picker("Week", selection: $week.showingNextWeek) {
                         Text("This week").tag(false)
                         Text("Next week").tag(true)
@@ -88,8 +92,10 @@ struct WeekView: View {
         guard household.household != nil else { return }
         // The library (for flags, sides, and Build) loads alongside the week, not before it.
         async let libraryLoad: Void = canPlan && !library.hasLoaded ? library.load(members: household.members) : ()
+        async let dinnerLoad: Void = dinner.load(settings: settings)
         await week.load(settings: settings)
         await libraryLoad
+        await dinnerLoad
         if canPlan { await week.fillInMissing(members: household.members) }
     }
 
@@ -360,6 +366,7 @@ struct WeekView: View {
     WeekView()
         .environment(household)
         .environment(WeekStore(householdID: Household.sample.id, client: .preview()))
+        .environment(DinnerStore(householdID: Household.sample.id, client: .preview))
         .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .modelContainer(try! SyncService.inMemoryContainer())
         .task { await household.load() }
@@ -371,6 +378,7 @@ struct WeekView: View {
     WeekView()
         .environment(household)
         .environment(WeekStore(householdID: Household.sample.id, client: .preview(started: true)))
+        .environment(DinnerStore(householdID: Household.sample.id, client: .preview))
         .environment(library)
         .modelContainer(try! SyncService.inMemoryContainer())
         .task {

@@ -36,16 +36,16 @@ struct DinnerLogTests {
         #expect(log.reactions.isEmpty)
     }
 
-    @Test func aCorrectionSendsEveryFieldSoSwitchingToAQuickPickClearsTheMeal() throws {
-        var correction = DinnerCorrection(DinnerLog(id: UUID(), nightID: UUID(), date: CalendarDay(year: 2026, month: 11,
-                                                                                               day: 3),
-                                                    mealID: UUID(), mealName: "Chili", quickPick: nil))
-        correction.mealID = nil
-        correction.quickPick = .takeout
-        let json = try #require(String(data: JSONEncoder().encode(correction), encoding: .utf8))
-        #expect(json.contains(#""meal_id":null"#))
-        #expect(json.contains(#""quick_pick":"takeout""#))
-        #expect(json.contains(#""leftovers":null"#))
+    @Test func eachCorrectionSendsOnlyItsOwnColumns() throws {
+        func json(_ correction: DinnerCorrection) throws -> [String: Any] {
+            try JSONSerialization.jsonObject(with: JSONEncoder().encode(correction)) as? [String: Any] ?? [:]
+        }
+        let dish = try json(.dish(mealID: nil, quickPick: .takeout))
+        #expect(Set(dish.keys) == ["meal_id", "quick_pick"], "switching to a quick pick clears the meal, nothing else")
+        #expect(dish["quick_pick"] as? String == "takeout")
+        #expect(dish["meal_id"] is NSNull)
+        let extras = try json(.extras(leftovers: true, cookedByMemberID: nil))
+        #expect(Set(extras.keys) == ["leftovers", "cooked_by_member_id"], "the dish someone else set is left alone")
     }
 
     @Test func reactionsAreAboutTheFood() {

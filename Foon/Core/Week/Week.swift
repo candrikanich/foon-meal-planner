@@ -65,11 +65,7 @@ extension WeekClient {
     static func live(_ client: SupabaseClient) -> WeekClient {
         let fetch: @Sendable (UUID, CalendarDay) async throws -> Week? = { householdID, start in
             let rows: [PlanWithNights] = try await client.from("plans")
-                .select("""
-                    id, week_start, approved_at, \
-                    plan_nights(id, date, effort, dinner_time, meal_id, quick_pick, locked, reason, meals(name), \
-                    night_attendance(member_id, expected))
-                    """)
+                .select("id, week_start, approved_at, plan_nights(\(PlanNightRow.columns))")
                 .eq("household_id", value: householdID)
                 .eq("week_start", value: start.isoString)
                 .limit(1)
@@ -242,43 +238,58 @@ private struct IDOnly: Decodable, Sendable {
     let id: UUID
 }
 
-private struct PlanWithNights: Decodable, Sendable {
-    struct Night: Decodable, Sendable {
-        struct Meal: Decodable, Sendable { let name: String }
-        struct Attendance: Decodable, Sendable {
-            let memberID: UUID
-            let expected: Bool
-
-            enum CodingKeys: String, CodingKey {
-                case expected
-                case memberID = "member_id"
-            }
-        }
-
-        let id: UUID
-        let date: CalendarDay
-        let effort: NightEffort
-        let dinnerTime: String?
-        let mealID: UUID?
-        let quickPick: QuickPick?
-        let locked: Bool
-        let reason: String?
-        let meals: Meal?
-        let nightAttendance: [Attendance]
+/// One `plan_nights` row with its meal's name and attendance, as `plans` and the after-dinner card select it.
+struct PlanNightRow: Decodable, Sendable {
+    struct Meal: Decodable, Sendable { let name: String }
+    struct Attendance: Decodable, Sendable {
+        let memberID: UUID
+        let expected: Bool
 
         enum CodingKeys: String, CodingKey {
-            case id, date, effort, locked, reason, meals
-            case dinnerTime = "dinner_time"
-            case mealID = "meal_id"
-            case quickPick = "quick_pick"
-            case nightAttendance = "night_attendance"
+            case expected
+            case memberID = "member_id"
         }
     }
 
+    /// The columns to select for it.
+    static let columns = """
+        id, date, effort, dinner_time, meal_id, quick_pick, locked, reason, meals(name), \
+        night_attendance(member_id, expected)
+        """
+
+    let id: UUID
+    let date: CalendarDay
+    let effort: NightEffort
+    let dinnerTime: String?
+    let mealID: UUID?
+    let quickPick: QuickPick?
+    let locked: Bool
+    let reason: String?
+    let meals: Meal?
+    let nightAttendance: [Attendance]
+
+    enum CodingKeys: String, CodingKey {
+        case id, date, effort, locked, reason, meals
+        case dinnerTime = "dinner_time"
+        case mealID = "meal_id"
+        case quickPick = "quick_pick"
+        case nightAttendance = "night_attendance"
+    }
+
+    var night: WeekNight {
+        WeekNight(id: id, date: date, effort: effort, dinnerTime: dinnerTime, mealID: mealID, mealName: meals?.name,
+                  quickPick: quickPick, locked: locked,
+                  attendance: Dictionary(nightAttendance.map { ($0.memberID, $0.expected) },
+                                         uniquingKeysWith: { first, _ in first }),
+                  reason: reason)
+    }
+}
+
+private struct PlanWithNights: Decodable, Sendable {
     let id: UUID
     let weekStart: CalendarDay
     let approvedAt: Date?
-    let planNights: [Night]
+    let planNights: [PlanNightRow]
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -288,12 +299,7 @@ private struct PlanWithNights: Decodable, Sendable {
     }
 
     var week: Week {
-        Week(planID: id, start: weekStart, approvedAt: approvedAt, nights: planNights.sorted { $0.date < $1.date }.map {
-            WeekNight(id: $0.id, date: $0.date, effort: $0.effort, dinnerTime: $0.dinnerTime, mealID: $0.mealID,
-                      mealName: $0.meals?.name, quickPick: $0.quickPick, locked: $0.locked,
-                      attendance: Dictionary($0.nightAttendance.map { ($0.memberID, $0.expected) },
-                                             uniquingKeysWith: { first, _ in first }),
-                      reason: $0.reason)
-        })
+        Week(planID: id, start: weekStart, approvedAt: approvedAt,
+             nights: planNights.sorted { $0.date < $1.date }.map(\.night))
     }
 }
