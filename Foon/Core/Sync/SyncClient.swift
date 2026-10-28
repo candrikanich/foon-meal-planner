@@ -78,6 +78,9 @@ extension SyncClient {
                         .eq("id", value: itemID)
                         .execute()
                     return nil
+                case .removeFromList(let listItemID):
+                    try await client.from("list_items").delete().eq("id", value: listItemID).execute()
+                    return nil
                 }
             },
             listChanges: { householdID in

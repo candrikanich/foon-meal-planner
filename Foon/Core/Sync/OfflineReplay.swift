@@ -9,11 +9,19 @@ enum OfflineChange: Codable, Equatable, Sendable {
     case addToList(householdID: UUID, itemID: UUID, list: ListKind, urgency: ListUrgency, source: ListItemSource,
                    note: String?, lineID: UUID)
     case setStock(itemID: UUID, state: StockState?)
+    /// Takes a line off its list ("couldn't find it" moves it to the quick list).
+    case removeFromList(listItemID: UUID)
 
     /// The same change aimed at the line a server merge kept instead of the device's line.
     func repointed(_ aliases: [UUID: UUID]) -> OfflineChange {
-        guard case .setChecked(let listItemID, let checked) = self, let target = aliases[listItemID] else { return self }
-        return .setChecked(listItemID: target, checked: checked)
+        switch self {
+        case .setChecked(let listItemID, let checked):
+            aliases[listItemID].map { .setChecked(listItemID: $0, checked: checked) } ?? self
+        case .removeFromList(let listItemID):
+            aliases[listItemID].map { .removeFromList(listItemID: $0) } ?? self
+        default:
+            self
+        }
     }
 }
 
