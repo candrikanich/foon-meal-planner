@@ -596,6 +596,9 @@
     "Family" : {
 
     },
+    "Favorite" : {
+
+    },
     "Favorites" : {
 
     },
@@ -696,6 +699,9 @@
 
     },
     "Goes with" : {
+
+    },
+    "Good" : {
 
     },
     "Got %lld items" : {
@@ -999,6 +1005,9 @@
 
     },
     "Normal" : {
+
+    },
+    "Not for me" : {
 
     },
     "Not made yet" : {
@@ -1433,6 +1442,9 @@
 
     },
     "This week" : {
+
+    },
+    "Tired of it" : {
 
     },
     "Toggles whether they're home this night" : {

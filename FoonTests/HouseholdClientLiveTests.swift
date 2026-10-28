@@ -337,6 +337,56 @@ struct HouseholdClientLiveTests {
         #expect(!saved.onboarded)
     }
 
+    @Test func dinnersAreConfirmedRatedAndCorrected() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let household = try await households.createHousehold("Dinner family", nil, "Ann", HouseholdSettings())
+        var kid = MemberDraft()
+        kid.firstName = "Nora"
+        kid.ageGroup = .kid
+        let nora = try await households.addMember(household.id, try #require(kid.validated()))
+        let ann = try #require(try await households.members(household.id).first { $0.firstName == "Ann" })
+
+        let library = LibraryClient.live(supabase)
+        var chili = MealDraft(newNamed: "Chili")
+        chili.servings = 4
+        let chiliID = try await library.create(household.id, try chili.validated())
+        let tacosID = try await library.create(household.id, try MealDraft(newNamed: "Tacos").validated())
+
+        // Today's night, planned as chili. (The household has no time zone set, so the server uses New York.)
+        var newYork = Calendar(identifier: .gregorian)
+        newYork.timeZone = TimeZone(identifier: "America/New_York")!
+        let today = CalendarDay(Date(), calendar: newYork)
+        let week = try await WeekClient.live(supabase).create(household.id, WeekMath.start(of: today, weekStart: 7))
+        let tonight = try #require(week.nights.first { $0.date == today })
+        try await WeekClient.live(supabase).setNight(NightUpdate(nightID: tonight.id, mealID: chiliID), false)
+
+        let dinners = DinnerClient.live(supabase)
+        let logID = try await dinners.react(tonight.id, ann.id, .favorite)
+        #expect(try await dinners.react(tonight.id, nora.id, .notForMe) == logID, "pass the phone, same dinner")
+
+        var logs = try await dinners.logs(household.id, today)
+        let log = try #require(logs.first)
+        #expect(logs.count == 1)
+        #expect(log.mealName == "Chili")
+        #expect(log.verified)
+        #expect(log.reaction(of: ann.id)?.kind == .favorite)
+        #expect(log.reaction(of: nora.id)?.kind == .notForMe)
+
+        var correction = DinnerCorrection(log)
+        correction.mealID = tacosID
+        correction.cookedByMemberID = ann.id
+        correction.leftovers = true
+        try await dinners.correct(log.id, correction)
+        logs = try await dinners.logs(household.id, today)
+        #expect(logs.first?.mealName == "Tacos", "we had something else")
+        #expect(logs.first?.cookedByMemberID == ann.id)
+        #expect(logs.first?.leftovers == true)
+        #expect(try await dinners.logs(household.id, today.adding(days: 1)).isEmpty, "only from the date asked")
+    }
+
     @Test func aPlannerExportsTheHousehold() async throws {
         let supabase = Self.newSupabaseClient()
         try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",

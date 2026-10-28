@@ -176,6 +176,7 @@ final class HouseholdStore {
         var fresh = HouseholdSettings()
         fresh.onboarded = false
         fresh.samplePending = sample
+        fresh.timeZone = TimeZone.current.identifier
         var household: Household
         do {
             household = try await client.createHousehold(name, emoji?.isEmpty == false ? emoji : nil,

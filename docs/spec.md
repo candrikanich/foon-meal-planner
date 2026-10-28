@@ -217,6 +217,18 @@ The plan is the log by default; one notification per person confirms it, rates i
 
 **Pass the phone.** At the table, everyone rates in about 20 seconds on one device; a natural ritual and a fallback for kids who ignore notifications.
 
+**v1 data (#42, part 1).** One log per night (`meal_logs`) and one reaction per person per log (`reactions`), visible to the whole family; neither is ever deleted.
+- One tap (`react_to_dinner`) confirms the planned dinner and saves that person's reaction in one transaction.
+- Only a dinner that has happened and had something planned is logged; an empty night is logged by swapping in what was eaten first. Only dishes are rated, not quick picks.
+- Anyone in the family can then correct what was eaten ("We had something else"), leftovers, and who cooked. A confirmed dinner stays confirmed, and a log saved overnight follows later changes to the plan until someone confirms it.
+- People react for themselves. On a shared phone, anyone in the family can react for a profile nobody has claimed: kids without phones, or pass the phone.
+- The server records who confirmed and whose phone entered each reaction, as profiles, never accounts.
+- A reaction can be changed for 24 hours, then it locks.
+- An hourly job saves the last week's unanswered, planned nights of approved weeks as unverified once the household's day is over.
+- The household's time zone (set when it's created) decides when that is; without one, the server uses America/New_York.
+- Deleting an adult's account keeps their reactions as anonymous history but clears their comments.
+- Retention covers reactions the same way: a removed kid's comments are cleared with their name. When a kid's own-device consent is withdrawn, the ratings they entered themselves are erased after 30 days; ratings a parent entered for them by passing the phone stay.
+
 ## Shopping and pantry
 
 The plan produces one weekly list; pivots and running-out moments produce the quick list. Store-agnostic: no store setup or store logic.
@@ -330,7 +342,7 @@ iOS-only, multiplatform SwiftUI (iPhone, iPad, Mac) on Supabase, with a local ca
 | items | household, canonical name, category (groceries, household, personal care), keep-on-hand flag, stock state (in, low, out), note or brand preference |
 | plans / plan\_nights | week start; per night: date, meal, effort, dinner time, locked, event flag |
 | night\_attendance | plan night, member, expected, confirmed |
-| meal\_logs | plan night, meal actually eaten, cooked by, leftovers, verified |
+| meal\_logs | plan night, meal or quick pick actually eaten, cooked by, leftovers, verified, confirmed by |
 | reactions | meal log, member, reaction, off-tonight flag, comment |
 | requests | household, member, meal or link, target date (optional), status |
 | list\_items | household, item, list (weekly, quick), urgency, source, checked |
