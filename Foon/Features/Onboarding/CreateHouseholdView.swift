@@ -10,6 +10,7 @@ struct CreateHouseholdView: View {
     @State private var firstName = ""
     @State private var isSaving = false
     @State private var inviteCode = ""
+    @State private var confirmingSample = false
 
     private var canCreate: Bool {
         var owner = MemberDraft()
@@ -17,9 +18,39 @@ struct CreateHouseholdView: View {
         return Household.validatedName(name) != nil && owner.validated() != nil
     }
 
+    private func loadSample() {
+        Task {
+            isSaving = true
+            await store.createHousehold(name: String(localized: "The Sample Family"), emoji: "🧪",
+                                        firstName: firstName.isEmpty ? String(localized: "You") : firstName,
+                                        sample: true)
+            isSaving = false
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Button {
+                        confirmingSample = true
+                    } label: {
+                        Label("Load a sample family", systemImage: "sparkles").frame(maxWidth: .infinity)
+                    }
+                    .disabled(isSaving)
+                    // v1 has one household per person and no way to delete one yet, so the demo would be theirs to
+                    // keep: say so before it's made.
+                    .confirmationDialog("Use the sample family as your household?", isPresented: $confirmingSample,
+                                        titleVisibility: .visible) {
+                        Button("Load the sample family") { loadSample() }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("It becomes your household. You can rename it and change the family, but you can't start a new one later.")
+                    }
+                } footer: {
+                    Text("A demo family with dinners and a planned week, to look around first.")
+                }
+
                 Section {
                     TextField("Invite code", text: $inviteCode, prompt: Text(verbatim: "SMITH-7KQ4-M9XP"))
                         .autocorrectionDisabled()

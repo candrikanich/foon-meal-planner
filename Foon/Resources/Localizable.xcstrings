@@ -121,6 +121,9 @@
     "1 night still open" : {
 
     },
+    "A demo family with dinners and a planned week, to look around first." : {
+
+    },
     "A family favorite" : {
       "comment" : "Reason chip"
     },
@@ -145,6 +148,12 @@
     "Add %@ to your library" : {
 
     },
+    "Add %lld dinners" : {
+
+    },
+    "Add 1 dinner" : {
+
+    },
     "Add a few dishes to widen the choice, then fill the rest." : {
 
     },
@@ -163,6 +172,9 @@
     "Add an item" : {
 
     },
+    "Add everyone who eats with you, kids too. They can join on their own phones later." : {
+
+    },
     "Add ingredients" : {
 
     },
@@ -170,6 +182,9 @@
 
     },
     "Add some meals to your library first, then Foon can plan the week." : {
+
+    },
+    "Add someone" : {
 
     },
     "Add the dinners your family already makes." : {
@@ -199,7 +214,13 @@
     "Agree and invite %@" : {
 
     },
+    "Agree and save" : {
+
+    },
     "Aisle" : {
+
+    },
+    "Allergies" : {
 
     },
     "Allergy flags" : {
@@ -232,6 +253,9 @@
     "Archived meals leave the rotation but keep their history." : {
 
     },
+    "At" : {
+
+    },
     "Avatar %@" : {
 
     },
@@ -260,6 +284,9 @@
 
     },
     "Bakery" : {
+
+    },
+    "Balanced" : {
 
     },
     "Beginner-friendly" : {
@@ -296,6 +323,9 @@
     },
     "Check the label" : {
       "comment" : "Shopping note for an allergy typed as Other"
+    },
+    "Check your connection and try again." : {
+
     },
     "Check: %@ (%@)" : {
       "comment" : "Compact allergy note: everything to avoid, then who",
@@ -391,16 +421,25 @@
     "Couldn't save %@. Check your connection and try again." : {
 
     },
+    "Couldn't save the allergies. Check your connection and try again." : {
+
+    },
     "Couldn't save the meal. Check your connection and try again." : {
 
     },
     "Couldn't save the plan. Check your connection and try again." : {
 
     },
+    "Couldn't save the settings. Check your connection and try again." : {
+
+    },
     "Couldn't save the tradition. Check your connection and try again." : {
 
     },
     "Couldn't save. Pull to refresh in case someone else changed this, then try again." : {
+
+    },
+    "Couldn't set up the sample family" : {
 
     },
     "Couldn't sign out your other devices. Check your connection and try again." : {
@@ -433,6 +472,12 @@
     "Dinner ideas from the family will show up here." : {
 
     },
+    "Dinners" : {
+
+    },
+    "Does anyone have food allergies?" : {
+
+    },
     "Done" : {
 
     },
@@ -443,6 +488,9 @@
       "comment" : "Reason chip: a regular in the rotation"
     },
     "Each new week starts from this. Tap a day they're usually out, like a work or practice night." : {
+
+    },
+    "Each person gets a link and a code to join on their own phone. Kids need a parent's OK first." : {
 
     },
     "Earlier this week: %lld nights" : {
@@ -466,10 +514,16 @@
     "Effort: %@" : {
 
     },
+    "Engaged" : {
+
+    },
     "Enter the code from your invite. Otherwise, start your own household below." : {
 
     },
     "Event" : {
+
+    },
+    "Everyone's here. You can invite people later from Family." : {
 
     },
     "Everything's in the cart" : {
@@ -506,6 +560,15 @@
 
     },
     "Foon drafts the week from your library and who's home each night. You can change any night." : {
+
+    },
+    "Foon flags dishes that contain them, and you plan as usual." : {
+
+    },
+    "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime." : {
+      "comment" : "Allergy consent: the one plain sentence parents agree to"
+    },
+    "Foon reminds you then. Lots of families plan Sunday morning, before shopping." : {
 
     },
     "Foon signs out on every phone, tablet, and Mac using your account, including this one." : {
@@ -551,6 +614,9 @@
       "comment" : "Shopping note for a soy allergy"
     },
     "Give the meal a name." : {
+
+    },
+    "Go to This Week" : {
 
     },
     "Goes on the quick list. Several at once: separate them with commas." : {
@@ -648,6 +714,12 @@
     "Invite sent" : {
 
     },
+    "Invite your family" : {
+
+    },
+    "It becomes your household. You can rename it and change the family, but you can't start a new one later." : {
+
+    },
     "It may have been removed on another device." : {
 
     },
@@ -684,7 +756,19 @@
     "Library" : {
 
     },
+    "Light" : {
+
+    },
+    "Light sends only what matters. You can change any of this later." : {
+
+    },
     "Lists" : {
+
+    },
+    "Load a sample family" : {
+
+    },
+    "Load the sample family" : {
 
     },
     "Lock night" : {
@@ -766,10 +850,16 @@
     "New dishes you're trying out show up here." : {
 
     },
+    "Next" : {
+
+    },
     "Next week" : {
 
     },
     "Night not found" : {
+
+    },
+    "No allergies" : {
 
     },
     "No allergy flags" : {
@@ -859,6 +949,9 @@
     "Nothing to buy. Approve the week or add an item." : {
 
     },
+    "Notifications" : {
+
+    },
     "On the list" : {
 
     },
@@ -871,6 +964,9 @@
     "Opens the night to see everyone" : {
 
     },
+    "Opens their profile to send an invite" : {
+
+    },
     "Optional. A side from your library brings its ingredients to the list." : {
 
     },
@@ -878,6 +974,9 @@
 
     },
     "Other" : {
+
+    },
+    "Other (like kiwi)" : {
 
     },
     "Out" : {
@@ -904,10 +1003,16 @@
     "Pick for me" : {
 
     },
+    "Plan on" : {
+
+    },
     "Planner" : {
 
     },
     "Planning" : {
+
+    },
+    "Popular" : {
 
     },
     "Prep ahead" : {
@@ -973,6 +1078,9 @@
     "Save" : {
 
     },
+    "Search dinners" : {
+
+    },
     "Search your meals" : {
 
     },
@@ -994,7 +1102,13 @@
     "Servings go from 1 to 50." : {
 
     },
+    "Setting up the sample family…" : {
+
+    },
     "Shop" : {
+
+    },
+    "Show more" : {
 
     },
     "Shown with %@ on meals, lists, and in the store." : {
@@ -1026,6 +1140,9 @@
     },
     "Skip fish" : {
       "comment" : "Shopping note for a fish allergy"
+    },
+    "Skip for now" : {
+
     },
     "Skip shellfish" : {
       "comment" : "Shopping note for a shellfish allergy"
@@ -1060,6 +1177,16 @@
     "Status" : {
 
     },
+    "Step %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Step %1$lld of %2$lld"
+          }
+        }
+      }
+    },
     "Steps" : {
 
     },
@@ -1093,6 +1220,9 @@
     "Takes it out of the cart" : {
 
     },
+    "Tap the dinners your family already makes. You can add your own anytime." : {
+
+    },
     "That code didn't work. Check it and try again." : {
 
     },
@@ -1114,6 +1244,9 @@
     "Thaw first" : {
 
     },
+    "The Sample Family" : {
+
+    },
     "The Smiths" : {
 
     },
@@ -1124,6 +1257,9 @@
       "comment" : "Reason chip"
     },
     "The recipe steps are too long." : {
+
+    },
+    "The week starts on your shopping day." : {
 
     },
     "Their ratings and cooking history stay." : {
@@ -1195,6 +1331,9 @@
     "Update the list · 1 item" : {
 
     },
+    "Use the sample family as your household?" : {
+
+    },
     "Use this if a phone is lost or shared. Every device, this one included, signs out right away." : {
 
     },
@@ -1213,10 +1352,22 @@
     "Week" : {
 
     },
+    "Week starts" : {
+
+    },
     "Welcome to Foon" : {
 
     },
+    "When do you plan the week?" : {
+
+    },
+    "Which of these does your family make?" : {
+
+    },
     "Who they are" : {
+
+    },
+    "Who's at your table?" : {
 
     },
     "Who's home" : {
@@ -1229,6 +1380,9 @@
 
     },
     "Withdraw consent for %@?" : {
+
+    },
+    "Yes, someone does" : {
 
     },
     "You" : {
@@ -1259,6 +1413,9 @@
 
     },
     "Your planner hasn't planned this week yet. Tell them what you'd like." : {
+
+    },
+    "Your rhythm" : {
 
     },
     "eggs" : {

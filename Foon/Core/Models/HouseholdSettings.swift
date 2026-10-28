@@ -12,6 +12,27 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
     var leftoverNights = 1
     /// Days before a meal can come back around.
     var repeatWindowDays = 10
+    /// When the planner plans (ISO weekday and "HH:mm"): "Sunday morning, before shopping".
+    var planningDay = 7
+    var planningTime = "09:00"
+    var notificationPreset: NotificationPreset = .balanced
+    /// False from creating a household until onboarding finishes; households from before onboarding count as done.
+    var onboarded = true
+    /// Set by "Load a sample family"; onboarding fills in the demo family, then clears it.
+    var samplePending = false
+
+    /// Onboarding's presets (docs/spec.md → Notifications): how much Foon nudges.
+    enum NotificationPreset: String, Codable, CaseIterable, Sendable {
+        case light, balanced, engaged
+
+        var title: String {
+            switch self {
+            case .light: String(localized: "Light")
+            case .balanced: String(localized: "Balanced")
+            case .engaged: String(localized: "Engaged")
+            }
+        }
+    }
 
     init() {}
 
@@ -22,6 +43,26 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         case takeoutNights = "takeout_nights"
         case leftoverNights = "leftover_nights"
         case repeatWindowDays = "repeat_window_days"
+        case planningDay = "planning_day"
+        case planningTime = "planning_time"
+        case notificationPreset = "notification_preset"
+        case onboarded
+        case samplePending = "sample_pending"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(weekStart, forKey: .weekStart)
+        try container.encode(dinnerTime, forKey: .dinnerTime)
+        try container.encode(newDishesPerWeek, forKey: .newDishesPerWeek)
+        try container.encode(takeoutNights, forKey: .takeoutNights)
+        try container.encode(leftoverNights, forKey: .leftoverNights)
+        try container.encode(repeatWindowDays, forKey: .repeatWindowDays)
+        try container.encode(planningDay, forKey: .planningDay)
+        try container.encode(planningTime, forKey: .planningTime)
+        try container.encode(notificationPreset, forKey: .notificationPreset)
+        try container.encode(onboarded, forKey: .onboarded)
+        try container.encode(samplePending, forKey: .samplePending)
     }
 
     init(from decoder: Decoder) throws {
@@ -36,7 +77,18 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         takeoutNights = value(.takeoutNights, in: 0...7, default: defaults.takeoutNights)
         leftoverNights = value(.leftoverNights, in: 0...7, default: defaults.leftoverNights)
         repeatWindowDays = value(.repeatWindowDays, in: 0...60, default: defaults.repeatWindowDays)
-        let time = (try? container.decodeIfPresent(String.self, forKey: .dinnerTime)).flatMap { $0 }
-        dinnerTime = time.flatMap { $0.wholeMatch(of: /([01]\d|2[0-3]):[0-5]\d/) != nil ? $0 : nil } ?? defaults.dinnerTime
+        dinnerTime = Self.time(container, .dinnerTime) ?? defaults.dinnerTime
+        planningDay = value(.planningDay, in: 1...7, default: defaults.planningDay)
+        planningTime = Self.time(container, .planningTime) ?? defaults.planningTime
+        notificationPreset = (try? container.decodeIfPresent(String.self, forKey: .notificationPreset))
+            .flatMap { $0 }.flatMap(NotificationPreset.init(rawValue:)) ?? defaults.notificationPreset
+        onboarded = (try? container.decodeIfPresent(Bool.self, forKey: .onboarded)).flatMap { $0 } ?? defaults.onboarded
+        samplePending = (try? container.decodeIfPresent(Bool.self, forKey: .samplePending)).flatMap { $0 } ?? false
+    }
+
+    /// "HH:mm", or nil for anything else.
+    private static func time(_ container: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> String? {
+        (try? container.decodeIfPresent(String.self, forKey: key)).flatMap { $0 }
+            .flatMap { $0.wholeMatch(of: /([01]\d|2[0-3]):[0-5]\d/) != nil ? $0 : nil }
     }
 }

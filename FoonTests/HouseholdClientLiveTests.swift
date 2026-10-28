@@ -16,7 +16,7 @@ struct HouseholdClientLiveTests {
 
         #expect(try await households.myHousehold() == nil)
 
-        let household = try await households.createHousehold("Test family", "🌮", "Ann")
+        let household = try await households.createHousehold("Test family", "🌮", "Ann", HouseholdSettings())
         #expect(household.name == "Test family")
         #expect(try await households.myHousehold() == household)
 
@@ -50,7 +50,7 @@ struct HouseholdClientLiveTests {
 
     @Test func aParentInvitesAndASecondAccountJoins() async throws {
         let parent = try await Self.signedUpClient()
-        let household = try await parent.createHousehold("Invite family", nil, "Ann")
+        let household = try await parent.createHousehold("Invite family", nil, "Ann", HouseholdSettings())
         var kid = MemberDraft()
         kid.firstName = "Owen"
         kid.ageGroup = .kid
@@ -83,7 +83,7 @@ struct HouseholdClientLiveTests {
         let mac = Self.newSupabaseClient()
         try await mac.auth.signIn(email: email, password: Self.password)
 
-        let household = try await HouseholdClient.live(phone).createHousehold("Two devices", nil, "Ann")
+        let household = try await HouseholdClient.live(phone).createHousehold("Two devices", nil, "Ann", HouseholdSettings())
         #expect(try await HouseholdClient.live(mac).members(household.id).count == 1)
 
         #expect(await AuthClient.live(phone).signOutEverywhere())
@@ -95,7 +95,7 @@ struct HouseholdClientLiveTests {
     @Test func photosAreReadableOnlyByTheirHousehold() async throws {
         let ann = Self.newSupabaseClient()
         try await ann.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com", password: Self.password)
-        let household = try await HouseholdClient.live(ann).createHousehold("Photo family", nil, "Ann")
+        let household = try await HouseholdClient.live(ann).createHousehold("Photo family", nil, "Ann", HouseholdSettings())
 
         let tiny = try Self.sampleJPEG()
         let path = try await PhotoStorageClient.live(ann).upload(household.id, try PhotoPreparation.prepare(tiny))
@@ -130,7 +130,7 @@ struct HouseholdClientLiveTests {
                                        password: Self.password)
         let households = HouseholdClient.live(supabase)
         let library = LibraryClient.live(supabase)
-        let household = try await households.createHousehold("Library family", nil, "Ann")
+        let household = try await households.createHousehold("Library family", nil, "Ann", HouseholdSettings())
 
         let catalog = try await library.catalog()
         #expect(catalog.count >= 40, "the starter pack is seeded")
@@ -218,7 +218,7 @@ struct HouseholdClientLiveTests {
                                        password: Self.password)
         let households = HouseholdClient.live(supabase)
         let weeks = WeekClient.live(supabase)
-        let household = try await households.createHousehold("Week family", nil, "Ann")
+        let household = try await households.createHousehold("Week family", nil, "Ann", HouseholdSettings())
         var owenDraft = MemberDraft()
         owenDraft.firstName = "Owen"
         owenDraft.usuallyAway = [1, 2, 3, 4]
@@ -307,6 +307,34 @@ struct HouseholdClientLiveTests {
         let saved = try await households.updateMember(me.id, schedule.changes(from: me))
         #expect(saved.usuallyAway == [6])
         #expect(try await households.myHousehold()?.planningSettings == HouseholdSettings())
+    }
+
+    @Test func onboardingSavesAllergiesAndTheRhythm() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let household = try await households.createHousehold("Onboarding family", nil, "Ann", HouseholdSettings())
+        var kid = MemberDraft()
+        kid.firstName = "Nora"
+        kid.ageGroup = .kid
+        let nora = try await households.addMember(household.id, try #require(kid.validated()))
+
+        try await households.grantAllergyConsent(household.id, AllergyConsent.textVersion)
+        try await households.setAllergies(nora.id, [.milk, .treeNuts], ["kiwi"])
+        let rows = try await LibraryClient.live(supabase).allergies(household.id)
+        #expect(Set(rows.map(\.allergen)) == [.milk, .treeNuts, .custom])
+        #expect(rows.first { $0.allergen == .custom }?.customText == "kiwi")
+
+        var settings = HouseholdSettings()
+        settings.dinnerTime = "17:30"
+        settings.planningDay = 6
+        settings.onboarded = false
+        try await households.updateSettings(household.id, settings)
+        let saved = try #require(try await households.myHousehold()?.planningSettings)
+        #expect(saved.dinnerTime == "17:30")
+        #expect(saved.planningDay == 6)
+        #expect(!saved.onboarded)
     }
 
     private static let config = try! SupabaseConfig.fromMainBundle()

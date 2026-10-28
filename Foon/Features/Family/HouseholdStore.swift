@@ -40,7 +40,7 @@ final class HouseholdStore {
     private(set) var parentalConsentMemberIDs: Set<UUID> = []
 
     let userID: UUID
-    private let client: HouseholdClient
+    let client: HouseholdClient
 
     init(userID: UUID, client: HouseholdClient) {
         self.userID = userID
@@ -110,7 +110,37 @@ final class HouseholdStore {
         }
     }
 
-    func createHousehold(name: String, emoji: String?, firstName: String) async {
+    /// The owner's first-run setup is still to do (or was interrupted): show onboarding.
+    var needsOnboarding: Bool {
+        guard let household else { return false }
+        return household.owner == userID && !household.planningSettings.onboarded
+    }
+
+    /// Saves the household's settings (merged on the server). Returns whether it saved.
+    @discardableResult
+    func updateSettings(_ settings: HouseholdSettings) async -> Bool {
+        guard var household else { return false }
+        do {
+            try await client.updateSettings(household.id, settings)
+            household.settings = settings
+            phase = .ready(household)
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = String(localized: "Couldn't save the settings. Check your connection and try again.")
+            return false
+        }
+    }
+
+    /// Onboarding's last step: the rhythm is saved and the household is set up.
+    func finishOnboarding(_ settings: HouseholdSettings) async -> Bool {
+        var done = settings
+        done.onboarded = true
+        done.samplePending = false
+        return await updateSettings(done)
+    }
+
+    func createHousehold(name: String, emoji: String?, firstName: String, sample: Bool = false) async {
         errorMessage = nil
         var owner = MemberDraft()
         owner.firstName = firstName
@@ -119,13 +149,18 @@ final class HouseholdStore {
             return
         }
         let emoji = emoji?.trimmingCharacters(in: .whitespaces)
-        let household: Household
+        var fresh = HouseholdSettings()
+        fresh.onboarded = false
+        fresh.samplePending = sample
+        var household: Household
         do {
-            household = try await client.createHousehold(name, emoji?.isEmpty == false ? emoji : nil, owner.firstName)
+            household = try await client.createHousehold(name, emoji?.isEmpty == false ? emoji : nil,
+                                                         owner.firstName, fresh)
         } catch {
             errorMessage = String(localized: "Couldn't create your household. Check your connection and try again.")
             return
         }
+        household.settings = household.settings ?? fresh
         // The household exists now; a members hiccup must not send the user back to create it again.
         phase = .ready(household)
         do {
