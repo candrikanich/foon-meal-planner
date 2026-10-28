@@ -289,6 +289,18 @@ struct HouseholdClientLiveTests {
         #expect(Set(weekly.map(\.itemID)) == Set(lines.map(\.itemID)))
         #expect(weekly.contains { $0.quantity != nil })
 
+        // Lists: a brand-new item, and "couldn't find it" removing a weekly line.
+        let towels = try await ItemClient.live(supabase).ensure(household.id, "Paper towels", .household)
+        _ = try await SyncClient.live(supabase).send(.addToList(householdID: household.id, itemID: towels, list: .quick,
+                                                               urgency: .whenever, source: .manual, note: nil,
+                                                               lineID: UUID()))
+        let gone = try #require(weekly.first)
+        _ = try await SyncClient.live(supabase).send(.removeFromList(listItemID: gone.id))
+        let after = try await SyncClient.live(supabase).fetchSnapshot(household.id, sunday)
+        #expect(!after.listItems.contains { $0.id == gone.id })
+        #expect(after.listItems.contains { $0.itemID == towels && $0.list == .quick })
+        #expect(after.items.first { $0.id == towels }?.category == .household)
+
         let me = try #require(try await households.members(household.id).first { $0.firstName == "Ann" })
         var schedule = MemberDraft(me)
         schedule.usuallyAway = [6]

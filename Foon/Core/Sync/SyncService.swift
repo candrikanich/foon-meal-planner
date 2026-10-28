@@ -244,6 +244,9 @@ final class SyncService {
             item.stockState = state
             item.keepOnHand = state != nil
 
+        case .removeFromList(let listItemID):
+            if let line = listLine(lineAliases[listItemID] ?? listItemID) { context.delete(line) }
+
         case .addToList(let household, let itemID, let list, let urgency, let source, let note, let lineID):
             // Mirrors add_to_list: merge into the item's open line on that list; urgency only goes up.
             if let open = openLine(itemID: itemID, list: list) {

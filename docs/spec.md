@@ -217,6 +217,8 @@ The plan produces one weekly list; pivots and running-out moments produce the qu
 
 **Quick list.** Fill-in trips during the week. Fed by pivots ("mac and cheese needs milk"), staple taps, and shared text. Items carry urgency ("for tonight's dinner" vs "whenever"). Duplicates merge: milk from a pivot and milk from a tap show once.
 
+- v1 Lists and store mode (#27), all from the offline cache: the Lists tab has Add an item (quick list, typed naturally with autocomplete; "for tonight" makes it urgent; a brand-new item needs a connection), On the list (tonight's quick items, then the week, then the rest; amounts, brand notes, and allergy notes shown), and Staples running low (one tap adds). Swipe for Got it or Remove; tap for the item's note and aisle. Shop opens store mode: aisles in walking order with non-food last, big rows, checked items sink into "In the cart," and the screen stays awake. "Couldn't find it" moves an item to the quick list (with a note) and under "For next time." A trip stays open across closing store mode until Finish trip, which restocks the staples bought and says what's left; checking off a staple anywhere restocks it right away. Two shoppers see each other's check-offs over Realtime.
+
 **Keep-on-hand list.** Everyday staples (cereal, milk, bagels, apples, pickles, snacks) and backup dinners (box mac and cheese, frozen pizza, pasta and jarred sauce). Each item is in, low, or out; no counting. Anyone taps low or out. Backup dinners in stock feed the tonight poll and tonight rescue.
 
 **Pantry state without counting.** Receipt scanned: items count as on hand and staples flip to in. Meal confirmed: its ingredients count as used. Backup dinner cooked: marked used and lands on the list to restock.

@@ -88,6 +88,9 @@
     "%lld hours ahead" : {
 
     },
+    "%lld items are still on the list for next time." : {
+
+    },
     "%lld more people" : {
 
     },
@@ -107,6 +110,9 @@
 
     },
     "1 hour ahead" : {
+
+    },
+    "1 item is still on the list for next time." : {
 
     },
     "1 lb ground beef, taco shells, cheese" : {
@@ -152,6 +158,9 @@
 
     },
     "Add all to list" : {
+
+    },
+    "Add an item" : {
 
     },
     "Add ingredients" : {
@@ -299,6 +308,9 @@
         }
       }
     },
+    "Close" : {
+
+    },
     "Contains %@ (%@)" : {
       "comment" : "Allergy flag: allergen, then who",
       "localizations" : {
@@ -314,6 +326,12 @@
 
     },
     "Couldn't add %@. Check your connection and try again." : {
+
+    },
+    "Couldn't add %@. New items need a connection; try again." : {
+
+    },
+    "Couldn't add %@. Try again." : {
 
     },
     "Couldn't approve the week. Check your connection and try again." : {
@@ -338,6 +356,12 @@
 
     },
     "Couldn't create your household. Check your connection and try again." : {
+
+    },
+    "Couldn't find it" : {
+
+    },
+    "Couldn't find it last trip" : {
 
     },
     "Couldn't load the week. Check your connection and try again." : {
@@ -448,6 +472,9 @@
     "Event" : {
 
     },
+    "Everything's in the cart" : {
+
+    },
     "Family" : {
 
     },
@@ -466,6 +493,9 @@
     "Fill remaining nights" : {
 
     },
+    "Finish trip" : {
+
+    },
     "First name" : {
 
     },
@@ -479,6 +509,12 @@
 
     },
     "Foon signs out on every phone, tablet, and Mac using your account, including this one." : {
+
+    },
+    "For next time" : {
+
+    },
+    "For tonight" : {
 
     },
     "Freezer raid" : {
@@ -517,7 +553,19 @@
     "Give the meal a name." : {
 
     },
+    "Goes on the quick list. Several at once: separate them with commas." : {
+
+    },
     "Goes with" : {
+
+    },
+    "Got %lld items" : {
+
+    },
+    "Got 1 item" : {
+
+    },
+    "Got it" : {
 
     },
     "Haven't had in a while" : {
@@ -562,6 +610,9 @@
       }
     },
     "Ideas" : {
+
+    },
+    "In the cart" : {
 
     },
     "In your library" : {
@@ -645,6 +696,9 @@
     "Locked" : {
 
     },
+    "Low" : {
+
+    },
     "Made %lld times, last on %@" : {
       "localizations" : {
         "en" : {
@@ -669,6 +723,9 @@
     },
     "Makes leftovers for tomorrow" : {
       "comment" : "Reason chip: a big-batch meal"
+    },
+    "Marks it in the cart" : {
+
     },
     "Meal name" : {
 
@@ -787,6 +844,9 @@
     "Nothing fits tonight" : {
       "comment" : "Reason chip: no dish passed the filters"
     },
+    "Nothing left on the list." : {
+
+    },
     "Nothing on trial" : {
 
     },
@@ -794,6 +854,15 @@
 
     },
     "Nothing to buy" : {
+
+    },
+    "Nothing to buy. Approve the week or add an item." : {
+
+    },
+    "On the list" : {
+
+    },
+    "On the quick list for the next trip." : {
 
     },
     "Open night" : {
@@ -925,7 +994,7 @@
     "Servings go from 1 to 50." : {
 
     },
-    "Shopping lists will show up here." : {
+    "Shop" : {
 
     },
     "Shown with %@ on meals, lists, and in the store." : {
@@ -982,6 +1051,9 @@
     "Staples like milk or paper towels stay on the keep-on-hand list, marked in, low, or out." : {
 
     },
+    "Staples running low" : {
+
+    },
     "Start with empty nights" : {
 
     },
@@ -989,6 +1061,9 @@
 
     },
     "Steps" : {
+
+    },
+    "Store mode" : {
 
     },
     "Suggestions" : {
@@ -1014,6 +1089,9 @@
     },
     "Takeout on the busiest night" : {
       "comment" : "Reason chip"
+    },
+    "Takes it out of the cart" : {
+
     },
     "That code didn't work. Check it and try again." : {
 
