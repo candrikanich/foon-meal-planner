@@ -273,6 +273,11 @@ Few, actionable, and answerable from the lock screen. Every notification asks fo
 - **Planner engagement view:** a quiet note like "Owen hasn't sent requests in 3 weeks" so a parent can nudge in person.
 - No streak shaming, ever.
 
+**Delivery (decided 2026-10-28, M2).** Two paths:
+- **On the device:** reminders tied to a person's own plan and clock are local notifications, scheduled from the offline cache. These are prep reminders, the day-of check-in, the after-dinner prompt, Time to plan, and cook-mode timers. They work offline, and each member's budget and quiet hours are applied on their own device.
+- **Server push:** anything another person triggers comes through APNs from Edge Functions. These are Plan's set, urgent list items, new requests, claims, the tonight poll, heading to the store, and "your request made the plan."
+- **Log:** `notification_log` records what was sent and what was answered, from both paths, for ignore handling.
+
 **Settings.** Smart defaults; presets in onboarding (Light, Balanced, Engaged); advanced settings for every cap, time, day, and frequency, household-wide or per member. School-hours quiet window for kids' devices by default. Adults own household settings; kids can only turn their own notifications down.
 
 ## AI strategy
@@ -307,7 +312,7 @@ iOS-only, multiplatform SwiftUI (iPhone, iPad, Mac) on Supabase, with a local ca
 
 **Client.** SwiftUI app; SwiftData cache for the plan and lists; Share Sheet extension; widgets ("Tonight: tacos"); App Intents for Siri and Shortcuts; actionable push notifications; Vision for text recognition; Foundation Models for on-device AI.
 
-**Backend.** Supabase Postgres with every table scoped by `household_id` and row-level security from day one; Realtime for live list check-offs; Edge Functions for scheduled notifications (APNs), recipe-site parsing, and invite codes; Storage for receipt images if retained.
+**Backend.** Supabase Postgres with every table scoped by `household_id` and row-level security from day one; Realtime for live list check-offs; Edge Functions for push notifications (APNs) that someone else triggers, recipe-site parsing, and invite codes; Storage for receipt images if retained.
 
 **Why not CloudKit.** Relational queries (ratings by person, dish, and night against attendance), realtime collaboration, and a possible future web page. Trade-off: owning hosting cost and the privacy story.
 

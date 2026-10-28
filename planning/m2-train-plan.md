@@ -1,4 +1,4 @@
-# M2 Family Loop — train plan (draft, for Chris)
+# M2 Family Loop — train plan
 
 Goal: the rest of the family takes part without being chased.
 - **Requests in:** ideas and requests come in from everyone.
@@ -25,7 +25,7 @@ The spec's success test for this phase is the mission test. Does it make it easi
 | 3. Ideas in | #38 Ideas inbox; #39 Share Sheet extension | #38 brings back #23's "requests waiting" and #21's "save as an idea". #39 is a new app-extension target, so it needs your device to try. |
 | 4. Smarter planning | #54 seasonal and variety; #49 household shapes and food rules; #55 equipment and start-cooking time; #53 double it and freezer stash; #52 vacation and season templates | Mostly pure Swift in `Core/Planning` with seeded tests, so they can run as **parallel worker agents** in worktrees, each reviewed before its PR. #49's two-seatings piece is data model only, per the AC. |
 | 5. Family tab | #47 remaining parts; #50 claim a night and dinner jobs; #57 change history and undo | #47's notification presets wait for car 6. Claims feed cook credit (car 2). |
-| 6. Notifications | #40 infrastructure, then #41 day-of check-in, #45 prep reminders, #44 urgent items and pivots, #43 tonight poll, #51 heading to the store, #42 part 2: the notification card | **Blocked on #37 and an APNs key.** Each feature gets its in-app version in its own car first; this car adds the pushes, budgets, quiet hours and ignore handling. #42 part 2 is the rich notification card (a content extension). |
+| 6. Notifications | #40 infrastructure (both paths), then #41 day-of check-in, #45 prep reminders, #44 urgent items and pivots, #43 tonight poll, #51 heading to the store, #42 part 2: the notification card | Hybrid delivery (decision 1). The on-device reminders can ship before #37. The server pushes need #37 and an APNs key. Budgets, quiet hours and ignore handling cover both paths. #42 part 2 is the rich notification card (a content extension). |
 | 7. Recap | #56 family stats card | Needs cars 1–5 for real numbers. |
 
 ### Car 1 detail: #42 part 1
@@ -48,20 +48,24 @@ The spec's success test for this phase is the mission test. Does it make it easi
   - verdicts on meal detail (the carry-over noted on #42).
 - **Split:** this is big, so it likely becomes 2–3 PRs: the data and RLS; the confirm card and reactions; the algorithm and library wiring.
 
-## Not in M2 (proposed)
-- **#48 Resend email:** needs a sending domain (the same one as #34 and #85) and a Resend account. → **External TestFlight** milestone.
-- **#36 metrics dashboard:** needs #28's analytics first, and real households. → after external TestFlight.
+## Moved out of M2
+- **#48 Resend email:** needs a sending domain (the same one as #34 and #85) and a Resend account. Moved to **External TestFlight**.
+- **#36 metrics dashboard:** needs #28's analytics, and real households. Moved to after external TestFlight (M4 Launch).
 
-## Decisions needed
-1. **How notifications get delivered.** The spec says APNs from scheduled Edge Functions for everything. My recommendation is a hybrid:
-   - **On the device (local notifications):** reminders tied to the device owner's own plan and clock, scheduled from the offline cache. That's prep reminders, the day-of check-in, the after-dinner prompt, and Time to plan. They work offline and need no server timezone logic. Each member's budget and quiet hours apply on their own device.
-   - **Server push (APNs):** anything another person triggers: Plan's set, an urgent list item, new requests, claims, the tonight poll, heading to the store, and your request made the plan.
-   - **Logging:** `notification_log` still records what was sent and what was answered, for ignore handling.
-   - The catch is two delivery paths instead of one. Your call; it changes car 6's design and the spec's Notifications section.
-2. **Order.** Data loop → credit → ideas → planning → Family → notifications → recap. The alternative is notifications earlier, once #37 is unblocked, because the after-dinner prompt works much better as a push than as a next-day card. Fine to start with car 1 either way.
-3. **Move #48 and #36 out of M2**, as above?
-4. **Share Sheet extension (#39).** It needs a new target, an App Group for the session, and your device for testing (the simulator's share sheet is limited). Keep it in M2, or move it to M3 with the AI recipe capture (#59), which it overlaps?
-5. **Cook mode timers.** In-app countdowns only for M2, or local notifications when the app is in the background? Background timers depend on decision 1.
+## Decisions (Chris, 2026-10-28)
+1. **Notifications are hybrid.**
+   - **On the device:** local notifications for reminders tied to a person's own plan and clock: prep reminders, the day-of check-in, the after-dinner prompt, Time to plan, and cook-mode timers. They're scheduled from the offline cache, with budgets and quiet hours applied on each member's device.
+   - **Server push:** APNs from Edge Functions only for things another person triggers: Plan's set, urgent items, new requests, claims, the tonight poll, heading to the store, and your request made the plan.
+   - **Log:** `notification_log` covers both paths.
+   - The spec's Notifications and Technical architecture sections are updated to match.
+   - So car 6's on-device half doesn't need #37 or an APNs key. Only the server-push half waits for them.
+2. **Order:** in-app first. Data loop → credit → ideas → planning → Family → notifications → recap.
+3. **#48 and #36 move out of M2**, as above.
+4. **#39 stays in M2.**
+   - Links and plain text are the bulk of real use.
+   - Images and PDFs use Vision text recognition and the existing ingredient parser.
+   - The AI part of capture (#59) adds to it in M3.
+5. **Cook-mode timers** (decided as part of 1): in-app countdowns, with a local notification when the app is in the background.
 
 ## Working mode (as in M1)
 - One ticket (or ticket part) per PR, test first.
