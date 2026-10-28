@@ -388,7 +388,7 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
   - the owner's household is erased with everything in it, photos included (ownership can be transferred first to keep it); everyone else keeps their own account;
   - another adult's profile is removed and anonymized at once ("Former member"; allergies and settings deleted; ratings and cook history kept as anonymous history);
   - a kid's account is unlinked and the profile their parents entered stays.
-  The auth account goes last, and the device signs out and wipes its offline cache. Planners can export the household as a JSON file (meals, ingredients, sides, items, traditions, plans, nights, attendance, lists, members, allergies, consents); account ids and invite codes are left out.
+  The auth account goes last, and the device signs out and wipes its offline cache. Other family members' devices wipe theirs the next time they find no household (#110). Planners can export the household as a JSON file (meals, ingredients, sides, items, traditions, plans, nights, attendance, lists, members, allergies, consents); account ids and invite codes are left out.
 - No tracking and no ad SDKs, so no App Tracking Transparency prompt. Market it.
 - Delete receipt images after parsing. US-only launch at first.
 - Imported recipe instructions stay private to the household; never shared across families or added to the catalog.

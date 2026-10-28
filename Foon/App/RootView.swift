@@ -34,6 +34,7 @@ struct RootView: View {
 
 /// Loads the signed-in person's household: create one first, otherwise the app.
 struct HouseholdGate: View {
+    @Environment(\.modelContext) private var context
     @State private var store: HouseholdStore
     let syncClient: SyncClient
     let libraryClient: LibraryClient
@@ -55,6 +56,12 @@ struct HouseholdGate: View {
                 ProgressView()
             case .needsHousehold:
                 CreateHouseholdView()
+                    .task {
+                        // No household for this account (the owner deleted it, or this person was removed): nothing
+                        // of the old one may stay on the device. This runs once the old screens are gone, after
+                        // SyncGate stopped their service, so no late pull can refill the cache.
+                        try? SyncService.clearCache(in: context)
+                    }
             case .ready(let household):
                 SyncGate(householdID: household.id, client: syncClient) {
                     RootTabView(householdID: household.id, libraryClient: libraryClient, weekClient: weekClient)

@@ -35,6 +35,30 @@ struct HouseholdStoreTests {
         #expect(store.errorMessage != nil)
     }
 
+    @Test func aHouseholdThatIsGoneSendsYouBackToStartOne() async {
+        let household = household
+        let gone = Mutex(false)
+        let store = HouseholdStore(userID: me, client: .fake(myHousehold: { gone.withLock { $0 } ? nil : household }))
+        await store.load()
+        #expect(store.household?.id == household.id)
+        gone.withLock { $0 = true }  // the owner deleted it, or this person was removed
+        await store.load()
+        #expect(store.phase == .needsHousehold, "the gate then shows Create household, which wipes the cache")
+    }
+
+    @Test func anOfflineReloadKeepsTheHousehold() async {
+        let household = household
+        let offline = Mutex(false)
+        let store = HouseholdStore(userID: me, client: .fake(myHousehold: {
+            if offline.withLock({ $0 }) { throw URLError(.notConnectedToInternet) }
+            return household
+        }))
+        await store.load()
+        offline.withLock { $0 = true }
+        await store.load()
+        #expect(store.household?.id == household.id, "no connection is not a missing household: the cache stays")
+    }
+
     @Test func withNoHouseholdTheUserCreatesOne() async {
         let store = HouseholdStore(userID: me, client: .fake())
         await store.load()
