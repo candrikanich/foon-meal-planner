@@ -11,6 +11,7 @@ struct MealDetailView: View {
     let canEdit: Bool
 
     @State private var editing: LibraryMeal?
+    @State private var planning: LibraryMeal?
     @State private var photoItem: PhotosPickerItem?
     @State private var isUploading = false
     @State private var addedItemIDs: Set<UUID> = []
@@ -55,6 +56,7 @@ struct MealDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar { toolbar(meal) }
+        .sheet(item: $planning) { meal in PlanItSheet(meal: meal) }
         .sheet(item: $editing) { meal in
             MealEditorView(meal: meal)
         }
@@ -239,6 +241,11 @@ struct MealDetailView: View {
         if canEdit {
             ToolbarItem(placement: .primaryAction) {
                 Button("Edit") { editing = meal }
+            }
+            if meal.status.isInRotation {
+                ToolbarItem(placement: .secondaryAction) {
+                    Button("Plan it", systemImage: "calendar.badge.plus") { planning = meal }
+                }
             }
             if LibraryStore.canCopy(meal) {
                 ToolbarItem(placement: .secondaryAction) {

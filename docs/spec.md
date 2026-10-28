@@ -104,7 +104,7 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 - Search matches meal names and ingredients, ignoring case and accents. Matching starter dishes not yet in the library appear below the family's own ("From Foon's ideas").
 - History (times made, last made) counts past nights of approved plans until dinners are confirmed (meal logs, M2). Haven't had in a while puts never-made dishes last; they're new, not forgotten.
 - Favorites and the Family favorites sort need ratings (M2); until then the Favorites chip shows an empty state.
-- Long-press: Archive, or Back in rotation for archived meals (planners only). Plan it joins the menu with This Week (#23).
+- Long-press: Plan it and Archive, or Back in rotation for archived meals (planners only).
 - Browse ideas lists the catalog by category; planners copy a dish into the library with one tap, and adding it again returns the copy already there, even a retired one: a dish the dislike rule retired stays retired.
 
 **Meal detail.** Hero photo with "Replace with yours"; tags and allergy flags (Make it safe comes later; see Allergies); every family member's current verdict, visible to all; history and frequency ("Made 8 times, about every 2 weeks"); editable ingredients with Add to list; optional recipe steps and source link; prep steps; comments; per-person serving notes ("Nora: keep everything separate before mixing"), shown on day cards and in cook mode when that person is home; actions Plan it, Copy and tweak, Archive.
@@ -113,7 +113,8 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 - Add to list puts an ingredient (or all of them) on the quick list; anyone in the family can, offline too.
 - Copy and tweak makes "Name (copy)" with the recipe, prep, and ingredients, but not the photo or the catalog link, and opens the editor on it. Retired meals aren't copied, so the dislike rule holds.
 - Steps are optional, one per line; typed numbering ("1.", "Step 2:") is dropped. Links must be web addresses; "example.com" gains https.
-- Verdicts, comments, serving notes, and frequency ("about every 2 weeks") need ratings and dinner logs (M2). Plan it joins with This Week (#23).
+- Verdicts, comments, serving notes, and frequency ("about every 2 weeks") need ratings and dinner logs (M2).
+- v1 Plan it (#18, #19), planners, from the long-press menu and meal detail: pick a night from tonight on in the week This Week shows (each row says what it holds now; nights already set to this meal are left out). Like Swap, it replaces the night and locks it, so Rebuild keeps it. With no week yet, it points to This Week.
 
 **Frequency awareness.** Overuse nudges ("Tacos 3 times in 2 weeks"), neglect nudges ("No pot roast in 7 weeks"), and recap callouts make the log the planner's memory.
 
