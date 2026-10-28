@@ -52,14 +52,35 @@ struct SyncLiveTests {
         // Realtime: a list change made elsewhere reaches the running service.
         let pulledBefore = try #require(service.lastPulled)
         let following = Task { await service.start() }
-        // start() pulls at launch, then again once Realtime is subscribed; wait for that second pull.
-        var pulls = 0
-        var seen = pulledBefore
-        for _ in 0..<100 where pulls < 2 {
+        // start() pulls at launch (and again once subscribed, which can land in the same sampling gap, so only the
+        // first is counted). The probe below is what proves Realtime is delivering.
+        var pulledAtLaunch = false
+        for _ in 0..<100 where !pulledAtLaunch {
             try await Task.sleep(for: .milliseconds(50))
-            if let latest = service.lastPulled, latest > seen { pulls += 1; seen = latest }
+            pulledAtLaunch = (service.lastPulled ?? pulledBefore) > pulledBefore
         }
-        #expect(pulls == 2, "pulled at launch and when the subscription was ready")
+        #expect(pulledAtLaunch, "start() pulls at launch")
+        // Realtime starts streaming database changes a moment after it reports the channel subscribed, so a change
+        // made right then can be missed (the app catches up on the next change or foreground). Probe until a change
+        // made elsewhere actually arrives, then test with a fresh one.
+        let probe: IDRow = try await supabase.rpc("ensure_item", params: ["target_household": household.id.uuidString,
+                                                                        "item_name": "Probe"]).select("id").single().execute().value
+        // The probe's own change must show up in the cache, twice in a row: the one pull start() makes when
+        // subscribed can account for one, so at least one came from a Realtime event.
+        var deliveredInARow = 0
+        for attempt in 0..<40 where deliveredInARow < 2 {
+            let state: StockState = attempt.isMultiple(of: 2) ? .low : .out
+            try await SyncClient.live(supabase).send(.setStock(itemID: probe.id, state: state))
+            var arrived = false
+            for _ in 0..<20 where !arrived {
+                try await Task.sleep(for: .milliseconds(50))
+                arrived = try container.mainContext.fetch(FetchDescriptor<CachedItem>())
+                    .first { $0.id == probe.id }?.stockState == state
+            }
+            deliveredInARow = arrived ? deliveredInARow + 1 : 0
+        }
+        let streaming = deliveredInARow == 2
+        try #require(streaming, "Realtime never delivered a change")
         let eggs: IDRow = try await supabase.rpc("ensure_item", params: ["target_household": household.id.uuidString,
                                                                        "item_name": "Eggs"]).select("id").single().execute().value
         try await SyncClient.live(supabase).send(.addToList(householdID: household.id, itemID: eggs.id, list: .quick,
@@ -85,9 +106,15 @@ struct SyncLiveTests {
                                                                         "item_name": "Bread"]).select("id").single().execute().value
         let breadLine = await service.addToList(itemID: bread.id, list: .weekly)
         await service.perform(.setChecked(listItemID: breadLine, checked: true))
-        let serverBread: [CheckRow] = try await supabase.from("list_items").select("checked_at, checked_by")
-            .eq("id", value: breadLine).execute().value
-        #expect(serverBread.first?.checkedAt != nil, "the check-off reached the row the device created")
+        // A Realtime pull may be running, so the replay can land just after perform returns: poll the server.
+        var breadChecked = false
+        for _ in 0..<50 where !breadChecked {
+            let rows: [CheckRow] = try await supabase.from("list_items").select("checked_at, checked_by")
+                .eq("id", value: breadLine).execute().value
+            breadChecked = rows.first?.checkedAt != nil
+            if !breadChecked { try await Task.sleep(for: .milliseconds(100)) }
+        }
+        #expect(breadChecked, "the check-off reached the row the device created")
         following.cancel()
     }
 }
