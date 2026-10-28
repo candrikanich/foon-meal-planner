@@ -64,12 +64,16 @@ struct ListBoardTests {
         var trip = ShoppingTrip(start: tripStart)
         trip.skipped.insert(UUID())
         let restored = try #require(ShoppingTrip(rawValue: trip.rawValue))
-        // Seen failing once in a full run (#115): say exactly what differed if it happens again.
-        #expect(restored == trip, """
-            start \(restored.start.timeIntervalSinceReferenceDate) vs \(trip.start.timeIntervalSinceReferenceDate), \
-            skipped \(restored.skipped) vs \(trip.skipped), raw \(trip.rawValue)
-            """)
+        #expect(restored == trip)
+        #expect(restored.rawValue == trip.rawValue, "the stored form is stable, keys sorted")
         #expect(ShoppingTrip(rawValue: "") == nil)
+    }
+
+    @Test func equalTripsAreEqualWhateverOrderTheirJSONKeysCameIn() throws {
+        let skipped = UUID()
+        let startFirst = try #require(ShoppingTrip(rawValue: #"{"start":1800000000000,"skipped":["\#(skipped)"]}"#))
+        let skippedFirst = try #require(ShoppingTrip(rawValue: #"{"skipped":["\#(skipped)"],"start":1800000000000}"#))
+        #expect(startFirst == skippedFirst)
     }
 
     @Test func skippedItemsLeaveTheAislesForNextTime() {
