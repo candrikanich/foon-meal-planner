@@ -53,6 +53,8 @@ struct WeekClient: Sendable {
     var setNights: @Sendable (_ planID: UUID, _ nights: [NightUpdate]) async throws -> Void
     /// Swap: one night's pick and lock, set directly (a planner may swap a locked night).
     var setNight: @Sendable (_ night: NightUpdate, _ locked: Bool) async throws -> Void
+    /// Approves the week and writes its weekly list in one transaction.
+    var approve: @Sendable (_ planID: UUID, _ lines: [WeeklyList.Line]) async throws -> Void = { _, _ in }
     var traditions: @Sendable (_ householdID: UUID) async throws -> [Tradition] = { _ in [] }
     /// Sets or replaces a weekday's tradition; nil removes it.
     var setTradition: @Sendable (_ householdID: UUID, _ weekday: Int, _ tradition: Tradition?) async throws -> Void
@@ -125,6 +127,9 @@ extension WeekClient {
                     .value
                 guard !updated.isEmpty else { throw LibraryClientError.notAllowed }
             },
+            approve: { planID, lines in
+                try await client.rpc("approve_plan", params: ApproveParams(targetPlan: planID, lines: lines)).execute()
+            },
             traditions: { householdID in
                 try await client.from("traditions")
                     .select("weekday, meal_id, quick_pick, name")
@@ -144,6 +149,38 @@ extension WeekClient {
                 )).execute()
             }
         )
+    }
+}
+
+private struct ApproveParams: Encodable, Sendable {
+    struct Line: Encodable, Sendable {
+        let line: WeeklyList.Line
+
+        enum CodingKeys: String, CodingKey {
+            case itemID = "item_id"
+            case quantity, note, staple
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(line.itemID, forKey: .itemID)
+            try container.encodeIfPresent(line.quantity, forKey: .quantity)
+            try container.encodeIfPresent(line.note, forKey: .note)
+            try container.encode(line.isStaple, forKey: .staple)
+        }
+    }
+
+    let targetPlan: UUID
+    let lines: [Line]
+
+    init(targetPlan: UUID, lines: [WeeklyList.Line]) {
+        self.targetPlan = targetPlan
+        self.lines = lines.map(Line.init)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case targetPlan = "target_plan"
+        case lines
     }
 }
 

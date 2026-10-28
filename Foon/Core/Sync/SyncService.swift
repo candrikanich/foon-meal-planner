@@ -214,7 +214,8 @@ final class SyncService {
         for row in snapshot.listItems {
             context.insert(CachedListItem(
                 id: row.id, householdID: household, itemID: row.itemID, itemName: names[row.itemID] ?? "Item",
-                list: row.list, urgency: row.urgency, source: row.source, note: row.note, checkedAt: row.checkedAt
+                list: row.list, urgency: row.urgency, source: row.source, note: row.note, checkedAt: row.checkedAt,
+                quantity: row.quantity
             ))
         }
     }

@@ -260,6 +260,24 @@ final class WeekStore {
         errorMessage = nil
     }
 
+    // MARK: - Approve
+
+    /// Approves the week: its weekly list is written in one go, and the week is stamped approved.
+    @discardableResult
+    func approve(_ lines: [WeeklyList.Line]) async -> Bool {
+        guard let planID = week?.planID, !isBuilding else { return false }
+        do {
+            try await client.approve(planID, lines)
+            // The week may have switched while this was out; stamp only the one approved.
+            if week?.planID == planID { week?.approvedAt = .now }
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = String(localized: "Couldn't approve the week. Check your connection and try again.")
+            return false
+        }
+    }
+
     // MARK: - Traditions
 
     func tradition(on weekday: Int) -> Tradition? {

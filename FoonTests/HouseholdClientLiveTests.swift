@@ -279,6 +279,16 @@ struct HouseholdClientLiveTests {
         ])
         #expect(try await weeks.week(household.id, sunday)?.nights[4].locked == true)
 
+        // Approve: the weekly list lands with amounts and notes, and the week is stamped.
+        let tacoMeal = try #require(try await library.meals(household.id).first { $0.id == mealID })
+        let lines = WeeklyList.build(nights: [WeeklyList.Night(mealID: mealID, home: [])], library: [tacoMeal])
+        try await weeks.approve(week.planID, lines)
+        #expect(try await weeks.week(household.id, sunday)?.approvedAt != nil)
+        let snapshot = try await SyncClient.live(supabase).fetchSnapshot(household.id, sunday)
+        let weekly = snapshot.listItems.filter { $0.list == .weekly && $0.checkedAt == nil }
+        #expect(Set(weekly.map(\.itemID)) == Set(lines.map(\.itemID)))
+        #expect(weekly.contains { $0.quantity != nil })
+
         let me = try #require(try await households.members(household.id).first { $0.firstName == "Ann" })
         var schedule = MemberDraft(me)
         schedule.usuallyAway = [6]

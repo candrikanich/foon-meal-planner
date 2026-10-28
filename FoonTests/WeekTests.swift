@@ -322,10 +322,12 @@ extension WeekClient {
         setLocked: @escaping @Sendable (UUID, Bool) async throws -> Void = { _, _ in },
         setNights: @escaping @Sendable (UUID, [NightUpdate]) async throws -> Void = { _, _ in },
         setNight: @escaping @Sendable (NightUpdate, Bool) async throws -> Void = { _, _ in },
+        approve: @escaping @Sendable (UUID, [WeeklyList.Line]) async throws -> Void = { _, _ in },
         traditions: @escaping @Sendable (UUID) async throws -> [Tradition] = { _ in [] },
         setTradition: @escaping @Sendable (UUID, Int, Tradition?) async throws -> Void = { _, _, _ in }
     ) -> WeekClient {
         WeekClient(week: week, create: create, setExpected: setExpected, setEffort: setEffort, setLocked: setLocked,
-                   setNights: setNights, setNight: setNight, traditions: traditions, setTradition: setTradition)
+                   setNights: setNights, setNight: setNight, approve: approve, traditions: traditions,
+                   setTradition: setTradition)
     }
 }

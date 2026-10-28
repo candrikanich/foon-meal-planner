@@ -1,11 +1,33 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ (%@)" : {
+      "comment" : "Weekly list allergy note: advice, then who it's for",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "%@ (archived, skipped)" : {
       "comment" : "Tradition row: meal out of rotation"
     },
     "%@ (copy)" : {
       "comment" : "Copy and tweak: the copied meal's starting name"
+    },
+    "%@ +%lld" : {
+      "comment" : "Allergy note: first name and how many more",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ +%2$lld"
+          }
+        }
+      }
     },
     "%@ is on the list" : {
 
@@ -180,6 +202,18 @@
     "Amount of %@" : {
 
     },
+    "Approve · %lld items" : {
+
+    },
+    "Approve · 1 item" : {
+
+    },
+    "Approved. Changed a night? Update the list." : {
+
+    },
+    "Approving builds the weekly list from these nights." : {
+
+    },
     "Archive" : {
 
     },
@@ -240,6 +274,31 @@
     "Changes the night's effort" : {
 
     },
+    "Check for %@ (%@)" : {
+      "comment" : "Weekly list note for an Other allergy: what to avoid, then who",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Check for %1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "Check the label" : {
+      "comment" : "Shopping note for an allergy typed as Other"
+    },
+    "Check: %@ (%@)" : {
+      "comment" : "Compact allergy note: everything to avoid, then who",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Check: %1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "Contains %@ (%@)" : {
       "comment" : "Allergy flag: allergen, then who",
       "localizations" : {
@@ -255,6 +314,9 @@
 
     },
     "Couldn't add %@. Check your connection and try again." : {
+
+    },
+    "Couldn't approve the week. Check your connection and try again." : {
 
     },
     "Couldn't archive that meal. Check your connection and try again." : {
@@ -430,6 +492,27 @@
     },
     "Full evening" : {
 
+    },
+    "Get dairy-free" : {
+      "comment" : "Shopping note for a milk allergy"
+    },
+    "Get egg-free" : {
+      "comment" : "Shopping note for an egg allergy"
+    },
+    "Get gluten-free" : {
+      "comment" : "Shopping note for a wheat allergy"
+    },
+    "Get nut-free" : {
+      "comment" : "Shopping note for a tree nut allergy"
+    },
+    "Get peanut-free" : {
+      "comment" : "Shopping note for a peanut allergy"
+    },
+    "Get sesame-free" : {
+      "comment" : "Shopping note for a sesame allergy"
+    },
+    "Get soy-free" : {
+      "comment" : "Shopping note for a soy allergy"
     },
     "Give the meal a name." : {
 
@@ -872,6 +955,12 @@
     "Sign out of all devices?" : {
 
     },
+    "Skip fish" : {
+      "comment" : "Shopping note for a fish allergy"
+    },
+    "Skip shellfish" : {
+      "comment" : "Shopping note for a shellfish allergy"
+    },
     "Slow cooker" : {
 
     },
@@ -1020,6 +1109,12 @@
 
     },
     "Unlock night" : {
+
+    },
+    "Update the list · %lld items" : {
+
+    },
+    "Update the list · 1 item" : {
 
     },
     "Use this if a phone is lost or shared. Every device, this one included, signs out right away." : {

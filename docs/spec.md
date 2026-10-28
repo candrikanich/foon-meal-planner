@@ -213,6 +213,8 @@ The plan produces one weekly list; pivots and running-out moments produce the qu
 
 **Weekly list.** Generated from the approved plan's ingredients, minus what's on hand, merged with low or out staples. Designed so one big trip covers the week.
 
+- v1 (#26): Approve on This Week (planners) shows the item count and builds the list from the nights still ahead: each meal's ingredients and sides, merged by household item with their amounts joined ("1 cup + 2 cups"), minus items marked in stock (low still counts), plus keep-on-hand staples that are low or out. An item someone home that night can't have gets a note ("Get dairy-free (Nora)"). Approving again after a swap updates that week's list: lines it added that are no longer needed go, the rest refresh, lines added by hand stay, and anything already bought for that week isn't listed again. Approving next week never touches this week's lines. When allergy notes don't fit, a compact note still names every allergen ("Check: dairy, kiwi (Nora +2)"). The cart badge updates right away.
+
 **Quick list.** Fill-in trips during the week. Fed by pivots ("mac and cheese needs milk"), staple taps, and shared text. Items carry urgency ("for tonight's dinner" vs "whenever"). Duplicates merge: milk from a pivot and milk from a tap show once.
 
 **Keep-on-hand list.** Everyday staples (cereal, milk, bagels, apples, pickles, snacks) and backup dinners (box mac and cheese, frozen pizza, pasta and jarred sauce). Each item is in, low, or out; no counting. Anyone taps low or out. Backup dinners in stock feed the tonight poll and tonight rescue.
