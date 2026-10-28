@@ -105,7 +105,7 @@ Captions use the tagline voice.
 
 Foon uses Sign in with Apple only, so the reviewer signs in with their own Apple ID and creates a household in onboarding (about 2 minutes). To see a populated app instantly, tap "Load a sample family" on the first onboarding screen, which creates demo members, meals, and a planned week.
 
-Key flows: This Week tab, Fill my week, approve, then the cart icon for the shopping list. AI features use Apple's on-device Foundation Models and appear only on eligible devices; every feature has a non-AI path. The subscription starts with a 30-day free trial; sandbox purchase works from Family, Subscription. Account deletion: Family, your profile, Delete my account.
+Key flows: This Week tab, Fill my week, approve, then the cart icon for the shopping list. AI features use Apple's on-device Foundation Models and appear only on eligible devices; every feature has a non-AI path. The subscription starts with a 30-day free trial; sandbox purchase works from Family, Subscription. Account deletion: Family, Your data, Delete my account (also on the first screen before a household exists). It confirms with Sign in with Apple and revokes the token.
 
 ## Compliance checklist
 

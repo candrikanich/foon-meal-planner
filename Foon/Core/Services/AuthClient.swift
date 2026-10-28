@@ -14,6 +14,27 @@ struct AuthClient: Sendable {
     /// Ends every session for this account, this device included. Other devices lose household
     /// access at once (RLS checks the session). False if the server couldn't be reached.
     var signOutEverywhere: @Sendable () async -> Bool
+    /// Deletes the account on the server (the delete-account Edge Function), with a fresh Sign in with Apple
+    /// authorization code so Apple's token can be revoked. Throws `AccountDeletionError`.
+    var deleteAccount: @Sendable (_ authorizationCode: String) async throws -> Void = { _ in }
+}
+
+enum AccountDeletionError: Error, Equatable {
+    /// Refused before anything changed (Apple said no, or the request was turned away).
+    case nothingDeleted
+    /// The code came from a different Apple ID than the account's.
+    case otherAppleID
+    /// It may have stopped part-way (or we couldn't hear back); confirming again finishes it.
+    case unfinished
+
+    /// From the function's HTTP status; nil when no response came back.
+    init(status: Int?) {
+        switch status {
+        case 409: self = .otherAppleID
+        case let code? where code < 500 || code == 502: self = .nothingDeleted
+        default: self = .unfinished
+        }
+    }
 }
 
 extension AuthClient {
@@ -70,6 +91,18 @@ extension AuthClient {
                     return true
                 } catch {
                     return false
+                }
+            },
+            deleteAccount: { authorizationCode in
+                do {
+                    try await client.functions.invoke(
+                        "delete-account",
+                        options: FunctionInvokeOptions(body: ["authorization_code": authorizationCode])
+                    )
+                } catch FunctionsError.httpError(let code, _) {
+                    throw AccountDeletionError(status: code)
+                } catch {
+                    throw AccountDeletionError(status: nil)
                 }
             }
         )

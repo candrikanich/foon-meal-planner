@@ -8,6 +8,33 @@ struct HouseholdStoreTests {
     private let me = UUID()
     private let household = Household(id: UUID(), name: "The Smiths", emoji: "🌮", owner: nil)
 
+    @Test func theExportIsAReadableJSONFile() async throws {
+        let household = household
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: { household },
+            exportHousehold: { _ in Data(#"{"meals":[{"name":"Tacos"}],"household":{"name":"The Smiths"}}"#.utf8) }
+        ))
+        await store.load()
+        let url = try #require(await store.exportFile())
+        #expect(url.pathExtension == "json")
+        #expect(url.lastPathComponent.hasPrefix("Foon - The Smiths"))
+        let text = try String(contentsOf: url, encoding: .utf8)
+        #expect(text.contains("\n"), "pretty-printed, so a person can read it")
+        let decoded = try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any]
+        #expect((decoded?["household"] as? [String: Any])?["name"] as? String == "The Smiths")
+    }
+
+    @Test func aFailedExportSaysSo() async {
+        let household = household
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: { household },
+            exportHousehold: { _ in throw URLError(.notConnectedToInternet) }
+        ))
+        await store.load()
+        #expect(await store.exportFile() == nil)
+        #expect(store.errorMessage != nil)
+    }
+
     @Test func withNoHouseholdTheUserCreatesOne() async {
         let store = HouseholdStore(userID: me, client: .fake())
         await store.load()
@@ -240,15 +267,15 @@ extension HouseholdClient {
         updateMember: @escaping @Sendable (UUID, MemberChanges) async throws -> Member = { _, _ in throw URLError(.unknown) },
         grantAllergyConsent: @escaping @Sendable (UUID, String) async throws -> Void = { _, _ in },
         setAllergies: @escaping @Sendable (UUID, [Allergen], [String]) async throws -> Void = { _, _, _ in },
-        updateSettings: @escaping @Sendable (UUID, HouseholdSettings) async throws -> Void = { _, _ in }
+        updateSettings: @escaping @Sendable (UUID, HouseholdSettings) async throws -> Void = { _, _ in },
+        exportHousehold: @escaping @Sendable (UUID) async throws -> Data = { _ in Data("{}".utf8) }
     ) -> HouseholdClient {
         HouseholdClient(
             myHousehold: myHousehold,
             createHousehold: createHousehold,
             members: members,
             addMember: addMember,
-            updateMember: updateMember
-,
+            updateMember: updateMember,
             createInvite: { _ in throw URLError(.unknown) },
             redeemInvite: { _ in .invalid },
             invitedMemberIDs: { _ in [] },
@@ -257,7 +284,26 @@ extension HouseholdClient {
             revokeParentalConsent: { _ in },
             grantAllergyConsent: grantAllergyConsent,
             setAllergies: setAllergies,
-            updateSettings: updateSettings
+            updateSettings: updateSettings,
+            exportHousehold: exportHousehold
         )
+    }
+}
+
+struct AccountDeletionOutcomeTests {
+    private let me = UUID()
+
+    @Test func theOwnerDeletesTheHousehold() {
+        let household = Household(id: UUID(), name: "The Smiths", emoji: nil, owner: me)
+        #expect(AccountDeletion.outcome(household: household, me: nil, userID: me) == .household(name: "The Smiths"))
+    }
+
+    @Test func otherAdultsLeaveAndKidsKeepTheirProfile() {
+        let household = Household(id: UUID(), name: "The Smiths", emoji: nil, owner: UUID())
+        let adult = Member.fixture(firstName: "Ben", userID: me)
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid, userID: me)
+        #expect(AccountDeletion.outcome(household: household, me: adult, userID: me) == .adult(householdName: "The Smiths"))
+        #expect(AccountDeletion.outcome(household: household, me: kid, userID: me) == .kid)
+        #expect(AccountDeletion.outcome(household: nil, me: nil, userID: me) == .noHousehold)
     }
 }

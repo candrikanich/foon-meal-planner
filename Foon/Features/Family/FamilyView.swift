@@ -5,6 +5,8 @@ struct FamilyView: View {
     @Environment(SessionStore.self) private var session
     @State private var editor: EditorTarget?
     @State private var confirmingSignOutEverywhere = false
+    @State private var deletingAccount = false
+    @State private var exportURL: URL?
 
     var body: some View {
         NavigationStack {
@@ -33,6 +35,23 @@ struct FamilyView: View {
                             .buttonStyle(.plain)
                             .accessibilityHint("Edit")
                         }
+                    }
+                }
+
+                Section {
+                    if store.canExport {
+                        ExportButton(exportURL: $exportURL)
+                    }
+                    Button("Delete my account", role: .destructive) { deletingAccount = true }
+                } header: {
+                    Text("Your data")
+                } footer: {
+                    if let message = store.errorMessage {
+                        Text(message).foregroundStyle(.red)
+                    } else if store.canExport {
+                        Text("Export saves the household's meals, plans, lists, and family as a file. Deleting your account can't be undone.")
+                    } else {
+                        Text("Deleting your account can't be undone.")
                     }
                 }
 
@@ -71,6 +90,7 @@ struct FamilyView: View {
             } message: {
                 Text("Foon signs out on every phone, tablet, and Mac using your account, including this one.")
             }
+            .sheet(isPresented: $deletingAccount) { DeleteAccountView() }
             .sheet(item: $editor) { target in
                 switch target {
                 case .new: MemberEditorView(member: nil)

@@ -73,3 +73,18 @@ jobs:
 
       - name: pgTAP tests
         run: supabase test db
+
+  functions:
+    name: Edge Functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Lint, type-check, and test
+        working-directory: supabase/functions/delete-account
+        run: deno lint && deno check *.ts && deno test

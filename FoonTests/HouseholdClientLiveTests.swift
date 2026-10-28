@@ -337,6 +337,20 @@ struct HouseholdClientLiveTests {
         #expect(!saved.onboarded)
     }
 
+    @Test func aPlannerExportsTheHousehold() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let household = try await households.createHousehold("Export family", "🌮", "Ann", HouseholdSettings())
+        let data = try await households.exportHousehold(household.id)
+        let export = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect((export["household"] as? [String: Any])?["name"] as? String == "Export family")
+        let members = try #require(export["members"] as? [[String: Any]])
+        #expect(members.map { $0["first_name"] as? String } == ["Ann"])
+        #expect(members.allSatisfy { $0["user_id"] == nil }, "no account ids in the export")
+    }
+
     private static let config = try! SupabaseConfig.fromMainBundle()
     private static func sampleJPEG() throws -> Data {
         let context = try #require(CGContext(

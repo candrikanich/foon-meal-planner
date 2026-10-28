@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 @testable import Foon
 
@@ -161,14 +162,16 @@ private extension AuthClient {
         onSignIn: @escaping @Sendable (String, String, String?) async throws -> Void = { _, _, _ in },
         onSignOut: @escaping @Sendable () async -> Void = {},
         accountStillExists: @escaping @Sendable () async -> Bool = { true },
-        signOutEverywhere: @escaping @Sendable () async -> Bool = { true }
+        signOutEverywhere: @escaping @Sendable () async -> Bool = { true },
+        deleteAccount: @escaping @Sendable (String) async throws -> Void = { _ in }
     ) -> AuthClient {
         AuthClient(
             sessionChanges: { sessionChanges },
             signInWithApple: onSignIn,
             signOut: onSignOut,
             accountStillExists: accountStillExists,
-            signOutEverywhere: signOutEverywhere
+            signOutEverywhere: signOutEverywhere,
+            deleteAccount: deleteAccount
         )
     }
 }
@@ -180,5 +183,57 @@ private extension SessionStore {
             await Task.yield()
         }
         return condition(self)
+    }
+}
+
+@MainActor
+struct AccountDeletionTests {
+    @Test func deletingSendsApplesCodeThenSignsOut() async {
+        let codes = Mutex<[String]>([])
+        let signOuts = Mutex(0)
+        let store = SessionStore(auth: .fake(
+            onSignOut: { signOuts.withLock { $0 += 1 } },
+            deleteAccount: { code in codes.withLock { $0.append(code) } }
+        ))
+        #expect(await store.deleteAccount(authorizationCode: Data("code-1".utf8)))
+        #expect(codes.withLock { $0 } == ["code-1"])
+        #expect(signOuts.withLock { $0 } == 1)
+        #expect(store.errorMessage == nil)
+    }
+
+    @Test func aFailedDeleteKeepsYouSignedIn() async {
+        let signOuts = Mutex(0)
+        let store = SessionStore(auth: .fake(
+            onSignOut: { signOuts.withLock { $0 += 1 } },
+            deleteAccount: { _ in throw URLError(.notConnectedToInternet) }
+        ))
+        #expect(!(await store.deleteAccount(authorizationCode: Data("code-1".utf8))))
+        #expect(signOuts.withLock { $0 } == 0)
+        #expect(store.errorMessage != nil)
+    }
+
+    @Test(arguments: [
+        (AccountDeletionError.nothingDeleted, "nothing was deleted"),
+        (.otherAppleID, "different Apple ID"),
+        (.unfinished, "didn't finish")
+    ])
+    func eachFailureSaysWhatHappened(error: AccountDeletionError, says: String) async {
+        let store = SessionStore(auth: .fake(deleteAccount: { _ in throw error }))
+        #expect(!(await store.deleteAccount(authorizationCode: Data("code-1".utf8))))
+        #expect(store.errorMessage?.contains(says) == true)
+    }
+
+    @Test func serverStatusesMapToWhatHappened() {
+        #expect(AccountDeletionError(status: 502) == .nothingDeleted)
+        #expect(AccountDeletionError(status: 401) == .nothingDeleted)
+        #expect(AccountDeletionError(status: 409) == .otherAppleID)
+        #expect(AccountDeletionError(status: 500) == .unfinished)
+        #expect(AccountDeletionError(status: nil) == .unfinished, "the server may have finished before we lost it")
+    }
+
+    @Test func withoutApplesCodeNothingIsSent() async {
+        let store = SessionStore(auth: .fake(deleteAccount: { _ in Issue.record("nothing to send") }))
+        #expect(!(await store.deleteAccount(authorizationCode: nil)))
+        #expect(store.errorMessage != nil)
     }
 }

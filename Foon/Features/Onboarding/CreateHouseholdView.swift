@@ -11,6 +11,7 @@ struct CreateHouseholdView: View {
     @State private var isSaving = false
     @State private var inviteCode = ""
     @State private var confirmingSample = false
+    @State private var deletingAccount = false
 
     private var canCreate: Bool {
         var owner = MemberDraft()
@@ -120,7 +121,12 @@ struct CreateHouseholdView: View {
                         Text(message).foregroundStyle(.red)
                     }
                 }
+
+                Section {
+                    Button("Delete my account", role: .destructive) { deletingAccount = true }
+                }
             }
+            .sheet(isPresented: $deletingAccount) { DeleteAccountView() }
             .navigationTitle("Welcome to Foon")
             .onChange(of: session.pendingInviteCode) { _, code in
                 if let code { inviteCode = code }

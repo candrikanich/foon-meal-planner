@@ -29,6 +29,8 @@ struct HouseholdClient: Sendable {
         = { _, _, _ in }
     /// Merges these settings into the household's, keeping keys this version doesn't know.
     var updateSettings: @Sendable (_ householdID: UUID, _ settings: HouseholdSettings) async throws -> Void = { _, _ in }
+    /// Everything in the household as JSON (planners only), for the data export.
+    var exportHousehold: @Sendable (_ householdID: UUID) async throws -> Data = { _ in Data("{}".utf8) }
 }
 
 /// The wording version logged with allergy consent; a change in what it promises means a new version.
@@ -145,6 +147,11 @@ extension HouseholdClient {
                 try await client.rpc("update_household_settings", params: SettingsParams(
                     targetHousehold: householdID, patch: settings
                 )).execute()
+            },
+            exportHousehold: { householdID in
+                try await client.rpc("export_household", params: ["target_household": householdID.uuidString])
+                    .execute()
+                    .data
             }
         )
     }
