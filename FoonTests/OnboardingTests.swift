@@ -171,6 +171,7 @@ struct OnboardingHouseholdTests {
         ))
         await store.createHousehold(name: "The Smiths", emoji: nil, firstName: "Ann")
         #expect(saved.withLock { $0 }?.onboarded == false)
+        #expect(saved.withLock { $0 }?.timeZone == TimeZone.current.identifier, "so the server knows when last night was")
         #expect(store.needsOnboarding)
     }
 
