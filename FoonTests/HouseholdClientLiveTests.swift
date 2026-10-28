@@ -364,27 +364,34 @@ struct HouseholdClientLiveTests {
         try await WeekClient.live(supabase).setNight(NightUpdate(nightID: tonight.id, mealID: chiliID), false)
 
         let dinners = DinnerClient.live(supabase)
-        let logID = try await dinners.react(tonight.id, ann.id, .favorite)
+        // We had something else, before anyone rated: tacos, not chili.
+        let logID = try await dinners.confirm(tonight.id)
+        try await dinners.correct(logID, .dish(mealID: tacosID, quickPick: nil))
+        #expect(try await dinners.react(tonight.id, ann.id, .favorite) == logID)
         #expect(try await dinners.react(tonight.id, nora.id, .notForMe) == logID, "pass the phone, same dinner")
+        try await dinners.correct(logID, .extras(leftovers: true, cookedByMemberID: ann.id))
 
-        var logs = try await dinners.logs(household.id, today)
+        let logs = try await dinners.logs(household.id, today)
         let log = try #require(logs.first)
         #expect(logs.count == 1)
-        #expect(log.mealName == "Chili")
+        #expect(log.mealName == "Tacos", "we had something else")
         #expect(log.verified)
+        #expect(log.confirmedByMemberID == ann.id)
+        #expect(log.cookedByMemberID == ann.id)
+        #expect(log.leftovers == true)
         #expect(log.reaction(of: ann.id)?.kind == .favorite)
         #expect(log.reaction(of: nora.id)?.kind == .notForMe)
-
-        var correction = DinnerCorrection(log)
-        correction.mealID = tacosID
-        correction.cookedByMemberID = ann.id
-        correction.leftovers = true
-        try await dinners.correct(log.id, correction)
-        logs = try await dinners.logs(household.id, today)
-        #expect(logs.first?.mealName == "Tacos", "we had something else")
-        #expect(logs.first?.cookedByMemberID == ann.id)
-        #expect(logs.first?.leftovers == true)
+        await #expect(throws: (any Error).self, "once rated, the dish stays") {
+            try await dinners.correct(logID, .dish(mealID: chiliID, quickPick: nil))
+        }
         #expect(try await dinners.logs(household.id, today.adding(days: 1)).isEmpty, "only from the date asked")
+
+        let nights = try await dinners.nights(household.id, today, today)
+        #expect(nights.map(\.id) == [tonight.id])
+        #expect(nights.first?.mealName == "Chili")
+        try await dinners.setNotHome(tonight.id, nora.id)
+        let after = try await dinners.nights(household.id, today, today)
+        #expect(after.first?.attendance[nora.id] == false, "Nora wasn't home, said on Ann's phone")
     }
 
     @Test func aPlannerExportsTheHousehold() async throws {

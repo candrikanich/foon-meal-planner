@@ -6,6 +6,8 @@ extension DinnerClient {
         logs: { _, _ in [] },
         confirm: { _ in UUID() },
         react: { _, _, _ in UUID() },
-        correct: { _, _ in }
+        correct: { _, _ in },
+        nights: { _, _, _ in [] },
+        setNotHome: { _, _ in }
     )
 }

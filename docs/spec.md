@@ -229,6 +229,14 @@ The plan is the log by default; one notification per person confirms it, rates i
 - Deleting an adult's account keeps their reactions as anonymous history but clears their comments.
 - Retention covers reactions the same way: a removed kid's comments are cleared with their name. When a kid's own-device consent is withdrawn, after 30 days the ratings they last wrote themselves are erased and their comments are cleared; ratings a parent entered for them by passing the phone stay.
 
+**v1 card (#42, part 2).** Until push notifications arrive (M2 car 6), the prompt is a card at the top of This Week. It shows for each dish you were expected home for, from an hour after that night's dinner time until the same time the next evening (the missed card), and goes away once you rate it. Times are the household's (its time zone), and the card appears on its own if the app is left open. Someone with no attendance row for that night (added to the family after the week was made) gets no card.
+- "Chili last night?" (or "tonight?") has four reaction buttons about the food.
+- **We had something else** picks a quick pick or one of your meals as what was actually eaten. It's offered only until someone rates the dinner; after that the server keeps the dish, so a rating never moves to a different one.
+- **Wasn't home** (after a confirmation) marks you away for that night, within the last week. Anyone can say it for themselves or, in Pass the phone, for a profile nobody has claimed.
+- **Pass the phone** lists everyone home: you and profiles without their own account are rated right there, and anyone with their own account shows read-only with their answer.
+- The first person to answer then gets "Anything left over?" (pre-filled Leftovers when someone expected was out, else All gone) and, for a dish, "Who cooked?" (tap a face, optional), and Save. Each answer saves only its own fields, so two phones answering different questions don't overwrite each other.
+- Last night's card shows even when last night was in the previous week.
+
 ## Shopping and pantry
 
 The plan produces one weekly list; pivots and running-out moments produce the quick list. Store-agnostic: no store setup or store logic.

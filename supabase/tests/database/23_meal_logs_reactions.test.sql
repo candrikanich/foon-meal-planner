@@ -1,6 +1,6 @@
 -- Dinner logs and reactions (#42, part 1).
 begin;
-select plan(40);
+select plan(41);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -92,11 +92,13 @@ select throws_ok($$ select public.react_to_dinner('00000000-0000-0000-0000-00000
   '00000000-0000-0000-0000-0000000000a2', 'good') $$, '22023', null, 'but quick picks aren''t rated');
 
 -- "We had something else", leftovers, and who cooked ---------------------------------------------
-select lives_ok($$ update public.meal_logs set meal_id = '00000000-0000-0000-0000-0000000002a1', leftovers = true,
-  cooked_by_member_id = '00000000-0000-0000-0000-0000000000a1'
-  where night_id = '00000000-0000-0000-0000-0000000004a4' $$, 'anyone home corrects the log');
-select throws_ok($$ update public.meal_logs set quick_pick = 'takeout'
-  where night_id = '00000000-0000-0000-0000-0000000004a4' $$, '23514', null, 'a meal or a quick pick, not both');
+select lives_ok($$ update public.meal_logs set leftovers = true, cooked_by_member_id = '00000000-0000-0000-0000-0000000000a1'
+  where night_id = '00000000-0000-0000-0000-0000000004a4' $$, 'anyone in the family adds leftovers and who cooked');
+select throws_ok($$ update public.meal_logs set meal_id = '00000000-0000-0000-0000-0000000002a1'
+  where night_id = '00000000-0000-0000-0000-0000000004a4' $$, '42501', null,
+  'once someone has rated it, the dish stays (their rating was for chili)');
+select throws_ok($$ update public.meal_logs set meal_id = '00000000-0000-0000-0000-0000000002a1'
+  where night_id = '00000000-0000-0000-0000-0000000004a2' $$, '23514', null, 'a meal or a quick pick, not both');
 select throws_ok($$ update public.meal_logs set confirmed_by_member_id = '00000000-0000-0000-0000-0000000000a1' $$,
   '42501', null, 'who confirmed is recorded, not claimed');
 select throws_ok($$ update public.meal_logs set verified = false $$, '42501', null,
@@ -185,7 +187,8 @@ select results_eq(
   'Nora''s rating, entered on a parent''s phone, stays as anonymous history without her words');
 
 select public.delete_account_data('a0000000-0000-0000-0000-00000000000a');
-select is((select count(*)::int from public.meal_logs) + (select count(*)::int from public.reactions), 0,
+select is((select count(*)::int from public.meal_logs where household_id = '00000000-0000-0000-0000-0000000000a0')
+  + (select count(*)::int from public.reactions where household_id = '00000000-0000-0000-0000-0000000000a0'), 0,
   'deleting the household deletes its logs and reactions');
 
 select * from finish();

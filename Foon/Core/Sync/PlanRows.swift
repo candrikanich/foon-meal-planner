@@ -7,7 +7,7 @@ enum ListUrgency: String, Codable, Sendable { case tonight, whenever }
 enum ListItemSource: String, Codable, Sendable { case plan, pivot, staple, manual, shared }
 enum StockState: String, Codable, Sendable { case `in`, low, out }
 enum NightEffort: String, Codable, Sendable { case normal, rushed, full, event }
-enum QuickPick: String, Codable, Sendable {
+enum QuickPick: String, Codable, CaseIterable, Sendable {
     case leftovers, takeout
     case eatOut = "eat_out"
     case fendForYourselves = "fend_for_yourselves"

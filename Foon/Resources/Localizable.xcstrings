@@ -32,7 +32,16 @@
     "%@ is on the list" : {
 
     },
+    "%@ last night?" : {
+      "comment" : "After-dinner card: the dish, then the question"
+    },
     "%@ signs out right away and can rejoin only with your consent and a new invite." : {
+
+    },
+    "%@ tonight?" : {
+      "comment" : "After-dinner card: the dish, then the question"
+    },
+    "%@ wasn't home" : {
 
     },
     "%@ · %@" : {
@@ -236,6 +245,9 @@
     "Aisle" : {
 
     },
+    "All gone" : {
+
+    },
     "Allergies" : {
 
     },
@@ -392,6 +404,9 @@
     "Couldn't archive that meal. Check your connection and try again." : {
 
     },
+    "Couldn't change the dinner. Check your connection and try again." : {
+
+    },
     "Couldn't change the night. Check your connection and try again." : {
 
     },
@@ -420,6 +435,9 @@
 
     },
     "Couldn't find it last trip" : {
+
+    },
+    "Couldn't load last night's dinner. Check your connection and try again." : {
 
     },
     "Couldn't load the week" : {
@@ -456,6 +474,9 @@
 
     },
     "Couldn't save %@. Check your connection and try again." : {
+
+    },
+    "Couldn't save that. Check your connection and try again." : {
 
     },
     "Couldn't save the allergies. Check your connection and try again." : {
@@ -521,6 +542,9 @@
     "Different tastes. Same table." : {
 
     },
+    "Dinner" : {
+
+    },
     "Dinner at" : {
 
     },
@@ -576,6 +600,9 @@
 
     },
     "Event" : {
+
+    },
+    "Everyone at the table rates on this phone" : {
 
     },
     "Everyone's here. You can invite people later from Family." : {
@@ -662,6 +689,9 @@
     "From a link" : {
 
     },
+    "From your meals" : {
+
+    },
     "Frozen" : {
 
     },
@@ -741,6 +771,9 @@
 
     },
     "Household name" : {
+
+    },
+    "I wasn't home" : {
 
     },
     "I'm %@'s parent or guardian, and I agree to %@ using Foon on their own device. Foon stores what our family enters about %@ (first name, avatar, allergies, and schedule), what %@ adds (requests, ratings, comments, and list items), and an age range from Apple, never a birthdate. It's shared only with this household and never used for ads. I can withdraw this at any time." : {
@@ -1013,6 +1046,9 @@
     "Not made yet" : {
 
     },
+    "Not yet" : {
+
+    },
     "Note or brand" : {
 
     },
@@ -1055,6 +1091,9 @@
     "On the quick list for the next trip." : {
 
     },
+    "On their own phones" : {
+
+    },
     "Open" : {
 
     },
@@ -1092,6 +1131,9 @@
 
     },
     "Parents manage the family, allergies, and privacy choices. Planners build the week and manage meals." : {
+
+    },
+    "Pass the phone" : {
 
     },
     "Personal care" : {
@@ -1141,6 +1183,12 @@
     },
     "Quick for a rushed night" : {
       "comment" : "Reason chip"
+    },
+    "Quick picks" : {
+
+    },
+    "Rate the food, not the cook. Changes are fine for a day." : {
+
     },
     "Read recipe" : {
 
@@ -1293,6 +1341,9 @@
     "Some sites don't let apps read their recipes. You can add the ingredients yourself." : {
 
     },
+    "Someone already rated this dinner, so it stays as it was." : {
+
+    },
     "Something else" : {
 
     },
@@ -1369,6 +1420,9 @@
     "Tap the dinners your family already makes. You can add your own anytime." : {
 
     },
+    "Thanks! Anything left over?" : {
+
+    },
     "That code didn't work. Check it and try again." : {
 
     },
@@ -1400,6 +1454,9 @@
 
     },
     "The Smiths" : {
+
+    },
+    "The card goes away and you're marked away for that night." : {
 
     },
     "The copy was made but hasn't loaded yet. Pull to refresh the library." : {
@@ -1513,6 +1570,12 @@
     "Want a copy first? Export saves everything as a file." : {
 
     },
+    "Wasn't home" : {
+
+    },
+    "We had something else" : {
+
+    },
     "Week" : {
 
     },
@@ -1522,10 +1585,16 @@
     "Welcome to Foon" : {
 
     },
+    "What did you have?" : {
+
+    },
     "When do you plan the week?" : {
 
     },
     "Which of these does your family make?" : {
+
+    },
+    "Who cooked?" : {
 
     },
     "Who they are" : {
@@ -1553,6 +1622,9 @@
 
     },
     "You can't change this meal. Only planners can." : {
+
+    },
+    "You weren't home for dinner?" : {
 
     },
     "You're already in a household. Foon supports one household per person for now." : {
