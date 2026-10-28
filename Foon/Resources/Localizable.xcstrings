@@ -35,6 +35,16 @@
     "%@ signs out right away and can rejoin only with your consent and a new invite." : {
 
     },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "%@'s favorite" : {
       "comment" : "Reason chip: a member's favorite"
     },
@@ -406,6 +416,9 @@
     "Couldn't find it last trip" : {
 
     },
+    "Couldn't load the week" : {
+
+    },
     "Couldn't load the week. Check your connection and try again." : {
 
     },
@@ -422,6 +435,9 @@
 
     },
     "Couldn't open that photo. Try another one." : {
+
+    },
+    "Couldn't plan it right now. Try again in a moment." : {
 
     },
     "Couldn't record your consent. Check your connection and try again." : {
@@ -602,6 +618,9 @@
 
     },
     "Foon flags dishes that contain them, and you plan as usual." : {
+
+    },
+    "Foon is building the week. Try again in a moment." : {
 
     },
     "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime." : {
@@ -895,6 +914,9 @@
     "Next week" : {
 
     },
+    "Next week isn't started" : {
+
+    },
     "Night not found" : {
 
     },
@@ -928,6 +950,9 @@
     "No meals yet" : {
 
     },
+    "No nights left to plan" : {
+
+    },
     "No one in particular" : {
 
     },
@@ -938,6 +963,9 @@
 
     },
     "No suggestions fit this night. Search your meals instead." : {
+
+    },
+    "No week yet" : {
 
     },
     "Nobody's home" : {
@@ -997,6 +1025,9 @@
     "On the quick list for the next trip." : {
 
     },
+    "Open" : {
+
+    },
     "Open night" : {
 
     },
@@ -1042,6 +1073,12 @@
     "Pick for me" : {
 
     },
+    "Plan %@" : {
+
+    },
+    "Plan it" : {
+
+    },
     "Plan on" : {
 
     },
@@ -1049,6 +1086,9 @@
 
     },
     "Planning" : {
+
+    },
+    "Plans it for this night" : {
 
     },
     "Popular" : {
@@ -1102,6 +1142,9 @@
     "Replace with yours" : {
 
     },
+    "Replaces what's planned" : {
+
+    },
     "Requested" : {
       "comment" : "Reason chip: someone asked for this dish"
     },
@@ -1115,6 +1158,9 @@
 
     },
     "Save" : {
+
+    },
+    "Saving" : {
 
     },
     "Search dinners" : {
@@ -1213,6 +1259,9 @@
     "Staples running low" : {
 
     },
+    "Start the week on This Week, then plan %@ into it." : {
+
+    },
     "Start with empty nights" : {
 
     },
@@ -1245,6 +1294,9 @@
       "comment" : "Swap sheet title: the night, e.g. Tonight or Thursday"
     },
     "Swap this night" : {
+
+    },
+    "Switch to next week on This Week to plan it there." : {
 
     },
     "Taco %@" : {
@@ -1300,6 +1352,9 @@
     },
     "The family likes it" : {
       "comment" : "Reason chip"
+    },
+    "The night stays locked, so Rebuild keeps it." : {
+
     },
     "The recipe steps are too long." : {
 

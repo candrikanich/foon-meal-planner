@@ -127,6 +127,9 @@ final class WeekStore {
         week.map { WeekLayout(nights: $0.nights, today: today()) }
     }
 
+    /// Today as the store sees it (injected in tests), for labels that must agree with `layout`.
+    var currentDay: CalendarDay { today() }
+
     // MARK: - Build my week
 
     /// Starts the week if needed, then drafts every night that isn't kept (locked, event, or past).

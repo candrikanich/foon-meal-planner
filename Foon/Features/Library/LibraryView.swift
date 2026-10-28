@@ -7,6 +7,7 @@ struct LibraryView: View {
     @Environment(HouseholdStore.self) private var household
     @State private var browsingCatalog = false
     @State private var quickAdding = false
+    @State private var planning: LibraryMeal?
     @State private var path: [UUID] = []
 
     private var canEdit: Bool {
@@ -36,6 +37,7 @@ struct LibraryView: View {
             .searchable(text: $library.search, prompt: Text("Meals or ingredients"))
             .toolbar { toolbar }
             .refreshable { await library.load(members: household.members) }
+            .sheet(item: $planning) { meal in PlanItSheet(meal: meal) }
             .sheet(isPresented: $browsingCatalog) {
                 CatalogBrowserView(canAdd: canEdit)
             }
@@ -75,6 +77,7 @@ struct LibraryView: View {
     @ViewBuilder
     private func menu(for meal: LibraryMeal) -> some View {
         if canEdit && meal.status.isInRotation {
+            Button("Plan it", systemImage: "calendar.badge.plus") { planning = meal }
             Button("Archive", systemImage: "archivebox") {
                 Task { await library.setArchived(true, mealID: meal.id) }
             }
