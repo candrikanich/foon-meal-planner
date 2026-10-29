@@ -144,7 +144,7 @@ struct NightPlan: Identifiable, Equatable, Sendable {
     var reason: PlanReason?
     /// Pinned, event, a dated request, or already past: shuffle and rebuilds leave it alone.
     var isKept: Bool
-    /// Saved locked: a tradition, so a rebuild keeps it and only a swap changes it for the week.
+    /// Saved locked: a tradition or a dated request, so a rebuild keeps it and only a swap changes it for the week.
     var locks = false
 
     var id: UUID { nightID }

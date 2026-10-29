@@ -126,6 +126,9 @@
     "%lld items are still on the list for next time." : {
 
     },
+    "%lld me-toos" : {
+
+    },
     "%lld more people" : {
 
     },
@@ -141,6 +144,9 @@
           }
         }
       }
+    },
+    "%lld requests waiting" : {
+
     },
     "%lld steps" : {
 
@@ -172,7 +178,13 @@
     "1 lb ground beef, taco shells, cheese" : {
 
     },
+    "1 me-too" : {
+
+    },
     "1 night still open" : {
+
+    },
+    "1 request waiting" : {
 
     },
     "1 step" : {
@@ -190,10 +202,16 @@
     "A last name or a nickname. Everyone you invite will see it." : {
 
     },
+    "A link" : {
+
+    },
     "A meal" : {
 
     },
     "A meal from your library, or something simple like salad or garlic bread" : {
+
+    },
+    "A note (optional)" : {
 
     },
     "A removed meal" : {
@@ -304,6 +322,9 @@
     "Amount of %@" : {
 
     },
+    "An idea" : {
+
+    },
     "Approve · %lld items" : {
 
     },
@@ -350,6 +371,9 @@
 
     },
     "Back on" : {
+
+    },
+    "Back to Someday" : {
 
     },
     "Backup dinner" : {
@@ -589,6 +613,9 @@
     "Couldn't withdraw consent. Check your connection and try again." : {
 
     },
+    "Crab legs, Grandma's pie..." : {
+
+    },
     "Create household" : {
 
     },
@@ -620,9 +647,6 @@
 
     },
     "Dinner at" : {
-
-    },
-    "Dinner ideas from the family will show up here." : {
 
     },
     "Dinners" : {
@@ -754,7 +778,13 @@
     "Foon signs out on every phone, tablet, and Mac using your account, including this one." : {
 
     },
+    "For a night" : {
+
+    },
     "For next time" : {
+
+    },
+    "For this week" : {
 
     },
     "For tonight" : {
@@ -763,10 +793,30 @@
     "Freezer raid" : {
 
     },
+    "From" : {
+
+    },
+    "From %@" : {
+
+    },
+    "From %@, for %@" : {
+      "comment" : "Idea row: who asked and the night they want it",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "From %1$@, for %2$@"
+          }
+        }
+      }
+    },
     "From Foon's ideas" : {
 
     },
     "From a link" : {
+
+    },
+    "From our meals" : {
 
     },
     "From the dinners logged after each meal. Tap Thanks, chef on This Week to say so." : {
@@ -859,6 +909,9 @@
     "How %@ likes it" : {
 
     },
+    "I want..." : {
+
+    },
     "I wasn't home" : {
 
     },
@@ -921,6 +974,9 @@
     "It may have been removed on another device." : {
 
     },
+    "It shows under New finds until a planner adds it to the library." : {
+
+    },
     "It'll still stay off nights when anyone who said Not for me is home, and another Not for me retires it again." : {
 
     },
@@ -943,6 +999,9 @@
 
     },
     "Kid" : {
+
+    },
+    "Later" : {
 
     },
     "Leave it empty" : {
@@ -973,6 +1032,12 @@
 
     },
     "Load the sample family" : {
+
+    },
+    "Loading the dish..." : {
+
+    },
+    "Loading your profile..." : {
 
     },
     "Lock night" : {
@@ -1015,6 +1080,12 @@
     "Marks it in the cart" : {
 
     },
+    "Me too" : {
+
+    },
+    "Me too?" : {
+
+    },
     "Meal name" : {
 
     },
@@ -1051,10 +1122,19 @@
     "Name (optional)" : {
 
     },
+    "Name it" : {
+
+    },
     "Needs grill" : {
 
     },
+    "New dish" : {
+
+    },
     "New dishes you're trying out show up here." : {
+
+    },
+    "New finds" : {
 
     },
     "Next" : {
@@ -1064,6 +1144,9 @@
 
     },
     "Next week isn't started" : {
+
+    },
+    "Night" : {
 
     },
     "Night not found" : {
@@ -1138,6 +1221,9 @@
     "Not made yet" : {
 
     },
+    "Not this week" : {
+
+    },
     "Not yet" : {
 
     },
@@ -1201,6 +1287,9 @@
     "Open night" : {
 
     },
+    "Open the link" : {
+
+    },
     "Opens the night to see everyone" : {
 
     },
@@ -1261,6 +1350,9 @@
     "Plan on" : {
 
     },
+    "Planned for %@" : {
+      "comment" : "Idea status: the night it's planned"
+    },
     "Planner" : {
 
     },
@@ -1312,6 +1404,9 @@
     "Recipe link" : {
 
     },
+    "Recipe or video link" : {
+
+    },
     "Recipe steps" : {
 
     },
@@ -1351,10 +1446,19 @@
     "Save" : {
 
     },
+    "Save for a special occasion" : {
+
+    },
     "Save just the link" : {
 
     },
+    "Save to library" : {
+
+    },
     "Saving" : {
+
+    },
+    "Saving..." : {
 
     },
     "Scaled from %lld servings to %lld for your family." : {
@@ -1370,10 +1474,16 @@
     "Search dinners" : {
 
     },
+    "Search our meals" : {
+
+    },
     "Search your meals" : {
 
     },
     "Search your meals or add one" : {
+
+    },
+    "Send" : {
 
     },
     "Send invite" : {
@@ -1457,7 +1567,13 @@
     "Some sites don't let apps read their recipes. You can add the ingredients yourself." : {
 
     },
+    "Someday" : {
+
+    },
     "Someone already rated this dinner, so it stays as it was." : {
+
+    },
+    "Someone archived it." : {
 
     },
     "Something else" : {
@@ -1470,6 +1586,9 @@
       "comment" : "Reason chip: a dish the family hasn't tried"
     },
     "Sort" : {
+
+    },
+    "Special occasion" : {
 
     },
     "Staples like milk or paper towels stay on the keep-on-hand list, marked in, low, or out." : {
@@ -1534,6 +1653,9 @@
       "comment" : "Tradition name placeholder"
     },
     "Tags" : {
+
+    },
+    "Take back your me too" : {
 
     },
     "Takeout" : {
@@ -1624,6 +1746,9 @@
     "The copy was made but hasn't loaded yet. Pull to refresh the library." : {
 
     },
+    "The dish is on that night, but the idea wasn't marked planned. Tap it again." : {
+
+    },
     "The family likes it" : {
       "comment" : "Reason chip"
     },
@@ -1655,6 +1780,9 @@
 
     },
     "This dish has no steps yet. Add them on the meal to cook along here." : {
+
+    },
+    "This idea is gone" : {
 
     },
     "This invite is for an adult's profile. Ask your family for the right invite." : {
@@ -1699,6 +1827,9 @@
     "Traditions" : {
 
     },
+    "Tried" : {
+
+    },
     "Try again" : {
 
     },
@@ -1715,6 +1846,9 @@
 
     },
     "Unlock night" : {
+
+    },
+    "Up to %lld characters." : {
 
     },
     "Update the list · %lld items" : {
@@ -1741,7 +1875,13 @@
     "View the original recipe" : {
 
     },
+    "Waiting" : {
+
+    },
     "Want a copy first? Export saves everything as a file." : {
+
+    },
+    "Want steak Friday, or crab legs someday? Ask here, and the planner sees it." : {
 
     },
     "Wasn't home" : {
@@ -1759,10 +1899,19 @@
     "Welcome to Foon" : {
 
     },
+    "What" : {
+
+    },
     "What did you have?" : {
 
     },
     "What everyone thinks" : {
+
+    },
+    "What happens next" : {
+
+    },
+    "What is it? (optional)" : {
 
     },
     "When do you plan the week?" : {
@@ -1775,6 +1924,9 @@
 
     },
     "Who they are" : {
+
+    },
+    "Who wants it" : {
 
     },
     "Who's at your table?" : {

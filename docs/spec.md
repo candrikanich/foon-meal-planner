@@ -158,6 +158,15 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 - **Planning:** an open, dated request for a library dish this week lands on its night in Build my week (already a kept night; see Weekly planning).
 - **Retention:** deleting an adult's account clears their notes on requests, as does anonymizing a removed kid. A withdrawn kid's own requests and me-toos are erased.
 
+**v1 Ideas tab (#38, part 2).**
+- **The tab:** For this week, Later, Someday, and New finds. Each row shows the dish (or name, or link's site), who asked and for which night, the note, me-toos, and its status. A hand button says **Me too**, or takes it back.
+- **I want...:** from our meals (searchable), name it, or a link (it waits in New finds), with an optional note and night. With someone home who has no account of their own, it asks who wants it (pass the phone). Photo requests come later.
+- **Tapping an idea** opens it.
+  - Planners get: Plan it (picks a night like Plan it in the library, then marks the idea planned there; if marking fails, the sheet stays open to try again), Save to library (for a name or link: makes the dish, links it, and goes straight to Plan it), Not this week (for an open idea with a night ahead), Save for a special occasion (or Back to Someday, which clears its night), and Archive.
+  - The person who asked, or whoever entered it on their phone, gets Archive (while the person it's from is them or still has no account of their own: the server's rule).
+- **Build my week:** a dated request lands on its night saved locked, so a Rebuild keeps it, and the idea is marked planned there. After any Build, Fill, or swap, a planned idea whose night no longer holds its dish goes back to open. Build from the empty state uses dated requests too.
+- **This Week:** the empty state shows "3 requests waiting" (opens Ideas) for everyone.
+
 ## Weekly planning
 
 The planner taps "Build my week," gets a solid draft, and shapes it. The algorithm is plain code and works on every device; AI is an optional layer.

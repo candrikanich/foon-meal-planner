@@ -264,10 +264,19 @@ struct WeekView: View {
         ContentUnavailableView {
             Label("No plan yet", systemImage: "calendar.badge.plus")
         } description: {
-            if canPlan {
-                Text("Foon drafts the week from your library and who's home each night. You can change any night.")
-            } else {
-                Text("Your planner hasn't planned this week yet. Tell them what you'd like.")
+            VStack(spacing: 8) {
+                if canPlan {
+                    Text("Foon drafts the week from your library and who's home each night. You can change any night.")
+                } else {
+                    Text("Your planner hasn't planned this week yet. Tell them what you'd like.")
+                }
+                let waiting = RequestBoard.waitingCount(ideas.requests)
+                if waiting > 0 {
+                    Button(waiting == 1 ? String(localized: "1 request waiting")
+                                        : String(localized: "\(waiting) requests waiting")) { showTab(.ideas) }
+                        .font(.foonCaption)
+                        .tint(Palette.paprika)
+                }
             }
         } actions: {
             if canPlan {
@@ -343,18 +352,22 @@ struct WeekView: View {
                                reactions: library.reactions)
     }
 
-    /// Dated requests for a library dish this week: Build my week lands each on its night.
+    /// Dated requests for a library dish this week: Build my week lands each on its night. The week's start comes from
+    /// settings when there's no week yet (Build from the empty state starts it after asking for this).
     private var requests: [DatedRequest] {
-        guard let start = week.week?.start else { return [] }
+        let thisWeek = WeekMath.start(of: week.todayDay, weekStart: settings.weekStart)
+        let start = week.week?.start ?? (week.showingNextWeek ? thisWeek.adding(days: 7) : thisWeek)
         return RequestBoard.dated(ideas.requests, weekStart: start, today: week.todayDay)
     }
 
     private func build() async {
         await week.buildWeek { await planningContext() }
+        await ideas.sync(with: week.week)
     }
 
     private func fillRemaining() async {
         await week.fillRemaining { await planningContext() }
+        await ideas.sync(with: week.week)
     }
 
     private func shuffle(_ nightID: UUID) async {

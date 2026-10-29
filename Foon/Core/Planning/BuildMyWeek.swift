@@ -290,13 +290,15 @@ private struct DraftState {
 
     /// A request is the family asking out loud, so it skips the filters (a rushed night, someone home who
     /// doesn't love it); it still needs a dish in rotation and an open night, and never doubles a dish already
-    /// in the week. First request for a night wins.
+    /// in the week. First request for a night wins. Saved locked, like a tradition: the idea is marked planned on
+    /// that night, so a Rebuild mustn't take the dish away.
     mutating func landRequests() {
         for request in planner.inputs.requests {
             guard let meal = planner.mealsByID[request.mealID], meal.status.isInRotation, !used.contains(meal.id),
                   let index = openIndices.first(where: { plans[$0].date == request.date }) else { continue }
             fill(index, with: .meal(meal.id), reason: .request(name: planner.name(of: request.requesterID)),
                  kept: true)
+            plans[index].locks = true
         }
     }
 

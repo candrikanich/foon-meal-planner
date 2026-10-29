@@ -83,6 +83,26 @@ final class IdeasStore {
         }
     }
 
+    /// After Build my week, Fill, or a swap: requests that landed on their night are marked planned there, and planned
+    /// ones whose night no longer has their dish go back to open. One reload at the end; the first failure is kept.
+    func sync(with week: Week?) async {
+        guard let week else { return }
+        var failure: String?
+        let changes = RequestBoard.landed(requests, nights: week.nights)
+            .map { ($0.requestID, RequestUpdate(status: .planned, nightID: $0.nightID)) }
+            + RequestBoard.unlanded(requests, nights: week.nights).map { ($0, RequestUpdate(status: .open)) }
+        guard !changes.isEmpty else { return }
+        for (id, change) in changes {
+            do {
+                try await client.update(id, change)
+            } catch {
+                failure = failure ?? Self.message(for: .update, code: (error as? PostgrestError)?.code)
+            }
+        }
+        await load()
+        if let failure { errorMessage = failure }
+    }
+
     func clearError() {
         errorMessage = nil
     }

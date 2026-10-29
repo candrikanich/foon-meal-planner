@@ -22,13 +22,16 @@ struct DinnerRequest: Identifiable, Equatable, Sendable, Decodable {
     let createdAt: Date
     /// Who said me too.
     let plusOnes: [UUID]
+    /// Whose phone it was asked on (the requester, or someone passing the phone).
+    var enteredByMemberID: UUID?
 
     init(id: UUID = UUID(), requestedByMemberID: UUID, mealID: UUID? = nil, title: String? = nil, link: URL? = nil,
          note: String? = nil, targetDate: CalendarDay? = nil, status: RequestStatus = .open, plannedNightID: UUID? = nil,
-         plannedDate: CalendarDay? = nil, createdAt: Date = .now, plusOnes: [UUID] = []) {
+         plannedDate: CalendarDay? = nil, createdAt: Date = .now, plusOnes: [UUID] = [], enteredByMemberID: UUID? = nil) {
         (self.id, self.requestedByMemberID, self.mealID, self.title, self.link) = (id, requestedByMemberID, mealID, title, link)
         (self.note, self.targetDate, self.status, self.plannedNightID) = (note, targetDate, status, plannedNightID)
         self.plannedDate = plannedDate
+        self.enteredByMemberID = enteredByMemberID
         (self.createdAt, self.plusOnes) = (createdAt, plusOnes)
     }
 
@@ -41,6 +44,7 @@ struct DinnerRequest: Identifiable, Equatable, Sendable, Decodable {
         case createdAt = "created_at"
         case plusOnes = "request_plus_ones"
         case plannedNight = "plan_nights"
+        case enteredByMemberID = "entered_by_member_id"
     }
 
     private struct Night: Decodable { let date: CalendarDay }
@@ -64,6 +68,7 @@ struct DinnerRequest: Identifiable, Equatable, Sendable, Decodable {
         plannedDate = try container.decodeIfPresent(Night.self, forKey: .plannedNight)?.date
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         plusOnes = try container.decodeIfPresent([PlusOne].self, forKey: .plusOnes)?.map(\.memberID) ?? []
+        enteredByMemberID = try container.decodeIfPresent(UUID.self, forKey: .enteredByMemberID)
     }
 }
 
@@ -75,6 +80,35 @@ struct NewRequest: Equatable, Sendable {
     var link: String?
     var note: String?
     var date: CalendarDay?
+
+    enum Kind: Hashable, Sendable { case library, name, link }
+
+    static let titleLimit = 80
+    static let noteLimit = 200
+    static let linkLimit = 2048
+
+    /// The request the sheet's fields describe, or nil until it's complete and within the server's limits. Names and
+    /// notes are trimmed; a link must be a web link ("recipes.example/x" gains https).
+    static func build(kind: Kind, from: UUID, mealID: UUID?, title: String, link: String, note: String,
+                      date: CalendarDay?) -> NewRequest? {
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let note = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard title.unicodeScalars.count <= titleLimit, note.unicodeScalars.count <= noteLimit else { return nil }
+        var request = NewRequest(from: from, note: note.isEmpty ? nil : note, date: date)
+        switch kind {
+        case .library:
+            guard let mealID else { return nil }
+            request.mealID = mealID
+        case .name:
+            guard !title.isEmpty else { return nil }
+            request.title = title
+        case .link:
+            guard let url = LibraryStore.webLink(link), url.absoluteString.count <= linkLimit else { return nil }
+            request.link = url.absoluteString
+            request.title = title.isEmpty ? nil : title
+        }
+        return request
+    }
 }
 
 /// A planner's (or the requester's) next step for a request; nil fields stay as they are.
@@ -104,7 +138,8 @@ extension IdeasClient {
                 try await client.from("requests")
                     .select("""
                         id, requested_by_member_id, meal_id, title, link, note, target_date, status, planned_night_id, \
-                        created_at, request_plus_ones(member_id), plan_nights!requests_night_fkey(date)
+                        created_at, entered_by_member_id, request_plus_ones(member_id), \
+                        plan_nights!requests_night_fkey(date)
                         """)
                     .eq("household_id", value: householdID)
                     .neq("status", value: RequestStatus.archived.rawValue)
@@ -243,6 +278,34 @@ enum RequestBoard {
                   date >= max(weekStart, today), date < weekStart.adding(days: 7) else { return nil }
             return DatedRequest(mealID: mealID, date: date, requesterID: request.requestedByMemberID)
         }
+    }
+
+    /// Open, dated requests whose night now holds the dish they asked for (Build my week landed them): request → night.
+    static func landed(_ requests: [DinnerRequest], nights: [WeekNight]) -> [(requestID: UUID, nightID: UUID)] {
+        requests.compactMap { request in
+            guard request.status == .open, let mealID = request.mealID, let date = request.targetDate,
+                  let night = nights.first(where: { $0.date == date && $0.mealID == mealID }) else { return nil }
+            return (request.id, night.id)
+        }
+    }
+
+    /// Planned requests whose night (in this week) no longer holds their dish, after a swap or rebuild: back to open.
+    static func unlanded(_ requests: [DinnerRequest], nights: [WeekNight]) -> [UUID] {
+        let byID = Dictionary(nights.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return requests.compactMap { request in
+            guard request.status == .planned, let nightID = request.plannedNightID, let night = byID[nightID],
+                  let mealID = request.mealID, night.mealID != mealID else { return nil }
+            return request.id
+        }
+    }
+
+    /// Whether a non-planner may archive a request (the server's rule): it's theirs or entered on their phone, and
+    /// the person it's from is them or still has no account of their own.
+    static func canArchive(_ request: DinnerRequest, me: Member?, members: [Member]) -> Bool {
+        guard let me, me.id == request.requestedByMemberID || me.id == request.enteredByMemberID,
+              let from = members.first(where: { $0.id == request.requestedByMemberID }), from.status != .removed
+        else { return false }
+        return from.id == me.id || from.userID == nil
     }
 
     /// "3 requests waiting", for This Week's empty state.

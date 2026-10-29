@@ -14,9 +14,9 @@ enum PlanIt {
     }
 
     static func state(layout: WeekLayout?, mealID: UUID, isLoading: Bool, hasLoaded: Bool,
-                      loadError: String?) -> State {
+                      loadError: String?, includingPlanned: Bool = false) -> State {
         if let layout {
-            let choices = choices(in: layout, for: mealID)
+            let choices = choices(in: layout, for: mealID, includingPlanned: includingPlanned)
             return choices.isEmpty ? .noNightsLeft : .nights(choices)
         }
         if hasLoaded { return .noWeek }
@@ -25,8 +25,8 @@ enum PlanIt {
     }
 
     /// Nights from tonight on, minus any already set to this meal.
-    static func choices(in layout: WeekLayout, for mealID: UUID) -> [WeekNight] {
-        layout.ahead.filter { $0.mealID != mealID }
+    static func choices(in layout: WeekLayout, for mealID: UUID, includingPlanned: Bool = false) -> [WeekNight] {
+        includingPlanned ? layout.ahead : layout.ahead.filter { $0.mealID != mealID }
     }
 
     /// What a night holds now, so picking it says what gets replaced.
@@ -45,13 +45,16 @@ struct PlanItSheet: View {
     @Environment(\.showTab) private var showTab
     @Environment(\.dismiss) private var dismiss
     let meal: LibraryMeal
+    /// Called with the night once the meal is on it (the Ideas tab marks the request planned there). Returning false
+    /// keeps the sheet open to try again; nights already holding this dish stay offered then.
+    var onPlanned: ((UUID) async -> Bool)?
     @State private var saving: UUID?
     /// Only this sheet's own failure; the store's error may be left over from another screen.
     @State private var failure: String?
 
     private var state: PlanIt.State {
         PlanIt.state(layout: week.layout, mealID: meal.id, isLoading: week.isLoading, hasLoaded: week.hasLoaded,
-                     loadError: week.errorMessage)
+                     loadError: week.errorMessage, includingPlanned: onPlanned != nil)
     }
 
     private var whichWeek: String {
@@ -161,6 +164,10 @@ struct PlanItSheet: View {
             saving = night.id
             defer { saving = nil }
             if await week.swap(nightID: night.id, to: .meal(id: meal.id, name: meal.name)) {
+                if let onPlanned, !(await onPlanned(night.id)) {
+                    failure = String(localized: "The dish is on that night, but the idea wasn't marked planned. Tap it again.")
+                    return
+                }
                 dismiss()
             } else {
                 failure = week.errorMessage
