@@ -55,6 +55,8 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: com.andrikanich.foon
             CFBundleURLSchemes: [foon]
+        # Only the OS's own encryption (HTTPS, Sign in with Apple): exempt, so App Store Connect skips the question.
+        ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon
