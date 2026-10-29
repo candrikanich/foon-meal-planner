@@ -101,22 +101,24 @@ struct DinnerStoreTests {
     @Test func anOlderLoadFinishingLastIsIgnored() async {
         let first = Mutex(true)
         let (gate, release) = AsyncStream<Void>.makeStream()
+        let (parked, parkedSignal) = AsyncStream<Void>.makeStream()
         let log = DinnerLog(id: logID, nightID: nightID, date: today, mealID: chili, mealName: "Chili", quickPick: nil)
-        let store = DinnerStore(householdID: UUID(), client: DinnerClient(
-            logs: { _, _ in
-                if first.withLock({ let was = $0; $0 = false; return was }) {
-                    for await _ in gate { break }  // the first load stalls until the second is done
-                    return []
-                }
-                return [log]
-            },
-            confirm: { _ in UUID() }, react: { _, _, _ in UUID() }, correct: { _, _ in },
-            nights: { _, _, _ in [] }, setNotHome: { _, _ in }
-        ), now: { self.noon })
+        var client = DinnerClient.preview
+        client.logs = { _, _ in
+            if first.withLock({ let was = $0; $0 = false; return was }) {
+                parkedSignal.yield()
+                for await _ in gate { break }  // the first load stalls until the second is done
+                return []
+            }
+            return [log]
+        }
+        let store = DinnerStore(householdID: UUID(), client: client, now: { self.noon })
         let slow = Task { await store.load(settings: HouseholdSettings()) }
-        await Task.yield()
+        // Only start the second load once the first is parked at the gate, so the two can't swap places.
+        for await _ in parked { break }
         await store.load(settings: HouseholdSettings())
         release.yield()
+        release.finish()
         await slow.value
         #expect(store.logs == [log], "the newer load's answer stands")
     }
