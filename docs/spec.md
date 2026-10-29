@@ -50,7 +50,7 @@ One adult buys and sets up the app; one subscription covers the whole household.
 
 **Family tab.** Header with household name, emoji or photo, Founding Family badge, and subscription status (owner). Member rows show avatar, name, role, and status (Home, Away, Invite pending), with Add member and Invite. Member detail: adult or kid, guardian, and role (guardians edit), Home or Away with optional return date (auto-flips back, with a heads-up to plan their favorites), usual weekday schedule (everyone edits their own; guardians can override), allergies and dietary preferences (guardians edit; everyone sees), Remove from household (guardians), taste profile of favorites, dislikes, and serving notes (visible to everyone), cook tally, and per-member notification preset. Household rhythm and planning mix defaults (planners), notification presets, show tips again, plain-English privacy summary with data export and delete household, and subscription (owner).
 
-**Minimal data.** Household name (last name or nickname), first names, avatars. No birthdays, phone numbers, photos, or location. Keep the app a parent-run household app, not in the App Store Kids category. COPPA applies if users under 13 are known; get a legal review before launch.
+**Minimal data.** Household name (last name or nickname), first names, avatars. No birthdays, phone numbers, photos, or location, apart from the household's time zone (decided 2026-10-28). That's coarse, needed to know when last night's dinner was, and disclosed in the privacy notice. Keep the app a parent-run household app, not in the App Store Kids category. COPPA applies if users under 13 are known; get a legal review before launch.
 
 **Allergies and dietary preferences**
 
@@ -112,7 +112,7 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 - History (times made, last made) counts logged dinners: confirmed, or saved overnight unanswered (#42). A past night of an approved plan with no log (from before logs existed) still counts. Haven't had in a while puts never-made dishes last; they're new, not forgotten.
 - Favorites shows dishes that are someone's favorite now (their latest reaction). Family favorites sorts by how many people's favorite a dish is, then by how often anyone rated it Favorite or Good (#42).
 - Long-press: Plan it and Archive, or Back in rotation for archived meals (planners only).
-- Browse ideas lists the catalog by category; planners copy a dish into the library with one tap, and adding it again returns the copy already there, even a retired one: a dish the dislike rule retired stays retired.
+- Browse ideas lists the catalog by category; planners copy a dish into the library with one tap, and adding it again returns the copy already there, even a retired one: a dish the dislike rule retired stays retired until a planner brings it back.
 
 **Meal detail.** Hero photo with "Replace with yours"; tags and allergy flags (Make it safe comes later; see Allergies); every family member's current verdict, visible to all; history and frequency ("Made 8 times, about every 2 weeks"); editable ingredients with Add to list; optional recipe steps and source link; prep steps; comments; per-person serving notes ("Nora: keep everything separate before mixing"), shown on day cards and in cook mode when that person is home; actions Plan it, Copy and tweak, Archive.
 
@@ -209,7 +209,7 @@ The plan is the log by default; one notification per person confirms it, rates i
 - 0 dislikes: full rotation.
 - 1 dislike: suggested only on nights that person is away.
 - 2 or more dislikes: retired (archived, still findable).
-- Dislikes never expire on their own: a dislike stands until that person rates the dish again (their latest reaction is their verdict). Removed members' verdicts don't count. Ratings are family-only; guests don't rate. New ratings are for the last week's dinners, and a retired dish stays retired.
+- Dislikes never expire on their own: a dislike stands until that person rates the dish again (their latest reaction is their verdict). Removed members' verdicts don't count. Ratings are family-only; guests don't rate. New ratings are for the last week's dinners. A retired dish stays retired unless a planner brings it back (Back in rotation, after a confirmation that the family voted it out); its dislikes still keep it off nights those people are home, and a new Not for me can retire it again. Quick picks aren't rated (decided 2026-10-28).
 
 **Transparency.** Reactions are visible to the whole family. Always rate the dish, never the cook; the prompt asks about the food ("How was the chicken thing?").
 
@@ -420,7 +420,7 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
 
 - Amended COPPA rule, compliance date April 22, 2026: written data-retention policy with a time period; new parental consent for material privacy changes ([source](https://toyassociation.org/PressRoom2/News/2026-News/updated-coppa-rule-requirements-take-effect-april-22.aspx)).
 - **Kids on their own devices:** a parent consents in the kid's invite (logged with who, when, and the wording version) before a kid can join; withdrawing consent (member detail) signs the kid out at once. Claiming reads only the age band from Apple's Declared Age Range API, never a birthdate, and a minor's account can't claim an adult profile (#88).
-- **Retention policy** (for the privacy notice): deleting the household erases everything at once; a removed kid's profile is anonymized after 12 months (first name becomes "Former member", avatar and allergies deleted, ratings kept as anonymous history). When a parent withdraws a kid's own-device consent and doesn't give it again, what the kid added themselves (requests, ratings, comments, list items) and their age band are erased after 30 days; the parent-entered profile (name, avatar, allergies) stays while they're in the family. A daily job enforces both.
+- **Retention policy** (for the privacy notice, and for legal review: erasing a withdrawn kid's own ratings is a hard delete, the one exception to "never hard-delete" besides deleting the household; kept if the legal review agrees, decided 2026-10-28): deleting the household erases everything at once; a removed kid's profile is anonymized after 12 months (first name becomes "Former member", avatar and allergies deleted, ratings kept as anonymous history). When a parent withdraws a kid's own-device consent and doesn't give it again, what the kid added themselves (requests, ratings, comments, list items) and their age band are erased after 30 days; the parent-entered profile (name, avatar, allergies) stays while they're in the family. A daily job enforces both.
 - **Legal review** happens before external TestFlight (founding families); internal TestFlight with our own family can go ahead first.
 - Allergies are consumer health data in some states (e.g. Washington's My Health My Data Act): explicit opt-in built into the allergy step (Agree and save is the opt-in, logged with who, when, and the wording version shown; the sample family logs its own version, since nobody read the sentence). Only guardians opt in or revoke; revoking erases the data.
 - Apple: in-app account deletion with Sign in with Apple token revocation, privacy manifest, accurate privacy label.
@@ -529,7 +529,7 @@ Build everything, in order: Phase 1 (the Sunday flow) is what to sit down with y
 **Phase 4: Launch**
 
 - [ ] StoreKit products (standard and Founding Family) with household entitlement
-- [ ] Privacy policy, terms, App Store privacy label; legal review (COPPA, allergy disclaimer)
+- [ ] Privacy policy, terms, App Store privacy label; legal review (COPPA, allergy disclaimer, the allergy consent wording, the household time zone, and the hard delete of a withdrawn kid's own ratings)
 - [ ] TestFlight with our family, then the founding 50 households (flagged on the server)
 - [ ] Enroll in Apple's Small Business Program; App Store submission
 

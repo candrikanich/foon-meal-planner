@@ -252,6 +252,17 @@ struct BuildMyWeekTests {
         }
     }
 
+    /// A planner brought back a dish two people voted out: it's active again, but only lands when both are away.
+    @Test func aBroughtBackDishWithTwoDislikesOnlyLandsWhenBothAreAway() {
+        let liver = LibraryMeal.fixture(name: "Liver")
+        var planning = inputs(nights: week(away: [2: [nora], 4: [nora, dad]]), meals: [liver])
+        planning.notForMe = [liver.id: [nora: 1, dad: 1]]
+        for seed in UInt64(0)..<20 {
+            let draft = BuildMyWeek.draft(planning, seed: seed)
+            #expect(draft.firstIndex { $0.pick == .meal(liver.id) } == 4)
+        }
+    }
+
     @Test func aDislikedDishOnlyLandsOnNightsTheDislikerIsAway() {
         let tacos = LibraryMeal.fixture(name: "Tacos")
         var planning = inputs(nights: week(away: [3: [nora]]), meals: [tacos])

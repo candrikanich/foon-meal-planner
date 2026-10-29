@@ -8,6 +8,7 @@ struct LibraryView: View {
     @State private var browsingCatalog = false
     @State private var quickAdding = false
     @State private var planning: LibraryMeal?
+    @State private var bringingBack: LibraryMeal?
     @State private var importingLink = false
     @State private var path: [UUID] = []
 
@@ -38,6 +39,14 @@ struct LibraryView: View {
             .searchable(text: $library.search, prompt: Text("Meals or ingredients"))
             .toolbar { toolbar }
             .refreshable { await library.load(members: household.members) }
+            .confirmationDialog("Bring back a dish the family voted out?", isPresented: Binding(
+                get: { bringingBack != nil }, set: { if !$0 { bringingBack = nil } }
+            ), titleVisibility: .visible, presenting: bringingBack) { meal in
+                Button("Back in rotation") { Task { await library.setArchived(false, mealID: meal.id) } }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text("It'll still stay off nights when anyone who said Not for me is home, and another Not for me retires it again.")
+            }
             .sheet(item: $planning) { meal in PlanItSheet(meal: meal) }
             .sheet(isPresented: $browsingCatalog) {
                 CatalogBrowserView(canAdd: canEdit)
@@ -77,7 +86,7 @@ struct LibraryView: View {
         }
     }
 
-    /// Empty for members and for retired meals, which shows no menu at all.
+    /// Empty for members, which shows no menu at all. Retired dishes offer Back in rotation, after a confirmation.
     @ViewBuilder
     private func menu(for meal: LibraryMeal) -> some View {
         if canEdit && meal.status.isInRotation {
@@ -86,9 +95,16 @@ struct LibraryView: View {
                 Task { await library.setArchived(true, mealID: meal.id) }
             }
         } else if canEdit && LibraryStore.canRestore(meal) {
-            Button("Back in rotation", systemImage: "arrow.uturn.backward") {
-                Task { await library.setArchived(false, mealID: meal.id) }
-            }
+            Button("Back in rotation", systemImage: "arrow.uturn.backward") { restore(meal) }
+        }
+    }
+
+    /// Back in rotation: right away for an archived dish; a retired one asks first, since the family voted it out.
+    private func restore(_ meal: LibraryMeal) {
+        if meal.status == .retired {
+            bringingBack = meal
+        } else {
+            Task { await library.setArchived(false, mealID: meal.id) }
         }
     }
 

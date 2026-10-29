@@ -85,8 +85,9 @@ struct PlanningInputs: Equatable, Sendable {
     var settings = HouseholdSettings()
     /// First names for reason chips ("Nora's favorite").
     var memberNames: [UUID: String] = [:]
-    /// Meal id → member id → "not for me" count. One means skip nights that member is home. Two or more
-    /// retires the dish, which reaches the planner as `MealStatus.retired`, so status stays the source of truth.
+    /// Meal id → member id → "not for me" (their current verdict). A dish is skipped on any night one of those members
+    /// is home, whatever its status. Two retire it on the server (`MealStatus.retired`, never planned); a planner may
+    /// bring it back, and then these still keep it to nights they're all away.
     var notForMe: [UUID: [UUID: Int]] = [:]
     var snoozedMealIDs: Set<UUID> = []
     /// Member id → meal ids they marked favorite.

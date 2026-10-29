@@ -391,7 +391,7 @@ struct PlanningContext {
     func inputs(for week: Week, today: CalendarDay) -> PlanningInputs {
         PlanningInputs(
             nights: week.nights.map(PlanningNight.init),
-            meals: meals.filter { !reactions.retired.contains($0.id) },
+            meals: meals,
             history: history,
             settings: settings,
             memberNames: Dictionary(members.map { ($0.id, $0.firstName) }, uniquingKeysWith: { first, _ in first }),

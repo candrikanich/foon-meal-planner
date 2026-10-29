@@ -332,8 +332,10 @@ final class LibraryStore {
     }
 
     /// Only archived meals come back; retired ones were dropped by the family's dislikes.
+    /// Archived dishes come back with a tap; retired ones too, after a confirmation, since the family voted them out
+    /// (the dislikes still keep them off nights those people are home).
     static func canRestore(_ meal: LibraryMeal) -> Bool {
-        meal.status == .archived
+        meal.status == .archived || meal.status == .retired
     }
 
     private static func isCancellation(_ error: any Error) -> Bool {
