@@ -167,6 +167,12 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 - **Build my week:** a dated request lands on its night saved locked, so a Rebuild keeps it, and the idea is marked planned there. After any Build, Fill, or swap, a planned idea whose night no longer holds its dish goes back to open. Build from the empty state uses dated requests too.
 - **This Week:** the empty state shows "3 requests waiting" (opens Ideas) for everyone.
 
+**v1 priority and news (#38, part 3).**
+- **Priority:** a someday request for a library dish (or one whose date went by) that three people want, the requester and their me-toos, gets top priority in Build my week. Only active members count (not removed ones, nor anyone away, who couldn't be home for it), and a family of two needs both. Most wanted first, then the oldest; it lands, saved locked, on the first open night everyone who wants it is home, after dated requests and traditions. With no such night, it waits for another week (it can still come up as an ordinary pick).
+- **Marking it planned:** only that idea, on the night Build placed it, never a tradition, another night that happens to hold the same dish, or another idea for the same dish.
+- **Not this week** (for a dated idea still ahead, or a dish that would get priority) sends it back to Someday and keeps it out of the current week's priority (even when This Week is showing next week); it comes back the week after. Swapping a priority dish off its night does the same, so a Rebuild doesn't bring it straight back. The server keeps the week (`requests.skipped_week`); only planners set it.
+- **News:** whoever asked (or whoever entered it on their phone) sees "Your idea made Friday: Crab legs" ("is on for tonight" or "tomorrow") at the top of This Week, for a night within the coming week (today and the seven nights after), until the night or until they dismiss it on that device. Push comes with notifications (M2 car 6).
+
 ## Weekly planning
 
 The planner taps "Build my week," gets a solid draft, and shapes it. The algorithm is plain code and works on every device; AI is an optional layer.
@@ -183,7 +189,7 @@ The planner taps "Build my week," gets a solid draft, and shapes it. The algorit
 
 **Build my week algorithm**
 
-1. **Lock** what's decided: dated requests, event nights, pinned meals, standing traditions.
+1. **Lock** what's decided: dated requests, event nights, pinned meals, standing traditions, then someday requests several people want (on a night they're all home).
 2. **Fill special slots:** leftover night after a big-batch meal; takeout on the busiest night; new dishes on full-attendance nights.
 3. **Filter candidates per night:** drop dishes inside the repeat window or snoozed; dishes disliked by anyone home that night; retired dishes; non-quick meals on rushed nights; grill or advance-prep meals where they don't fit.
 4. **Score and draw** with weighted randomness: days since last made (higher is better), a favorite of someone home (big boost), ingredients already on hand (boost), overall thumbs-up (small boost).

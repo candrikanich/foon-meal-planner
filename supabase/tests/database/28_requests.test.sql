@@ -1,6 +1,6 @@
 -- The idea inbox (#38, part 1).
 begin;
-select plan(33);
+select plan(36);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -103,6 +103,10 @@ select throws_ok($$ select public.update_request((select id from made where name
 select throws_ok($$ select public.make_request('00000000-0000-0000-0000-0000000000a0',
   '00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000002b1', null, null, null, null) $$,
   '23503', null, 'another household''s dish can''t be asked for');
+select lives_ok($$ select public.update_request((select id from made where name = 'pie'), null, null, true, null, null,
+  null, public.household_today('00000000-0000-0000-0000-0000000000a0')) $$, 'Not this week: it sits this week out');
+select ok((select skipped_week is not null from public.requests where id = (select id from made where name = 'pie')),
+  'and the week is recorded');
 select throws_ok($$ update public.requests set status = 'archived' $$, '42501', null, 'never written directly');
 select throws_ok($$ delete from public.requests $$, '42501', null, 'and never deleted');
 
@@ -112,6 +116,9 @@ select throws_ok($$ select public.update_request((select id from made where name
   null, 'Bob rewrote', null) $$, '42501', null, 'passing the phone doesn''t make Nora''s other requests yours');
 select throws_ok($$ select public.update_request((select id from made where name = 'tacos'), null, null, true, null,
   null, null) $$, '42501', null, 'and a planned request stays where the planner put it');
+select throws_ok($$ select public.update_request((select id from made where name = 'crab'), null, null, false, null,
+  null, null, public.household_today('00000000-0000-0000-0000-0000000000a0')) $$, '42501', null,
+  'only planners make an idea sit a week out, even one entered on your phone');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select is(jsonb_array_length(public.export_household('00000000-0000-0000-0000-0000000000a0') -> 'requests'), 3,
   'the export includes requests');

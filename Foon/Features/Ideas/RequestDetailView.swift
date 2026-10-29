@@ -6,6 +6,7 @@ struct RequestDetailView: View {
     @Environment(IdeasStore.self) private var ideas
     @Environment(HouseholdStore.self) private var household
     @Environment(LibraryStore.self) private var library
+    @Environment(WeekStore.self) private var week
     @Environment(\.dismiss) private var dismiss
     @Environment(\.showTab) private var showTab
     let requestID: UUID
@@ -15,6 +16,19 @@ struct RequestDetailView: View {
     @State private var madeMealID: UUID?
 
     private var request: DinnerRequest? { ideas.requests.first { $0.id == requestID } }
+
+    /// The current week, even while This Week shows next week: that's the week "not this week" means.
+    private var thisWeek: CalendarDay {
+        WeekMath.start(of: week.todayDay, weekStart: (household.household?.planningSettings ?? HouseholdSettings()).weekStart)
+    }
+
+    /// A dated idea still ahead, or a dish that would get priority this week.
+    private func canWait(_ request: DinnerRequest) -> Bool {
+        guard request.status == .open else { return false }
+        if let date = request.targetDate, date >= week.todayDay { return true }
+        return !RequestBoard.wanted([request], weekStart: thisWeek, today: week.todayDay, members: household.members)
+            .isEmpty
+    }
 
     private var canPlan: Bool {
         LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID)
@@ -77,9 +91,10 @@ struct RequestDetailView: View {
                         }
                         .disabled(savingToLibrary)
                     }
-                    if request.status == .open, let date = request.targetDate, date >= CalendarDay(Date()) {
+                    if canWait(request) {
+                        // Back to Someday, and no me-too priority until next week.
                         Button("Not this week", systemImage: "arrow.uturn.right") {
-                            Task { await ideas.update(requestID, RequestUpdate(clearDate: true)) }
+                            Task { await ideas.update(requestID, RequestUpdate(clearDate: true, skipWeek: thisWeek)) }
                         }
                     }
                     if request.status != .special {

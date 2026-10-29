@@ -194,6 +194,33 @@ struct BuildMyWeekTests {
         #expect(draft.filter(\.locks).count == 2)
     }
 
+    /// Inbox rules: requests with multiple me-toos get top priority, on a night everyone who wants it is home.
+    @Test func aWidelyWantedSomedayRequestLandsOnTheFirstNightTheyreAllHome() {
+        let meals = regulars(10)
+        let crab = LibraryMeal.fixture(name: "Crab legs")
+        var planning = inputs(nights: week(away: [0: [nora], 1: [dad]]), meals: meals + [crab])
+        planning.wanted = [WantedRequest(mealID: crab.id, requesterID: nora, wanters: [nora, dad, mom])]
+        for seed in UInt64(0)..<10 {
+            let draft = BuildMyWeek.draft(planning, seed: seed)
+            #expect(draft.firstIndex { $0.pick == .meal(crab.id) } == 2, "the first night Nora, Dad, and Mom are all home")
+            #expect(draft[2].reason == .request(name: "Nora") && draft[2].locks)
+            #expect(draft.filter { $0.pick == .meal(crab.id) }.count == 1)
+        }
+    }
+
+    @Test func theMostWantedGoesFirstAndOneWithNoNightWaits() {
+        let meals = regulars(10)
+        let crab = LibraryMeal.fixture(name: "Crab legs"), pie = LibraryMeal.fixture(name: "Pie")
+        let guest = UUID()
+        var planning = inputs(nights: week(away: [0: [], 1: [nora]]), meals: meals + [crab, pie])
+        planning.wanted = [WantedRequest(mealID: pie.id, requesterID: dad, wanters: [dad, mom, nora]),
+                           WantedRequest(mealID: crab.id, requesterID: nora, wanters: [nora, dad, mom, guest])]
+        let draft = BuildMyWeek.draft(planning, seed: 3)
+        #expect(!draft.contains { $0.pick == .meal(crab.id) && $0.reason == .request(name: "Nora") },
+                "someone who wants it is never home this week: no priority night (it may still come up as usual)")
+        #expect(draft.firstIndex { $0.pick == .meal(pie.id) } == 0)
+    }
+
     @Test func aRequestForARetiredDishOrALockedNightIsSkipped() {
         let meals = regulars(8) + [.fixture(name: "Liver", status: .retired)]
         var nights = week()
