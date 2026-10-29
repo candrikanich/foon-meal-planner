@@ -167,6 +167,20 @@ struct BuildMyWeekStoreTests {
         #expect(sent.withLock { $0 } == 7)
     }
 
+    @Test func buildingRemembersWhichNightsItPlacedAsRequests() async {
+        let week = emptyWeek()
+        let store = store(.fake(week: { _, _ in week }))
+        await store.load(settings: HouseholdSettings())
+        var context = context
+        let idea = UUID()
+        context.requests = [DatedRequest(mealID: meals[3].id, date: sunday.adding(days: 3), requesterID: ann.id,
+                                         requestID: idea)]
+        await store.buildWeek { context }
+        #expect(store.requestNights == [idea: week.nights[3].id], "only the request's night, not other picks")
+        await store.swap(nightID: week.nights[3].id, to: .quickPick(.takeout))
+        #expect(store.requestNights.isEmpty, "a swap on that night takes the request off it")
+    }
+
     @Test func fillingRemainingNightsLeavesPlannedOnesAlone() async {
         var week = emptyWeek()
         week.nights[2].mealID = meals[0].id

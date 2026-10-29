@@ -24,6 +24,8 @@ struct DinnerRequest: Identifiable, Equatable, Sendable, Decodable {
     let plusOnes: [UUID]
     /// Whose phone it was asked on (the requester, or someone passing the phone).
     var enteredByMemberID: UUID?
+    /// The start of a week a planner said "not this week" to (or swapped it away): no priority that week.
+    var skippedWeek: CalendarDay?
 
     init(id: UUID = UUID(), requestedByMemberID: UUID, mealID: UUID? = nil, title: String? = nil, link: URL? = nil,
          note: String? = nil, targetDate: CalendarDay? = nil, status: RequestStatus = .open, plannedNightID: UUID? = nil,
@@ -45,6 +47,7 @@ struct DinnerRequest: Identifiable, Equatable, Sendable, Decodable {
         case plusOnes = "request_plus_ones"
         case plannedNight = "plan_nights"
         case enteredByMemberID = "entered_by_member_id"
+        case skippedWeek = "skipped_week"
     }
 
     private struct Night: Decodable { let date: CalendarDay }
@@ -69,6 +72,7 @@ struct DinnerRequest: Identifiable, Equatable, Sendable, Decodable {
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         plusOnes = try container.decodeIfPresent([PlusOne].self, forKey: .plusOnes)?.map(\.memberID) ?? []
         enteredByMemberID = try container.decodeIfPresent(UUID.self, forKey: .enteredByMemberID)
+        skippedWeek = try container.decodeIfPresent(CalendarDay.self, forKey: .skippedWeek)
     }
 }
 
@@ -120,6 +124,8 @@ struct RequestUpdate: Equatable, Sendable {
     var linkMealID: UUID?
     var note: String?
     var date: CalendarDay?
+    /// Not this week (or a priority dish swapped away): that week's start. Planners only.
+    var skipWeek: CalendarDay?
 }
 
 /// Requests and me-toos, as closures so tests and previews can swap them out.
@@ -138,7 +144,7 @@ extension IdeasClient {
                 try await client.from("requests")
                     .select("""
                         id, requested_by_member_id, meal_id, title, link, note, target_date, status, planned_night_id, \
-                        created_at, entered_by_member_id, request_plus_ones(member_id), \
+                        created_at, entered_by_member_id, skipped_week, request_plus_ones(member_id), \
                         plan_nights!requests_night_fkey(date)
                         """)
                     .eq("household_id", value: householdID)
@@ -193,7 +199,7 @@ private struct UpdateRequestParams: Encodable {
 
     enum CodingKeys: String, CodingKey {
         case request = "target_request", status = "new_status", night, clearDate = "clear_date", meal = "link_meal"
-        case note = "new_note", date = "new_date"
+        case note = "new_note", date = "new_date", skipWeek = "skip_week"
     }
 
     func encode(to encoder: Encoder) throws {
@@ -205,6 +211,7 @@ private struct UpdateRequestParams: Encodable {
         try container.encode(update.linkMealID, forKey: .meal)
         try container.encode(update.note, forKey: .note)
         try container.encode(update.date?.isoString, forKey: .date)
+        try container.encode(update.skipWeek?.isoString, forKey: .skipWeek)
     }
 }
 
@@ -276,15 +283,52 @@ enum RequestBoard {
         requests.compactMap { request in
             guard request.status == .open, let mealID = request.mealID, let date = request.targetDate,
                   date >= max(weekStart, today), date < weekStart.adding(days: 7) else { return nil }
-            return DatedRequest(mealID: mealID, date: date, requesterID: request.requestedByMemberID)
+            return DatedRequest(mealID: mealID, date: date, requesterID: request.requestedByMemberID, requestID: request.id)
         }
     }
 
-    /// Open, dated requests whose night now holds the dish they asked for (Build my week landed them): request → night.
-    static func landed(_ requests: [DinnerRequest], nights: [WeekNight]) -> [(requestID: UUID, nightID: UUID)] {
-        requests.compactMap { request in
-            guard request.status == .open, let mealID = request.mealID, let date = request.targetDate,
-                  let night = nights.first(where: { $0.date == date && $0.mealID == mealID }) else { return nil }
+    /// The fewest people (requester included) for a someday request to get top priority: "multiple +1s". A smaller
+    /// family needs everyone, and never just one person.
+    static func wantedThreshold(familySize: Int) -> Int {
+        max(2, min(3, familySize))
+    }
+
+    /// Someday requests for a library dish that enough of the family wants (active members: someone away all week could
+    /// never be home for it, so they don't count, and neither do removed ones): Build my week finds
+    /// them a night everyone who wants them is home. Not in a week a planner said "not this week" to. Most wanted
+    /// first, then the oldest.
+    static func wanted(_ requests: [DinnerRequest], weekStart: CalendarDay, today: CalendarDay,
+                       members: [Member]) -> [WantedRequest] {
+        let family = Set(members.filter { $0.status == .active }.map(\.id))
+        let threshold = wantedThreshold(familySize: family.count)
+        return requests
+            .compactMap { request -> (request: DinnerRequest, wanted: WantedRequest)? in
+                guard request.status == .open, let mealID = request.mealID, request.skippedWeek != weekStart,
+                      request.targetDate.map({ $0 < today }) ?? true else { return nil }
+                let wanters = Set(request.plusOnes).union([request.requestedByMemberID]).intersection(family)
+                guard wanters.count >= threshold else { return nil }
+                return (request, WantedRequest(mealID: mealID, requesterID: request.requestedByMemberID, wanters: wanters,
+                                               requestID: request.id))
+            }
+            .sorted { ($0.wanted.wanters.count, $1.request.createdAt) > ($1.wanted.wanters.count, $0.request.createdAt) }
+            .map(\.wanted)
+    }
+
+    /// Open requests whose dish now made the week: request → night. A request dated from today on, on its night;
+    /// any other (someday, or a date gone by), only on the night Build my week landed that very request
+    /// (`requestNights`, request → night), never just a night that happens to hold the same dish.
+    static func landed(_ requests: [DinnerRequest], nights: [WeekNight], today: CalendarDay,
+                       requestNights: [UUID: UUID] = [:]) -> [(requestID: UUID, nightID: UUID)] {
+        var taken = Set<UUID>()
+        return requests.compactMap { request in
+            guard request.status == .open, let mealID = request.mealID else { return nil }
+            let night: WeekNight? = if let date = request.targetDate, date >= today {
+                nights.first { $0.date == date && $0.mealID == mealID }
+            } else {
+                requestNights[request.id].flatMap { id in nights.first { $0.id == id && $0.mealID == mealID } }
+            }
+            guard let night, !taken.contains(night.id) else { return nil }
+            taken.insert(night.id)
             return (request.id, night.id)
         }
     }
@@ -306,6 +350,17 @@ enum RequestBoard {
               let from = members.first(where: { $0.id == request.requestedByMemberID }), from.status != .removed
         else { return false }
         return from.id == me.id || from.userID == nil
+    }
+
+    /// "Your crab legs made Friday": your requests (or ones entered on your phone) planned on a night within the coming
+    /// week (today and the seven nights after), until you dismiss them. The in-app note until push arrives (M2 car 6).
+    static func news(_ requests: [DinnerRequest], me: UUID, today: CalendarDay, dismissed: Set<UUID>) -> [DinnerRequest] {
+        requests.filter { request in
+            guard request.status == .planned, let date = request.plannedDate, !dismissed.contains(request.id),
+                  me == request.requestedByMemberID || me == request.enteredByMemberID else { return false }
+            return date >= today && date < today.adding(days: 8)
+        }
+        .sorted { ($0.plannedDate ?? today) < ($1.plannedDate ?? today) }
     }
 
     /// "3 requests waiting", for This Week's empty state.

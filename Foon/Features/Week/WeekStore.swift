@@ -27,6 +27,9 @@ final class WeekStore {
     private(set) var traditions: [Tradition] = []
     /// False until traditions load: Build won't run without them, or it would quietly skip Taco Tuesday.
     private(set) var traditionsLoaded = false
+    /// Request → night for each idea the last build placed, so only those nights mark an idea planned (not a tradition,
+    /// a pick that happens to be the same dish, or another idea for it). A swap on the night drops it.
+    private(set) var requestNights: [UUID: UUID] = [:]
 
     init(householdID: UUID, client: WeekClient, today: @escaping () -> CalendarDay = { CalendarDay(Date()) },
          seed: @escaping () -> UInt64 = { UInt64.random(in: .min ... .max) }) {
@@ -193,6 +196,16 @@ final class WeekStore {
     /// that finds nothing never clears a night that already has dinner.
     private func apply(_ plans: [NightPlan], inputs: PlanningInputs) async {
         guard let planID = week?.planID else { return }
+        defer {
+            requestNights = Dictionary(plans.compactMap { plan -> (UUID, UUID)? in
+                guard case .request = plan.reason, let mealID = plan.pick?.mealID,
+                      let night = week?.nights.first(where: { $0.id == plan.nightID }), night.mealID == mealID,
+                      let requestID = inputs.requests.first(where: { $0.mealID == mealID && $0.date == night.date })?
+                          .requestID ?? inputs.wanted.first(where: { $0.mealID == mealID })?.requestID
+                else { return nil }
+                return (requestID, plan.nightID)
+            }, uniquingKeysWith: { first, _ in first })
+        }
         let kept = Set(inputs.nights.filter { $0.locked || $0.effort == .event || $0.date < inputs.today }.map(\.id))
         let drafted = Set(plans.map(\.nightID))
         unfillableNights = unfillableNights.subtracting(drafted)
@@ -254,6 +267,7 @@ final class WeekStore {
         week?.nights[index].quickPick = update.quickPick
         week?.nights[index].reason = nil
         week?.nights[index].locked = lock
+        requestNights = requestNights.filter { $0.value != nightID }
         return await send(nightID: nightID, failure: String(localized: "Couldn't swap the night. Check your connection and try again.")) {
             [client] in try await client.setNight(saved, lock)
         }
@@ -384,8 +398,10 @@ struct PlanningContext {
     let history: [MealHistory]
     let settings: HouseholdSettings
     let members: [Member]
-    /// Dated requests (M2); empty until requests exist.
+    /// Dated requests, landed on their nights.
     var requests: [DatedRequest] = []
+    /// Someday requests several people want, on a night they're all home.
+    var wanted: [WantedRequest] = []
     var traditions: [Tradition] = []
     /// The family's reactions: dislikes, snoozes, favorites, and likes (#42).
     var reactions = ReactionSummary()
@@ -402,6 +418,7 @@ struct PlanningContext {
             favorites: reactions.favorites,
             likes: reactions.likes,
             requests: requests,
+            wanted: wanted,
             traditions: traditions,
             today: max(today, week.start)
         )

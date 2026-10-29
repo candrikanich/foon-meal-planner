@@ -212,7 +212,7 @@ struct SwapSheet: View {
 
     /// A swap can take a requested dish off its night (or put one on it): the ideas follow.
     private func swapped() async {
-        await ideas?.sync(with: week.week)
+        await ideas?.sync(with: week.week, today: week.todayDay, requestNights: week.requestNights)
         dismiss()
     }
 }

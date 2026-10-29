@@ -62,7 +62,7 @@ struct RequestBoardTests {
         let done = DinnerRequest(requestedByMemberID: nora, mealID: tacos, targetDate: monday.adding(days: 5),
                                  status: .planned, plannedNightID: UUID(), plannedDate: monday.adding(days: 5))
         #expect(RequestBoard.dated([friday, past, nextWeek, noDish, done], weekStart: monday, today: today)
-            == [DatedRequest(mealID: tacos, date: monday.adding(days: 4), requesterID: nora)])
+            == [DatedRequest(mealID: tacos, date: monday.adding(days: 4), requesterID: nora, requestID: friday.id)])
         #expect(RequestBoard.waitingCount([friday, past, noDish, done]) == 3)
     }
 
@@ -157,7 +157,7 @@ struct RequestLandingTests {
         let landed = DinnerRequest(requestedByMemberID: nora, mealID: tacos, targetDate: friday.date)
         let swapped = DinnerRequest(requestedByMemberID: nora, mealID: tacos, targetDate: thursday.date)
         let someday = DinnerRequest(requestedByMemberID: nora, mealID: tacos)
-        let result = RequestBoard.landed([landed, swapped, someday], nights: [thursday, friday])
+        let result = RequestBoard.landed([landed, swapped, someday], nights: [thursday, friday], today: monday)
         #expect(result.map(\.requestID) == [landed.id])
         #expect(result.map(\.nightID) == [friday.id])
     }
@@ -228,7 +228,136 @@ struct MarkLandedTests {
             update: { _, update in updates.withLock { $0.append(update) } }
         ))
         await store.load()
-        await store.sync(with: Week(planID: UUID(), start: monday, approvedAt: nil, nights: [friday]))
+        await store.sync(with: Week(planID: UUID(), start: monday, approvedAt: nil, nights: [friday]), today: monday)
         #expect(updates.withLock { $0 } == [RequestUpdate(status: .planned, nightID: friday.id)])
+    }
+
+    @Test func aPriorityDishSwappedAwaySitsTheWeekOut() async {
+        let monday = CalendarDay(year: 2026, month: 11, day: 2)
+        let friday = WeekNight(id: UUID(), date: monday.adding(days: 4), effort: .normal, dinnerTime: nil, mealID: UUID(),
+                               mealName: "Chili", quickPick: nil, locked: true, attendance: [:])
+        let request = DinnerRequest(requestedByMemberID: UUID(), mealID: UUID(), status: .planned,
+                                    plannedNightID: friday.id, plannedDate: friday.date)
+        let updates = Mutex<[RequestUpdate]>([])
+        let store = IdeasStore(householdID: UUID(), client: IdeasClient(
+            requests: { _ in [request] }, make: { _, _ in UUID() }, toggleMeToo: { _, _ in true },
+            update: { _, update in updates.withLock { $0.append(update) } }
+        ))
+        await store.load()
+        await store.sync(with: Week(planID: UUID(), start: monday, approvedAt: nil, nights: [friday]), today: monday)
+        #expect(updates.withLock { $0 } == [RequestUpdate(status: .open, skipWeek: monday)],
+                "back to open, and Build leaves it out of this week's priority")
+    }
+}
+
+struct WantedRequestTests {
+    private let today = CalendarDay(year: 2026, month: 11, day: 3)
+    private var weekStart: CalendarDay { today.adding(days: -1) }
+    private let nora = Member.fixture(firstName: "Nora", ageGroup: .kid)
+    private let ann = Member.fixture(firstName: "Ann", guardian: true, userID: UUID())
+    private let ben = Member.fixture(firstName: "Ben", userID: UUID())
+    private let owen = Member.fixture(firstName: "Owen")
+    private let tacos = UUID()
+    private var family: [Member] { [nora, ann, ben, owen] }
+
+    private func wanted(_ requests: [DinnerRequest], members: [Member]? = nil) -> [WantedRequest] {
+        RequestBoard.wanted(requests, weekStart: weekStart, today: today, members: members ?? family)
+    }
+
+    @Test func twoMeTooOrMoreOnASomedayDishGetsPriority() {
+        let wanted = DinnerRequest(requestedByMemberID: nora.id, mealID: tacos, plusOnes: [ann.id, ben.id])
+        let one = DinnerRequest(requestedByMemberID: nora.id, mealID: tacos, plusOnes: [ann.id])
+        let dated = DinnerRequest(requestedByMemberID: nora.id, mealID: tacos, targetDate: today.adding(days: 2),
+                                  plusOnes: [ann.id, ben.id])
+        let missed = DinnerRequest(requestedByMemberID: nora.id, mealID: tacos, targetDate: today.adding(days: -2),
+                                   plusOnes: [ann.id, ben.id])
+        let noDish = DinnerRequest(requestedByMemberID: nora.id, title: "Crab legs", plusOnes: [ann.id, ben.id])
+        let result = self.wanted([wanted, one, dated, missed, noDish])
+        #expect(result.count == 2, "the dated one lands on its night instead; a missed date is someday now")
+        #expect(result.first == WantedRequest(mealID: tacos, requesterID: nora.id, wanters: [nora.id, ann.id, ben.id],
+                                              requestID: wanted.id))
+    }
+
+    @Test func notThisWeekSitsThisWeekOutAndComesBackTheNext() {
+        var skipped = DinnerRequest(requestedByMemberID: nora.id, mealID: tacos, plusOnes: [ann.id, ben.id])
+        skipped.skippedWeek = weekStart
+        #expect(wanted([skipped]).isEmpty)
+        skipped.skippedWeek = weekStart.adding(days: -7)
+        #expect(wanted([skipped]).count == 1, "last week's skip is over")
+    }
+
+    @Test func onlyPeopleStillInTheFamilyCount() {
+        var gone = ben
+        gone.status = .removed
+        let request = DinnerRequest(requestedByMemberID: nora.id, mealID: tacos, plusOnes: [ann.id, ben.id])
+        #expect(wanted([request], members: [nora, ann, gone, owen]).isEmpty,
+                "Ben's me too left with him")
+        var away = ben
+        away.status = .away
+        #expect(wanted([request], members: [nora, ann, away, owen]).isEmpty,
+                "away all week, Ben can't be home for it: his me too waits until he's back")
+        let withOwen = DinnerRequest(requestedByMemberID: nora.id, mealID: tacos, plusOnes: [ann.id, ben.id, owen.id])
+        #expect(wanted([withOwen], members: [nora, ann, away, owen]).first?.wanters == [nora.id, ann.id, owen.id],
+                "and he isn't needed home for it either")
+        #expect(wanted([DinnerRequest(requestedByMemberID: nora.id, mealID: tacos, plusOnes: [ann.id])],
+                       members: [nora, ann]).count == 1, "a family of two: both of you is everyone")
+    }
+
+    @Test func mostWantedFirstThenTheOldest() {
+        let chili = UUID(), soup = UUID()
+        let newer = DinnerRequest(requestedByMemberID: nora.id, mealID: chili, createdAt: Date(timeIntervalSince1970: 200),
+                                  plusOnes: [ann.id, ben.id])
+        let older = DinnerRequest(requestedByMemberID: nora.id, mealID: soup, createdAt: Date(timeIntervalSince1970: 100),
+                                  plusOnes: [ann.id, ben.id])
+        let most = DinnerRequest(requestedByMemberID: nora.id, mealID: tacos, createdAt: Date(timeIntervalSince1970: 300),
+                                 plusOnes: [ann.id, ben.id, owen.id])
+        #expect(wanted([newer, older, most]).map(\.mealID) == [tacos, soup, chili])
+    }
+
+    private func night(_ meal: UUID, on date: CalendarDay, locked: Bool = true) -> WeekNight {
+        WeekNight(id: UUID(), date: date, effort: .normal, dinnerTime: nil, mealID: meal, mealName: "Tacos",
+                  quickPick: nil, locked: locked, attendance: [:])
+    }
+
+    @Test func aSomedayRequestIsMarkedOnlyWhereBuildLandedIt() {
+        let tuesday = night(tacos, on: today), friday = night(tacos, on: today.adding(days: 3))
+        let request = DinnerRequest(requestedByMemberID: nora.id, mealID: tacos, plusOnes: [ann.id, ben.id])
+        let newer = DinnerRequest(requestedByMemberID: ben.id, mealID: tacos)
+        #expect(RequestBoard.landed([newer, request], nights: [tuesday, friday], today: today,
+                                    requestNights: [request.id: friday.id]).map(\.requestID) == [request.id],
+                "Ben asking for tacos later doesn't take Nora's night")
+        #expect(RequestBoard.landed([request], nights: [tuesday, friday], today: today).isEmpty,
+                "Taco Tuesday holding the same dish isn't the request landing")
+    }
+
+    @Test func aMissedDateRequestBuildLandedIsMarked() {
+        let friday = night(tacos, on: today.adding(days: 3))
+        let missed = DinnerRequest(requestedByMemberID: nora.id, mealID: tacos, targetDate: today.adding(days: -2),
+                                   plusOnes: [ann.id, ben.id])
+        #expect(RequestBoard.landed([missed], nights: [friday], today: today, requestNights: [missed.id: friday.id])
+            .map(\.nightID) == [friday.id])
+    }
+
+    @Test func newsForWhoeverAsked() {
+        let friday = today.adding(days: 3)
+        let (nora, ann, ben) = (nora.id, ann.id, ben.id)
+        let mine = DinnerRequest(requestedByMemberID: nora, title: "Crab legs", status: .planned, plannedNightID: UUID(),
+                                 plannedDate: friday)
+        let forNora = DinnerRequest(requestedByMemberID: ann, title: "Pie", status: .planned, plannedNightID: UUID(),
+                                    plannedDate: friday, enteredByMemberID: nora)
+        let someoneElses = DinnerRequest(requestedByMemberID: ben, title: "Soup", status: .planned, plannedNightID: UUID(),
+                                         plannedDate: friday)
+        let past = DinnerRequest(requestedByMemberID: nora, title: "Stew", status: .planned, plannedNightID: UUID(),
+                                 plannedDate: today.adding(days: -1))
+        let farOff = DinnerRequest(requestedByMemberID: nora, title: "Ribs", status: .planned, plannedNightID: UUID(),
+                                   plannedDate: today.adding(days: 8))
+        #expect(RequestBoard.news([mine, forNora, someoneElses, past, farOff], me: nora, today: today, dismissed: [])
+            .map(\.id) == [mine.id, forNora.id], "today through the coming week")
+        #expect(RequestBoard.news([mine], me: nora, today: today, dismissed: [mine.id]).isEmpty)
+        #expect(RequestText.madeIt(what: "Crab legs", on: friday, today: today) == "Your idea made Friday: Crab legs")
+        #expect(RequestText.madeIt(what: "Crab legs", on: today, today: today) == "Your idea is on for tonight: Crab legs")
+        #expect(RequestText.madeIt(what: "Crab legs", on: today.adding(days: 1), today: today)
+            == "Your idea is on for tomorrow: Crab legs")
+        #expect(RequestText.madeIt(what: "Crab legs", on: nil, today: today) == "Your idea made the plan: Crab legs")
     }
 }

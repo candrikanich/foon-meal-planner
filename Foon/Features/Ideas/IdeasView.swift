@@ -134,6 +134,26 @@ enum RequestText {
         return String(localized: "From \(name), for \(day)", comment: "Idea row: who asked and the night they want it")
     }
 
+    /// "Your idea made Friday: Crab legs" ("is on for tonight" and "tomorrow" when it is).
+    @MainActor
+    static func madeIt(_ request: DinnerRequest, library: LibraryStore, today: CalendarDay) -> String {
+        madeIt(what: what(request, library: library), on: request.plannedDate, today: today)
+    }
+
+    static func madeIt(what: String, on date: CalendarDay?, today: CalendarDay) -> String {
+        guard let date else {
+            return String(localized: "Your idea made the plan: \(what)", comment: "Request news: the dish, night unknown")
+        }
+        if date == today {
+            return String(localized: "Your idea is on for tonight: \(what)", comment: "Request news: the dish")
+        }
+        if date == today.adding(days: 1) {
+            return String(localized: "Your idea is on for tomorrow: \(what)", comment: "Request news: the dish")
+        }
+        let day = date.date().formatted(.dateTime.weekday(.wide))
+        return String(localized: "Your idea made \(day): \(what)", comment: "Request news: the weekday it's planned, then the dish")
+    }
+
     static func status(_ shown: RequestBoard.Shown) -> String {
         switch shown {
         case .waiting: String(localized: "Waiting")

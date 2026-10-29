@@ -33,6 +33,7 @@ struct WeekView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     if !week.showingNextWeek {
+                        RequestNewsSection()
                         DinnerPromptsSection()
                     }
                     Picker("Week", selection: $week.showingNextWeek) {
@@ -348,26 +349,32 @@ struct WeekView: View {
         if !library.hasLoaded { await library.load(members: household.members) }
         guard library.hasLoaded else { return nil }
         return PlanningContext(meals: library.meals, history: library.history, settings: settings,
-                               members: household.visibleMembers, requests: requests, traditions: week.traditions,
-                               reactions: library.reactions)
+                               members: household.visibleMembers, requests: requests,
+                               wanted: RequestBoard.wanted(ideas.requests, weekStart: weekStart, today: week.todayDay,
+                                                           members: household.members),
+                               traditions: week.traditions, reactions: library.reactions)
     }
 
     /// Dated requests for a library dish this week: Build my week lands each on its night. The week's start comes from
     /// settings when there's no week yet (Build from the empty state starts it after asking for this).
     private var requests: [DatedRequest] {
+        RequestBoard.dated(ideas.requests, weekStart: weekStart, today: week.todayDay)
+    }
+
+    /// The week being planned.
+    private var weekStart: CalendarDay {
         let thisWeek = WeekMath.start(of: week.todayDay, weekStart: settings.weekStart)
-        let start = week.week?.start ?? (week.showingNextWeek ? thisWeek.adding(days: 7) : thisWeek)
-        return RequestBoard.dated(ideas.requests, weekStart: start, today: week.todayDay)
+        return week.week?.start ?? (week.showingNextWeek ? thisWeek.adding(days: 7) : thisWeek)
     }
 
     private func build() async {
         await week.buildWeek { await planningContext() }
-        await ideas.sync(with: week.week)
+        await ideas.sync(with: week.week, today: week.todayDay, requestNights: week.requestNights)
     }
 
     private func fillRemaining() async {
         await week.fillRemaining { await planningContext() }
-        await ideas.sync(with: week.week)
+        await ideas.sync(with: week.week, today: week.todayDay, requestNights: week.requestNights)
     }
 
     private func shuffle(_ nightID: UUID) async {

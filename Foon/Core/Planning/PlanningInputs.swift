@@ -35,6 +35,17 @@ struct DatedRequest: Equatable, Sendable {
     let mealID: UUID
     let date: CalendarDay
     let requesterID: UUID
+    /// The idea it came from, so the night it lands on marks that idea planned (not another for the same dish).
+    var requestID: UUID?
+}
+
+/// A someday request several people want (the requester and their me-toos): top priority, on a night they're all home.
+struct WantedRequest: Equatable, Sendable {
+    let mealID: UUID
+    let requesterID: UUID
+    /// Everyone who wants it: the requester and everyone who said me too.
+    let wanters: Set<UUID>
+    var requestID: UUID?
 }
 
 /// A standing tradition (Taco Tuesday): a meal or quick pick on an ISO weekday (1 = Monday), from `traditions`.
@@ -95,6 +106,8 @@ struct PlanningInputs: Equatable, Sendable {
     /// Meal id → thumbs-up reactions (favorite or good) from anyone, ever.
     var likes: [UUID: Int] = [:]
     var requests: [DatedRequest] = []
+    /// Someday requests with two or more me-toos, most wanted first.
+    var wanted: [WantedRequest] = []
     /// Household items in stock (in or low), matched against meal ingredients.
     var onHandItemIDs: Set<UUID> = []
     /// Standing traditions, at most one per weekday.
@@ -109,10 +122,11 @@ struct PlanningInputs: Equatable, Sendable {
         nights: [PlanningNight], meals: [LibraryMeal], history: [MealHistory] = [],
         settings: HouseholdSettings = HouseholdSettings(), memberNames: [UUID: String] = [:],
         notForMe: [UUID: [UUID: Int]] = [:], snoozedMealIDs: Set<UUID> = [], favorites: [UUID: Set<UUID>] = [:],
-        likes: [UUID: Int] = [:], requests: [DatedRequest] = [], onHandItemIDs: Set<UUID> = [],
-        traditions: [Tradition] = [], today: CalendarDay? = nil
+        likes: [UUID: Int] = [:], requests: [DatedRequest] = [], wanted: [WantedRequest] = [],
+        onHandItemIDs: Set<UUID> = [], traditions: [Tradition] = [], today: CalendarDay? = nil
     ) {
         self.traditions = traditions
+        self.wanted = wanted
         (self.nights, self.meals, self.history, self.settings) = (nights, meals, history, settings)
         (self.memberNames, self.notForMe, self.snoozedMealIDs) = (memberNames, notForMe, snoozedMealIDs)
         (self.favorites, self.likes, self.requests, self.onHandItemIDs) = (favorites, likes, requests, onHandItemIDs)

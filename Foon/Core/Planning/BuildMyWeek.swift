@@ -6,7 +6,8 @@ import Foundation
 ///
 /// Steps, in order:
 /// 1. **Keep** pinned nights, event nights, and nights before `today` as they are, then land dated requests
-///    on their nights, then standing traditions on their weekdays (saved locked).
+///    on their nights, then standing traditions on their weekdays, then someday requests several people want on
+///    the first night they're all home (all saved locked).
 /// 2. **Special slots:** takeout on the busiest nights, trial dishes on full-attendance nights, then leftover
 ///    nights, each after a big-batch meal when one fits. Kept nights, past ones too, count toward each setting.
 /// 3. **Fill** the rest, rushed nights first and then in date order, with a weighted draw from dishes that
@@ -43,6 +44,7 @@ enum BuildMyWeek {
         var state = DraftState(planner: planner)
         state.landRequests()
         state.landTraditions()
+        state.landWanted()
         state.placeTakeout()
         state.placeNewDishes(rng: &rng)
         state.placeLeftovers(rng: &rng)
@@ -298,6 +300,22 @@ private struct DraftState {
                   let index = openIndices.first(where: { plans[$0].date == request.date }) else { continue }
             fill(index, with: .meal(meal.id), reason: .request(name: planner.name(of: request.requesterID)),
                  kept: true)
+            plans[index].locks = true
+        }
+    }
+
+    /// Someday requests with two or more me-toos (docs/spec.md → Inbox rules): most wanted first, each on the first
+    /// open night everyone who wants it is home, saved locked. Like any request, it skips the filters; it still needs a
+    /// dish in rotation that isn't already in the week. No such night, and it waits for another week.
+    mutating func landWanted() {
+        let ordered = planner.inputs.wanted.enumerated()
+            .sorted { ($0.element.wanters.count, $1.offset) > ($1.element.wanters.count, $0.offset) }
+            .map(\.element)
+        for request in ordered {
+            guard let meal = planner.mealsByID[request.mealID], meal.status.isInRotation, !used.contains(meal.id),
+                  let index = openIndices.first(where: { request.wanters.isSubset(of: planner.nights[$0].home) })
+            else { continue }
+            fill(index, with: .meal(meal.id), reason: .request(name: planner.name(of: request.requesterID)), kept: true)
             plans[index].locks = true
         }
     }

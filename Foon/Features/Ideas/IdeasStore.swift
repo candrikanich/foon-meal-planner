@@ -83,14 +83,17 @@ final class IdeasStore {
         }
     }
 
-    /// After Build my week, Fill, or a swap: requests that landed on their night are marked planned there, and planned
-    /// ones whose night no longer has their dish go back to open. One reload at the end; the first failure is kept.
-    func sync(with week: Week?) async {
+    /// After Build my week, Fill, or a swap: requests that landed are marked planned there (`requestNights`: the nights
+    /// Build placed a dish on as a request, meal → night), and planned ones whose night no longer has their dish go
+    /// back to open, sitting that week out so a Rebuild doesn't bring them straight back. One reload at the end; the
+    /// first failure is kept.
+    func sync(with week: Week?, today: CalendarDay, requestNights: [UUID: UUID] = [:]) async {
         guard let week else { return }
         var failure: String?
-        let changes = RequestBoard.landed(requests, nights: week.nights)
+        let changes = RequestBoard.landed(requests, nights: week.nights, today: today, requestNights: requestNights)
             .map { ($0.requestID, RequestUpdate(status: .planned, nightID: $0.nightID)) }
-            + RequestBoard.unlanded(requests, nights: week.nights).map { ($0, RequestUpdate(status: .open)) }
+            + RequestBoard.unlanded(requests, nights: week.nights)
+                .map { ($0, RequestUpdate(status: .open, skipWeek: week.start)) }
         guard !changes.isEmpty else { return }
         for (id, change) in changes {
             do {

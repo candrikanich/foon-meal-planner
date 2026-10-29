@@ -652,6 +652,12 @@
     "Dinners" : {
 
     },
+    "Dismiss" : {
+
+    },
+    "Dismiss: %@" : {
+      "comment" : "Request news: close the note"
+    },
     "Does anyone have food allergies?" : {
 
     },
@@ -1982,6 +1988,26 @@
     },
     "Your household is ready. Pull to refresh to see your family." : {
 
+    },
+    "Your idea is on for tomorrow: %@" : {
+      "comment" : "Request news: the dish"
+    },
+    "Your idea is on for tonight: %@" : {
+      "comment" : "Request news: the dish"
+    },
+    "Your idea made %@: %@" : {
+      "comment" : "Request news: the weekday it's planned, then the dish",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Your idea made %1$@: %2$@"
+          }
+        }
+      }
+    },
+    "Your idea made the plan: %@" : {
+      "comment" : "Request news: the dish, night unknown"
     },
     "Your library has %lld meals" : {
 
