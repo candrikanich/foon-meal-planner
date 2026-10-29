@@ -74,7 +74,7 @@ Xcode Cloud numbers builds automatically, and 25 compute hours a month are free,
 ## My side (once you send the step 1 values)
 - `deploy-staging.yml` (done): applies migrations and the starter catalog to staging and deploys Edge Functions on merge to `main`, using the step 1 secrets.
 - `ci_scripts/ci_post_clone.sh` (done): writes `Staging.local.xcconfig` from the Xcode Cloud variables and generates the project with XcodeGen.
-- The founding flag: the setting, the `create_household` change, and pgTAP tests.
+- The founding flag (done): `app_config.founding_open` plus a trigger on new households, with pgTAP tests.
 - A smoke test against staging: sign in, create a household, build a week. Then the first TestFlight build.
 - Update `docs/app-store-submission.md` and close #37.
 
