@@ -576,6 +576,7 @@ Build everything, in order: Phase 1 (the Sunday flow) is what to sit down with y
 - [ ] StoreKit products (standard and Founding Family) with household entitlement
 - [ ] Privacy policy, terms, App Store privacy label; legal review (COPPA, allergy disclaimer, the allergy consent wording, the household time zone, and the hard delete of a withdrawn kid's own ratings)
 - [ ] TestFlight with our family, then the founding 50 households (flagged on the server)
+  - Founding flag (#37): while `app_config.founding_open` is on (both betas), a trigger flags every new household `founding = true`. Clients can't read the switch, flip it, or set the flag. At launch a migration turns it off, and flagged households keep it. There's no automatic cap at 50: we close it by hand.
 - [ ] Enroll in Apple's Small Business Program; App Store submission
 
 * [ ] Written data-retention policy; allergy data opt-in consent; receipt images deleted after parsing
