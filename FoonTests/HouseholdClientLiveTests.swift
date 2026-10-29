@@ -385,6 +385,15 @@ struct HouseholdClientLiveTests {
             try await dinners.correct(logID, .dish(mealID: chiliID, quickPick: nil))
         }
 
+        // Thanks, chef: Ann cooked, so Ann can't thank herself; nobody else here has an account.
+        do {
+            try await dinners.thankTheChef(logID)
+            Issue.record("no thanking yourself")
+        } catch {
+            #expect((error as? PostgrestError)?.code == "22023", "refused by the rule, not a wiring mistake")
+        }
+        #expect(try await dinners.thanks(household.id, today).isEmpty)
+
         let verdicts = try await library.verdicts(household.id)
         #expect(Set(verdicts.map(\.memberID)) == [ann.id, nora.id])
         #expect(verdicts.allSatisfy { $0.mealID == tacosID })

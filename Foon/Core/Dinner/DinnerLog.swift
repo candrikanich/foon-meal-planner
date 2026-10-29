@@ -153,6 +153,21 @@ struct DinnerClient: Sendable {
     var nights: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ through: CalendarDay) async throws -> [WeekNight]
     /// "Wasn't home": for yourself, or a profile nobody has claimed, on a night that's happened.
     var setNotHome: @Sendable (_ nightID: UUID, _ memberID: UUID) async throws -> Void
+    /// Thanks for dinners on or after `since`.
+    var thanks: @Sendable (_ householdID: UUID, _ since: CalendarDay) async throws -> [ChefThanks] = { _, _ in [] }
+    /// "Thanks, chef", from your own profile.
+    var thankTheChef: @Sendable (_ logID: UUID) async throws -> Void = { _ in }
+}
+
+/// One "Thanks, chef": from whom, for which dinner.
+struct ChefThanks: Equatable, Sendable, Decodable {
+    let logID: UUID
+    let fromMemberID: UUID
+
+    private enum CodingKeys: String, CodingKey {
+        case logID = "meal_log_id"
+        case fromMemberID = "from_member_id"
+    }
 }
 
 extension DinnerClient {
@@ -204,6 +219,17 @@ extension DinnerClient {
                 try await client.rpc("set_not_home", params: [
                     "target_night": nightID.uuidString, "target_member": memberID.uuidString
                 ]).execute()
+            },
+            thanks: { householdID, since in
+                try await client.from("chef_thanks")
+                    .select("meal_log_id, from_member_id, meal_logs!inner(plan_nights!inner(date))")
+                    .eq("household_id", value: householdID)
+                    .gte("meal_logs.plan_nights.date", value: since.isoString)
+                    .execute()
+                    .value
+            },
+            thankTheChef: { logID in
+                try await client.rpc("thank_the_chef", params: ["target_log": logID.uuidString]).execute()
             }
         )
     }

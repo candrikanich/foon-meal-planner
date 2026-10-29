@@ -13,7 +13,9 @@ final class DinnerStore {
     }
 
     private(set) var nights: [WeekNight] = []
+    /// Logged dinners since the start of the month (or yesterday, if earlier): the cards and the cook tally.
     private(set) var logs: [DinnerLog] = []
+    private(set) var thanks: [ChefThanks] = []
     private(set) var errorMessage: String?
     /// Nights with a write in flight, so their buttons don't fire twice.
     private(set) var saving: Set<UUID> = []
@@ -44,12 +46,14 @@ final class DinnerStore {
         loadGeneration += 1
         let generation = loadGeneration
         let today = today
+        let since = min(today.adding(days: -1), CalendarDay(year: today.year, month: today.month, day: 1))
         do {
             async let nights = client.nights(householdID, today.adding(days: -1), today)
-            async let logs = client.logs(householdID, today.adding(days: -1))
-            let loaded = try await (nights, logs)
+            async let logs = client.logs(householdID, since)
+            async let thanks = client.thanks(householdID, since)
+            let loaded = try await (nights, logs, thanks)
             guard generation == loadGeneration else { return }
-            (self.nights, self.logs) = loaded
+            (self.nights, self.logs, self.thanks) = loaded
             errorMessage = nil
         } catch {
             guard generation == loadGeneration, !(error is CancellationError) else { return }
@@ -65,6 +69,29 @@ final class DinnerStore {
     func extras(me: UUID, settings: HouseholdSettings, at date: Date? = nil) -> [DinnerPrompts.Prompt] {
         DinnerPrompts.extras(nights: nights, logs: logs, me: me, defaultDinnerTime: settings.dinnerTime,
                              now: date ?? now(), calendar: calendar)
+    }
+
+    /// Who cooked this month, with their thanks.
+    var cookTally: [CookCredit.Tally] {
+        CookCredit.thisMonth(logs: logs, thanks: thanks, today: today)
+    }
+
+    /// Last night's and tonight's dinners with a cook, for Thanks, chef.
+    func recentlyCooked(settings: HouseholdSettings, at date: Date? = nil) -> [DinnerLog] {
+        CookCredit.recent(nights: nights, logs: logs, defaultDinnerTime: settings.dinnerTime, now: date ?? now(),
+                          calendar: calendar)
+    }
+
+    func thanks(for logID: UUID) -> [ChefThanks] {
+        thanks.filter { $0.logID == logID }
+    }
+
+    @discardableResult
+    func thankTheChef(_ log: DinnerLog) async -> Bool {
+        await write(log.nightID, failure: String(localized: "Couldn't send that. Check your connection and try again."),
+                    refused: String(localized: "That dinner can't be thanked anymore.")) {
+            [client] in try await client.thankTheChef(log.id)
+        }
     }
 
     func log(for nightID: UUID) -> DinnerLog? {
@@ -130,7 +157,8 @@ final class DinnerStore {
             try await work()
             errorMessage = nil
         } catch {
-            errorMessage = (error as? PostgrestError)?.code == "42501" ? (refused ?? failure) : failure
+            let code = (error as? PostgrestError)?.code
+            errorMessage = code == "42501" || code == "22023" ? (refused ?? failure) : failure
             return false
         }
         await reload()

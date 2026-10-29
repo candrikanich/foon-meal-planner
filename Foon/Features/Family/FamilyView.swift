@@ -3,6 +3,7 @@ import SwiftUI
 struct FamilyView: View {
     @Environment(HouseholdStore.self) private var store
     @Environment(SessionStore.self) private var session
+    @Environment(DinnerStore.self) private var dinner
     @State private var editor: EditorTarget?
     @State private var confirmingSignOutEverywhere = false
     @State private var deletingAccount = false
@@ -38,6 +39,38 @@ struct FamilyView: View {
                     }
                 }
 
+
+                // Family order, not a ranking: credit, not a leaderboard.
+                let cooks = Dictionary(dinner.cookTally.map { ($0.memberID, $0) }, uniquingKeysWith: { first, _ in first })
+                let cooking = store.visibleMembers.filter { cooks[$0.id] != nil }
+                if !cooking.isEmpty {
+                    Section {
+                        ForEach(cooking) { member in
+                            if let tally = cooks[member.id] {
+                                HStack(spacing: 12) {
+                                    MemberAvatar(member: member)
+                                    Text(member.firstName).font(.body.weight(.medium))
+                                    Spacer()
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        Text(tally.dinners == 1 ? String(localized: "1 dinner")
+                                                                : String(localized: "\(tally.dinners) dinners"))
+                                        if tally.thanks > 0 {
+                                            Text(tally.thanks == 1 ? String(localized: "1 thank-you")
+                                                                   : String(localized: "\(tally.thanks) thank-yous"))
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                                .accessibilityElement(children: .combine)
+                            }
+                        }
+                    } header: {
+                        Text("Cooked this month")
+                    } footer: {
+                        Text("From the dinners logged after each meal. Tap Thanks, chef on This Week to say so.")
+                    }
+                }
                 Section {
                     if store.canExport {
                         ExportButton(exportURL: $exportURL)
@@ -70,7 +103,12 @@ struct FamilyView: View {
                     }
                 }
             }
-            .refreshable { await store.load() }
+            .refreshable {
+                await store.load()
+                await loadDinners()
+            }
+            // Waits for the household, so the tally uses its time zone (the store's calendar is shared with This Week).
+            .task(id: store.household?.id) { await loadDinners() }
             .navigationTitle("Family")
             .toolbar {
                 if store.canManagePeople {
@@ -98,6 +136,11 @@ struct FamilyView: View {
                 }
             }
         }
+    }
+
+    private func loadDinners() async {
+        guard let household = store.household else { return }
+        await dinner.load(settings: household.planningSettings)
     }
 
     private enum EditorTarget: Identifiable {
@@ -164,5 +207,6 @@ struct MemberRow: View {
     FamilyView()
         .environment(store)
         .environment(SessionStore(auth: .preview()))
+        .environment(DinnerStore(householdID: Household.sample.id, client: .preview))
         .task { await store.load() }
 }
