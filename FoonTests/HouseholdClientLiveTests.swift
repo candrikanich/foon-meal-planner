@@ -401,6 +401,22 @@ struct HouseholdClientLiveTests {
         try await library.setServingNote(tacosID, nora.id, " ")
         #expect(try await library.servingNotes(household.id).isEmpty)
 
+        // The idea inbox: Ann asks for tacos on tomorrow's night, and crab legs for Nora (pass the phone).
+        let ideas = IdeasClient.live(supabase)
+        let crab = try await ideas.make(household.id, NewRequest(from: nora.id, title: "Crab legs", note: "since March"))
+        _ = try await ideas.make(household.id, NewRequest(from: ann.id, mealID: tacosID, date: today.adding(days: 1)))
+        #expect(try await ideas.toggleMeToo(crab, ann.id))
+        try await ideas.update(crab, RequestUpdate(status: .special))
+        let requests = try await ideas.requests(household.id)
+        #expect(requests.count == 2)
+        #expect(requests.first { $0.id == crab }?.status == .special)
+        #expect(requests.first { $0.id == crab }?.plusOnes == [ann.id])
+        #expect(requests.contains { $0.mealID == tacosID && $0.targetDate == today.adding(days: 1) })
+        // Planned on tonight: the planned night's date comes back with it.
+        let soup = try await ideas.make(household.id, NewRequest(from: ann.id, title: "Soup"))
+        try await ideas.update(soup, RequestUpdate(status: .planned, nightID: tonight.id))
+        #expect(try await ideas.requests(household.id).first { $0.id == soup }?.plannedDate == today)
+
         let verdicts = try await library.verdicts(household.id)
         #expect(Set(verdicts.map(\.memberID)) == [ann.id, nora.id])
         #expect(verdicts.allSatisfy { $0.mealID == tacosID })

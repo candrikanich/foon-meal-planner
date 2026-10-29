@@ -144,6 +144,20 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 
 **Inbox rules.** No hard decline and no request limits. Planner actions: Plan it, Save to library, Not this week (carries forward), and Save for a special occasion (resurfaces on birthday or celebration nights: "He's wanted crab legs since March"); plain archive for clutter. Unplanned dated requests move to Someday. Requests with multiple +1s get top priority in Build my week, on a night everyone who wants it is home. Requesters are notified when their idea makes the plan.
 
+**v1 requests (#38, part 1, data).**
+- **What a request is:** a library dish, a typed name (up to 80 characters), or a web link, with an optional note (up to 200) and an optional night from today on.
+- **Who asks:** you, or (pass the phone) a profile nobody has claimed. **Me too** follows the same rule. It's a vote, so it can be taken back, and not on your own request.
+- **What happens next:** planners plan it (on a night), save it for a special occasion, move it to Someday (Not this week clears the date), archive it, or link it to a library dish (Save to library). The person who asked (or whoever entered it on their phone) can change the note or night, or archive it; once it's planned, only a planner moves it. Nothing is deleted.
+- **Sections and status:**
+  - For this week: dated this week, or planned on one of its nights, in night order.
+  - Later: dated or planned for a later week.
+  - Someday: no date, a night gone by without being planned, or saved for a special occasion. Most me-toos first, then oldest.
+  - A request planned in an earlier week is Tried and leaves the board.
+  - New finds: links not yet turned into a library dish.
+  - Status reads Waiting, Planned for Friday, Tried (its planned night has passed), or Special occasion.
+- **Planning:** an open, dated request for a library dish this week lands on its night in Build my week (already a kept night; see Weekly planning).
+- **Retention:** deleting an adult's account clears their notes on requests, as does anonymizing a removed kid. A withdrawn kid's own requests and me-toos are erased.
+
 ## Weekly planning
 
 The planner taps "Build my week," gets a solid draft, and shapes it. The algorithm is plain code and works on every device; AI is an optional layer.
@@ -375,7 +389,7 @@ iOS-only, multiplatform SwiftUI (iPhone, iPad, Mac) on Supabase, with a local ca
 | night\_attendance | plan night, member, expected, confirmed |
 | meal\_logs | plan night, meal or quick pick actually eaten, cooked by, leftovers, verified, confirmed by |
 | reactions | meal log, member, reaction, off-tonight flag, comment |
-| requests | household, member, meal or link, target date (optional), status |
+| requests | household, member, meal, name or link, note, target date (optional), status, planned night; me-toos in request\_plus\_ones |
 | list\_items | household, item, list (weekly, quick), urgency, source, checked |
 | polls / votes | household, night, options, closes at; member, choice |
 | receipts / receipt\_lines | household, date, image; raw text, matched item |
