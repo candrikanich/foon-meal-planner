@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UserNotifications
 
 @main
 struct FoonApp: App {
@@ -9,6 +10,11 @@ struct FoonApp: App {
     private static let configured = (try? SupabaseConfig.fromMainBundle()) != nil
     // The offline cache. If the store can't open, the app still runs with an in-memory cache.
     private static let cache = (try? SyncService.persistentContainer()) ?? (try! SyncService.inMemoryContainer())
+
+    init() {
+        // Cook-mode timer alerts show (with sound) even while Foon is in front.
+        UNUserNotificationCenter.current().delegate = CookAlertPresenter.shared
+    }
 
     // One window (Mac) or scene (iPad): each would run its own sync service against the same cache.
     var body: some Scene {

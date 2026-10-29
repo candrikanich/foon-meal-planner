@@ -124,7 +124,7 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 - v1 serving notes (#46, part 2):
   - **What:** one note per person per dish, up to 120 characters ("Nora: keep everything separate before mixing"), visible to the whole family.
   - **Who writes:** you write your own; parents write anyone's, kids without phones included. Tapping a note edits it, Add a serving note picks the person, and clearing a note deletes it (it's a current preference like an allergy row, not history: the one kind of family input that's deleted, not kept). Length is counted as the server does, so emoji count fairly.
-  - **Where:** on day cards, under the dish (and in the card's VoiceOver summary), for people home that night, in family order. Cook mode will show them too (#46, part 3). This Week re-reads notes with reactions on each load.
+  - **Where:** on day cards, under the dish (and in the card's VoiceOver summary), for people home that night, in family order. Cook mode shows them too (#46, part 3). This Week re-reads notes with reactions on each load.
   - **Retention:** deleting an adult's account or anonymizing a removed kid deletes their notes; a withdrawn kid's self-written notes are erased.
   - **This Week** now loads the library for everyone, not only planners, so members see allergy badges and serving notes on the cards too.
 - v1 Plan it (#18, #19), planners, from the long-press menu and meal detail: pick a night from tonight on in the week This Week shows (each row says what it holds now; nights already set to this meal are left out). Like Swap, it replaces the night and locks it, so Rebuild keeps it. With no week yet, it points to This Week.
@@ -132,6 +132,11 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 **Frequency awareness.** Overuse nudges ("Tacos 3 times in 2 weeks"), neglect nudges ("No pot roast in 7 weeks"), and recap callouts make the log the planner's memory.
 
 **Cook mode (Phase 2).** One step per screen, timers, screen stays awake, serving notes surfaced; supports beginner cooks.
+- v1 (#46, part 3): **Start cooking** on meal detail, for any dish with steps. Full screen on iPhone, a sheet on Mac.
+  - **Before you start:** serving notes (titled Tonight, for who's home, when it's tonight's dish; else everyone's), and the ingredients with amounts. Arrow keys page on a Mac.
+  - **Steps:** one per page in big type; swipe or Back and Next on iPhone; All done at the end.
+  - **Timers:** times found in a step ("simmer 30 minutes", "bake 1 1/2 hours", "rest 20-25 min", which starts at the low end) become one-tap timer buttons. Running timers count down at the bottom. "1 hour 30 minutes" is one timer, and "45 min-1 hour" starts at 45 minutes. Each schedules a local notification ("Timer done: 30 minutes. Time to check on chili."), so it goes off with the phone locked, and it shows with sound while Foon is open too. Stopping a timer or leaving cook mode cancels its alert. Foon asks for notification permission the first time a timer starts; with alerts off, cook mode says to keep Foon open and links to Settings.
+  - **Screen:** kept awake while cook mode is open, on iPhone, iPad, and Mac.
 
 **Idea inbox.** Anyone can request a dish. Dated requests ("steak Friday, my night off") land on that week's plan; "someday" wishes sit in a backlog the planner pulls from. New dishes start tagged as trials until everyone has reacted.
 
