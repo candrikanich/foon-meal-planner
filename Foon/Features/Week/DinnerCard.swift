@@ -32,6 +32,11 @@ struct DinnerPromptsSection: View {
                     ForEach(dinner.extras(me: me.id, settings: settings, at: context.date)) { prompt in
                         DinnerExtrasCard(prompt: prompt)
                     }
+                    ForEach(dinner.recentlyCooked(settings: settings, at: context.date)) { log in
+                        if let cook = household.members.first(where: { $0.id == log.cookedByMemberID }) {
+                            ThanksChefCard(log: log, cook: cook, me: me)
+                        }
+                    }
                     if sheet == nil, let message = dinner.errorMessage {
                         Text(message).font(.callout).foregroundStyle(.red)
                     }
@@ -201,6 +206,54 @@ struct DinnerExtrasCard: View {
     }
 }
 
+/// Cook credit: "Ann cooked the chili" with a one-tap Thanks, chef for everyone else; the cook sees their thanks.
+/// Only shown when the cook is someone in the family (the section filters), so it never renders empty.
+struct ThanksChefCard: View {
+    @Environment(DinnerStore.self) private var dinner
+    @Environment(\.dynamicTypeSize) private var typeSize
+    let log: DinnerLog
+    let cook: Member
+    let me: Member
+
+    var body: some View {
+        let thanks = dinner.thanks(for: log.id)
+        let dish = log.mealName ?? String(localized: "dinner")
+        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+                                                  : AnyLayout(HStackLayout(spacing: 12))
+        layout {
+            MemberAvatar(member: cook, size: 32)
+            if cook.id == me.id {
+                Text(Self.cookLine(thanks: thanks.count, dish: dish)).font(.foonBody)
+            } else {
+                Text("\(cook.firstName) cooked the \(dish)").font(.foonBody)
+                if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
+                if thanks.contains(where: { $0.fromMemberID == me.id }) {
+                    Label("Thanked", systemImage: "checkmark").font(.foonCaption).foregroundStyle(Palette.herb)
+                } else {
+                    Button("Thanks, chef") { Task { await dinner.thankTheChef(log) } }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Palette.paprika)
+                        .disabled(dinner.saving.contains(log.nightID))
+                        .accessibilityHint("Thanks \(cook.firstName) for dinner")
+                }
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Palette.cardSurface))
+    }
+
+    /// What the cook sees: warm with or without thanks yet, never a count of zero.
+    static func cookLine(thanks: Int, dish: String) -> String {
+        switch thanks {
+        case 0: String(localized: "Thanks for cooking the \(dish)")
+        case 1: String(localized: "Thanked once for the \(dish)")
+        case 2: String(localized: "Thanked twice for the \(dish)")
+        default: String(localized: "Thanked \(thanks) times for the \(dish)")
+        }
+    }
+}
+
 /// Pass the phone: everyone home rates on this phone in about 20 seconds. You and profiles without an account of their
 /// own can be rated (or marked not home) here; anyone with their own account rates on theirs, shown read-only.
 struct PassThePhoneSheet: View {
@@ -342,6 +395,11 @@ private let previewNight = WeekNight(
     attendance: Dictionary(uniqueKeysWithValues: Member.sampleFamily.map { ($0.id, true) })
 )
 
+private let previewCookedLog = DinnerLog(
+    id: UUID(), nightID: previewNight.id, date: previewNight.date, mealID: previewNight.mealID, mealName: "chili",
+    quickPick: nil, cookedByMemberID: Member.sampleFamily[1].id
+)
+
 private struct DinnerPreview<Content: View>: View {
     var household = HouseholdStore.preview()
     var dinner = DinnerStore(householdID: Household.sample.id, client: .preview)
@@ -384,6 +442,26 @@ private struct DinnerPreview<Content: View>: View {
         DinnerExtrasCard(prompt: DinnerPrompts.Prompt(night: previewNight, log: nil))
             .padding()
             .background(Palette.cream)
+    }
+}
+
+#Preview("Thanks, chef") {
+    DinnerPreview {
+        VStack(spacing: 12) {
+            ThanksChefCard(log: previewCookedLog, cook: Member.sampleFamily[1], me: Member.sampleFamily[0])
+            ThanksChefCard(log: previewCookedLog, cook: Member.sampleFamily[1], me: Member.sampleFamily[1])
+        }
+        .padding()
+        .background(Palette.cream)
+    }
+}
+
+#Preview("Thanks, chef, accessibility size") {
+    DinnerPreview {
+        ThanksChefCard(log: previewCookedLog, cook: Member.sampleFamily[1], me: Member.sampleFamily[0])
+            .padding()
+            .background(Palette.cream)
+            .dynamicTypeSize(.accessibility2)
     }
 }
 

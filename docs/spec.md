@@ -214,6 +214,11 @@ The plan is the log by default; one notification per person confirms it, rates i
 **Transparency.** Reactions are visible to the whole family. Always rate the dish, never the cook; the prompt asks about the food ("How was the chicken thing?").
 
 **Cook credit.** Every logged dinner records who made it, with no rating attached. A monthly "cooked this month" tally and a one-tap "Thanks, chef" make contributions visible and encourage more cooks. Beginner-friendly tags give kids a shortlist they can make on their own.
+- v1 (#46, part 1):
+  - **Thanks card:** once someone is down as the cook (the first responder's "Who cooked?"), This Week shows "Ann cooked: Chili" with a one-tap **Thanks, chef** for everyone else, while that night's card is open. The cook sees how many thanks they got.
+  - **Rules:** thanks come from your own profile, once per dinner, never to yourself, only for a cooked dish (not a quick pick), for a dinner from the last week, and are never taken back. Once someone has said thanks, the cook and the dish on that log stay as they were.
+  - **Family tab:** "Cooked this month" lists each cook's dishes and thank-yous, in family order (credit, not a leaderboard), from the month's logs in the household's time zone. Quick picks don't count.
+  - **Retention:** a withdrawn kid's own thanks are erased with their other contributions.
 
 **v1 effects (#42, part 3).** A person's current verdict on a dish is their latest reaction to it:
 - **Favorite:** pinned to them; Build my week boosts it on their home nights.
