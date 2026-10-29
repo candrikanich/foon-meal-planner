@@ -35,6 +35,74 @@ struct HouseholdStoreTests {
         #expect(store.errorMessage != nil)
     }
 
+    @Test func deletingTheHouseholdSendsYouBackToStartOne() async {
+        let household = Household(id: UUID(), name: "Sample", emoji: nil, owner: me)
+        let gone = Mutex(false)
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: { gone.withLock { $0 } ? nil : household },
+            deleteHousehold: { gone.withLock { $0 = true } }
+        ))
+        await store.load()
+        #expect(await store.deleteHousehold())
+        #expect(store.phase == .needsHousehold, "your account stays; you start or join another household")
+    }
+
+    @Test func aDeletedHouseholdIsGoneEvenIfTheReloadFails() async {
+        let household = Household(id: UUID(), name: "Sample", emoji: nil, owner: me)
+        let deleted = Mutex(false)
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: {
+                if deleted.withLock({ $0 }) { throw URLError(.notConnectedToInternet) }
+                return household
+            },
+            members: { _ in [Member.fixture(firstName: "Ann")] },
+            deleteHousehold: { deleted.withLock { $0 = true } }
+        ))
+        await store.load()
+        #expect(await store.deleteHousehold())
+        #expect(store.phase == .needsHousehold, "the server erased it: don't keep showing it")
+        #expect(store.members.isEmpty)
+    }
+
+    @Test func notTheOwnerAnyMoreSaysSoAndReloads() async {
+        let household = Household(id: UUID(), name: "Sample", emoji: nil, owner: me)
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: { household },
+            deleteHousehold: { throw HouseholdDeletionError.notOwner }
+        ))
+        await store.load()
+        #expect(!(await store.deleteHousehold()))
+        #expect(store.errorMessage?.contains("not its owner") == true, "not a connection problem")
+    }
+
+    @Test func theSampleShortcutIsOnlyForAHouseholdNobodyElseHasJoined() async {
+        var settings = HouseholdSettings()
+        settings.isSample = true
+        let household = Household(id: UUID(), name: "The Sample Family", emoji: nil, owner: me, settings: settings)
+        let mine = Member.fixture(firstName: "Ann", userID: me)
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        let alone = HouseholdStore(userID: me, client: .fake(myHousehold: { household }, members: { _ in [mine, kid] }))
+        await alone.load()
+        #expect(alone.isUnsharedSample)
+        let spouse = Member.fixture(firstName: "Ben", userID: UUID())
+        let shared = HouseholdStore(userID: me, client: .fake(myHousehold: { household },
+                                                              members: { _ in [mine, kid, spouse] }))
+        await shared.load()
+        #expect(!shared.isUnsharedSample, "once someone else has joined, it's their household too: type the name")
+    }
+
+    @Test func aFailedHouseholdDeleteKeepsItAndSaysSo() async {
+        let household = Household(id: UUID(), name: "Sample", emoji: nil, owner: me)
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: { household },
+            deleteHousehold: { throw URLError(.notConnectedToInternet) }
+        ))
+        await store.load()
+        #expect(!(await store.deleteHousehold()))
+        #expect(store.household?.id == household.id)
+        #expect(store.errorMessage?.contains("didn't finish") == true)
+    }
+
     @Test func aHouseholdThatIsGoneSendsYouBackToStartOne() async {
         let household = household
         let gone = Mutex(false)
@@ -292,7 +360,8 @@ extension HouseholdClient {
         grantAllergyConsent: @escaping @Sendable (UUID, String) async throws -> Void = { _, _ in },
         setAllergies: @escaping @Sendable (UUID, [Allergen], [String]) async throws -> Void = { _, _, _ in },
         updateSettings: @escaping @Sendable (UUID, HouseholdSettings) async throws -> Void = { _, _ in },
-        exportHousehold: @escaping @Sendable (UUID) async throws -> Data = { _ in Data("{}".utf8) }
+        exportHousehold: @escaping @Sendable (UUID) async throws -> Data = { _ in Data("{}".utf8) },
+        deleteHousehold: @escaping @Sendable () async throws -> Void = { }
     ) -> HouseholdClient {
         HouseholdClient(
             myHousehold: myHousehold,
@@ -309,7 +378,8 @@ extension HouseholdClient {
             grantAllergyConsent: grantAllergyConsent,
             setAllergies: setAllergies,
             updateSettings: updateSettings,
-            exportHousehold: exportHousehold
+            exportHousehold: exportHousehold,
+            deleteHousehold: deleteHousehold
         )
     }
 }
@@ -320,6 +390,15 @@ struct AccountDeletionOutcomeTests {
     @Test func theOwnerDeletesTheHousehold() {
         let household = Household(id: UUID(), name: "The Smiths", emoji: nil, owner: me)
         #expect(AccountDeletion.outcome(household: household, me: nil, userID: me) == .household(name: "The Smiths"))
+        #expect(AccountDeletion.household(name: "The Smiths").buttonTitle == "Delete my account and household",
+                "the button says the household goes too")
+        #expect(AccountDeletion.adult(householdName: "The Smiths").buttonTitle == "Delete my account")
+    }
+
+    @Test func confirmingADeleteNeedsTheHouseholdsName() {
+        #expect(HouseholdDeletion.confirms(" the smiths ", name: "The Smiths"), "case and spaces don't matter")
+        #expect(!HouseholdDeletion.confirms("Smiths", name: "The Smiths"))
+        #expect(!HouseholdDeletion.confirms("", name: "The Smiths"))
     }
 
     @Test func otherAdultsLeaveAndKidsKeepTheirProfile() {

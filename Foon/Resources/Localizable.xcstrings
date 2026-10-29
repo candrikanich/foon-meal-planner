@@ -622,13 +622,31 @@
     "Dairy and eggs" : {
 
     },
+    "Delete household" : {
+
+    },
+    "Delete household erases it for everyone and keeps your account. Deleting your account also deletes the household. Neither can be undone." : {
+
+    },
+    "Delete household?" : {
+
+    },
     "Delete my account" : {
+
+    },
+    "Delete my account and household" : {
+
+    },
+    "Delete the sample family" : {
 
     },
     "Delete your account and household?" : {
 
     },
     "Delete your account?" : {
+
+    },
+    "Deleting the household didn't finish. Check your connection and try again." : {
 
     },
     "Deleting your account can't be undone." : {
@@ -1612,6 +1630,12 @@
     "Start with empty nights" : {
 
     },
+    "Start your real family" : {
+
+    },
+    "Start your real family?" : {
+
+    },
     "Starts a timer; an alert goes off when it's done, even with the phone locked" : {
 
     },
@@ -1782,10 +1806,19 @@
     "This code is shown only now. Inviting again replaces it." : {
 
     },
+    "This deletes %@ for everyone: meals, plans, lists, photos, and family profiles. Everyone keeps their account and can start or join another household. This can't be undone." : {
+
+    },
     "This deletes %@ for everyone: meals, plans, lists, photos, and family profiles. Family members keep their own accounts and can start or join another household. This can't be undone." : {
 
     },
+    "This deletes the sample family and everything in it. You keep your account and go back to start your own household." : {
+
+    },
     "This dish has no steps yet. Add them on the meal to cook along here." : {
+
+    },
+    "This household is already deleted, or you're not its owner any more." : {
 
     },
     "This idea is gone" : {
@@ -1795,6 +1828,9 @@
 
     },
     "This invite needs a parent's OK first. Ask them to send a new one." : {
+
+    },
+    "This is the sample family. Delete it and set up your own; you keep your account." : {
 
     },
     "This week" : {
@@ -1843,6 +1879,9 @@
 
     },
     "Trying" : {
+
+    },
+    "Type %@ to confirm" : {
 
     },
     "Type or paste several, separated by commas or new lines" : {

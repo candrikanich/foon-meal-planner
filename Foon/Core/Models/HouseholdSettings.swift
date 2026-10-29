@@ -20,6 +20,8 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
     var onboarded = true
     /// Set by "Load a sample family"; onboarding fills in the demo family, then clears it.
     var samplePending = false
+    /// A household made with "Load a sample family": Family offers to delete it and start the real one.
+    var isSample = false
     /// The household's time zone (an IANA name), so the server knows when "last night" was. Set when the household
     /// is created; the server falls back to America/New_York without it.
     var timeZone: String?
@@ -51,6 +53,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         case notificationPreset = "notification_preset"
         case onboarded
         case samplePending = "sample_pending"
+        case isSample = "sample"
         case timeZone = "time_zone"
     }
 
@@ -67,6 +70,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         try container.encode(notificationPreset, forKey: .notificationPreset)
         try container.encode(onboarded, forKey: .onboarded)
         try container.encode(samplePending, forKey: .samplePending)
+        try container.encode(isSample, forKey: .isSample)
         try container.encodeIfPresent(timeZone, forKey: .timeZone)
     }
 
@@ -89,6 +93,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
             .flatMap { $0 }.flatMap(NotificationPreset.init(rawValue:)) ?? defaults.notificationPreset
         onboarded = (try? container.decodeIfPresent(Bool.self, forKey: .onboarded)).flatMap { $0 } ?? defaults.onboarded
         samplePending = (try? container.decodeIfPresent(Bool.self, forKey: .samplePending)).flatMap { $0 } ?? false
+        isSample = (try? container.decodeIfPresent(Bool.self, forKey: .isSample)).flatMap { $0 } ?? false
         timeZone = (try? container.decodeIfPresent(String.self, forKey: .timeZone)).flatMap { $0 }
             .flatMap { TimeZone(identifier: $0)?.identifier }
     }

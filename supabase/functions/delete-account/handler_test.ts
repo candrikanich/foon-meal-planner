@@ -20,6 +20,10 @@ function fakeDeps(overrides: Partial<DeleteAccountDeps> = {}): { deps: DeleteAcc
       steps.push(`data ${user}`);
       return Promise.resolve("profile_anonymized");
     },
+    deleteHouseholdData: (user) => {
+      steps.push(`household data ${user}`);
+      return Promise.resolve("household_deleted");
+    },
     deleteUser: (user) => {
       steps.push(`user ${user}`);
       return Promise.resolve();
@@ -96,4 +100,45 @@ Deno.test("a failed account delete after the data is gone is a 500 a retry finis
   const response = await handleDeleteAccount(request({ authorization_code: "c1" }), deps);
   assertEquals(response.status, 500);
   assertEquals(steps, ["revoke c1 apple-1", "data user-1"]);
+});
+
+Deno.test("delete household: photos, then the household; no Apple step, and the account stays", async () => {
+  const { deps, steps } = fakeDeps({ ownedHousehold: () => Promise.resolve("house-1") });
+  const response = await handleDeleteAccount(request({ scope: "household" }), deps);
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), { result: "household_deleted" });
+  assertEquals(steps, ["photos house-1", "household data user-1"]);
+});
+
+Deno.test("delete household: only the owner, and only when signed in", async () => {
+  const { deps, steps } = fakeDeps();
+  assertEquals((await handleDeleteAccount(request({ scope: "household" }), deps)).status, 403);
+  assertEquals((await handleDeleteAccount(request({ scope: "household" }, "bad"), deps)).status, 401);
+  assertEquals(steps, []);
+});
+
+Deno.test("delete household: a failed photo removal deletes no data, so a retry can finish", async () => {
+  const { deps, steps } = fakeDeps({
+    ownedHousehold: () => Promise.resolve("house-1"),
+    removeHouseholdPhotos: () => Promise.reject(new Error("storage down")),
+  });
+  assertEquals((await handleDeleteAccount(request({ scope: "household" }), deps)).status, 500);
+  assertEquals(steps, []);
+});
+
+Deno.test("delete household: a failed data delete is an error, so a retry can finish", async () => {
+  const { deps, steps } = fakeDeps({
+    ownedHousehold: () => Promise.resolve("house-1"),
+    deleteHouseholdData: () => Promise.reject(new Error("db down")),
+  });
+  assertEquals((await handleDeleteAccount(request({ scope: "household" }), deps)).status, 500);
+  assertEquals(steps, ["photos house-1"]);
+});
+
+Deno.test("delete household: ownership moving mid-way isn't reported as deleted", async () => {
+  const { deps } = fakeDeps({
+    ownedHousehold: () => Promise.resolve("house-1"),
+    deleteHouseholdData: () => Promise.resolve("not_owner"),
+  });
+  assertEquals((await handleDeleteAccount(request({ scope: "household" }), deps)).status, 403);
 });
