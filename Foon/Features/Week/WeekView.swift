@@ -90,8 +90,9 @@ struct WeekView: View {
     /// Waits for the household, so the first load uses its real shopping day.
     private func load() async {
         guard household.household != nil else { return }
-        // The library (for flags, sides, and Build) loads alongside the week, not before it.
-        let loadsLibrary = canPlan && !library.hasLoaded
+        // The library (allergy flags, sides, serving notes, and Build) loads alongside the week, not before it, for
+        // everyone: members see the same flags and notes on the cards as planners.
+        let loadsLibrary = !library.hasLoaded
         async let libraryLoad: Void = loadsLibrary ? library.load(members: household.members) : ()
         async let dinnerLoad: Void = dinner.load(settings: settings)
         await week.load(settings: settings)
@@ -161,7 +162,11 @@ struct WeekView: View {
     }
 
     private func card(_ night: WeekNight) -> some View {
-        let model = WeekStore.card(for: night, members: household.visibleMembers, sides: sideNames, badges: badges)
+        let model = WeekStore.card(for: night, members: household.visibleMembers, sides: sideNames, badges: badges,
+                                   notes: { meal, home in
+                                       ServingNotes.lines(library.servingNotes, mealID: meal, home: home,
+                                                          members: household.visibleMembers)
+                                   })
         return DayCard(model: model, today: week.todayDay, actions: canPlan ? actions(for: night) : nil)
             .contentShape(Rectangle())
             .onTapGesture { openNight = night.id }

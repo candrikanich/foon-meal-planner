@@ -96,6 +96,12 @@ struct DayCard: View {
                     if let sides = DayCardText.sidesLabel(sides) {
                         Text(sides).font(.foonCaption).foregroundStyle(.secondary).lineLimit(2)
                     }
+                    ForEach(model.servingNotes, id: \.self) { note in
+                        Label(note, systemImage: "fork.knife")
+                            .font(.foonCaption)
+                            .foregroundStyle(.secondary)
+                            .labelStyle(.titleAndIcon)
+                    }
                     if let reason { Chip(text: reason, systemImage: "sparkles") }
                 }
             }
@@ -257,7 +263,8 @@ private enum DayCardPreview {
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 2), effort: .full,
                                  slot: .meal(name: "Pot roast", photoURL: nil, reason: "Haven't had it in 7 weeks",
                                              sides: ["mashed potatoes", "green beans"]),
-                                 attendance: DayCardPreview.family, badges: [.prep("Thaw tonight")], isLocked: true),
+                                 attendance: DayCardPreview.family, badges: [.prep("Thaw tonight")], isLocked: true,
+                                 servingNotes: ["Nora: keep everything separate before mixing", "Owen: no gravy"]),
                     actions: DayCardPreview.actions)
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 3), effort: .event,
                                  slot: .quickPick(.eatOut), attendance: DayCardPreview.family,

@@ -60,6 +60,13 @@ struct DayCardTextTests {
             == "Tonight, Nov 4. Tacos, Nora's favorite. Rushed. Home: Nora. Away: Owen. Contains milk (Nora). Locked.")
     }
 
+    @Test func servingNotesAreReadToo() {
+        let card = DayCardModel(date: today, effort: .normal, slot: .meal(name: "Chili", photoURL: nil, reason: nil),
+                                attendance: [], badges: [], isLocked: false, servingNotes: ["Nora: keep it separate"])
+        #expect(DayCardText.accessibilitySummary(card, today: today, calendar: calendar)
+            == "Tonight, Nov 4. Chili. Normal. Nora: keep it separate.")
+    }
+
     @Test func anEmptyNightSaysSo() {
         let card = DayCardModel(date: today, effort: .normal, slot: .empty, attendance: [], badges: [], isLocked: false)
         #expect(DayCardText.accessibilitySummary(card, today: today, calendar: calendar)

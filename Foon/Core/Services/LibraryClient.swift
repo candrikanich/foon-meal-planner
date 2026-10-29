@@ -43,6 +43,9 @@ struct LibraryClient: Sendable {
     /// Each member's current verdict on each dish, and how often each was liked: what reactions feed planning.
     var verdicts: @Sendable (_ householdID: UUID) async throws -> [MealVerdict] = { _ in [] }
     var likes: @Sendable (_ householdID: UUID) async throws -> [MealLikes] = { _ in [] }
+    var servingNotes: @Sendable (_ householdID: UUID) async throws -> [ServingNote] = { _ in [] }
+    /// Sets, changes, or (with a blank note) clears a member's serving note on a dish.
+    var setServingNote: @Sendable (_ mealID: UUID, _ memberID: UUID, _ note: String) async throws -> Void = { _, _, _ in }
     /// Reads a recipe link through the import-recipe Edge Function. Throws `RecipeImportError`.
     var importRecipe: @Sendable (_ link: String) async throws -> RecipeImport = { _ in throw RecipeImportError.unavailable }
 }
@@ -166,6 +169,18 @@ extension LibraryClient {
                     .eq("household_id", value: householdID)
                     .execute()
                     .value
+            },
+            servingNotes: { householdID in
+                try await client.from("serving_notes")
+                    .select("meal_id, member_id, note")
+                    .eq("household_id", value: householdID)
+                    .execute()
+                    .value
+            },
+            setServingNote: { mealID, memberID, note in
+                try await client.rpc("set_serving_note", params: [
+                    "target_meal": mealID.uuidString, "target_member": memberID.uuidString, "note_text": note
+                ]).execute()
             },
             importRecipe: { link in
                 do {

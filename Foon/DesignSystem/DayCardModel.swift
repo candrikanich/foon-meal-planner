@@ -31,6 +31,8 @@ struct DayCardModel: Identifiable, Equatable, Sendable {
     var attendance: [Attendee]
     var badges: [Badge]
     var isLocked: Bool
+    /// "Nora: keep everything separate", for people home that night.
+    var servingNotes: [String] = []
 
     var id: CalendarDay { date }
 }
@@ -130,6 +132,7 @@ enum DayCardText {
         if !home.isEmpty { parts.append(String(localized: "Home: \(home.joined(separator: ", "))")) }
         if !away.isEmpty { parts.append(String(localized: "Away: \(away.joined(separator: ", "))")) }
         parts.append(contentsOf: card.badges.map(badgeLabel))
+        parts.append(contentsOf: card.servingNotes)
         if card.isLocked { parts.append(String(localized: "Locked")) }
         return parts.joined(separator: ". ") + "."
     }

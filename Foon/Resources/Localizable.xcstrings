@@ -129,6 +129,16 @@
     "%lld nights still open" : {
 
     },
+    "%lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld"
+          }
+        }
+      }
+    },
     "%lld steps" : {
 
     },
@@ -208,6 +218,9 @@
 
     },
     "Add a household name and your first name." : {
+
+    },
+    "Add a serving note" : {
 
     },
     "Add a side" : {
@@ -391,6 +404,9 @@
         }
       }
     },
+    "Clear the note" : {
+
+    },
     "Close" : {
 
     },
@@ -513,6 +529,9 @@
     "Couldn't save the meal. Check your connection and try again." : {
 
     },
+    "Couldn't save the note. Check your connection and try again." : {
+
+    },
     "Couldn't save the plan. Check your connection and try again." : {
 
     },
@@ -617,6 +636,9 @@
     },
     "Edit %@" : {
       "comment" : "Member editor title: first name"
+    },
+    "Edit the note" : {
+
     },
     "Effort" : {
 
@@ -808,6 +830,9 @@
 
     },
     "Household name" : {
+
+    },
+    "How %@ likes it" : {
 
     },
     "I wasn't home" : {
@@ -1176,6 +1201,9 @@
     "Pass the phone" : {
 
     },
+    "People write their own notes; parents can write anyone's." : {
+
+    },
     "Personal care" : {
 
     },
@@ -1321,6 +1349,12 @@
     "Serves %lld" : {
 
     },
+    "Serving notes" : {
+
+    },
+    "Serving notes need 120 characters or fewer." : {
+
+    },
     "Servings go from 1 to 50." : {
 
     },
@@ -1334,6 +1368,9 @@
 
     },
     "Show more" : {
+
+    },
+    "Shown on the day card when %@ is home." : {
 
     },
     "Shown with %@ on meals, lists, and in the store." : {
@@ -1763,6 +1800,18 @@
     },
     "peanuts" : {
       "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "serving-note.line" : {
+      "comment" : "A serving note on a day card: who, then how they like the dish",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@"
+          }
+        }
+      }
     },
     "sesame" : {
       "comment" : "Allergen, lowercase inside a sentence"
