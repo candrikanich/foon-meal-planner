@@ -85,3 +85,12 @@ Xcode Cloud numbers builds automatically, and 25 compute hours a month are free,
 - [ ] Confirmation that the App Store Connect app and the Family group exist.
 - [ ] Confirmation that the Xcode Cloud workflow exists, or tell me to do step 4 with you.
 - [ ] Your answers to the two decisions.
+
+## Shipping a TestFlight build (from 2026-10-29)
+- Xcode Cloud workflow: Archive (iOS, scheme Foon, which archives with **Staging**) → TestFlight Internal → Family.
+- **Start condition: tags matching `testflight/*`**, not every merge, so the family only gets builds worth trying.
+  - To ship: `git tag testflight/<yyyy-mm-dd>[-n] origin/main && git push origin <tag>`. Say what's in it.
+  - Or click Start Build in Xcode (⌘9 → Cloud).
+- Staging migrations still deploy on every merge to `main` (`deploy-staging.yml`), so keep migrations backward
+  compatible with the last TestFlight build.
+
