@@ -7,7 +7,14 @@ struct FamilyView: View {
     @State private var editor: EditorTarget?
     @State private var confirmingSignOutEverywhere = false
     @State private var deletingAccount = false
+    @State private var deletingHousehold = false
     @State private var exportURL: URL?
+
+    private var isOwner: Bool { store.household?.owner == store.userID }
+
+    private var accountDeletion: AccountDeletion {
+        .outcome(household: store.household, me: store.me, userID: store.userID)
+    }
 
     var body: some View {
         NavigationStack {
@@ -19,6 +26,13 @@ struct FamilyView: View {
                             Text(household.name).font(.title2.bold())
                         }
                         .accessibilityElement(children: .combine)
+                    }
+                    if isOwner, store.isUnsharedSample {
+                        Section {
+                            Button("Start your real family", systemImage: "house") { deletingHousehold = true }
+                        } footer: {
+                            Text("This is the sample family. Delete it and set up your own; you keep your account.")
+                        }
                     }
                 }
 
@@ -75,12 +89,17 @@ struct FamilyView: View {
                     if store.canExport {
                         ExportButton(exportURL: $exportURL)
                     }
-                    Button("Delete my account", role: .destructive) { deletingAccount = true }
+                    if isOwner {
+                        Button("Delete household", role: .destructive) { deletingHousehold = true }
+                    }
+                    Button(accountDeletion.buttonTitle, role: .destructive) { deletingAccount = true }
                 } header: {
                     Text("Your data")
                 } footer: {
                     if let message = store.errorMessage {
                         Text(message).foregroundStyle(.red)
+                    } else if isOwner {
+                        Text("Delete household erases it for everyone and keeps your account. Deleting your account also deletes the household. Neither can be undone.")
                     } else if store.canExport {
                         Text("Export saves the household's meals, plans, lists, and family as a file. Deleting your account can't be undone.")
                     } else {
@@ -129,6 +148,7 @@ struct FamilyView: View {
                 Text("Foon signs out on every phone, tablet, and Mac using your account, including this one.")
             }
             .sheet(isPresented: $deletingAccount) { DeleteAccountView() }
+            .sheet(isPresented: $deletingHousehold) { DeleteHouseholdView() }
             .sheet(item: $editor) { target in
                 switch target {
                 case .new: MemberEditorView(member: nil)

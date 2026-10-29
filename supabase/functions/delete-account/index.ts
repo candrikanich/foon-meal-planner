@@ -1,5 +1,6 @@
-// Deletes the caller's account (#29). Needs the service role (only here, never in the app) and the Sign in with
-// Apple key as secrets: APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_CLIENT_ID (the bundle id), APPLE_PRIVATE_KEY.
+// Deletes the caller's account (#29), or only the household they own. Needs the service role (only here, never in the
+// app) and the Sign in with Apple key as secrets: APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_CLIENT_ID (the bundle id),
+// APPLE_PRIVATE_KEY.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { appleConfigFromEnv, revokeAppleToken } from "./apple.ts";
 import { handleDeleteAccount } from "./handler.ts";
@@ -59,6 +60,11 @@ Deno.serve((req) =>
     },
     deleteAccountData: async (userID) => {
       const { data, error } = await admin.rpc("delete_account_data", { target_user: userID });
+      if (error) throw error;
+      return data as string;
+    },
+    deleteHouseholdData: async (userID) => {
+      const { data, error } = await admin.rpc("delete_household_data", { target_user: userID });
       if (error) throw error;
       return data as string;
     },

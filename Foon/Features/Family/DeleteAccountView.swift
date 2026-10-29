@@ -31,6 +31,14 @@ enum AccountDeletion: Equatable {
         }
     }
 
+    /// What the button that opens this says: an owner's account takes the household with it.
+    var buttonTitle: String {
+        switch self {
+        case .household: String(localized: "Delete my account and household")
+        default: String(localized: "Delete my account")
+        }
+    }
+
     var title: String {
         switch self {
         case .household: String(localized: "Delete your account and household?")

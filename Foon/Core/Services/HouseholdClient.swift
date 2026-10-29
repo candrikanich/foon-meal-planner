@@ -31,6 +31,16 @@ struct HouseholdClient: Sendable {
     var updateSettings: @Sendable (_ householdID: UUID, _ settings: HouseholdSettings) async throws -> Void = { _, _ in }
     /// Everything in the household as JSON (planners only), for the data export.
     var exportHousehold: @Sendable (_ householdID: UUID) async throws -> Data = { _ in Data("{}".utf8) }
+    /// Erases the household the caller owns, photos included, for everyone; their account stays.
+    var deleteHousehold: @Sendable () async throws -> Void = { }
+}
+
+/// Why Delete household didn't go through.
+enum HouseholdDeletionError: Error, Equatable {
+    /// The caller doesn't own a household (already deleted, or ownership moved): nothing to retry.
+    case notOwner
+    /// It may have stopped part-way (or we couldn't hear back); trying again finishes it.
+    case unfinished
 }
 
 /// The wording version logged with allergy consent; a change in what it promises means a new version.
@@ -152,6 +162,18 @@ extension HouseholdClient {
                 try await client.rpc("export_household", params: ["target_household": householdID.uuidString])
                     .execute()
                     .data
+            },
+            deleteHousehold: {
+                // The Edge Function removes the household's photos (service role) before the data.
+                do {
+                    try await client.functions.invoke(
+                        "delete-account", options: FunctionInvokeOptions(body: ["scope": "household"])
+                    )
+                } catch FunctionsError.httpError(let code, _) where code == 403 {
+                    throw HouseholdDeletionError.notOwner
+                } catch {
+                    throw HouseholdDeletionError.unfinished
+                }
             }
         )
     }

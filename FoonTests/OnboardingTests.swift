@@ -186,6 +186,16 @@ struct OnboardingHouseholdTests {
         await store.createHousehold(name: "The Sample family", emoji: "🧪", firstName: "Ann", sample: true)
         #expect(saved.withLock { $0 }?.samplePending == true)
         #expect(store.household?.planningSettings.samplePending == true)
+        #expect(saved.withLock { $0 }?.isSample == true, "it stays a sample, so Family can offer to start the real one")
+    }
+
+    @Test func theSampleMarkIsKeptInSettings() throws {
+        var settings = HouseholdSettings()
+        settings.isSample = true
+        let json = try JSONEncoder().encode(settings)
+        #expect(String(decoding: json, as: UTF8.self).contains(#""sample":true"#))
+        #expect(try JSONDecoder().decode(HouseholdSettings.self, from: json).isSample)
+        #expect(try !JSONDecoder().decode(HouseholdSettings.self, from: Data("{}".utf8)).isSample)
     }
 
     @Test func finishingOnboardingSavesTheRhythm() async {

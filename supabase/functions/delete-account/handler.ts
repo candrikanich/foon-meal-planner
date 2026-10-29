@@ -1,6 +1,7 @@
-// delete-account: the order matters. Apple first, so a refused revocation leaves everything as it was. Then the
-// household's photos, then the database, then the auth user last. A failure part-way can be retried: each step is
-// safe to run again.
+// delete-account: deletes the caller's account or, with `scope: "household"`, only the household they own (the
+// owner starts over and keeps their account; no Apple step). For an account the order matters: Apple first, so a
+// refused revocation leaves everything as it was. Then the household's photos, then the database, then the auth user
+// last. A failure part-way can be retried: each step is safe to run again.
 
 import { AppleAccountMismatch } from "./apple.ts";
 
@@ -14,6 +15,8 @@ export interface DeleteAccountDeps {
   removeHouseholdPhotos(householdID: string): Promise<void>;
   // `delete_account_data`: returns what it did.
   deleteAccountData(userID: string): Promise<string>;
+  // `delete_household_data`: erases the household this person owns.
+  deleteHouseholdData(userID: string): Promise<string>;
   deleteUser(userID: string): Promise<void>;
   log(message: string, error?: unknown): void;
 }
@@ -28,7 +31,8 @@ export async function handleDeleteAccount(req: Request, deps: DeleteAccountDeps)
   const userID = jwt ? await deps.userFromToken(jwt).catch(() => null) : null;
   if (!userID) return json(401, { error: "not_signed_in" });
 
-  const body = await req.json().catch(() => null) as { authorization_code?: unknown } | null;
+  const body = await req.json().catch(() => null) as { authorization_code?: unknown; scope?: unknown } | null;
+  if (body?.scope === "household") return deleteHousehold(userID, deps);
   const code = body?.authorization_code;
   if (typeof code !== "string" || code.length === 0 || code.length > 2048) {
     return json(400, { error: "authorization_code_required" });
@@ -52,6 +56,22 @@ export async function handleDeleteAccount(req: Request, deps: DeleteAccountDeps)
     return json(200, { result });
   } catch (error) {
     deps.log("account deletion failed", error);
+    return json(500, { error: "delete_failed" });
+  }
+}
+
+// Photos first, then the data: a failure part-way leaves the household in place, and a retry finishes it.
+async function deleteHousehold(userID: string, deps: DeleteAccountDeps): Promise<Response> {
+  try {
+    const household = await deps.ownedHousehold(userID);
+    if (!household) return json(403, { error: "not_owner" });
+    await deps.removeHouseholdPhotos(household);
+    const result = await deps.deleteHouseholdData(userID);
+    // Ownership moved between the check and the delete: say so rather than report success.
+    if (result !== "household_deleted") return json(403, { error: "not_owner" });
+    return json(200, { result });
+  } catch (error) {
+    deps.log("household deletion failed", error);
     return json(500, { error: "delete_failed" });
   }
 }

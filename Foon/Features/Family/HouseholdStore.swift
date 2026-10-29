@@ -103,6 +103,35 @@ final class HouseholdStore {
         }
     }
 
+    /// The owner erases the household for everyone and keeps their account; this device then has no household, so
+    /// the gate shows Create and clears the offline cache. Returns whether it was deleted.
+    func deleteHousehold() async -> Bool {
+        errorMessage = nil
+        do {
+            try await client.deleteHousehold()
+        } catch HouseholdDeletionError.notOwner {
+            await load()
+            errorMessage = String(localized: "This household is already deleted, or you're not its owner any more.")
+            return false
+        } catch {
+            errorMessage = String(localized: "Deleting the household didn't finish. Check your connection and try again.")
+            return false
+        }
+        // The server erased it: go straight to start or join, whether or not a reload would get through right now.
+        members = []
+        invitedMemberIDs = []
+        parentalConsentMemberIDs = []
+        phase = .needsHousehold
+        return true
+    }
+
+    /// A sample family nobody else has joined: deleting it needs no typed name. Once another person has their own
+    /// account in it, it's their household too, and it's deleted like any other.
+    var isUnsharedSample: Bool {
+        guard let household, household.planningSettings.isSample else { return false }
+        return !members.contains { $0.userID != nil && $0.userID != userID && $0.status != .removed }
+    }
+
     /// Nobody removes the owner (transfer ownership first) or themselves from inside the app.
     func canRemove(_ member: Member) -> Bool {
         canManagePeople && !isOwnerProfile(member) && member.userID != userID
@@ -176,6 +205,7 @@ final class HouseholdStore {
         var fresh = HouseholdSettings()
         fresh.onboarded = false
         fresh.samplePending = sample
+        fresh.isSample = sample
         fresh.timeZone = TimeZone.current.identifier
         var household: Household
         do {
