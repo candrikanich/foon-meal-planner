@@ -12,6 +12,7 @@ struct MealDetailView: View {
 
     @State private var editing: LibraryMeal?
     @State private var planning: LibraryMeal?
+    @State private var bringingBack: LibraryMeal?
     @State private var photoItem: PhotosPickerItem?
     @State private var isUploading = false
     @State private var addedItemIDs: Set<UUID> = []
@@ -57,6 +58,14 @@ struct MealDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar { toolbar(meal) }
+        .confirmationDialog("Bring back a dish the family voted out?", isPresented: Binding(
+            get: { bringingBack != nil }, set: { if !$0 { bringingBack = nil } }
+        ), titleVisibility: .visible, presenting: bringingBack) { meal in
+            Button("Back in rotation") { Task { await library.setArchived(false, mealID: meal.id) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("It'll still stay off nights when anyone who said Not for me is home, and another Not for me retires it again.")
+        }
         .sheet(item: $planning) { meal in PlanItSheet(meal: meal) }
         .sheet(item: $editing) { meal in
             MealEditorView(meal: meal)
@@ -262,6 +271,15 @@ struct MealDetailView: View {
         }
     }
 
+    /// Back in rotation: right away for an archived dish; a retired one asks first, since the family voted it out.
+    private func restore(_ meal: LibraryMeal) {
+        if meal.status == .retired {
+            bringingBack = meal
+        } else {
+            Task { await library.setArchived(false, mealID: meal.id) }
+        }
+    }
+
     @ToolbarContentBuilder
     private func toolbar(_ meal: LibraryMeal) -> some ToolbarContent {
         if canEdit {
@@ -291,9 +309,7 @@ struct MealDetailView: View {
                 }
             } else if LibraryStore.canRestore(meal) {
                 ToolbarItem(placement: .secondaryAction) {
-                    Button("Back in rotation", systemImage: "arrow.uturn.backward") {
-                        Task { await library.setArchived(false, mealID: meal.id) }
-                    }
+                    Button("Back in rotation", systemImage: "arrow.uturn.backward") { restore(meal) }
                 }
             }
         }

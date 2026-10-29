@@ -17,7 +17,6 @@ struct ReactionSummaryTests {
                                                  verdict(liver, owen, .notForMe)])
         #expect(summary.notForMe[chili] == [nora: 1])
         #expect(summary.notForMe[liver] == [nora: 1, owen: 1])
-        #expect(summary.retired == [liver])
     }
 
     @Test func favoritesArePinnedToThePerson() {
@@ -55,7 +54,8 @@ struct ReactionSummaryTests {
         let week = Week(planID: UUID(), start: today, approvedAt: nil, nights: [])
         let inputs = PlanningContext(meals: meals, history: [], settings: HouseholdSettings(), members: [],
                                      reactions: summary).inputs(for: week, today: today)
-        #expect(inputs.meals.map(\.name) == ["Chili"], "the retired liver is left out")
+        #expect(Set(inputs.meals.map(\.name)) == ["Chili", "Liver"],
+                "the meal's status decides: a planner may have brought the liver back")
         #expect(inputs.favorites == [ann: [meals[0].id]])
         #expect(inputs.likes == [meals[0].id: 2])
         #expect(inputs.notForMe[meals[1].id]?.count == 2)

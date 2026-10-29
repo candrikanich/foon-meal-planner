@@ -105,9 +105,9 @@ struct LibraryStoreTests {
         #expect(store.meals.first?.status == .archived)
     }
 
-    @Test func onlyArchivedMealsComeBackIntoRotation() {
+    @Test func archivedAndRetiredMealsCanComeBackIntoRotation() {
         #expect(LibraryStore.canRestore(.fixture(status: .archived)))
-        #expect(!LibraryStore.canRestore(.fixture(status: .retired)), "the dislike rule retired it")
+        #expect(LibraryStore.canRestore(.fixture(status: .retired)), "a planner can bring back what the family voted out")
         #expect(!LibraryStore.canRestore(.fixture(status: .active)))
     }
 

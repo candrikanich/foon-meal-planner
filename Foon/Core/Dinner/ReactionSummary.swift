@@ -47,12 +47,6 @@ struct ReactionSummary: Equatable, Sendable {
             .reduce(into: [:]) { map, verdict in map[verdict.mealID, default: [:]][verdict.memberID] = 1 }
     }
 
-    /// Dishes two or more people say aren't for them: retired. The server retires them too; this covers the time
-    /// before the library reloads the meal's status.
-    var retired: Set<UUID> {
-        Set(notForMe.filter { $0.value.count >= 2 }.keys)
-    }
-
     /// Member id → the dishes that are their favorite now.
     var favorites: [UUID: Set<UUID>] {
         verdicts.filter { $0.kind == .favorite }

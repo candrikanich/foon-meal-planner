@@ -1,6 +1,6 @@
 -- Reactions feed planning (#42, part 3): history from logs, current verdicts, likes, and the two-dislike rule.
 begin;
-select plan(16);
+select plan(19);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -9,7 +9,8 @@ $$;
 
 insert into auth.users (id, email, aud, role) values
   ('a0000000-0000-0000-0000-00000000000a', 'alice@example.com', 'authenticated', 'authenticated'),
-  ('c0000000-0000-0000-0000-00000000000c', 'carol@example.com', 'authenticated', 'authenticated');
+  ('c0000000-0000-0000-0000-00000000000c', 'carol@example.com', 'authenticated', 'authenticated'),
+  ('b0000000-0000-0000-0000-00000000000b', 'bob@example.com', 'authenticated', 'authenticated');
 insert into public.households (id, name, owner) values
   ('00000000-0000-0000-0000-0000000000a0', 'Andersons', 'a0000000-0000-0000-0000-00000000000a'),
   ('00000000-0000-0000-0000-0000000000b0', 'Carters', 'c0000000-0000-0000-0000-00000000000c');
@@ -19,6 +20,8 @@ insert into public.members (id, household_id, first_name, role, guardian, age_gr
   ('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000a0', 'Nora', 'member', false, 'kid', null),
   ('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-0000000000a0', 'Owen', 'member', false, 'kid', null),
   ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000a0', 'Pops', 'member', false, 'adult', null),
+  ('00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-0000000000a0', 'Bob', 'member', false, 'adult',
+   'b0000000-0000-0000-0000-00000000000b'),
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b0', 'Carol', 'planner', true, 'adult',
    'c0000000-0000-0000-0000-00000000000c');
 insert into public.meals (id, household_id, name) values
@@ -71,6 +74,20 @@ select lives_ok($$ select public.react_to_dinner('00000000-0000-0000-0000-000000
   '00000000-0000-0000-0000-0000000000a3', 'good') $$, 'Owen changes his mind about the liver');
 select is((select status::text from public.meals where id = '00000000-0000-0000-0000-0000000002a2'), 'retired',
   'but a retired dish stays retired');
+
+-- A planner may bring it back; a member may not. The next Not for me retires it again.
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+update public.meals set status = 'active' where id = '00000000-0000-0000-0000-0000000002a2';
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select is((select status::text from public.meals where id = '00000000-0000-0000-0000-0000000002a2'), 'retired',
+  'Bob, a member, can''t bring it back');
+update public.meals set status = 'active' where id = '00000000-0000-0000-0000-0000000002a2';
+select is((select status::text from public.meals where id = '00000000-0000-0000-0000-0000000002a2'), 'active',
+  'Alice, a planner, brings the liver back');
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.react_to_dinner('00000000-0000-0000-0000-0000000004a3', '00000000-0000-0000-0000-0000000000a3', 'not_for_me');
+select is((select status::text from public.meals where id = '00000000-0000-0000-0000-0000000002a2'), 'retired',
+  'Owen says not for me again, and it''s retired again');
 
 -- A removed member's old dislike doesn't count toward retiring.
 select public.react_to_dinner('00000000-0000-0000-0000-0000000004a4', '00000000-0000-0000-0000-0000000000a4', 'not_for_me');
