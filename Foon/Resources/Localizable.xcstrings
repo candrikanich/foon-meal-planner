@@ -45,6 +45,9 @@
     "%@ last night?" : {
       "comment" : "After-dinner card: the dish, then the question"
     },
+    "%@ left" : {
+
+    },
     "%@ signs out right away and can rejoin only with your consent and a new invite." : {
 
     },
@@ -280,6 +283,12 @@
     "Aisle" : {
 
     },
+    "Alerts are off, so keep Foon open. Turn them on in Settings." : {
+
+    },
+    "All done" : {
+
+    },
     "All gone" : {
 
     },
@@ -331,6 +340,9 @@
     "Away: %@" : {
 
     },
+    "Back" : {
+
+    },
     "Back in rotation" : {
 
     },
@@ -350,6 +362,9 @@
 
     },
     "Balanced" : {
+
+    },
+    "Before you start" : {
 
     },
     "Beginner-friendly" : {
@@ -608,7 +623,7 @@
 
     },
     "Done" : {
-
+      "comment" : "Cook mode: a timer that has finished\nCook mode: leave cook mode"
     },
     "Drinks" : {
 
@@ -1159,6 +1174,9 @@
     "On their own phones" : {
 
     },
+    "One step at a time, with timers" : {
+
+    },
     "Open" : {
 
     },
@@ -1439,10 +1457,16 @@
     "Staples running low" : {
 
     },
+    "Start cooking" : {
+
+    },
     "Start the week on This Week, then plan %@ into it." : {
 
     },
     "Start with empty nights" : {
+
+    },
+    "Starts a timer; an alert goes off when it's done, even with the phone locked" : {
 
     },
     "Status" : {
@@ -1459,6 +1483,12 @@
       }
     },
     "Steps" : {
+
+    },
+    "Stop" : {
+
+    },
+    "Stop the %@ timer" : {
 
     },
     "Store mode" : {
@@ -1600,6 +1630,9 @@
     "This deletes %@ for everyone: meals, plans, lists, photos, and family profiles. Family members keep their own accounts and can start or join another household. This can't be undone." : {
 
     },
+    "This dish has no steps yet. Add them on the meal to cook along here." : {
+
+    },
     "This invite is for an adult's profile. Ask your family for the right invite." : {
 
     },
@@ -1607,6 +1640,15 @@
 
     },
     "This week" : {
+
+    },
+    "Time to check on %@." : {
+      "comment" : "Cook mode timer alert body: the dish's name"
+    },
+    "Timer done: %@" : {
+      "comment" : "Cook mode timer alert title"
+    },
+    "Timer: %@" : {
 
     },
     "Tired of it" : {
@@ -1738,6 +1780,9 @@
     "You weren't home for dinner?" : {
 
     },
+    "You'll need" : {
+
+    },
     "You're already in a household. Foon supports one household per person for now." : {
 
     },
@@ -1776,6 +1821,18 @@
     },
     "Your rhythm" : {
 
+    },
+    "cook.timer.finished" : {
+      "comment" : "Cook mode: a timer that has finished",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Done"
+          }
+        }
+      }
     },
     "dinner" : {
 

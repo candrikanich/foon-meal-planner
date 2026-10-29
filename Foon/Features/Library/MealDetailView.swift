@@ -7,6 +7,7 @@ import SwiftUI
 struct MealDetailView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(HouseholdStore.self) private var household
+    @Environment(WeekStore.self) private var week: WeekStore?
     @Environment(SyncService.self) private var sync: SyncService?
     let mealID: UUID
     let canEdit: Bool
@@ -15,6 +16,7 @@ struct MealDetailView: View {
     @State private var planning: LibraryMeal?
     @State private var bringingBack: LibraryMeal?
     @State private var editingNote: NoteTarget?
+    @State private var cooking: LibraryMeal?
     @State private var photoItem: PhotosPickerItem?
     @State private var isUploading = false
     @State private var addedItemIDs: Set<UUID> = []
@@ -37,6 +39,15 @@ struct MealDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 hero(meal)
                 header(entry)
+                if !meal.steps.isEmpty {
+                    Button { cooking = meal } label: {
+                        Label("Start cooking", systemImage: "frying.pan").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Palette.paprika)
+                    .controlSize(.large)
+                    .accessibilityHint("One step at a time, with timers")
+                }
                 verdicts(meal)
                 servingNotes(meal)
                 if let message = library.errorMessage {
@@ -71,6 +82,15 @@ struct MealDetailView: View {
         }
         .sheet(item: $planning) { meal in PlanItSheet(meal: meal) }
         .sheet(item: $editingNote) { target in ServingNoteEditor(target: target) }
+        #if os(iOS)
+        .fullScreenCover(item: $cooking) { meal in
+            CookModeView(meal: meal, servingNotes: cookingNotes(meal), notesAreTonight: isTonight(meal))
+        }
+        #else
+        .sheet(item: $cooking) { meal in
+            CookModeView(meal: meal, servingNotes: cookingNotes(meal), notesAreTonight: isTonight(meal))
+        }
+        #endif
         .sheet(item: $editing) { meal in
             MealEditorView(meal: meal)
         }
@@ -174,6 +194,18 @@ struct MealDetailView: View {
                 }
             }
         }
+    }
+
+    private func isTonight(_ meal: LibraryMeal) -> Bool {
+        week?.layout?.tonight?.mealID == meal.id
+    }
+
+    /// Serving notes for cook mode: for who's home tonight when this is tonight's dish, else everyone's.
+    private func cookingNotes(_ meal: LibraryMeal) -> [String] {
+        let members = household.visibleMembers
+        let tonight = week?.layout?.tonight.flatMap { $0.mealID == meal.id ? $0 : nil }
+        let home = tonight.map { Set($0.attendance.filter(\.value).keys) } ?? Set(members.map(\.id))
+        return ServingNotes.lines(library.servingNotes, mealID: meal.id, home: home, members: members)
     }
 
     /// Who writes whose note: themselves, or a parent for anyone (kids without phones included).
