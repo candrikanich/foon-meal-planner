@@ -100,3 +100,6 @@ schemes:
     test:
       targets: [FoonTests]
       gatherCoverageData: true
+    # TestFlight builds (Xcode Cloud) point at hosted staging. Prod gets its own scheme before launch.
+    archive:
+      config: Staging
