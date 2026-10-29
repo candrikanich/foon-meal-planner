@@ -394,6 +394,13 @@ struct HouseholdClientLiveTests {
         }
         #expect(try await dinners.thanks(household.id, today).isEmpty)
 
+        // Serving notes: Ann (the owner, a parent) writes Nora's; a blank note clears it.
+        try await library.setServingNote(tacosID, nora.id, "Keep everything separate")
+        #expect(try await library.servingNotes(household.id)
+            == [ServingNote(mealID: tacosID, memberID: nora.id, note: "Keep everything separate")])
+        try await library.setServingNote(tacosID, nora.id, " ")
+        #expect(try await library.servingNotes(household.id).isEmpty)
+
         let verdicts = try await library.verdicts(household.id)
         #expect(Set(verdicts.map(\.memberID)) == [ann.id, nora.id])
         #expect(verdicts.allSatisfy { $0.mealID == tacosID })

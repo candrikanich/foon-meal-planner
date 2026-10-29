@@ -110,6 +110,11 @@ extension LibraryClient {
                                 reactedOn: CalendarDay(Date()).adding(days: -2))
                 }
             },
+            servingNotes: { _ in
+                guard let first = meals.first else { return [] }
+                return [ServingNote(mealID: first.id, memberID: Member.sampleFamily[4].id,
+                                    note: "Keep everything separate before mixing")]
+            },
             importRecipe: { link in
                 RecipeImport(
                     recipe: .init(name: "Weeknight Chili", servings: 4,

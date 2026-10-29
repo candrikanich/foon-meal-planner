@@ -309,7 +309,8 @@ final class WeekStore {
 
     /// A night's card. Badges are worked out by the caller, who knows the meal and the family's allergies.
     static func card(for night: WeekNight, members: [Member], sides: (UUID) -> [String] = { _ in [] },
-                     badges: (UUID, Set<UUID>) -> [DayCardModel.Badge] = { _, _ in [] }) -> DayCardModel {
+                     badges: (UUID, Set<UUID>) -> [DayCardModel.Badge] = { _, _ in [] },
+                     notes: (UUID, Set<UUID>) -> [String] = { _, _ in [] }) -> DayCardModel {
         let home = Set(night.attendance.filter(\.value).keys)
         return DayCardModel(
             date: night.date,
@@ -322,7 +323,8 @@ final class WeekStore {
                 }
             },
             badges: night.mealID.map { badges($0, home) } ?? [],
-            isLocked: night.locked
+            isLocked: night.locked,
+            servingNotes: night.mealID.map { notes($0, home) } ?? []
         )
     }
 

@@ -120,7 +120,13 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 - Add to list puts an ingredient (or all of them) on the quick list; anyone in the family can, offline too.
 - Copy and tweak makes "Name (copy)" with the recipe, prep, and ingredients, but not the photo or the catalog link, and opens the editor on it. Retired meals aren't copied, so the dislike rule holds.
 - Steps are optional, one per line; typed numbering ("1.", "Step 2:") is dropped. Links must be web addresses; "example.com" gains https.
-- "What everyone thinks" shows each family member's current verdict (their latest reaction to the dish), visible to all (#42). Comments, serving notes, and frequency ("about every 2 weeks") come with #46.
+- "What everyone thinks" shows each family member's current verdict (their latest reaction to the dish), visible to all (#42). Comments and frequency ("about every 2 weeks") come later.
+- v1 serving notes (#46, part 2):
+  - **What:** one note per person per dish, up to 120 characters ("Nora: keep everything separate before mixing"), visible to the whole family.
+  - **Who writes:** you write your own; parents write anyone's, kids without phones included. Tapping a note edits it, Add a serving note picks the person, and clearing a note deletes it (it's a current preference like an allergy row, not history: the one kind of family input that's deleted, not kept). Length is counted as the server does, so emoji count fairly.
+  - **Where:** on day cards, under the dish (and in the card's VoiceOver summary), for people home that night, in family order. Cook mode will show them too (#46, part 3). This Week re-reads notes with reactions on each load.
+  - **Retention:** deleting an adult's account or anonymizing a removed kid deletes their notes; a withdrawn kid's self-written notes are erased.
+  - **This Week** now loads the library for everyone, not only planners, so members see allergy badges and serving notes on the cards too.
 - v1 Plan it (#18, #19), planners, from the long-press menu and meal detail: pick a night from tonight on in the week This Week shows (each row says what it holds now; nights already set to this meal are left out). Like Swap, it replaces the night and locks it, so Rebuild keeps it. With no week yet, it points to This Week.
 
 **Frequency awareness.** Overuse nudges ("Tacos 3 times in 2 weeks"), neglect nudges ("No pot roast in 7 weeks"), and recap callouts make the log the planner's memory.

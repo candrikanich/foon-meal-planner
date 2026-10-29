@@ -39,6 +39,8 @@ final class LibraryStore {
 
     /// The family's reactions: current verdicts and likes, for favorites, the sorts, and Build my week.
     private(set) var reactions = ReactionSummary()
+    /// Everyone's serving notes, for meal detail and day cards.
+    private(set) var servingNotes: [ServingNote] = []
 
     /// Dishes that are someone's favorite now.
     private var favorites: Set<UUID> { Set(reactions.favorites.values.flatMap { $0 }) }
@@ -94,8 +96,10 @@ final class LibraryStore {
             async let itemNames = client.itemNames(householdID)
             async let verdicts = client.verdicts(householdID)
             async let likes = client.likes(householdID)
+            async let notes = client.servingNotes(householdID)
             let loaded = try await (meals, history, catalog, allergyRows, itemNames)
             let reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
+            let servingNotes = try await notes
             guard generation == loadGeneration else { return }
             self.meals = loaded.0
             self.history = loaded.1
@@ -103,6 +107,7 @@ final class LibraryStore {
             allergies = Self.memberAllergies(loaded.3, members: members)
             self.itemNames = loaded.4
             self.reactions = reactions
+            self.servingNotes = servingNotes
             hasLoaded = true
             errorMessage = nil
         } catch {
@@ -149,9 +154,39 @@ final class LibraryStore {
         do {
             async let verdicts = client.verdicts(householdID)
             async let likes = client.likes(householdID)
+            async let notes = client.servingNotes(householdID)
             reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
+            // Serving notes are family input too: a note Mom just wrote shows on Dad's cards.
+            servingNotes = try await notes
         } catch {
             // Offline: last load's reactions still stand.
+        }
+    }
+
+    func servingNotes(for mealID: UUID) -> [ServingNote] {
+        servingNotes.filter { $0.mealID == mealID }
+    }
+
+    /// Saves (or, blank, clears) a member's note on a dish. Returns whether it saved.
+    @discardableResult
+    func setServingNote(_ note: String, mealID: UUID, memberID: UUID) async -> Bool {
+        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard ServingNote.length(trimmed) <= ServingNote.maxLength else {
+            errorMessage = String(localized: "Serving notes need 120 characters or fewer.")
+            return false
+        }
+        do {
+            try await client.setServingNote(mealID, memberID, trimmed)
+            servingNotes = try await client.servingNotes(householdID)
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = switch (error as? PostgrestError)?.code {
+            case "42501": String(localized: "People write their own notes; parents can write anyone's.")
+            case "23514": String(localized: "Serving notes need 120 characters or fewer.")
+            default: String(localized: "Couldn't save the note. Check your connection and try again.")
+            }
+            return false
         }
     }
 

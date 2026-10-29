@@ -6,6 +6,7 @@ import SwiftUI
 /// can add ingredients to the list.
 struct MealDetailView: View {
     @Environment(LibraryStore.self) private var library
+    @Environment(HouseholdStore.self) private var household
     @Environment(SyncService.self) private var sync: SyncService?
     let mealID: UUID
     let canEdit: Bool
@@ -13,6 +14,7 @@ struct MealDetailView: View {
     @State private var editing: LibraryMeal?
     @State private var planning: LibraryMeal?
     @State private var bringingBack: LibraryMeal?
+    @State private var editingNote: NoteTarget?
     @State private var photoItem: PhotosPickerItem?
     @State private var isUploading = false
     @State private var addedItemIDs: Set<UUID> = []
@@ -36,6 +38,7 @@ struct MealDetailView: View {
                 hero(meal)
                 header(entry)
                 verdicts(meal)
+                servingNotes(meal)
                 if let message = library.errorMessage {
                     Text(message).font(.callout).foregroundStyle(.red)
                 }
@@ -67,6 +70,7 @@ struct MealDetailView: View {
             Text("It'll still stay off nights when anyone who said Not for me is home, and another Not for me retires it again.")
         }
         .sheet(item: $planning) { meal in PlanItSheet(meal: meal) }
+        .sheet(item: $editingNote) { target in ServingNoteEditor(target: target) }
         .sheet(item: $editing) { meal in
             MealEditorView(meal: meal)
         }
@@ -167,6 +171,56 @@ struct MealDetailView: View {
                         }
                         .accessibilityElement(children: .combine)
                     }
+                }
+            }
+        }
+    }
+
+    /// Who writes whose note: themselves, or a parent for anyone (kids without phones included).
+    private var writableMembers: [Member] {
+        household.visibleMembers.filter {
+            ServingNotes.canWrite(for: $0, me: household.me, isParent: household.canManagePeople)
+        }
+    }
+
+    /// "Nora: keep everything separate before mixing": how each person likes this dish, visible to everyone.
+    @ViewBuilder
+    private func servingNotes(_ meal: LibraryMeal) -> some View {
+        let notes = library.servingNotes(for: meal.id)
+        let writable = writableMembers
+        if !notes.isEmpty || !writable.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Serving notes").font(.foonTitle).accessibilityAddTraits(.isHeader)
+                ForEach(household.visibleMembers) { member in
+                    if let note = notes.first(where: { $0.memberID == member.id }) {
+                        let row = HStack(alignment: .top, spacing: 10) {
+                            MemberAvatar(member: member, size: 28)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(member.firstName).font(.foonCaption).foregroundStyle(.secondary)
+                                Text(note.note).font(.foonBody).foregroundStyle(Palette.ink)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        // Only a note you may change is a button; anyone else's reads as plain text.
+                        if writable.contains(where: { $0.id == member.id }) {
+                            Button { editingNote = NoteTarget(meal: meal, member: member, note: note.note) } label: { row }
+                                .buttonStyle(.plain)
+                                .accessibilityHint("Edit the note")
+                        } else {
+                            row.accessibilityElement(children: .combine)
+                        }
+                    }
+                }
+                let without = writable.filter { member in !notes.contains { $0.memberID == member.id } }
+                if !without.isEmpty {
+                    Menu {
+                        ForEach(without) { member in
+                            Button(member.firstName) { editingNote = NoteTarget(meal: meal, member: member, note: "") }
+                        }
+                    } label: {
+                        Label("Add a serving note", systemImage: "plus")
+                    }
+                    .tint(Palette.paprika)
                 }
             }
         }
@@ -403,20 +457,104 @@ private struct FlowLayout: Layout {
     }
 }
 
+/// Whose note on which dish is being written.
+struct NoteTarget: Identifiable {
+    let meal: LibraryMeal
+    let member: Member
+    let note: String
+    var id: String { "\(meal.id)-\(member.id)" }
+}
+
+/// Write, change, or clear one person's serving note on a dish.
+struct ServingNoteEditor: View {
+    @Environment(LibraryStore.self) private var library
+    @Environment(\.dismiss) private var dismiss
+    let target: NoteTarget
+    @State private var text = ""
+    @State private var isSaving = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("How \(target.member.firstName) likes it", text: $text, axis: .vertical)
+                        .lineLimit(2...4)
+                } footer: {
+                    if let message = library.errorMessage {
+                        Text(message).foregroundStyle(.red)
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Shown on the day card when \(target.member.firstName) is home.")
+                            Text("\(ServingNote.length(text)) of \(ServingNote.maxLength)")
+                        }
+                    }
+                }
+                if !target.note.isEmpty {
+                    Section {
+                        Button("Clear the note", role: .destructive) { save("") }
+                    }
+                }
+            }
+            .navigationTitle("\(target.member.firstName), \(target.meal.name)")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { save(text) }
+                        .disabled(isSaving || ServingNote.length(text) == 0 || ServingNote.length(text) > ServingNote.maxLength)
+                }
+            }
+            .onAppear {
+                text = target.note
+                library.clearError()
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 380, minHeight: 260)
+        #endif
+    }
+
+    private func save(_ note: String) {
+        Task {
+            isSaving = true
+            defer { isSaving = false }
+            if await library.setServingNote(note, mealID: target.meal.id, memberID: target.member.id) { dismiss() }
+        }
+    }
+}
+
+#Preview("Serving note") {
+    ServingNoteEditor(target: NoteTarget(meal: LibraryMeal.sampleLibrary[0], member: Member.sampleFamily[4],
+                                         note: "Keep everything separate before mixing"))
+        .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
+}
+
 #Preview("Planner") {
+    let household = HouseholdStore.preview()
     let library = LibraryStore(householdID: Household.sample.id, client: .preview())
     NavigationStack {
         MealDetailView(mealID: LibraryMeal.sampleLibrary[0].id, canEdit: true)
     }
     .environment(library)
-    .task { await library.load(members: Member.sampleFamily) }
+    .environment(household)
+    .task {
+        await household.load()
+        await library.load(members: Member.sampleFamily)
+    }
 }
 
 #Preview("Member, flagged") {
+    let household = HouseholdStore.preview()
     let library = LibraryStore(householdID: Household.sample.id, client: .preview())
     NavigationStack {
         MealDetailView(mealID: LibraryMeal.sampleLibrary[1].id, canEdit: false)
     }
     .environment(library)
-    .task { await library.load(members: Member.sampleFamily) }
+    .environment(household)
+    .task {
+        await household.load()
+        await library.load(members: Member.sampleFamily)
+    }
 }
