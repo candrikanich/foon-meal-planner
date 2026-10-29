@@ -8,6 +8,7 @@ struct WeekView: View {
     @Environment(HouseholdStore.self) private var household
     @Environment(LibraryStore.self) private var library
     @Environment(DinnerStore.self) private var dinner
+    @Environment(IdeasStore.self) private var ideas
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.showTab) private var showTab
     @Query(filter: #Predicate<CachedListItem> { $0.checkedAt == nil }) private var openListItems: [CachedListItem]
@@ -95,9 +96,11 @@ struct WeekView: View {
         let loadsLibrary = !library.hasLoaded
         async let libraryLoad: Void = loadsLibrary ? library.load(members: household.members) : ()
         async let dinnerLoad: Void = dinner.load(settings: settings)
+        async let ideasLoad: Void = ideas.load()
         await week.load(settings: settings)
         await libraryLoad
         await dinnerLoad
+        await ideasLoad
         // A full library load just read them; otherwise last night's answers count in the next build.
         if !loadsLibrary { await library.refreshReactions() }
         if canPlan { await week.fillInMissing(members: household.members) }
@@ -336,8 +339,14 @@ struct WeekView: View {
         if !library.hasLoaded { await library.load(members: household.members) }
         guard library.hasLoaded else { return nil }
         return PlanningContext(meals: library.meals, history: library.history, settings: settings,
-                               members: household.visibleMembers, traditions: week.traditions,
+                               members: household.visibleMembers, requests: requests, traditions: week.traditions,
                                reactions: library.reactions)
+    }
+
+    /// Dated requests for a library dish this week: Build my week lands each on its night.
+    private var requests: [DatedRequest] {
+        guard let start = week.week?.start else { return [] }
+        return RequestBoard.dated(ideas.requests, weekStart: start, today: week.todayDay)
     }
 
     private func build() async {
@@ -376,6 +385,7 @@ struct WeekView: View {
         .environment(household)
         .environment(WeekStore(householdID: Household.sample.id, client: .preview()))
         .environment(DinnerStore(householdID: Household.sample.id, client: .preview))
+        .environment(IdeasStore(householdID: Household.sample.id, client: .preview()))
         .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .modelContainer(try! SyncService.inMemoryContainer())
         .task { await household.load() }
@@ -388,6 +398,7 @@ struct WeekView: View {
         .environment(household)
         .environment(WeekStore(householdID: Household.sample.id, client: .preview(started: true)))
         .environment(DinnerStore(householdID: Household.sample.id, client: .preview))
+        .environment(IdeasStore(householdID: Household.sample.id, client: .preview()))
         .environment(library)
         .modelContainer(try! SyncService.inMemoryContainer())
         .task {

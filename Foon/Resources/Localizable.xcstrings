@@ -325,6 +325,9 @@
     "Archived meals leave the rotation but keep their history." : {
 
     },
+    "Ask for a dish, a name, or a link (names up to 80 characters, notes up to 200)." : {
+
+    },
     "At" : {
 
     },
@@ -499,6 +502,9 @@
     "Couldn't load last night's dinner. Check your connection and try again." : {
 
     },
+    "Couldn't load the ideas. Check your connection and try again." : {
+
+    },
     "Couldn't load the week" : {
 
     },
@@ -560,6 +566,9 @@
 
     },
     "Couldn't send that. Check your connection and try again." : {
+
+    },
+    "Couldn't send the idea. Check your connection and try again." : {
 
     },
     "Couldn't set up the sample family" : {
@@ -915,6 +924,9 @@
     "It'll still stay off nights when anyone who said Not for me is home, and another Not for me retires it again." : {
 
     },
+    "It's already your idea." : {
+
+    },
     "It's archived; this puts it back in rotation." : {
 
     },
@@ -1132,6 +1144,9 @@
     "Note or brand" : {
 
     },
+    "Notes need 200 characters or fewer." : {
+
+    },
     "Notes need 80 characters or fewer." : {
 
     },
@@ -1175,6 +1190,9 @@
 
     },
     "One step at a time, with timers" : {
+
+    },
+    "Only planners can do that with someone else's idea." : {
 
     },
     "Open" : {
@@ -1223,6 +1241,9 @@
 
     },
     "Personal care" : {
+
+    },
+    "Pick a night from today on to plan it." : {
 
     },
     "Pick an emoji" : {
@@ -1582,6 +1603,9 @@
     "That meal isn't in your library anymore. Pull to refresh." : {
 
     },
+    "That night has already passed." : {
+
+    },
     "That's a different Apple ID from the one you use with Foon. Confirm with the Apple ID you signed in with. Nothing was deleted." : {
 
     },
@@ -1772,6 +1796,9 @@
 
     },
     "You" : {
+
+    },
+    "You can do that for yourself, or for someone without their own account." : {
 
     },
     "You can't change this meal. Only planners can." : {

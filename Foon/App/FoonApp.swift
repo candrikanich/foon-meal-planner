@@ -32,7 +32,8 @@ struct FoonApp: App {
                      syncClient: .live(SupabaseService.shared.client),
                      libraryClient: .live(SupabaseService.shared.client),
                      weekClient: .live(SupabaseService.shared.client),
-                     dinnerClient: .live(SupabaseService.shared.client))
+                     dinnerClient: .live(SupabaseService.shared.client),
+                     ideasClient: .live(SupabaseService.shared.client))
                 .environment(session)
                 .environment(\.itemClient, .live(SupabaseService.shared.client))
                 .modelContainer(Self.cache)

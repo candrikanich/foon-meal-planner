@@ -6,11 +6,14 @@ struct RootTabView: View {
     @State private var library: LibraryStore
     @State private var week: WeekStore
     @State private var dinner: DinnerStore
+    @State private var ideas: IdeasStore
 
-    init(householdID: UUID, libraryClient: LibraryClient, weekClient: WeekClient, dinnerClient: DinnerClient) {
+    init(householdID: UUID, libraryClient: LibraryClient, weekClient: WeekClient, dinnerClient: DinnerClient,
+         ideasClient: IdeasClient) {
         _library = State(initialValue: LibraryStore(householdID: householdID, client: libraryClient))
         _week = State(initialValue: WeekStore(householdID: householdID, client: weekClient))
         _dinner = State(initialValue: DinnerStore(householdID: householdID, client: dinnerClient))
+        _ideas = State(initialValue: IdeasStore(householdID: householdID, client: ideasClient))
     }
 
     var body: some View {
@@ -24,6 +27,7 @@ struct RootTabView: View {
         .environment(library)
         .environment(week)
         .environment(dinner)
+        .environment(ideas)
         .environment(\.showTab) { selection = $0 }
         #if os(iOS)
         .fullScreenCover(isPresented: onboarding) { onboardingFlow }
@@ -59,7 +63,7 @@ struct RootTabView: View {
 #Preview {
     let store = HouseholdStore.preview()
     RootTabView(householdID: Household.sample.id, libraryClient: .preview(), weekClient: .preview(started: true),
-                dinnerClient: .preview)
+                dinnerClient: .preview, ideasClient: .preview())
         .environment(SessionStore(auth: .preview()))
         .environment(store)
         .task { await store.load() }
