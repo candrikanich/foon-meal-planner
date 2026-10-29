@@ -142,3 +142,93 @@ struct IdeasStoreTests {
         #expect(store.saving.isEmpty)
     }
 }
+
+struct RequestLandingTests {
+    private let monday = CalendarDay(year: 2026, month: 11, day: 2)
+    private let tacos = UUID(), chili = UUID(), nora = UUID()
+
+    private func night(_ offset: Int, meal: UUID?) -> WeekNight {
+        WeekNight(id: UUID(), date: monday.adding(days: offset), effort: .normal, dinnerTime: nil, mealID: meal,
+                  mealName: nil, quickPick: nil, locked: false, attendance: [:])
+    }
+
+    @Test func aDatedRequestLandsWhenItsNightHasTheDish() {
+        let friday = night(4, meal: tacos), thursday = night(3, meal: chili)
+        let landed = DinnerRequest(requestedByMemberID: nora, mealID: tacos, targetDate: friday.date)
+        let swapped = DinnerRequest(requestedByMemberID: nora, mealID: tacos, targetDate: thursday.date)
+        let someday = DinnerRequest(requestedByMemberID: nora, mealID: tacos)
+        let result = RequestBoard.landed([landed, swapped, someday], nights: [thursday, friday])
+        #expect(result.map(\.requestID) == [landed.id])
+        #expect(result.map(\.nightID) == [friday.id])
+    }
+
+    @Test func requestsInWords() {
+        let request = DinnerRequest(requestedByMemberID: nora, title: "Crab legs", targetDate: monday.adding(days: 4))
+        #expect(RequestText.from("Nora", request: request) == "From Nora, for Friday")
+        #expect(RequestText.from("Nora", request: DinnerRequest(requestedByMemberID: nora, title: "x")) == "From Nora")
+        #expect(RequestText.status(.specialOccasion) == "Special occasion")
+        #expect(RequestText.status(.planned(monday.adding(days: 4))) == "Planned for Friday")
+    }
+}
+
+struct RequestRulesTests {
+    private let ann = Member.fixture(firstName: "Ann", guardian: true, userID: UUID())
+    private let ben = Member.fixture(firstName: "Ben", userID: UUID())
+    private let nora = Member.fixture(firstName: "Nora", ageGroup: .kid)
+
+    @Test func archivingFollowsTheServersRule() {
+        let mine = DinnerRequest(requestedByMemberID: ben.id, title: "x", enteredByMemberID: ben.id)
+        let forNora = DinnerRequest(requestedByMemberID: nora.id, title: "x", enteredByMemberID: ben.id)
+        let annsForNora = DinnerRequest(requestedByMemberID: nora.id, title: "x", enteredByMemberID: ann.id)
+        var claimedNora = nora
+        claimedNora.userID = UUID()
+        #expect(RequestBoard.canArchive(mine, me: ben, members: [ann, ben, nora]))
+        #expect(RequestBoard.canArchive(forNora, me: ben, members: [ann, ben, nora]), "entered on Ben's phone")
+        #expect(!RequestBoard.canArchive(annsForNora, me: ben, members: [ann, ben, nora]))
+        #expect(!RequestBoard.canArchive(forNora, me: ben, members: [ann, ben, claimedNora]),
+                "once Nora has her own account, it's hers")
+    }
+
+    @Test func buildingARequestFromTheSheet() {
+        let from = UUID()
+        #expect(NewRequest.build(kind: .name, from: from, mealID: nil, title: "  Crab legs ", link: "", note: " ",
+                                 date: nil) == NewRequest(from: from, title: "Crab legs"))
+        #expect(NewRequest.build(kind: .name, from: from, mealID: nil, title: "  ", link: "", note: "", date: nil) == nil)
+        #expect(NewRequest.build(kind: .link, from: from, mealID: nil, title: "", link: "recipes.example/x", note: "",
+                                 date: nil)?.link == "https://recipes.example/x")
+        #expect(NewRequest.build(kind: .link, from: from, mealID: nil, title: "", link: "not a link", note: "",
+                                 date: nil) == nil)
+        #expect(NewRequest.build(kind: .library, from: from, mealID: nil, title: "", link: "", note: "", date: nil) == nil)
+        #expect(NewRequest.build(kind: .name, from: from, mealID: nil, title: String(repeating: "x", count: 81), link: "",
+                                 note: "", date: nil) == nil, "over the server's limit")
+    }
+
+    @Test func aSwapTakesTheDishAwayAndTheIdeaGoesBackToOpen() {
+        let tacos = UUID()
+        let night = WeekNight(id: UUID(), date: CalendarDay(year: 2026, month: 11, day: 6), effort: .normal,
+                              dinnerTime: nil, mealID: UUID(), mealName: "Chili", quickPick: nil, locked: false,
+                              attendance: [:])
+        let planned = DinnerRequest(requestedByMemberID: UUID(), mealID: tacos, status: .planned, plannedNightID: night.id,
+                                    plannedDate: night.date)
+        #expect(RequestBoard.unlanded([planned], nights: [night]) == [planned.id])
+    }
+}
+
+@MainActor
+struct MarkLandedTests {
+    @Test func marksWhatBuildMyWeekLanded() async {
+        let monday = CalendarDay(year: 2026, month: 11, day: 2)
+        let tacos = UUID()
+        let friday = WeekNight(id: UUID(), date: monday.adding(days: 4), effort: .normal, dinnerTime: nil, mealID: tacos,
+                               mealName: "Tacos", quickPick: nil, locked: false, attendance: [:])
+        let request = DinnerRequest(requestedByMemberID: UUID(), mealID: tacos, targetDate: friday.date)
+        let updates = Mutex<[RequestUpdate]>([])
+        let store = IdeasStore(householdID: UUID(), client: IdeasClient(
+            requests: { _ in [request] }, make: { _, _ in UUID() }, toggleMeToo: { _, _ in true },
+            update: { _, update in updates.withLock { $0.append(update) } }
+        ))
+        await store.load()
+        await store.sync(with: Week(planID: UUID(), start: monday, approvedAt: nil, nights: [friday]))
+        #expect(updates.withLock { $0 } == [RequestUpdate(status: .planned, nightID: friday.id)])
+    }
+}

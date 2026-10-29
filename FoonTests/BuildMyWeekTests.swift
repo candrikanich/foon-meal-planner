@@ -190,6 +190,8 @@ struct BuildMyWeekTests {
         let draft = BuildMyWeek.draft(planning, seed: 6)
         #expect(draft[1].pick == .meal(meals[3].id) && draft[1].reason == .request(name: "Dad"))
         #expect(draft[4].pick == .meal(meals[4].id) && draft[4].reason == .request(name: "Mom"))
+        #expect(draft[1].locks && draft[4].locks, "saved locked: the idea is planned there, so a Rebuild keeps it")
+        #expect(draft.filter(\.locks).count == 2)
     }
 
     @Test func aRequestForARetiredDishOrALockedNightIsSkipped() {

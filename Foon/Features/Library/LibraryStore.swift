@@ -267,7 +267,7 @@ final class LibraryStore {
     }
 
     /// A typed or pasted link as a web address; "recipes.example/chili" gets https.
-    static func webLink(_ link: String) -> URL? {
+    nonisolated static func webLink(_ link: String) -> URL? {
         let trimmed = link.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !trimmed.contains(" ") else { return nil }
         let withScheme = trimmed.contains("://") ? trimmed : "https://" + trimmed

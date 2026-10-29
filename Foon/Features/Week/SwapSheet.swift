@@ -4,6 +4,7 @@ import SwiftUI
 /// search of the library with Foon's ideas below and an inline quick add. The planner's pick locks the night.
 struct SwapSheet: View {
     @Environment(WeekStore.self) private var week
+    @Environment(IdeasStore.self) private var ideas: IdeasStore?
     @Environment(LibraryStore.self) private var library
     @Environment(HouseholdStore.self) private var household
     @Environment(\.dismiss) private var dismiss
@@ -181,7 +182,7 @@ struct SwapSheet: View {
     private func choose(_ choice: WeekStore.SwapChoice) async {
         isWorking = true
         defer { isWorking = false }
-        if await week.swap(nightID: nightID, to: choice) { dismiss() }
+        if await week.swap(nightID: nightID, to: choice) { await swapped() }
     }
 
     /// Adds a starter dish to the library, then plans it. If the swap fails, the dish is already in
@@ -190,7 +191,7 @@ struct SwapSheet: View {
         isWorking = true
         defer { isWorking = false }
         guard let id = await library.add(dish) else { return }
-        if await week.swap(nightID: nightID, to: .meal(id: id, name: library.meal(id)?.name ?? dish.name)) { dismiss() }
+        if await week.swap(nightID: nightID, to: .meal(id: id, name: library.meal(id)?.name ?? dish.name)) { await swapped() }
     }
 
     private func quickAdd() async {
@@ -198,7 +199,7 @@ struct SwapSheet: View {
         defer { isWorking = false }
         let name = typedName
         guard let id = await library.quickAdd(name: name, ingredients: "") else { return }
-        if await week.swap(nightID: nightID, to: .meal(id: id, name: library.meal(id)?.name ?? name)) { dismiss() }
+        if await week.swap(nightID: nightID, to: .meal(id: id, name: library.meal(id)?.name ?? name)) { await swapped() }
     }
 
     private func restore(_ meal: LibraryMeal) async {
@@ -207,6 +208,12 @@ struct SwapSheet: View {
         await library.setArchived(false, mealID: meal.id)
         guard library.meal(meal.id)?.status.isInRotation == true else { return }
         if await week.swap(nightID: nightID, to: .meal(id: meal.id, name: meal.name)) { dismiss() }
+    }
+
+    /// A swap can take a requested dish off its night (or put one on it): the ideas follow.
+    private func swapped() async {
+        await ideas?.sync(with: week.week)
+        dismiss()
     }
 }
 
