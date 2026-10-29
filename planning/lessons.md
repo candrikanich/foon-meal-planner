@@ -6,6 +6,20 @@ _None yet._
 
 ## Patterns
 
+### Read the checks before merging; never chain the merge after them
+**Times seen:** 1
+
+**What happened (2026-10-29):** I ran `gh pr checks 124 && gh pr merge 124 --merge`. The Apple job had failed (a test hung until the 30-minute timeout), but the merge still ran, and #124 landed on main with red CI. The hang was a race in a part-2 test (`anOlderLoadFinishingLastIsIgnored`), fixed in the next PR.
+
+**Rule (merging):** Run `gh pr checks <n>` on its own and read every line. Merge in a separate command, only when every check says `pass`. A `fail` or `cancelled` line stops the merge, whatever the exit code says.
+
+### Async tests with gates: wait for the parked signal, don't yield and hope
+**Times seen:** 1
+
+**What happened:** `Task { await slowLoad() }; await Task.yield(); await fastLoad()` assumed the slow task started first. On a busy CI runner it didn't, so the "fast" load took the stalling path and the test hung forever.
+
+**Rule (async tests):** When one task must be inside a gate before the next step, have it signal (`AsyncStream` yield) once it's parked, and `for await` that signal. `finish()` the gate stream at the end, so nothing can wait on it forever.
+
 ### Stacked PRs merge into their stacked base, not main
 **Times seen:** 1
 
