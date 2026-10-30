@@ -35,6 +35,17 @@ struct MealEditorView: View {
                     }
                 }
 
+                Section {
+                    Picker("Time to cook", selection: $draft.cookMinutes) {
+                        Text("Not sure").tag(Int?.none)
+                        ForEach(MealText.cookTimeChoices(including: meal.cookMinutes), id: \.self) { minutes in
+                            Text(MealText.cookTime(minutes: minutes)).tag(Int?.some(minutes))
+                        }
+                    }
+                } footer: {
+                    Text("Sets when This Week says to start cooking. Foon estimates if you're not sure.")
+                }
+
                 Section("Tags") {
                     ForEach(MealTag.allCases, id: \.self) { tag in
                         Toggle(tag.title, isOn: Binding(

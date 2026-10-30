@@ -44,6 +44,9 @@ struct DishTraits: Equatable, Sendable {
     let categories: Set<DishCategory>
     /// Served cold or close to it: Build my week's summer lean, alongside grill-tagged dishes.
     let isCold: Bool
+    /// What it takes to make it: a tag, or a name that says so. Meals have no tag for an air fryer or an Instant Pot, and
+    /// a new tag would break reading the library on apps already installed (`MealTag` decoding is strict).
+    let equipment: Set<KitchenEquipment>
     private let tags: [MealTag]
 
     /// The planner passes the tags, so a grill-tagged "Carne asada" counts as a grilling repeat just as it gets the
@@ -59,6 +62,10 @@ struct DishTraits: Equatable, Sendable {
         isCold = saysCold || (Self.servedCool.isFound(in: words) && !categories.contains(.soup))
         self.categories = categories
         self.tags = tags
+        var equipment = Set(Self.equipmentNames.filter { $0.value.isFound(in: words) }.keys)
+        if tags.contains(.grill) { equipment.insert(.grill) }
+        if tags.contains(.slowCooker) { equipment.insert(.slowCooker) }
+        self.equipment = equipment
     }
 
     /// A dish fits a season once, however many ways it qualifies.
@@ -91,6 +98,13 @@ struct DishTraits: Equatable, Sendable {
                                            except: ["cold night", "cold day", "cold weather", "cold snap"])
 
     private static let servedCool = Keywords(["salad", "ceviche", "poke", "hoagie", "italian sub", "wrap", "blt"])
+
+    private static let equipmentNames: [KitchenEquipment: Keywords] = [
+        .grill: Keywords(["grilled", "on the grill"], except: ["grilled cheese"]),
+        .slowCooker: Keywords(["slow cooker", "slow cooked", "crock pot", "crockpot"]),
+        .airFryer: Keywords(["air fryer", "airfryer", "air fried", "air fry"]),
+        .instantPot: Keywords(["instant pot", "instapot", "pressure cooker"]),
+    ]
 
     private static let keywords: [DishCategory: Keywords] = [
         .pasta: Keywords(["pasta", "spaghetti", "penne", "rigatoni", "linguine", "fettuccine", "noodle", "macaroni",

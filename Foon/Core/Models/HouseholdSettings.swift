@@ -29,6 +29,11 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
     /// which merge on the server and bring the weeks already started into line. So they aren't encoded: a stale copy
     /// saved with other settings can't undo them (the server ignores the key anyway, for older apps' sake).
     var awayDates: [AwayDates] = []
+    /// What the kitchen doesn't have. It lists what's missing rather than what's owned, so a household that hasn't said,
+    /// and equipment added to the list later, keep every dish.
+    var missingEquipment: Set<KitchenEquipment> = []
+    /// Whether cards say when to start cooking.
+    var showsStartCooking = true
 
     /// Onboarding's presets (docs/spec.md → Notifications): how much Foon nudges.
     enum NotificationPreset: String, Codable, CaseIterable, Sendable {
@@ -72,6 +77,8 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         case isSample = "sample"
         case timeZone = "time_zone"
         case awayDates = "away_dates"
+        case missingEquipment = "missing_equipment"
+        case showsStartCooking = "start_cooking_nudge"
     }
 
     /// One bad entry shouldn't cost the rest.
@@ -98,6 +105,9 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         try container.encode(samplePending, forKey: .samplePending)
         try container.encode(isSample, forKey: .isSample)
         try container.encodeIfPresent(timeZone, forKey: .timeZone)
+        // Always sent: the server merges keys, so leaving an empty list out would keep the old one.
+        try container.encode(KitchenEquipment.allCases.filter(missingEquipment.contains), forKey: .missingEquipment)
+        try container.encode(showsStartCooking, forKey: .showsStartCooking)
     }
 
     init(from decoder: Decoder) throws {
@@ -124,6 +134,9 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
             .flatMap { TimeZone(identifier: $0)?.identifier }
         awayDates = ((try? container.decodeIfPresent([LenientAwayDates].self, forKey: .awayDates)) ?? nil)?
             .compactMap(\.dates) ?? []
+        let missing = ((try? container.decodeIfPresent([String].self, forKey: .missingEquipment)) ?? nil) ?? []
+        missingEquipment = Set(missing.compactMap(KitchenEquipment.init(rawValue:)))
+        showsStartCooking = (try? container.decodeIfPresent(Bool.self, forKey: .showsStartCooking)).flatMap { $0 } ?? true
     }
 
     /// "HH:mm", or nil for anything else.

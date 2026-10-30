@@ -69,7 +69,7 @@ extension LibraryClient {
                 let rows: [MealRow] = try await client.from("meals")
                     .select("""
                         id, household_id, catalog_meal_id, name, servings, tags, status, photo_path, made_by_member_id, \
-                        created_at, steps, source_url, prep_steps, \
+                        created_at, steps, source_url, prep_steps, cook_minutes, \
                         meal_ingredients(item_id, position, quantity_text, items(canonical_name, category, note, keep_on_hand)), \
                         meal_sides!meal_sides_meal_fkey(position, side_meal_id, item_id, items(canonical_name))
                         """)
@@ -237,6 +237,7 @@ private struct MealRow: Decodable, Sendable {
     let steps: [String]
     let sourceURL: String?
     let prepSteps: [PrepStep]
+    let cookMinutes: Int?
     let mealIngredients: [Line]
     let mealSides: [Side]
 
@@ -275,6 +276,7 @@ private struct MealRow: Decodable, Sendable {
         case steps
         case sourceURL = "source_url"
         case prepSteps = "prep_steps"
+        case cookMinutes = "cook_minutes"
         case mealIngredients = "meal_ingredients"
         case mealSides = "meal_sides"
     }
@@ -289,7 +291,8 @@ private struct MealRow: Decodable, Sendable {
                                keepOnHand: $0.items.keepOnHand)
             },
             steps: steps, sourceURL: sourceURL.flatMap(URL.init(string:)), prepSteps: prepSteps,
-            sides: mealSides.sorted { $0.position < $1.position }.compactMap(\.side)
+            sides: mealSides.sorted { $0.position < $1.position }.compactMap(\.side),
+            cookMinutes: cookMinutes
         )
     }
 }
@@ -334,6 +337,7 @@ private struct SaveMealParams: Encodable, Sendable {
         case madeBy = "made_by"
         case lines
         case sides
+        case cookMinutes = "meal_cook_minutes"
     }
 
     // Every argument is sent, nulls included: PostgREST matches functions by argument names.
@@ -342,6 +346,8 @@ private struct SaveMealParams: Encodable, Sendable {
         try container.encode(mealID, forKey: .mealID)
         // Always sent from this build, so removing every side reaches the database. create_meal has no sides yet.
         try container.encode(meal.sides, forKey: .sides)
+        // Null means "leave it" to save_meal, for older builds; 0 is how this one clears it.
+        try container.encode(meal.cookMinutes ?? 0, forKey: .cookMinutes)
         try Self.encodeFields(of: meal, to: encoder)
     }
 

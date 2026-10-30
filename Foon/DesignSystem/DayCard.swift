@@ -145,6 +145,10 @@ struct DayCard: View {
                 Chip(text: DayCardText.badgeLabel(badge), systemImage: "hand.raised.fill", tint: Palette.herb)
             case .prep:
                 Chip(text: DayCardText.badgeLabel(badge), systemImage: "timer", tint: .secondary)
+            case .equipment:
+                Chip(text: DayCardText.badgeLabel(badge), systemImage: "frying.pan", tint: Palette.paprika)
+            case .startCooking:
+                Chip(text: DayCardText.badgeLabel(badge), systemImage: "flame", tint: .secondary)
             }
         }
     }
@@ -273,7 +277,11 @@ private enum DayCardPreview {
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 2), effort: .full,
                                  slot: .meal(name: "Pot roast", photoURL: nil, reason: "Haven't had it in 7 weeks",
                                              sides: ["mashed potatoes", "green beans"]),
-                                 attendance: DayCardPreview.family, badges: [.prep("Thaw tonight")], isLocked: true,
+                                 attendance: DayCardPreview.family,
+                                 badges: [.equipment("Needs a grill"),
+                                          .startCooking("Start cooking at 5:00 PM for 6:00 PM dinner"),
+                                          .prep("Thaw tonight")],
+                                 isLocked: true,
                                  servingNotes: ["Nora: keep everything separate before mixing", "Owen: no gravy"]),
                     actions: DayCardPreview.actions)
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 3), effort: .event,
