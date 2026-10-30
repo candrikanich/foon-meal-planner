@@ -30,6 +30,8 @@ final class WeekStore {
     /// Request → night for each idea the last build placed, so only those nights mark an idea planned (not a tradition,
     /// a pick that happens to be the same dish, or another idea for it). A swap on the night drops it.
     private(set) var requestNights: [UUID: UUID] = [:]
+    /// The household's away dates, as of the last load: those nights show as away and aren't planned.
+    private(set) var awayDates: [AwayDates] = []
 
     init(householdID: UUID, client: WeekClient, today: @escaping () -> CalendarDay = { CalendarDay(Date()) },
          seed: @escaping () -> UInt64 = { UInt64.random(in: .min ... .max) }) {
@@ -45,6 +47,7 @@ final class WeekStore {
         let thisWeek = WeekMath.start(of: today(), weekStart: settings.weekStart)
         let start = showingNextWeek ? thisWeek.adding(days: 7) : thisWeek
         if start != self.start { week = nil }
+        awayDates = settings.awayDates
         self.start = start
         isLoading = true
         defer { isLoading = false }
@@ -127,7 +130,7 @@ final class WeekStore {
     }
 
     var layout: WeekLayout? {
-        week.map { WeekLayout(nights: $0.nights, today: today()) }
+        week.map { WeekLayout(nights: $0.nights, today: today(), away: awayDates) }
     }
 
     /// Today as the store sees it (injected in tests), for labels that must agree with `layout`.
@@ -324,7 +327,11 @@ final class WeekStore {
     /// A night's card. Badges are worked out by the caller, who knows the meal and the family's allergies.
     static func card(for night: WeekNight, members: [Member], sides: (UUID) -> [String] = { _ in [] },
                      badges: (UUID, Set<UUID>) -> [DayCardModel.Badge] = { _, _ in [] },
-                     notes: (UUID, Set<UUID>) -> [String] = { _, _ in [] }) -> DayCardModel {
+                     notes: (UUID, Set<UUID>) -> [String] = { _, _ in [] }, isAway: Bool = false) -> DayCardModel {
+        guard !isAway else {
+            return DayCardModel(date: night.date, effort: night.effort, slot: .away, attendance: [], badges: [],
+                                isLocked: false)
+        }
         let home = Set(night.attendance.filter(\.value).keys)
         return DayCardModel(
             date: night.date,
@@ -408,7 +415,7 @@ struct PlanningContext {
 
     func inputs(for week: Week, today: CalendarDay) -> PlanningInputs {
         PlanningInputs(
-            nights: week.nights.map(PlanningNight.init),
+            nights: week.nights.map { PlanningNight($0, isAway: settings.isAway(on: $0.date)) },
             meals: meals,
             history: history,
             settings: settings,

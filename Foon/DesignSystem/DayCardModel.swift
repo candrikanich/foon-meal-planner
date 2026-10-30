@@ -7,6 +7,8 @@ struct DayCardModel: Identifiable, Equatable, Sendable {
         case empty
         case meal(name: String, photoURL: URL?, reason: String?, sides: [String] = [])
         case quickPick(QuickPick)
+        /// The household's away dates cover this night: nothing to plan.
+        case away
     }
 
     struct Attendee: Equatable, Identifiable, Sendable {
@@ -125,8 +127,9 @@ enum DayCardText {
         case .meal(let name, _, let reason, let sides):
             parts.append([name, reason, sidesLabel(sides)].compactMap { $0 }.joined(separator: ", "))
         case .quickPick(let pick): parts.append(quickPickLabel(pick))
+        case .away: parts.append(String(localized: "Away, no dinner to plan"))
         }
-        parts.append(effortLabel(card.effort))
+        if card.slot != .away { parts.append(effortLabel(card.effort)) }
         let home = card.attendance.filter(\.isHome).map(\.firstName)
         let away = card.attendance.filter { !$0.isHome }.map(\.firstName)
         if !home.isEmpty { parts.append(String(localized: "Home: \(home.joined(separator: ", "))")) }

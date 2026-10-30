@@ -38,6 +38,8 @@ final class HouseholdStore {
     private(set) var invitedMemberIDs: Set<UUID> = []
     /// Kids whose parental consent is active (#12).
     private(set) var parentalConsentMemberIDs: Set<UUID> = []
+    /// Saved schedules ("School year"), by name; loaded when their screen opens.
+    private(set) var attendanceTemplates: [AttendanceTemplate] = []
 
     let userID: UUID
     let client: HouseholdClient
@@ -121,6 +123,7 @@ final class HouseholdStore {
         members = []
         invitedMemberIDs = []
         parentalConsentMemberIDs = []
+        attendanceTemplates = []
         phase = .needsHousehold
         return true
     }
@@ -181,6 +184,91 @@ final class HouseholdStore {
             return true
         } catch {
             errorMessage = String(localized: "Couldn't save the settings. Check your connection and try again.")
+            return false
+        }
+    }
+
+    // MARK: - Away dates and saved schedules
+
+    /// Adds a stretch to the household's away dates. Returns whether it saved.
+    func addAwayDates(_ new: AwayDates, today: CalendarDay) async -> Bool {
+        guard let household else { return false }
+        return await saveAwayDates(AwayDates.adding(new, to: household.planningSettings.awayDates, today: today))
+    }
+
+    /// Ends a stretch: its nights from today on go back to usual schedules. Returns whether it saved.
+    func removeAwayDates(_ dates: AwayDates) async -> Bool {
+        guard let household else { return false }
+        return await saveAwayDates(household.planningSettings.awayDates.filter { $0 != dates })
+    }
+
+    private func saveAwayDates(_ dates: [AwayDates]) async -> Bool {
+        guard var household else { return false }
+        do {
+            try await client.setAwayDates(household.id, dates)
+            var settings = household.planningSettings
+            settings.awayDates = dates
+            household.settings = settings
+            phase = .ready(household)
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = String(localized: "Couldn't save the away dates. Check your connection and try again.")
+            return false
+        }
+    }
+
+    func loadTemplates() async {
+        guard let household else { return }
+        do {
+            attendanceTemplates = try await client.attendanceTemplates(household.id)
+        } catch {
+            guard !Task.isCancelled else { return }
+            errorMessage = String(localized: "Couldn't load your saved schedules. Check your connection and try again.")
+        }
+    }
+
+    /// Saves everyone's usual schedule under a name, replacing one that has it already. Returns whether it saved.
+    func saveTemplate(named raw: String) async -> Bool {
+        guard let household else { return false }
+        guard let name = AttendanceTemplate.validatedName(raw) else {
+            errorMessage = String(localized: "Schedule names need 1 to 40 characters.")
+            return false
+        }
+        do {
+            let saved = try await client.saveAttendanceTemplate(household.id, name)
+            attendanceTemplates = (attendanceTemplates.filter { $0.id != saved.id } + [saved])
+                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = String(localized: "Couldn't save the schedule. Check your connection and try again.")
+            return false
+        }
+    }
+
+    /// Makes a saved schedule everyone's usual one, for weeks started from now on. Returns whether it worked.
+    func applyTemplate(_ template: AttendanceTemplate) async -> Bool {
+        guard let household else { return false }
+        do {
+            try await client.applyAttendanceTemplate(template.id)
+            members = try await client.members(household.id)
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = String(localized: "Couldn't switch schedules. Pull to refresh, then try again.")
+            return false
+        }
+    }
+
+    func deleteTemplate(_ template: AttendanceTemplate) async -> Bool {
+        do {
+            try await client.deleteAttendanceTemplate(template.id)
+            attendanceTemplates = attendanceTemplates.filter { $0.id != template.id }
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = String(localized: "Couldn't delete the schedule. Check your connection and try again.")
             return false
         }
     }

@@ -11,12 +11,14 @@ struct PlanningNight: Identifiable, Equatable, Sendable {
     var locked: Bool
     var mealID: UUID?
     var quickPick: QuickPick?
+    /// Inside the household's away dates: nothing to plan, whoever the attendance says is home.
+    var isAway = false
 
     var home: Set<UUID> { Set(attendance.filter(\.value).keys) }
     /// Everyone with a row is home. A night with no rows (a household of nobody yet) counts as full.
     var isFullAttendance: Bool { attendance.values.allSatisfy { $0 } }
-    /// Everyone's out. A night with no rows isn't: it just hasn't been laid out.
-    var isNobodyHome: Bool { !attendance.isEmpty && home.isEmpty }
+    /// Everyone's out, or the household is away. A night with no rows isn't: it just hasn't been laid out.
+    var isNobodyHome: Bool { isAway || (!attendance.isEmpty && home.isEmpty) }
 
     init(id: UUID, date: CalendarDay, effort: NightEffort = .normal, attendance: [UUID: Bool] = [:],
          locked: Bool = false, mealID: UUID? = nil, quickPick: QuickPick? = nil) {
@@ -24,9 +26,10 @@ struct PlanningNight: Identifiable, Equatable, Sendable {
         (self.locked, self.mealID, self.quickPick) = (locked, mealID, quickPick)
     }
 
-    init(_ night: WeekNight) {
+    init(_ night: WeekNight, isAway: Bool = false) {
         self.init(id: night.id, date: night.date, effort: night.effort, attendance: night.attendance,
                   locked: night.locked, mealID: night.mealID, quickPick: night.quickPick)
+        self.isAway = isAway
     }
 }
 

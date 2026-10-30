@@ -445,6 +445,63 @@ struct HouseholdClientLiveTests {
         #expect(members.allSatisfy { $0["user_id"] == nil }, "no account ids in the export")
     }
 
+    @Test func awayDatesClearTheWeekAndOnlyTheirNights() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let weeks = WeekClient.live(supabase)
+        let household = try await households.createHousehold("Away family", nil, "Ann", HouseholdSettings())
+        let ann = try #require(try await households.members(household.id).first)
+
+        // 2037-11-01 is a Sunday, ahead of the clock.
+        let sunday = CalendarDay(year: 2037, month: 11, day: 1)
+        let week = try await weeks.create(household.id, sunday)
+        #expect(week.nights[2].attendance[ann.id] == true)
+
+        let tuesday = AwayDates(from: sunday.adding(days: 2), to: sunday.adding(days: 3))
+        try await households.setAwayDates(household.id, [tuesday])
+        #expect(try await households.myHousehold()?.planningSettings.awayDates == [tuesday])
+        let during = try #require(try await weeks.week(household.id, sunday))
+        #expect(during.nights[2].attendance[ann.id] == false)
+        #expect(during.nights[4].attendance[ann.id] == true)
+
+        var saved = HouseholdSettings()
+        saved.takeoutNights = 2
+        try await households.updateSettings(household.id, saved)
+        #expect(try await households.myHousehold()?.planningSettings.awayDates == [tuesday],
+                "saving settings doesn't touch them")
+
+        try await households.setAwayDates(household.id, [])
+        let after = try #require(try await weeks.week(household.id, sunday))
+        #expect(after.nights[2].attendance[ann.id] == true)
+    }
+
+    @Test func aPlannerSavesAndSwitchesSchedules() async throws {
+        let households = try await Self.signedUpClient()
+        let household = try await households.createHousehold("Season family", nil, "Ann", HouseholdSettings())
+        var kid = MemberDraft()
+        kid.firstName = "Owen"
+        kid.usuallyAway = [1, 2]
+        let owen = try await households.addMember(household.id, try #require(kid.validated()))
+
+        let school = try await households.saveAttendanceTemplate(household.id, "School year")
+        #expect(school.name == "School year")
+        #expect(school.schedules[owen.id]?.usuallyAway == [1, 2])
+        #expect(try await households.attendanceTemplates(household.id) == [school])
+
+        var summer = MemberDraft(owen)
+        summer.usuallyAway = []
+        _ = try await households.updateMember(owen.id, summer.changes(from: owen))
+        #expect(try await households.members(household.id).first { $0.id == owen.id }?.usuallyAway == [])
+
+        try await households.applyAttendanceTemplate(school.id)
+        #expect(try await households.members(household.id).first { $0.id == owen.id }?.usuallyAway == [1, 2])
+
+        try await households.deleteAttendanceTemplate(school.id)
+        #expect(try await households.attendanceTemplates(household.id).isEmpty)
+    }
+
     private static let config = try! SupabaseConfig.fromMainBundle()
     private static func sampleJPEG() throws -> Data {
         let context = try #require(CGContext(

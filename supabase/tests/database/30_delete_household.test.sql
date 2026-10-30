@@ -91,6 +91,7 @@ select public.set_serving_note('00000000-0000-0000-0000-0000000002a1', '00000000
   'No beans');
 select public.toggle_me_too((select id from public.requests limit 1), '00000000-0000-0000-0000-0000000000a1');
 select public.create_invite('00000000-0000-0000-0000-0000000000a4');
+select public.save_attendance_template('00000000-0000-0000-0000-0000000000a0', 'School year');
 reset role;
 insert into public.meal_logs (id, household_id, night_id, meal_id, cooked_by_member_id) values
   ('00000000-0000-0000-0000-0000000003a1', '00000000-0000-0000-0000-0000000000a0',

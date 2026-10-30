@@ -25,6 +25,9 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
     /// The household's time zone (an IANA name), so the server knows when "last night" was. Set when the household
     /// is created; the server falls back to America/New_York without it.
     var timeZone: String?
+    /// When the whole household is away. Read here, but written only through `set_away_dates`, which also brings the
+    /// weeks already started into line; so they aren't encoded, and a stale copy saved with other settings can't undo them.
+    var awayDates: [AwayDates] = []
 
     /// Onboarding's presets (docs/spec.md → Notifications): how much Foon nudges.
     enum NotificationPreset: String, Codable, CaseIterable, Sendable {
@@ -67,6 +70,16 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         case samplePending = "sample_pending"
         case isSample = "sample"
         case timeZone = "time_zone"
+        case awayDates = "away_dates"
+    }
+
+    /// One bad entry shouldn't cost the rest.
+    private struct LenientAwayDates: Decodable {
+        let dates: AwayDates?
+
+        init(from decoder: Decoder) throws {
+            dates = try? AwayDates(from: decoder)
+        }
     }
 
     func encode(to encoder: Encoder) throws {
@@ -108,6 +121,8 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         isSample = (try? container.decodeIfPresent(Bool.self, forKey: .isSample)).flatMap { $0 } ?? false
         timeZone = (try? container.decodeIfPresent(String.self, forKey: .timeZone)).flatMap { $0 }
             .flatMap { TimeZone(identifier: $0)?.identifier }
+        awayDates = ((try? container.decodeIfPresent([LenientAwayDates].self, forKey: .awayDates)) ?? nil)?
+            .compactMap(\.dates) ?? []
     }
 
     /// "HH:mm", or nil for anything else.

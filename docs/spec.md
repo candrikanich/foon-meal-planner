@@ -194,6 +194,19 @@ The planner taps "Build my week," gets a solid draft, and shapes it. The algorit
 
 - v1 (#22): `members.attendance_defaults` is `{"usually_away": [ISO weekdays]}`, set on the member's profile ("Usually home for dinner"; everyone edits their own, parents anyone's). Starting a week (`create_week`) makes seven nights from the shopping day at normal effort and the household dinner time, with a row for everyone not removed: out on their usual nights away, and away members out until their return date (all week without one). Someone added later gets their nights filled in when a planner next opens the week. A week starts on the shopping day; a dinner time that isn't HH:MM falls back to 18:00. Tapping an avatar toggles it; tapping the effort chip cycles normal, rushed, full evening, event.
 
+- **Away dates (#52):** a planner marks when the whole household is away, in Family → Trips and seasons (first and last night, both included, up to a year at a time; dates that overlap or run on from each other become one stretch).
+  - **The nights:** from today on, everyone's out and anything planned comes off, locked nights included. A planner confirms that first, because it isn't restored. A request planned for one of those nights goes back to open. Past nights and dinners already logged don't change.
+  - **On This Week:** everyone sees a note with the dates, and those nights' cards just say Away, with nothing to tap. A week that's all away and not started says so instead of offering Build my week.
+  - **Planning:** Build my week, Fill, and Shuffle skip those nights (no dated requests or traditions land on them), and they don't count as open nights.
+  - **Lists:** the weekly list leaves them out, and a whole week away shows no Approve. If a week's list was already approved and no dinner is left to cook, its open lines go (bought ones and hand-added ones stay); if dinners remain, Update the list refreshes it, as after any change. The quick list stays open for anything added by hand.
+  - **Ending early:** removing a stretch puts usual schedules back on its nights from today on. They're empty until someone plans them.
+  - **Stored:** `households.settings.away_dates` (`[{"from", "to"}]`), written only by `set_away_dates`, so older apps' settings saves keep them and a stale copy can't undo them. Older apps see those nights as Nobody's home.
+- **Saved schedules (#52):** a planner saves everyone's usual nights home under a name ("School year," "Baseball season," "Summer") and switches between them, in Family → Trips and seasons.
+  - **Saving:** copies each member's usual schedule as it is on the server right then. Using a name again, whatever the capitals, replaces that one. The name is up to 40 characters.
+  - **Switching:** sets each saved member's usual schedule, for weeks started from then on; weeks already started don't change. Someone added since keeps their own. If today's schedule isn't saved anywhere, the confirmation says so. The one already in use shows a check.
+  - **Who:** planners save, switch, and delete, because planners own attendance. That's wider than editing one person's schedule by hand, which stays with them and parents. Everyone in the household can read them.
+  - **Stored:** `attendance_templates`. Deleting a saved schedule removes it. Each person's copy leaves with their deleted account, and with a removed kid at the end of retention. It's included in the export.
+
 **Night effort.** Each night is set to full evening, normal, or rushed. Rushed nights only get quick meals, takeout, or leftovers.
 
 **Build my week algorithm**
@@ -331,6 +344,8 @@ The plan produces one weekly list; pivots and running-out moments produce the qu
 
 Few, actionable, and answerable from the lock screen. Every notification asks for one tap or saves someone from remembering something.
 
+**Away dates pause them (#52).** Nothing is sent about a night inside the household's away dates (Attendance → Away dates), and Time to plan and Requests open skip a week that's all away. Notifications aren't built yet (M2 car 6): on-device reminders read `HouseholdSettings.isAway(on:)`, and server pushes ask `public.household_away_on(household, date)`.
+
 | Notification | Who | When | If ignored |
 | --- | --- | --- | --- |
 | Requests open | Everyone | Evening before planning day | Pause for that member after 3 ignored weeks |
@@ -424,6 +439,7 @@ iOS-only, multiplatform SwiftUI (iPhone, iPad, Mac) on Supabase, with a local ca
 | items | household, canonical name, category (groceries, household, personal care), keep-on-hand flag, stock state (in, low, out), note or brand preference |
 | plans / plan\_nights | week start; per night: date, meal, effort, dinner time, locked, event flag |
 | night\_attendance | plan night, member, expected, confirmed |
+| attendance\_templates | household, name, schedules (member id to their attendance defaults) |
 | meal\_logs | plan night, meal or quick pick actually eaten, cooked by, leftovers, verified, confirmed by |
 | reactions | meal log, member, reaction, off-tonight flag, comment |
 | requests | household, member, meal, name or link, note, target date (optional), status, planned night; me-toos in request\_plus\_ones |
@@ -447,8 +463,8 @@ Every family is different; these are all in, each optional and off or unobtrusiv
 | Item notes and brands | "Vanilla yogurt, not plain," "store brand": a standing note per item (80 characters), set by anyone at home and shown with the item on meals, lists, and in store mode | 1 |
 | Claim a night | Anyone taps "I'll cook Thursday"; voluntary, visible, feeds cook credit | 2 |
 | Heading to the store | One tap tells the family to add items in the next 10 minutes | 2 |
-| Vacation or pause mode | Skip planning, notifications, and lists for away days | 2 |
-| Season templates | Save and switch attendance patterns (baseball season, school year, summer) | 2 |
+| Vacation or pause mode | Skip planning, notifications, and lists for away days. v1: see Away dates (#52) | 2 |
+| Season templates | Save and switch attendance patterns (baseball season, school year, summer). v1: see Saved schedules (#52) | 2 |
 | Cook once, eat twice | "Double it" plans the leftovers night; freezer-stash list of meals cooked ahead | 2 |
 | Seasonal weighting | Grill and cold meals rise in summer, soups and slow cooker in winter (see Build my week) | 2 |
 | Variety nudges | "Pasta 3 times this week", and the draw leans away from a category as it repeats; no calorie or nutrition tracking, by design | 2 |
@@ -487,15 +503,15 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
 
 - Amended COPPA rule, compliance date April 22, 2026: written data-retention policy with a time period; new parental consent for material privacy changes ([source](https://toyassociation.org/PressRoom2/News/2026-News/updated-coppa-rule-requirements-take-effect-april-22.aspx)).
 - **Kids on their own devices:** a parent consents in the kid's invite (logged with who, when, and the wording version) before a kid can join; withdrawing consent (member detail) signs the kid out at once. Claiming reads only the age band from Apple's Declared Age Range API, never a birthdate, and a minor's account can't claim an adult profile (#88).
-- **Retention policy** (for the privacy notice, and for legal review: erasing a withdrawn kid's own ratings is a hard delete, the one exception to "never hard-delete" besides deleting the household; kept if the legal review agrees, decided 2026-10-28): deleting the household erases everything at once; a removed kid's profile is anonymized after 12 months (first name becomes "Former member", avatar and allergies deleted, ratings kept as anonymous history). When a parent withdraws a kid's own-device consent and doesn't give it again, what the kid added themselves (requests, ratings, comments, list items) and their age band are erased after 30 days; the parent-entered profile (name, avatar, allergies) stays while they're in the family. A daily job enforces both.
+- **Retention policy** (for the privacy notice, and for legal review: erasing a withdrawn kid's own ratings is a hard delete, the one exception to "never hard-delete" besides deleting the household; kept if the legal review agrees, decided 2026-10-28): deleting the household erases everything at once; a removed kid's profile is anonymized after 12 months (first name becomes "Former member", avatar, allergies, and their part of saved schedules deleted, ratings kept as anonymous history). When a parent withdraws a kid's own-device consent and doesn't give it again, what the kid added themselves (requests, ratings, comments, list items) and their age band are erased after 30 days; the parent-entered profile (name, avatar, allergies) stays while they're in the family. A daily job enforces both.
 - **Legal review** happens before external TestFlight (founding families); internal TestFlight with our own family can go ahead first.
 - Allergies are consumer health data in some states (e.g. Washington's My Health My Data Act): explicit opt-in built into the allergy step (Agree and save is the opt-in, logged with who, when, and the wording version shown; the sample family logs its own version, since nobody read the sentence). Only guardians opt in or revoke; revoking erases the data.
 - Apple: in-app account deletion with Sign in with Apple token revocation, privacy manifest, accurate privacy label.
 - v1 account deletion and export (#29): Delete my account is in Family, Your data, and on the first screen before a household exists. For the owner the button says **Delete my account and household**, because the household goes with it. It says what will happen, then the person confirms with Apple. The fresh authorization code lets the delete-account Edge Function revoke Foon's Sign in with Apple token. If Apple refuses, or the code is from a different Apple ID than the account's, nothing is deleted. Then:
   - the owner's household is erased with everything in it, photos included (ownership can be transferred first to keep it); everyone else keeps their own account;
-  - another adult's profile is removed and anonymized at once ("Former member"; allergies and settings deleted; ratings and cook history kept as anonymous history);
+  - another adult's profile is removed and anonymized at once ("Former member"; allergies, settings, and their part of saved schedules deleted; ratings and cook history kept as anonymous history);
   - a kid's account is unlinked and the profile their parents entered stays.
-  The auth account goes last, and the device signs out and wipes its offline cache. Other family members' devices wipe theirs the next time they find no household (#110). Planners can export the household as a JSON file (meals, ingredients, sides, items, traditions, plans, nights, attendance, lists, members, allergies, consents); account ids and invite codes are left out.
+  The auth account goes last, and the device signs out and wipes its offline cache. Other family members' devices wipe theirs the next time they find no household (#110). Planners can export the household as a JSON file (meals, ingredients, sides, items, traditions, plans, nights, attendance, saved schedules, lists, members, allergies, consents); account ids and invite codes are left out.
 - v1 Delete household (owner only, Family → Your data): erases the household and everything in it, photos included, for everyone, and every account stays. Each device then finds no household, wipes its offline cache, and shows start or join a household. A real household needs its name typed to confirm (with Export offered first); a sample family doesn't. A household made with "Load a sample family" is marked (`settings.sample`), and Family offers **Start your real family**, which is Delete household for the sample. On the server, one `erase_household` does the erase for both this and account deletion: a migration that adds a household table adds its delete there; pgTAP seeds every household table and checks none keeps rows after an erase. The typed name is the confirmation (no fresh Apple sign-in, unlike account deletion). The sample shortcut applies only while nobody else in the household has their own account; otherwise it's an ordinary Delete household. After the delete, this device goes straight to start or join; other members' devices find no household the next time they load it.
 - No tracking and no ad SDKs, so no App Tracking Transparency prompt. Market it.
 - Delete receipt images after parsing. US-only launch at first.
