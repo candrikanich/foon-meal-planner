@@ -189,6 +189,13 @@ struct OnboardingHouseholdTests {
         #expect(saved.withLock { $0 }?.isSample == true, "it stays a sample, so Family can offer to start the real one")
     }
 
+    @Test func eachNotificationPresetSaysWhatItSends() {
+        #expect(HouseholdSettings.NotificationPreset.light.summary.contains("Only what you'd hate to miss"))
+        #expect(HouseholdSettings.NotificationPreset.balanced.summary.contains("check-in"))
+        #expect(HouseholdSettings.NotificationPreset.engaged.summary.contains("Everything"))
+        #expect(Set(HouseholdSettings.NotificationPreset.allCases.map(\.summary)).count == 3)
+    }
+
     @Test func theSampleMarkIsKeptInSettings() throws {
         var settings = HouseholdSettings()
         settings.isSample = true
