@@ -201,7 +201,7 @@ The planner taps "Build my week," gets a solid draft, and shapes it. The algorit
 1. **Lock** what's decided: dated requests, event nights, pinned meals, standing traditions, then someday requests several people want (on a night they're all home).
 2. **Fill special slots:** leftover night after a big-batch meal; takeout on the busiest night; new dishes on full-attendance nights.
 3. **Filter candidates per night:** drop dishes inside the repeat window or snoozed; dishes disliked by anyone home that night; retired dishes; non-quick meals on rushed nights; grill or advance-prep meals where they don't fit.
-4. **Score and draw** with weighted randomness: days since last made (higher is better), a favorite of someone home (big boost), ingredients already on hand (boost), overall thumbs-up (small boost).
+4. **Score and draw** with weighted randomness: days since last made (higher is better), a favorite of someone home (big boost), ingredients already on hand (boost), overall thumbs-up (small boost), in season for that night (boost), a category already in the week (lower).
 5. **Planner edits:** swap, lock, shuffle any unlocked night, approve. Approval generates the weekly shopping list.
 
 v1 rules (#24, `Foon/Core/Planning/BuildMyWeek.swift`, a pure function of the inputs and a seed):
@@ -210,7 +210,10 @@ v1 rules (#24, `Foon/Core/Planning/BuildMyWeek.swift`, a pure function of the in
 - **A new dish** is a meal on trial. A dish that's never been made isn't new (onboarding copies dishes the family already makes); it's just due for a turn. New dishes are capped at the setting and go to full-attendance nights first; past the cap only when nothing else fits.
 - **Takeout** goes on the busiest night: rushed first, then most people home, then not the shopping day, then earliest. **Leftovers** follow a big-batch meal (tagged leftovers) in the week, else land on the most rushed night.
 - **Filters:** in rotation (not archived or retired), not snoozed, not already in the week, outside the repeat window for that night, not disliked by anyone home, quick only on rushed nights, and enough lead time for advance prep (thaw first counts as 24 hours; a night has 24 hours per day from today plus about 8 before dinner today). Allergies never filter; they flag.
-- **Score:** days since last made for that night (1–90; never made counts as 90), times boosts for a favorite of someone home, ingredients on hand, and family likes; drawn with a seeded generator, so the same inputs and seed give the same week on every device.
+- **Score:** days since last made for that night (1–90; never made counts as 90), times boosts for a favorite of someone home, ingredients on hand, family likes, and the season, halved for each dish of the same category already in the week; drawn with a seeded generator, so the same inputs and seed give the same week on every device.
+- **Season (#54):** from each night's own date, northern hemisphere: summer is June to August, winter is December to February, spring and fall lean nowhere. In summer, dishes tagged grill or with a cold name (salad, gazpacho, wrap, BLT) have double the odds; in winter, dishes tagged slow cooker or with a soup name (soup, stew, chowder, chili) do. Only a name that says cold, chilled, or gazpacho takes a soup out of winter; "Soup and salad" is still a winter dish, and not a cold one. It's one boost however many ways a dish fits. The boost applies after the filters and only moves the odds, so dislikes, the repeat window, locks, and requests are untouched, and allergies still flag and never filter. A library with nothing in season draws exactly as it would in spring.
+- **Variety (#54):** a category is a kind of dinner read from the dish's name, roughly the starter pack's: pasta, Tex-Mex, sandwiches, soup, pizza, grilling, chicken, beef, pork, seafood, breakfast for dinner. A dish tagged grill always counts as grilling, whatever its name. A dish can be in several and counts as one repeat of its most repeated category. Each repeat in the week, kept nights included, halves a dish's odds; never to zero, so a family that mostly makes pasta still gets a full week. Only this week counts, not the weeks before. Names are read in English; a name that can't be read gets no lean either way. Shuffle and swap suggestions draw the same way, except that the dish being replaced isn't a repeat; each swap suggestion does count as a repeat for the next, so the three are real choices.
+- **Variety nudge (#54):** when three or more nights in a week share a category and a night ahead can still change (not locked, not an event), planners see one quiet note above the cards, for the most repeated category ("Pasta 3 times this week"; "next week" on next week's tab). The whole week counts, past nights too. It only tells; nothing is blocked or swapped. It never names a protein (chicken, beef, pork, seafood): those lean the draw, but a name can't tell a turkey burger from a beef one, so a sentence could be false. It reads only the names saved with the week, so tags don't count here. Never calories or nutrition.
 - **Shuffle** re-rolls one unkept meal night from the saved week, keeping its kind: a big-batch night stays a big batch, a trial slot stays trial first. Quick-pick nights are changed with Swap, not shuffle.
 - **Reasons:** a request, a favorite of someone home, something new, quick for a rushed night, uses what's on hand, the family likes it, "Haven't had it since yesterday / in N days / in a week / in N weeks", or "Due for a turn".
 
@@ -447,8 +450,8 @@ Every family is different; these are all in, each optional and off or unobtrusiv
 | Vacation or pause mode | Skip planning, notifications, and lists for away days | 2 |
 | Season templates | Save and switch attendance patterns (baseball season, school year, summer) | 2 |
 | Cook once, eat twice | "Double it" plans the leftovers night; freezer-stash list of meals cooked ahead | 2 |
-| Seasonal weighting | Grill meals rise in summer, soups and slow cooker in winter | 2 |
-| Variety nudges | "Pasta 3 times this week"; no calorie or nutrition tracking, by design | 2 |
+| Seasonal weighting | Grill and cold meals rise in summer, soups and slow cooker in winter (see Build my week) | 2 |
+| Variety nudges | "Pasta 3 times this week", and the draw leans away from a category as it repeats; no calorie or nutrition tracking, by design | 2 |
 | Cooking start time | "Start cooking at 5:45 for 6:30 dinner," from prep time | 2 |
 | Kitchen equipment | Household owns an air fryer, Instant Pot, grill; filter suggestions | 2 |
 | Dinner jobs | Optional rotating helper tasks (set the table, dishes) | 2 |
@@ -576,7 +579,7 @@ Build everything, in order: Phase 1 (the Sunday flow) is what to sit down with y
 - [ ] Heading to the store broadcast
 - [ ] Vacation or pause mode; season templates
 - [ ] Cook once, eat twice; freezer stash
-- [ ] Seasonal weighting and variety nudges in the algorithm
+- [x] Seasonal weighting and variety nudges in the algorithm (#54)
 - [ ] Cooking start time nudge; kitchen equipment filter
 - [ ] Change history and undo
 

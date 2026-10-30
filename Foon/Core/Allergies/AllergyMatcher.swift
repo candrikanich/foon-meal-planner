@@ -148,10 +148,10 @@ enum AllergyMatcher {
     }
 }
 
-/// A word in an ingredient name, with the spellings it could have as a singular, so "strawberries" meets
+/// A word in an ingredient or dish name, with the spellings it could have as a singular, so "strawberries" meets
 /// "strawberry" and "eggs" meets "egg". Deliberately naive English: good enough for grocery words, and
 /// a rare over-match ("codes" meets "cod") is safer than a miss.
-private struct Word: Sendable {
+struct Word: Sendable {
     let text: String
     let forms: Set<String>
 
@@ -183,9 +183,9 @@ private struct Word: Sendable {
     }
 }
 
-/// An ingredient name as whole words: case, accents, apostrophes, and punctuation folded away,
+/// An ingredient or dish name as whole words: case, accents, apostrophes, and punctuation folded away,
 /// so "Shepherd's", "Half & Half", and "JALAPEÑO" all read like plain grocery words.
-private struct Words: Sendable {
+struct Words: Sendable {
     let tokens: [Word]
 
     init(_ text: String) {
