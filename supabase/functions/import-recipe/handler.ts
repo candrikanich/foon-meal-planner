@@ -1,4 +1,4 @@
-// import-recipe: POST { url } → { recipe, title, url }. `recipe` is null when the page has no recipe data; the app
+// import-recipe: POST { url } → { recipe, title, caption, captionTruncated, url }. `recipe` is null when the page has no recipe data; the app
 // then saves just the title and link. The gateway verifies the token's signature (verify_jwt), but the app's anon
 // key is a valid token too, so the handler also requires a signed-in user.
 import { BlockedURL } from "./fetch.ts";
@@ -40,7 +40,7 @@ export async function handleImport(req: Request, deps: ImportDeps): Promise<Resp
   try {
     const page = await deps.fetchPage(link.trim());
     const parsed = parsePage(page.html);
-    return json(200, { recipe: parsed.recipe, title: parsed.title, url: page.url });
+    return json(200, { recipe: parsed.recipe, title: parsed.title, caption: parsed.caption, captionTruncated: parsed.captionTruncated, url: page.url });
   } catch (error) {
     if (error instanceof BlockedURL) return json(400, { error: "url_not_allowed" });
     // The kind of failure only: messages can carry page-controlled text (a redirect's Location).

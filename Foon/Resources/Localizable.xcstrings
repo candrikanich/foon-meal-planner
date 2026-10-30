@@ -1100,6 +1100,9 @@
     "Locked" : {
 
     },
+    "Looking for a recipe…" : {
+
+    },
     "Low" : {
 
     },
@@ -1812,7 +1815,7 @@
     "That night has already passed." : {
 
     },
-    "That was more than a meal can hold, so some were left out. Allergy flags only see what's here." : {
+    "That was too long to keep it all, so some may be missing. Allergy flags only see what's here." : {
 
     },
     "That's a different Apple ID from the one you use with Foon. Confirm with the Apple ID you signed in with. Nothing was deleted." : {

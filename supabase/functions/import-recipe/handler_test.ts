@@ -34,7 +34,7 @@ Deno.test("no recipe data is still a 200, with the title", async () => {
     fetchPage: () => Promise.resolve({ html: "<title>A post</title>", url: "https://r.example/post" }),
     log: () => {},
   });
-  assertEquals(await response.json(), { recipe: null, title: "A post", url: "https://r.example/post" });
+  assertEquals(await response.json(), { recipe: null, caption: null, captionTruncated: false, title: "A post", url: "https://r.example/post" });
 });
 
 Deno.test("blocked and unreachable links say which", async () => {

@@ -12,6 +12,10 @@ export interface ParsedPage {
   recipe: Recipe | null;
   // The page's own title, for saving just the title and link when there's no recipe data.
   title: string | null;
+  // The page's description (a social post's caption), with its line breaks. The app looks for a recipe in it.
+  caption: string | null;
+  // Cut to fit: an ingredient may be missing, and the app says so, since allergy flags only see what's kept.
+  captionTruncated: boolean;
 }
 
 const maxIngredients = 100;
@@ -22,10 +26,18 @@ const maxStep = 2000;
 const maxBlocks = 20;
 // The title lives in <head>; never scan a whole 2 MB page for it.
 const headBytes = 100_000;
+// Above the longest caption the big platforms allow (Instagram's 2,200), so real ones arrive whole.
+const maxCaption = 3000;
 
 export function parsePage(html: string): ParsedPage {
   const recipe = jsonLdBlocks(html).map(findRecipe).find((node) => node !== null);
-  return { recipe: recipe ? toRecipe(recipe) : null, title: pageTitle(html) };
+  const caption = pageCaption(html);
+  return {
+    recipe: recipe ? toRecipe(recipe) : null,
+    title: pageTitle(html),
+    caption: caption ? fitCaption(caption) : null,
+    captionTruncated: (caption?.length ?? 0) > maxCaption,
+  };
 }
 
 // A linear scan (indexOf), not a regex over the page: hostile HTML can't make it slow.
@@ -199,4 +211,24 @@ function pageTitle(html: string): string | null {
   const title = og ?? (end > start && start >= 0 ? head.slice(start + 1, end) : undefined);
   const plain = text(title, 200);
   return plain;
+}
+
+// og:description, else description. Line breaks are kept: a caption's list only reads as a list with them.
+function pageCaption(html: string): string | null {
+  const metas = html.slice(0, headBytes).match(/<meta\b[^>]{0,8000}>/gi) ?? [];
+  const content = (name: RegExp) =>
+    metas.find((tag) => name.test(tag))?.match(/content\s*=\s*(["'])(.*?)\1/is)?.[2];
+  const raw = content(/property\s*=\s*(["'])og:description\1/i) ?? content(/name\s*=\s*(["'])description\1/i);
+  if (!raw) return null;
+  const plain = decodeEntities(raw.replace(/<[^>]{0,2000}>/g, " "))
+    .split(/\r?\n/).map((line) => line.replace(/\s+/g, " ").trim()).filter((line) => line).join("\n");
+  return plain || null;
+}
+
+// Whole lines only: half an ingredient would read as a different one.
+function fitCaption(caption: string): string {
+  if (caption.length <= maxCaption) return caption;
+  const cut = clip(caption, maxCaption);
+  const lastBreak = cut.lastIndexOf("\n");
+  return lastBreak > 0 ? cut.slice(0, lastBreak) : cut;
 }

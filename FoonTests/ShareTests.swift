@@ -337,6 +337,12 @@ struct RecipeTextParserTests {
         #expect(draft.isTruncated, "the review screen says some were left out")
     }
 
+    @Test func limitsCountScalarsLikeAMealDoes() throws {
+        let family = String(repeating: "👨‍👩‍👧‍👦", count: 5000)
+        let capture = RecipeTextParser.Capture(name: "Chili", steps: [family])
+        #expect(throws: Never.self) { _ = try capture.draft(householdSize: 4).validated() }
+    }
+
     @Test func notesAndNutritionEndTheRecipe() {
         let capture = RecipeTextParser.parse(["Directions", "1. Stir.", "Notes", "Freezes well.", "Nutrition Facts",
                                               "300 calories"])
@@ -348,6 +354,34 @@ struct RecipeTextParserTests {
             == ["Brown the beef", "Add beans"])
         #expect(RecipeTextParser.parse(["Step 1: Brown the beef.", "Step 2: Add beans."]).steps
             == ["Brown the beef.", "Add beans."])
+    }
+
+    @Test func aCaptionWithARecipe() throws {
+        let capture = try #require(RecipeTextParser.parseCaption("""
+        Weeknight chili!
+        Ingredients:
+        1 lb beef
+        2 tbsp peanut butter
+        Directions:
+        1. Brown the beef.
+        #dinner #easy
+        """))
+        #expect(capture.name == "Weeknight chili!")
+        #expect(capture.ingredients.map(\.name) == ["beef", "peanut butter"])
+        #expect(capture.steps == ["Brown the beef."])
+    }
+
+    @Test func aCaptionAllOnOneLine() throws {
+        let capture = try #require(RecipeTextParser.parseCaption(
+            "Ingredients: 1 lb beef, 2 cups rice, peanut sauce Directions: Brown the beef."))
+        #expect(capture.ingredients.map(\.name) == ["beef", "rice", "peanut sauce"])
+        #expect(capture.steps == ["Brown the beef."])
+    }
+
+    @Test func aCaptionWithNoRecipeStaysAnIdea() {
+        #expect(RecipeTextParser.parseCaption("Best dinner ever!! So good #yum") == nil)
+        #expect(RecipeTextParser.parseCaption("Tag someone who loves tacos\nLink in bio") == nil)
+        #expect(RecipeTextParser.parseCaption("") == nil)
     }
 
     @Test func nothingReadIsEmpty() {
@@ -374,6 +408,7 @@ struct RecipeTextParserTests {
 }
 
 /// The real thing: Apple's recognizer and PDFKit, on files made here.
+@Suite(.serialized)
 struct TextRecognizerTests {
     private func pdf(_ text: String?) throws -> URL {
         let url = URL.temporaryDirectory.appending(path: "recipe-\(UUID().uuidString).pdf")

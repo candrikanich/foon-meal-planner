@@ -11,6 +11,8 @@ enum TextRecognizer {
     static let pageLimit = 10
     /// A page's size says nothing about its file size: a tiny PDF can declare a huge page. Same as a shared photo.
     static let renderLimit = 2400.0
+    /// More than any recipe; the parser reads no further.
+    private static let lineLimit = 2000
     /// Less than this of a page's own text is a scanner's watermark or a page number, so the page is read as a picture.
     private static let ownTextMinimum = 40
 
@@ -23,7 +25,7 @@ enum TextRecognizer {
         case .pdf:
             guard let document = PDFDocument(url: url) else { return [] }
             var lines: [String] = []
-            for index in 0..<min(document.pageCount, pageLimit) where !Task.isCancelled {
+            for index in 0..<min(document.pageCount, pageLimit) where !Task.isCancelled && lines.count < lineLimit {
                 guard let page = document.page(at: index) else { continue }
                 let text = page.string ?? ""
                 let own = text.split(whereSeparator: \.isNewline).map(String.init)
@@ -39,9 +41,13 @@ enum TextRecognizer {
     }
 
     static func lines(in image: CGImage) async -> [String] {
-        let request = RecognizeTextRequest()
-        let observations = (try? await request.perform(on: image)) ?? []
-        return observations.compactMap { $0.topCandidates(1).first?.string }
+        // The first request can fail while the model loads, which isn't the same as a picture with no text: once more.
+        for _ in 0..<2 where !Task.isCancelled {
+            if let observations = try? await RecognizeTextRequest().perform(on: image) {
+                return observations.compactMap { $0.topCandidates(1).first?.string }
+            }
+        }
+        return []
     }
 
     /// Nil for a page size that can't be drawn: a PDF can declare anything, and converting infinity to Int crashes.
