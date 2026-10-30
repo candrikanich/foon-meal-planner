@@ -27,9 +27,19 @@ struct RootView: View {
 
     var body: some View {
         content
-            .onChange(of: session.state) { _, state in
-                // The next person to sign in on this device must never see this household's week or lists.
-                if state == .signedOut { try? SyncService.clearCache(in: context) }
+            .onChange(of: session.state) { previous, state in
+                switch state {
+                case .signedOut:
+                    // The next person to sign in on this device must never see this household's week or lists.
+                    try? SyncService.clearCache(in: context)
+                    // Signing out drops what's waiting. Launching signed out doesn't: someone may have just shared
+                    // something and be on their way to sign in.
+                    if case .signedIn = previous { SharedInbox.shared?.clear() }
+                case .signedIn(let userID):
+                    SharedInbox.shared?.claim(for: userID)
+                case .restoring:
+                    break
+                }
             }
     }
 }

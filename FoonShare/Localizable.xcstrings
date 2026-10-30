@@ -1,0 +1,27 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Cancel" : {
+
+    },
+    "Couldn't save that. Try again." : {
+
+    },
+    "Done" : {
+
+    },
+    "Foon can use links and text for now." : {
+
+    },
+    "Foon has a lot waiting. Open Foon, then share this again." : {
+
+    },
+    "Saved. Open Foon to finish." : {
+
+    },
+    "Saving to Foon…" : {
+
+    }
+  },
+  "version" : "1.0"
+}

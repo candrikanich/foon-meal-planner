@@ -6,6 +6,8 @@ struct LinkImportView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(HouseholdStore.self) private var household
     @Environment(\.dismiss) private var dismiss
+    /// A link from the share sheet: read at once.
+    var sharedLink: URL?
     let onAdded: (UUID) -> Void
 
     @State private var link = ""
@@ -62,7 +64,13 @@ struct LinkImportView: View {
                     Button("Add", action: add).disabled(draft == nil || isWorking)
                 }
             }
-            .onAppear { library.clearError() }
+            .onAppear {
+                library.clearError()
+                if let sharedLink, link.isEmpty {
+                    link = sharedLink.absoluteString
+                    read()
+                }
+            }
             // A failed read shouldn't leave its message on the library behind this sheet.
             .onDisappear { library.clearError() }
         }

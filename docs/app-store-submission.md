@@ -112,6 +112,7 @@ Key flows: This Week tab, Fill my week, approve, then the cart icon for the shop
 - [ ] Export compliance: standard HTTPS only; set ITSAppUsesNonExemptEncryption to NO
 - [ ] Privacy manifest (required-reason APIs declared)
 - [ ] In-app account deletion with Sign in with Apple token revocation
+- [ ] Share extension: App IDs `com.andrikanich.foon` and `com.andrikanich.foon.share` both have App Groups on, with `group.com.andrikanich.foon`
 - [ ] Privacy policy and terms live at the URLs above
 - [ ] Sign in with Apple private email relay: sending domain registered
 - [ ] Content rights: imported recipes are user-provided and private to the household

@@ -274,6 +274,12 @@
     "Add the dinners your family already makes." : {
 
     },
+    "Add to our meals" : {
+
+    },
+    "Add to the quick list" : {
+
+    },
     "Add your photo" : {
 
     },
@@ -673,6 +679,9 @@
     "Dinners" : {
 
     },
+    "Discard" : {
+
+    },
     "Dismiss" : {
 
     },
@@ -812,6 +821,9 @@
 
     },
     "For next time" : {
+
+    },
+    "For the quick list" : {
 
     },
     "For this week" : {
@@ -957,6 +969,9 @@
       }
     },
     "Ideas" : {
+
+    },
+    "Ideas wait in the Ideas tab for a planner to plan." : {
 
     },
     "In the cart" : {
@@ -1155,6 +1170,9 @@
     "Name it" : {
 
     },
+    "Names can be up to %lld characters." : {
+
+    },
     "Needs grill" : {
 
     },
@@ -1251,6 +1269,9 @@
     "Not made yet" : {
 
     },
+    "Not now" : {
+
+    },
     "Not this week" : {
 
     },
@@ -1287,6 +1308,9 @@
     "Nothing planned yet" : {
 
     },
+    "Nothing to add from that text." : {
+
+    },
     "Nothing to buy" : {
 
     },
@@ -1321,6 +1345,9 @@
 
     },
     "Open the link" : {
+
+    },
+    "Opens it" : {
 
     },
     "Opens the night to see everyone" : {
@@ -1479,6 +1506,9 @@
     "Save" : {
 
     },
+    "Save as an idea" : {
+
+    },
     "Save for a special occasion" : {
 
     },
@@ -1544,6 +1574,9 @@
 
     },
     "Share or save the export" : {
+
+    },
+    "Shared with Foon" : {
 
     },
     "Shop" : {
@@ -2008,6 +2041,12 @@
 
     },
     "You can't change this meal. Only planners can." : {
+
+    },
+    "You shared %lld things with Foon" : {
+
+    },
+    "You shared something with Foon" : {
 
     },
     "You weren't home for dinner?" : {
