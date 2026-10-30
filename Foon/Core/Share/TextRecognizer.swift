@@ -1,12 +1,15 @@
 import CoreGraphics
 import Foundation
 import ImageIO
+import OSLog
 import PDFKit
 import Vision
 
 /// Reads text from a photo or PDF on this device (docs/spec.md → privacy: nothing leaves the phone). A PDF's own text
 /// is used when it has some; a scanned one is rendered and read like a photo. Empty when there's nothing to read.
 enum TextRecognizer {
+    private static let log = Logger(subsystem: "com.andrikanich.foon", category: "TextRecognizer")
+
     /// A long PDF is usually not a recipe; the first pages are enough, and it keeps the work bounded.
     static let pageLimit = 10
     /// A page's size says nothing about its file size: a tiny PDF can declare a huge page. Same as a shared photo.
@@ -43,8 +46,12 @@ enum TextRecognizer {
     static func lines(in image: CGImage) async -> [String] {
         // The first request can fail while the model loads, which isn't the same as a picture with no text: once more.
         for _ in 0..<2 where !Task.isCancelled {
-            if let observations = try? await RecognizeTextRequest().perform(on: image) {
+            do {
+                let observations = try await RecognizeTextRequest().perform(on: image)
                 return observations.compactMap { $0.topCandidates(1).first?.string }
+            } catch {
+                // The kind of failure only, never what was read. A rare flake in tests has no known cause yet.
+                log.error("Text recognition failed: \(String(describing: type(of: error)), privacy: .public)")
             }
         }
         return []
