@@ -8,7 +8,8 @@
 -- 2. undo_plan_change restores the night by the same write Swap makes, as the caller, so the grants, row-level security, and
 --    every existing trigger do the work and there's no second way for linked things to get in step. It only ever undoes a
 --    plain change that's still the night's last. It holds the night, compares what the night holds now with what the entry
---    says it became, and refuses otherwise. Undoing an undo isn't offered: Swap is there.
+--    says it became, and refuses otherwise. Undoing an undo isn't offered: Swap is there. The chip doesn't come back: the
+--    log keeps no reason, since one can name a person ("Wren's request") and outlast them here.
 --    Double it has its own undo, and a freezer night goes back through Swap. A change that ended a link isn't restorable,
 --    since putting back the pick wouldn't put back the link.
 -- 3. Eight weeks are kept: the daily retention job prunes the rest. Names come from members, so a removed person reads
@@ -29,7 +30,6 @@ create table public.plan_changes (
   linked_date date,
   before_meal_id uuid,
   before_quick_pick public.quick_pick,
-  before_reason text,
   before_locked boolean not null,
   after_meal_id uuid,
   after_quick_pick public.quick_pick,
@@ -74,8 +74,6 @@ begin
     -- Taken out again by a corrected log (a trigger, with no pick changing) isn't anyone planning it.
     when new.stash_item_id is not null and new.stash_item_id is distinct from old.stash_item_id
          and pg_trigger_depth() = 1 then 'freezer'
-    -- Any other trigger moving a pick is the system's doing, not the person who tapped.
-    when pick_changed and pg_trigger_depth() > 1 then 'follow'
     when pick_changed then 'pick'
   end;
   -- Only a link ended, and the pick stays: a past night, or a leftovers night going back to leftovers.
@@ -90,11 +88,11 @@ begin
   end if;
 
   insert into public.plan_changes (household_id, night_id, actor_member_id, kind, linked_date, before_meal_id,
-                                   before_quick_pick, before_reason, before_locked, after_meal_id, after_quick_pick,
+                                   before_quick_pick, before_locked, after_meal_id, after_quick_pick,
                                    after_locked, restorable)
   values (new.household_id, new.id,
           case when change_kind in ('follow', 'away') then null else public.my_member_id(new.household_id) end,
-          change_kind, linked, old.meal_id, old.quick_pick, old.reason, old.locked, new.meal_id, new.quick_pick, new.locked,
+          change_kind, linked, old.meal_id, old.quick_pick, old.locked, new.meal_id, new.quick_pick, new.locked,
           change_kind = 'pick' and old.leftovers_from is null and old.stash_item_id is null
             and not exists (select 1 from public.plan_nights l where l.leftovers_from = new.id));
   return null;
@@ -152,8 +150,7 @@ begin
 
   perform set_config('foon.plan_change_source', 'undo', true);
   update public.plan_nights
-  set meal_id = change.before_meal_id, quick_pick = change.before_quick_pick, reason = change.before_reason,
-      locked = change.before_locked
+  set meal_id = change.before_meal_id, quick_pick = change.before_quick_pick, reason = null, locked = change.before_locked
   where id = night.id;
   perform set_config('foon.plan_change_source', '', true);
 end;
@@ -304,6 +301,8 @@ returns void
 language plpgsql security definer set search_path = ''
 as $$
 begin
+  -- Holds the nights first, so a Swap in flight can't log a new entry after the log's been emptied and fail the erase.
+  perform 1 from public.plan_nights where household_id = target for update;
   delete from public.plan_changes where household_id = target;
   delete from public.night_claims where household_id = target;
   delete from public.attendance_templates where household_id = target;

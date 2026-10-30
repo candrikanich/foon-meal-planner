@@ -18,6 +18,7 @@ private let gmt: Calendar = {
     return calendar
 }()
 private let moment = Date(timeIntervalSince1970: 2_000_000_000)
+private let stocked = [LibraryMeal.fixture(id: chili.mealID!, name: "Chili")]
 
 private func change(_ id: Int64 = 1, kind: PlanChange.Kind? = .pick, night: UUID = UUID(), on date: CalendarDay = sunday.adding(days: 2),
                     actor: UUID? = ann.id, linked: CalendarDay? = nil, before: PlanChange.Held = chili,
@@ -97,6 +98,8 @@ struct PlanChangeTextTests {
         let monday = sunday.adding(days: 1)
         #expect(line(change(kind: .follow, actor: nil, linked: monday)) == "Foon put Tuesday back to Tacos when Monday's dinner changed")
         #expect(line(change(kind: .follow, actor: nil, linked: monday, after: empty)) == "Foon cleared Tuesday when Monday's dinner changed")
+        #expect(line(change(kind: .follow, actor: nil)) == "Foon put Tuesday back to Tacos")
+        #expect(line(change(kind: .follow, actor: nil, after: empty)) == "Foon cleared Tuesday")
     }
 
     @Test func doublingNamesBothNights() {
@@ -154,17 +157,21 @@ struct PlanActivityCanUndoTests {
     }
 
     private func can(_ entry: PlanChange? = nil, night: WeekNight, nights: [WeekNight] = [], logged: Bool = false,
-                     away: [AwayDates] = [], today: CalendarDay = sunday, last: PlanChange? = nil) -> Bool {
-        let entry = entry ?? change(night: night.id)
-        return PlanActivity.canUndo(entry, last: last ?? entry, on: night, nights: nights, isLogged: logged, away: away, today: today)
+                     away: [AwayDates] = [], today: CalendarDay = sunday, library: [LibraryMeal] = stocked) -> Bool {
+        PlanActivity.canUndo(entry ?? change(night: night.id), on: night, nights: nights, isLogged: logged, away: away, today: today,
+                             library: library)
     }
 
     @Test func aPlainChangeStillTheLastAndStillThereCanBeUndone() {
         #expect(can(night: tuesday()))
     }
 
-    @Test func notIfANewerChangeCameAfter() {
-        #expect(!can(night: tuesday(), last: change(2)))
+    @Test func notIfTheDishItWouldBringBackHasLeftRotation() {
+        let night = tuesday()
+        #expect(!can(night: night, library: [.fixture(id: chili.mealID!, name: "Chili", status: .archived)]))
+        #expect(!can(night: night, library: []), "a dish the library doesn't show can't be vouched for")
+        #expect(can(change(night: night.id, before: empty), night: night, library: []), "an empty night needs no dish")
+        #expect(can(change(night: night.id, before: .init(quickPick: .takeout)), night: night, library: []), "nor does a quick pick")
     }
 
     @Test func notIfTheNightHoldsSomethingElseNow() {
@@ -275,6 +282,14 @@ private func undoWeek(_ meal: UUID?) -> Week {
     ])
 }
 
+private final class UpdatesSent: Sendable {
+    private let updates = Mutex<[(UUID, RequestUpdate)]>([])
+
+    func withLock<Result: Sendable>(_ body: @Sendable (inout [(UUID, RequestUpdate)]) -> Result) -> Result {
+        updates.withLock { body(&$0) }
+    }
+}
+
 @MainActor
 struct WeekStoreUndoTests {
     /// The server's night holds Tacos until an undo goes through, then Chili.
@@ -299,11 +314,86 @@ struct WeekStoreUndoTests {
     }
 
     @Test func aNightThatMovedOnAnotherPhoneGetsItsOwnWordsAndTheLatest() async {
-        let store = store(undo: { _ in throw PostgrestError(code: "FD012", message: "moved") })
+        let moved = Mutex(false)
+        let soup = UUID()
+        var client = WeekClient.fake(week: { _, _ in undoWeek(moved.withLock { $0 } ? soup : tacos.mealID) })
+        client.undoPlanChange = { _ in
+            moved.withLock { $0 = true }
+            throw PostgrestError(code: "FD012", message: "moved")
+        }
+        let store = WeekStore(householdID: UUID(), client: client, today: { sunday })
         await store.load(settings: HouseholdSettings())
         #expect(await !store.undoChange(change(night: undoNight)))
         #expect(store.errorMessage?.contains("changed since") == true)
         #expect(store.errorMessage?.contains("connection") == false)
+        #expect(store.week?.nights[0].mealID == soup, "and here's the latest")
+    }
+
+    /// On slow service: the second tap mustn't queue up and come back refused after the first worked.
+    @Test(.timeLimit(.minutes(1))) func aSecondTapWhileUndoingDoesNothing() async {
+        let (parked, parkedSignal) = AsyncStream<Void>.makeStream()
+        let (gate, open) = AsyncStream<Void>.makeStream()
+        let calls = Mutex(0)
+        let store = store(undo: { _ in
+            let call = calls.withLock { $0 += 1; return $0 }
+            if call == 1 {
+                parkedSignal.yield()
+                for await _ in gate { break }
+            } else {
+                throw PostgrestError(code: "FD012", message: "moved")
+            }
+        })
+        await store.load(settings: HouseholdSettings())
+        let first = Task { await store.undoChange(change(night: undoNight)) }
+        for await _ in parked { break }
+        #expect(store.undoing.contains(undoNight), "so the button can say it's busy")
+        let second = Task { await store.undoChange(change(night: undoNight)) }
+        #expect(await second.value == false)
+        open.yield()
+        #expect(await first.value)
+        open.finish()
+        parkedSignal.finish()
+        #expect(calls.withLock { $0 } == 1)
+        #expect(store.errorMessage == nil)
+        #expect(store.undoing.isEmpty)
+    }
+
+    @Test func undoingAMistakenSwapPutsTheRequestBackOnTheNight() async {
+        let (ideas, sent) = await syncedIdeas(skipped: sunday)
+        await ideas.sync(with: undoWeek(chili.mealID), today: sunday, undoneNight: undoNight)
+        #expect(sent.withLock { $0.first?.1.status } == .planned)
+        #expect(sent.withLock { $0.first?.1.nightID } == undoNight)
+    }
+
+    @Test func onlyAnUndoLandsASomedayRequestOnADishThatHappensToMatch() async {
+        let (ideas, sent) = await syncedIdeas(skipped: sunday)
+        await ideas.sync(with: undoWeek(chili.mealID), today: sunday)
+        #expect(sent.withLock { $0.isEmpty })
+    }
+
+    @Test func anUndoLeavesARequestSkippedForAnotherWeekAlone() async {
+        let (ideas, sent) = await syncedIdeas(skipped: sunday.adding(days: 7))
+        await ideas.sync(with: undoWeek(chili.mealID), today: sunday, undoneNight: undoNight)
+        #expect(sent.withLock { $0.isEmpty })
+    }
+
+    @Test func anUndoLeavesARequestForAnotherDishAlone() async {
+        let (ideas, sent) = await syncedIdeas(skipped: sunday)
+        await ideas.sync(with: undoWeek(tacos.mealID), today: sunday, undoneNight: undoNight)
+        #expect(sent.withLock { $0.isEmpty })
+    }
+
+    /// An open someday request for Chili, as the swap left it.
+    private func syncedIdeas(skipped: CalendarDay) async -> (IdeasStore, UpdatesSent) {
+        var request = DinnerRequest(requestedByMemberID: ann.id, mealID: chili.mealID)
+        request.skippedWeek = skipped
+        let sent = UpdatesSent()
+        let ideas = IdeasStore(householdID: UUID(), client: IdeasClient(
+            requests: { [request] _ in [request] }, make: { _, _ in UUID() }, toggleMeToo: { _, _ in true },
+            update: { id, update in sent.withLock { $0.append((id, update)) } }
+        ))
+        await ideas.load()
+        return (ideas, sent)
     }
 
     @Test func aChangeThatCantBeUndonePointsAtSwap() async {

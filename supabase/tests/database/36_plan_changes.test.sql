@@ -2,7 +2,7 @@
 -- moved a night rather than a person. Undo restores a plain change that's still the night's last, by the same write as Swap,
 -- and refuses everything else. Nobody writes the log directly.
 begin;
-select plan(89);
+select plan(100);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -47,7 +47,7 @@ insert into public.meals (id, household_id, name) values
   ('00000000-0000-0000-0000-0000000002a1', '00000000-0000-0000-0000-0000000000a0', 'Chili'),
   ('00000000-0000-0000-0000-0000000002a2', '00000000-0000-0000-0000-0000000000a0', 'Tacos'),
   ('00000000-0000-0000-0000-0000000002a3', '00000000-0000-0000-0000-0000000000a0', 'Soup');
--- Far ahead: ...d0 to ...d6 and ...e0 to ...e6, Sunday to Saturday, then ...c0 to ...c2. And around the real today, in the household's day (New
+-- Far ahead: ...d0 to ...d6 and ...e0 to ...e6, Sunday to Saturday, then ...c0 to ...c3. And around the real today, in the household's day (New
 -- York, with no time zone set): ...f0 tonight, ...f3 tomorrow, ...f1 last night.
 insert into public.plans (id, household_id, week_start) values
   ('00000000-0000-0000-0000-0000000003a1', '00000000-0000-0000-0000-0000000000a0', '2037-11-01'),
@@ -66,7 +66,8 @@ from generate_series(0, 6) d;
 insert into public.plan_nights (id, household_id, plan_id, date) values
   ('00000000-0000-0000-0000-0000000000c0', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000003a5', '2037-11-15'),
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000003a5', '2037-11-16'),
-  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000003a5', '2037-11-17');
+  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000003a5', '2037-11-17'),
+  ('00000000-0000-0000-0000-0000000000c3', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000003a5', '2037-11-18');
 insert into public.plan_nights (id, household_id, plan_id, date)
 select v.id::uuid, '00000000-0000-0000-0000-0000000000a0', v.plan::uuid,
        public.household_today('00000000-0000-0000-0000-0000000000a0') + v.days
@@ -240,6 +241,17 @@ select throws_ok(format('select public.undo_plan_change(%s)', (select id from th
 select throws_ok(format('select public.undo_plan_change(%s)', pg_temp.last_id('00000000-0000-0000-0000-0000000000d0')),
   'FD013', null, 'and an undo isn''t undone');
 
+-- A lock that was on comes back on. The chip doesn't: the log keeps no reason, since one can name a person.
+update public.plan_nights set meal_id = '00000000-0000-0000-0000-0000000002a1', reason = 'Wren''s request', locked = true
+where id = '00000000-0000-0000-0000-0000000000c3';
+update public.plan_nights set meal_id = '00000000-0000-0000-0000-0000000002a2', reason = 'Picked'
+where id = '00000000-0000-0000-0000-0000000000c3';
+select lives_ok(format('select public.undo_plan_change(%s)', pg_temp.last_id('00000000-0000-0000-0000-0000000000c3')), 'undoing on a locked night');
+select is((select locked from public.plan_nights where id = '00000000-0000-0000-0000-0000000000c3'), true, 'the lock comes back as it was');
+select is(pg_temp.night_meal('00000000-0000-0000-0000-0000000000c3'), '00000000-0000-0000-0000-0000000002a1'::uuid, 'with the dish');
+select is((select reason from public.plan_nights where id = '00000000-0000-0000-0000-0000000000c3'), null, 'and no chip');
+select hasnt_column('public', 'plan_changes', 'before_reason', 'the log doesn''t keep a reason');
+
 -- A stale phone: the entry says Chili, and someone has moved the night on since.
 update public.plan_nights set meal_id = '00000000-0000-0000-0000-0000000002a1' where id = '00000000-0000-0000-0000-0000000000e6';
 truncate the_change;
@@ -279,6 +291,17 @@ select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 update public.plan_nights set meal_id = '00000000-0000-0000-0000-0000000002a2' where id = '00000000-0000-0000-0000-0000000000f1';
 select throws_ok(format('select public.undo_plan_change(%s)', pg_temp.last_id('00000000-0000-0000-0000-0000000000f1')),
   'FD013', null, 'a past night is refused');
+
+-- A corrected dinner taking its freezer item back is the log's doing, with no pick changing: nobody planned anything.
+select public.add_to_freezer('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000002a1', '2026-01-01');
+select public.use_freezer_item('00000000-0000-0000-0000-0000000000f1',
+  (select id from public.freezer_stash where meal_id = '00000000-0000-0000-0000-0000000002a1'), 'Frozen');
+select public.confirm_dinner('00000000-0000-0000-0000-0000000000f1');
+update public.meal_logs set meal_id = null, quick_pick = 'takeout' where night_id = '00000000-0000-0000-0000-0000000000f1';
+select is((select stash_item_id from public.plan_nights where id = '00000000-0000-0000-0000-0000000000f1'), null, 'correcting the dinner lets the item go');
+update public.meal_logs set meal_id = '00000000-0000-0000-0000-0000000002a1', quick_pick = null where night_id = '00000000-0000-0000-0000-0000000000f1';
+select isnt((select stash_item_id from public.plan_nights where id = '00000000-0000-0000-0000-0000000000f1'), null, 'correcting it back takes it again');
+select is(pg_temp.entries('00000000-0000-0000-0000-0000000000f1'), 2, 'which adds nothing to the log');
 
 -- In the household's day, not anyone else's: these two time zones are never on the same date. Carol's night is today in
 -- Pago Pago, which is already a past date in Kiritimati.
@@ -352,6 +375,13 @@ select is((select meal_id from public.plan_nights where id = '00000000-0000-0000
   '00000000-0000-0000-0000-0000000002a1'::uuid, 'neither moves');
 select throws_ok(format('select public.undo_plan_change(%s)', pg_temp.last_id('00000000-0000-0000-0000-0000000000e4')),
   'FD013', null, 'a freezer night is refused');
+
+-- Swapping off a freezer night: writing the dish back wouldn't take the item out of the freezer again.
+update public.plan_nights set meal_id = '00000000-0000-0000-0000-0000000002a2' where id = '00000000-0000-0000-0000-0000000000e4';
+select is((pg_temp.last_change('00000000-0000-0000-0000-0000000000e4')).kind, 'pick', 'a swap off a freezer night is a plain swap');
+select ok(not (pg_temp.last_change('00000000-0000-0000-0000-0000000000e4')).restorable, 'that can''t be restored');
+select throws_ok(format('select public.undo_plan_change(%s)', pg_temp.last_id('00000000-0000-0000-0000-0000000000e4')),
+  'FD013', null, 'so undo refuses it');
 
 -- And undo goes through what Swap goes through.
 update public.plan_nights set meal_id = '00000000-0000-0000-0000-0000000002a1' where id = '00000000-0000-0000-0000-0000000000e3';

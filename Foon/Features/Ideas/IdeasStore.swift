@@ -86,11 +86,13 @@ final class IdeasStore {
     /// After Build my week, Fill, or a swap: requests that landed are marked planned there (`requestNights`: the nights
     /// Build placed a dish on as a request, meal → night), and planned ones whose night no longer has their dish go
     /// back to open, sitting that week out so a Rebuild doesn't bring them straight back. One reload at the end; the
-    /// first failure is kept.
-    func sync(with week: Week?, today: CalendarDay, requestNights: [UUID: UUID] = [:], away: [AwayDates] = []) async {
+    /// first failure is kept. After an undo, a request the undone swap sent back goes with its dish (`undoneNight`).
+    func sync(with week: Week?, today: CalendarDay, requestNights: [UUID: UUID] = [:], away: [AwayDates] = [],
+              undoneNight: UUID? = nil) async {
         guard let week else { return }
         var failure: String?
-        let changes = RequestBoard.landed(requests, nights: week.nights, today: today, requestNights: requestNights, away: away)
+        let landing = requestNights.merging(undoneNight.map { RequestBoard.sentBack(requests, night: $0, in: week) } ?? [:]) { first, _ in first }
+        let changes = RequestBoard.landed(requests, nights: week.nights, today: today, requestNights: landing, away: away)
             .map { ($0.requestID, RequestUpdate(status: .planned, nightID: $0.nightID)) }
             + RequestBoard.unlanded(requests, nights: week.nights)
                 .map { ($0, RequestUpdate(status: .open, skipWeek: week.start)) }

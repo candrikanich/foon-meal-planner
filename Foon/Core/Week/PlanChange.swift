@@ -117,17 +117,18 @@ enum PlanActivity {
         changes.filter { $0.nightID == nightID && $0.kind != nil }
     }
 
-    /// Whether to offer Undo: the server asks all of this again under a lock. Only the night's last change, only if the
-    /// night still holds what it says, and never around a link, a logged dinner, or away dates.
-    static func canUndo(_ change: PlanChange, last: PlanChange?, on night: WeekNight, nights: [WeekNight], isLogged: Bool,
-                        away: [AwayDates], today: CalendarDay) -> Bool {
-        change.kind == .pick && change.restorable && change.id == last?.id
+    /// Whether to offer Undo on a night's newest change: the server asks all of this again under a lock. Only if the night
+    /// still holds what it says, and never around a link, a logged dinner, away dates, or a dish that's left rotation.
+    static func canUndo(_ change: PlanChange, on night: WeekNight, nights: [WeekNight], isLogged: Bool, away: [AwayDates],
+                        today: CalendarDay, library: [LibraryMeal]) -> Bool {
+        change.kind == .pick && change.restorable
             && change.after.mealID == night.mealID && change.after.quickPick == night.quickPick
             && change.afterLocked == night.locked
             && night.date >= today && !isLogged
             && night.leftoversFrom == nil && night.stashItemID == nil
             && !nights.contains { $0.leftoversFrom == night.id }
             && !away.contains { $0.contains(night.date) }
+            && (change.before.mealID.map { id in library.contains { $0.id == id && $0.status.isInRotation } } ?? true)
     }
 }
 
@@ -186,7 +187,9 @@ enum PlanChangeText {
         case .away:
             return String(localized: "Foon cleared \(night) for away dates")
         case .follow:
-            guard let linked else { return String(localized: "Foon changed \(night)") }
+            guard let linked else {
+                return after.map { String(localized: "Foon put \(night) back to \($0)") } ?? String(localized: "Foon cleared \(night)")
+            }
             guard let after else { return String(localized: "Foon cleared \(night) when \(linked)'s dinner changed") }
             return String(localized: "Foon put \(night) back to \(after) when \(linked)'s dinner changed",
                           comment: "Activity: a leftovers night going back. The night, what it holds now, the doubled night")

@@ -822,7 +822,7 @@ struct HouseholdClientLiveTests {
         try await weeks.undoPlanChange(swap.id)
         var loaded = try #require(try await weeks.week(household.id, sunday))
         #expect(loaded.nights[2].mealID == chili, "the night holds what it held")
-        #expect(loaded.nights[2].reason == "Picked")
+        #expect(loaded.nights[2].reason == nil, "the chip doesn't come back: the log keeps no reason")
         let undone = try #require(try await weeks.planChanges(household.id).first)
         #expect(undone.kind == .undo)
         #expect(undone.actorID == ann.id)

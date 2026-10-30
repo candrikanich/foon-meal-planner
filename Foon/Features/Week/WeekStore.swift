@@ -380,11 +380,16 @@ final class WeekStore {
 
     // MARK: - Undo a change
 
+    /// Nights with an undo on its way: the button waits, or a second tap would queue up and be refused after the first worked.
+    private(set) var undoing: Set<UUID> = []
+
     /// Puts back what a night held before its last change. What it held comes from the server, which refuses if the night
     /// has moved since, so nothing's shown until the week reads back.
     @discardableResult
     func undoChange(_ change: PlanChange) async -> Bool {
-        guard !isBuilding, nightIndex(change.nightID) != nil else { return false }
+        guard !isBuilding, !undoing.contains(change.nightID), nightIndex(change.nightID) != nil else { return false }
+        undoing.insert(change.nightID)
+        defer { undoing.remove(change.nightID) }
         let saved = await send(nightID: change.nightID, failure: String(localized: "Couldn't undo it. Check your connection and try again.")) {
             [client] in try await client.undoPlanChange(change.id)
         }

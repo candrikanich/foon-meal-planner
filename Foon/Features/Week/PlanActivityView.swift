@@ -55,6 +55,7 @@ struct NightChangesSection: View {
     @Environment(HouseholdStore.self) private var household
     @Environment(WeekStore.self) private var week
     @Environment(DinnerStore.self) private var dinner
+    @Environment(LibraryStore.self) private var library
     let night: WeekNight
     let canPlan: Bool
     /// After an undo saved: a dish leaving the night takes its request back to open.
@@ -75,8 +76,9 @@ struct NightChangesSection: View {
                                   at: change.createdAt)
                 }
                 if canPlan, let last = changes.first,
-                   PlanActivity.canUndo(last, last: last, on: night, nights: week.week?.nights ?? [],
-                                        isLogged: dinner.log(for: night.id) != nil, away: settings.awayDates, today: today) {
+                   PlanActivity.canUndo(last, on: night, nights: week.week?.nights ?? [],
+                                        isLogged: dinner.log(for: night.id) != nil, away: settings.awayDates, today: today,
+                                        library: library.meals) {
                     Button(PlanChangeText.undoTitle(last), systemImage: "arrow.uturn.backward") {
                         Task {
                             if await week.undoChange(last) { await onUndone() }
@@ -84,7 +86,7 @@ struct NightChangesSection: View {
                         }
                     }
                     .tint(Palette.paprika)
-                    .disabled(week.isBuilding)
+                    .disabled(week.isBuilding || week.undoing.contains(night.id))
                     .accessibilityHint("Puts back what this night held before its last change")
                 }
             } header: {
@@ -119,6 +121,7 @@ struct NightChangesSection: View {
     .environment(activity)
     .environment(WeekStore(householdID: Household.sample.id, client: .preview(started: true)))
     .environment(DinnerStore(householdID: Household.sample.id, client: .preview))
+    .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
     .task {
         await store.load()
         await activity.load()

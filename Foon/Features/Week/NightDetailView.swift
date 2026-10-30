@@ -96,7 +96,7 @@ struct NightDetailView: View {
                 }
             }
 
-            NightChangesSection(night: night, canPlan: canPlan) { await syncIdeas() }
+            NightChangesSection(night: night, canPlan: canPlan) { await syncIdeas(undone: night.id) }
 
             if let message = week.errorMessage {
                 Section { Text(message).foregroundStyle(.red) }
@@ -208,8 +208,9 @@ struct NightDetailView: View {
     }
 
     /// A dish that leaves a night takes its request back to open, as after a swap.
-    private func syncIdeas() async {
-        await ideas?.sync(with: week.week, today: week.todayDay, requestNights: week.requestNights, away: week.awayDates)
+    private func syncIdeas(undone: UUID? = nil) async {
+        await ideas?.sync(with: week.week, today: week.todayDay, requestNights: week.requestNights, away: week.awayDates,
+                          undoneNight: undone)
     }
 
     @ViewBuilder
