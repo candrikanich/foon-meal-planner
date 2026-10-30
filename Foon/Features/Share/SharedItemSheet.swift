@@ -28,6 +28,7 @@ struct SharedItemSheet: View {
     @State private var errorMessage: String?
     /// A photo or PDF as read, to check and correct: nil until it's been read.
     @State private var readDraft: MealDraft?
+    @State private var readTruncated = false
 
     private var route: ShareRouter.Route { ShareRouter.route(item.kind) }
 
@@ -86,8 +87,14 @@ struct SharedItemSheet: View {
             readDraft = MealDraft(newNamed: "")
             return
         }
-        let lines = await TextRecognizer.lines(in: url, type: type)
-        readDraft = RecipeTextParser.parse(lines).draft(householdSize: max(household.visibleMembers.count, 1))
+        let size = max(household.visibleMembers.count, 1)
+        // Off the main actor, so a long file can't freeze Discard and Not now.
+        let (draft, truncated) = await Task.detached {
+            let capture = RecipeTextParser.parse(await TextRecognizer.lines(in: url, type: type))
+            return (capture.draft(householdSize: size), capture.isTruncated)
+        }.value
+        readTruncated = truncated
+        readDraft = draft
     }
 
     /// Photos read imperfectly, and allergy flags read these ingredients: everything's here to fix before it's saved.
@@ -105,7 +112,7 @@ struct SharedItemSheet: View {
                 } footer: {
                     Text("Read on this device, so check it over. Foon deletes the file when you're done here.")
                 }
-                Section("Ingredients") {
+                Section {
                     ForEach(draft.lines) { $line in
                         HStack {
                             TextField("Amount", text: $line.quantity).frame(maxWidth: 90)
@@ -115,6 +122,12 @@ struct SharedItemSheet: View {
                     .onDelete { draft.wrappedValue.lines.remove(atOffsets: $0) }
                     Button("Add an ingredient", systemImage: "plus") {
                         draft.wrappedValue.lines.append(MealDraft.Line(quantity: "", name: ""))
+                    }
+                } header: {
+                    Text("Ingredients")
+                } footer: {
+                    if readTruncated {
+                        Text("That was more than a meal can hold, so some were left out. Allergy flags only see what's here.")
                     }
                 }
                 Section("Steps") {

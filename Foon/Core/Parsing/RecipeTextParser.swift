@@ -11,6 +11,8 @@ enum RecipeTextParser {
         var steps: [String] = []
 
         var isEmpty: Bool { name == nil && ingredients.isEmpty && steps.isEmpty }
+        /// More ingredients than a meal can hold: the review screen says so, since flags only read what's kept.
+        var isTruncated: Bool { ingredients.count > ingredientLimit }
 
         /// Scaled to the family once, like a recipe from a link.
         func draft(householdSize: Int) -> MealDraft {
@@ -18,7 +20,7 @@ enum RecipeTextParser {
             let factor = servings.map { Double(size) / Double($0) } ?? 1
             var draft = MealDraft(newNamed: RecipeImport.clamped(name ?? "", to: 80))
             draft.servings = size
-            draft.lines = ingredients.prefix(60).map {
+            draft.lines = ingredients.prefix(ingredientLimit).map {
                 let quantity = $0.quantity.map { QuantityScaler.scale($0, by: factor) } ?? ""
                 return MealDraft.Line(quantity: RecipeImport.clamped(quantity, to: 60),
                                       name: RecipeImport.ingredientName($0.name))
@@ -28,8 +30,11 @@ enum RecipeTextParser {
         }
     }
 
-    /// What a meal can hold (`MealDraft.validated`).
+    /// What a meal can hold (`MealDraft.validated`), which also bounds the work on a long or hostile file.
     private static let stepsLimit = 20_000
+    static let ingredientLimit = 60
+    static let textLimit = 200_000
+    private static let lineLimit = 2000
 
     private enum Section { case start, ingredients, steps, end }
 
@@ -40,8 +45,13 @@ enum RecipeTextParser {
         /// Short lines before anything else, in order: a recipe's name, or a shopping list.
         var loose: [String] = []
 
-        for line in lines.map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) }) where !line.isEmpty {
+        var budget = textLimit
+        for raw in lines.prefix(lineLimit) {
             if section == .end { break }
+            let line = String(raw.prefix(lineLimit)).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !line.isEmpty else { continue }
+            budget -= line.count
+            if budget < 0 { break }
             if let servings = servings(in: line) {
                 capture.servings = capture.servings ?? servings
                 continue
@@ -147,6 +157,9 @@ enum RecipeTextParser {
             capture.ingredients = items + capture.ingredients
         } else {
             capture.name = loose.first { $0.count <= 80 }
+            // When unsure, an ingredient: something between the name and the list may be one.
+            let rest = capture.name == nil ? loose : Array(loose.dropFirst())
+            capture.ingredients = rest.compactMap(IngredientParser.parseLine) + capture.ingredients
         }
     }
 
@@ -183,7 +196,8 @@ enum RecipeTextParser {
     }
 
     private static func isSubHeader(_ line: String) -> Bool {
-        line.wholeMatch(of: /(?i)for the\b.{0,40}:?/) != nil
+        // Only a label: "For the sauce: 2 tbsp peanut butter" has an ingredient on it.
+        line.wholeMatch(of: /(?i)for the\b[^:]{0,40}:?/) != nil
     }
 
     private static func servings(in line: String) -> Int? {

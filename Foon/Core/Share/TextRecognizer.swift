@@ -44,6 +44,13 @@ enum TextRecognizer {
         return observations.compactMap { $0.topCandidates(1).first?.string }
     }
 
+    /// Nil for a page size that can't be drawn: a PDF can declare anything, and converting infinity to Int crashes.
+    static func renderSize(for size: CGSize) -> (width: Int, height: Int)? {
+        guard size.width.isFinite, size.height.isFinite, size.width >= 1, size.height >= 1 else { return nil }
+        let scale = renderScale(for: size)
+        return (Int(size.width * scale), Int(size.height * scale))
+    }
+
     static func renderScale(for size: CGSize) -> Double {
         let longest = max(size.width, size.height)
         return longest > 0 ? min(2, renderLimit / longest) : 2
@@ -52,8 +59,7 @@ enum TextRecognizer {
     private static func rendered(_ page: PDFPage) -> CGImage? {
         let bounds = page.bounds(for: .mediaBox)
         let scale = renderScale(for: bounds.size)
-        let size = (width: Int(bounds.width * scale), height: Int(bounds.height * scale))
-        guard size.width > 0, size.height > 0,
+        guard let size = renderSize(for: bounds.size),
               let context = CGContext(data: nil, width: size.width, height: size.height, bitsPerComponent: 8, bytesPerRow: 0,
                                       space: CGColorSpaceCreateDeviceRGB(),
                                       bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }

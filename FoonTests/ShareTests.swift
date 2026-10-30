@@ -316,6 +316,27 @@ struct RecipeTextParserTests {
         #expect(names(["What you'll need", "milk"]) == ["milk"])
     }
 
+    @Test func aSubHeaderWithTheIngredientOnItsLineKeepsIt() {
+        let found = names(["Ingredients", "For the sauce: 2 tbsp peanut butter", "salt"])
+        #expect(found.count == 2)
+        #expect(found[0].contains("peanut butter"), "allergy flags need to see it")
+    }
+
+    @Test func shortLinesBetweenTheNameAndTheIngredientsAreKept() {
+        let capture = RecipeTextParser.parse(["Chili", "peanut butter", "1 lb beef", "Directions", "1. Stir."])
+        #expect(capture.name == "Chili")
+        #expect(capture.ingredients.map(\.name) == ["peanut butter", "beef"])
+    }
+
+    @Test func enormousTextIsBounded() {
+        let lines = Array(repeating: String(repeating: "x", count: 100_000), count: 100_000)
+        let capture = RecipeTextParser.parse(["Directions", "1. Stir"] + lines)
+        #expect(capture.steps.joined().count <= RecipeTextParser.textLimit)
+        let draft = RecipeTextParser.Capture(ingredients: Array(repeating: ParsedIngredient(name: "x", quantity: nil), count: 500))
+        #expect(draft.draft(householdSize: 4).lines.count == RecipeTextParser.ingredientLimit)
+        #expect(draft.isTruncated, "the review screen says some were left out")
+    }
+
     @Test func notesAndNutritionEndTheRecipe() {
         let capture = RecipeTextParser.parse(["Directions", "1. Stir.", "Notes", "Freezes well.", "Nutrition Facts",
                                               "300 calories"])
@@ -417,6 +438,13 @@ struct TextRecognizerTests {
         let scale = TextRecognizer.renderScale(for: CGSize(width: 7200, height: 14400))
         #expect(14400 * scale <= TextRecognizer.renderLimit)
         #expect(TextRecognizer.renderScale(for: .zero) == 2)
+    }
+
+    @Test func aPageWithNonsenseGeometryDoesntCrash() {
+        #expect(TextRecognizer.renderSize(for: CGSize(width: CGFloat.infinity, height: 100)) == nil)
+        #expect(TextRecognizer.renderSize(for: CGSize(width: CGFloat.nan, height: 100)) == nil)
+        #expect(TextRecognizer.renderSize(for: .zero) == nil)
+        #expect(TextRecognizer.renderSize(for: CGSize(width: 612, height: 792))?.width == 1224)
     }
 
     @Test func aPDFsOwnTextIsRead() async throws {
