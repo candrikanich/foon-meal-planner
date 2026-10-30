@@ -163,6 +163,17 @@ struct HouseholdClientLiveTests {
         #expect(saved.ingredients.last?.quantityText == nil)
         #expect(saved.prepSteps == meal.prepSteps)
 
+        var timed = MealDraft(saved)
+        timed.cookMinutes = 45
+        try await library.save(id, timed.validated())
+        #expect(try await library.meals(household.id).first { $0.id == id }?.cookMinutes == 45)
+        let timedCopyID = try await library.copy(id, "Our tacos, timed")
+        #expect(try await library.meals(household.id).first { $0.id == timedCopyID }?.cookMinutes == 45)
+        timed.cookMinutes = nil
+        try await library.save(id, timed.validated())
+        #expect(try await library.meals(household.id).first { $0.id == id }?.cookMinutes == nil,
+                "clearing the time reaches the database")
+
         let copyID = try await library.copy(id, "Our tacos, spicy")
         let copy = try #require(try await library.meals(household.id).first { $0.id == copyID })
         #expect(copy.ingredients.map(\.name) == saved.ingredients.map(\.name))
@@ -331,10 +342,26 @@ struct HouseholdClientLiveTests {
         settings.planningDay = 6
         settings.onboarded = false
         try await households.updateSettings(household.id, settings)
+        settings.missingEquipment = [.grill, .airFryer]
+        settings.showsStartCooking = false
+        try await households.updateKitchen(household.id, settings.kitchen)
         let saved = try #require(try await households.myHousehold()?.planningSettings)
         #expect(saved.dinnerTime == "17:30")
         #expect(saved.planningDay == 6)
         #expect(!saved.onboarded)
+        #expect(saved.missingEquipment == [.grill, .airFryer])
+        #expect(!saved.showsStartCooking)
+
+        var stale = HouseholdSettings()
+        stale.dinnerTime = "19:00"
+        try await households.updateSettings(household.id, stale)
+        #expect(try await households.myHousehold()?.planningSettings.missingEquipment == [.grill, .airFryer],
+                "a stale save of the other settings keeps the kitchen")
+
+        settings.missingEquipment = []
+        try await households.updateKitchen(household.id, settings.kitchen)
+        #expect(try await households.myHousehold()?.planningSettings.missingEquipment.isEmpty == true,
+                "turning everything back on reaches the database")
     }
 
     @Test func dinnersAreConfirmedRatedAndCorrected() async throws {

@@ -207,6 +207,9 @@
     "%lld thank-yous" : {
 
     },
+    "%lld things missing" : {
+      "comment" : "Family: kitchen equipment the household lacks"
+    },
     "%lld to buy" : {
 
     },
@@ -248,6 +251,9 @@
     },
     "1 thank-you" : {
 
+    },
+    "1 thing missing" : {
+      "comment" : "Family: kitchen equipment the household lacks"
     },
     "A demo family with dinners and a planned week, to look around first." : {
 
@@ -365,6 +371,9 @@
     },
     "Agree and save" : {
 
+    },
+    "Air fryer" : {
+      "comment" : "Kitchen equipment"
     },
     "Aisle" : {
 
@@ -855,6 +864,9 @@
     "Everyone's usual nights home change to this schedule. Today's isn't saved, so save it first if you'll want it back." : {
 
     },
+    "Everything" : {
+      "comment" : "Family: the household has all the kitchen equipment"
+    },
     "Everything's in the cart" : {
 
     },
@@ -919,6 +931,9 @@
 
     },
     "Foon flags dishes that contain them, and you plan as usual." : {
+
+    },
+    "Foon holds back dishes that usually use kitchen equipment you don't have, unless few others fit. Search your meals to plan one anyway." : {
 
     },
     "Foon is building the week. Try again in a moment." : {
@@ -1037,6 +1052,9 @@
     "Got it" : {
 
     },
+    "Grill" : {
+      "comment" : "Kitchen equipment"
+    },
     "Grilling" : {
       "comment" : "Dish category in a variety note"
     },
@@ -1117,6 +1135,9 @@
     "Ingredients (optional)" : {
 
     },
+    "Instant Pot" : {
+      "comment" : "Kitchen equipment"
+    },
     "Invite" : {
 
     },
@@ -1169,6 +1190,9 @@
 
     },
     "Kid" : {
+
+    },
+    "Kitchen" : {
 
     },
     "Last night away" : {
@@ -1410,6 +1434,9 @@
 
     },
     "Not now" : {
+
+    },
+    "Not sure" : {
 
     },
     "Not this week" : {
@@ -1758,6 +1785,9 @@
     "Servings go from 1 to 50." : {
 
     },
+    "Sets when This Week says to start cooking. If you're not sure, only quick and slow cooker dishes get an estimate." : {
+
+    },
     "Setting up the sample family…" : {
 
     },
@@ -1771,6 +1801,9 @@
 
     },
     "Show more" : {
+
+    },
+    "Show when to start cooking" : {
 
     },
     "Shown on the day card when %@ is home." : {
@@ -1813,7 +1846,7 @@
       "comment" : "Shopping note for a shellfish allergy"
     },
     "Slow cooker" : {
-
+      "comment" : "Kitchen equipment"
     },
     "Snacks" : {
 
@@ -1856,6 +1889,28 @@
     },
     "Start cooking" : {
 
+    },
+    "Start cooking around %@ for %@ dinner" : {
+      "comment" : "Day card badge from an estimated cooking time: two clock times",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Start cooking around %1$@ for %2$@ dinner"
+          }
+        }
+      }
+    },
+    "Start cooking at %@ for %@ dinner" : {
+      "comment" : "Day card badge from the dish's own cooking time: two clock times",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Start cooking at %1$@ for %2$@ dinner"
+          }
+        }
+      }
     },
     "Start the week on This Week, then plan %@ into it." : {
 
@@ -2069,6 +2124,9 @@
     "This Week" : {
 
     },
+    "This Week counts back from dinner time. Set a dish's time to cook in its editor; without one, only quick and slow cooker dishes get an estimate." : {
+
+    },
     "This can't be undone. Everyone's usual nights stay as they are." : {
 
     },
@@ -2110,6 +2168,9 @@
     },
     "Time to check on %@." : {
       "comment" : "Cook mode timer alert body: the dish's name"
+    },
+    "Time to cook" : {
+
     },
     "Timer done: %@" : {
       "comment" : "Cook mode timer alert title"
@@ -2162,6 +2223,9 @@
     "Trying" : {
 
     },
+    "Turn off what you don't have, and Foon won't plan dishes that usually use it on its own. They stay in your library, you can still pick one in Swap, and anything the family asks for still lands." : {
+
+    },
     "Type %@ to confirm" : {
 
     },
@@ -2194,6 +2258,18 @@
     },
     "Usually home for dinner" : {
 
+    },
+    "Usually uses a grill" : {
+      "comment" : "Day card badge: the household has no grill"
+    },
+    "Usually uses a slow cooker" : {
+      "comment" : "Day card badge: the household has none"
+    },
+    "Usually uses an Instant Pot" : {
+      "comment" : "Day card badge: the household has none"
+    },
+    "Usually uses an air fryer" : {
+      "comment" : "Day card badge: the household has none"
     },
     "Vanilla, not plain" : {
 
@@ -2238,6 +2314,12 @@
 
     },
     "What is it? (optional)" : {
+
+    },
+    "What you have" : {
+
+    },
+    "What you have to cook with, and when to start." : {
 
     },
     "When do you plan the week?" : {

@@ -70,6 +70,8 @@ struct LibraryMeal: Identifiable, Equatable, Sendable {
     var prepSteps: [PrepStep]
     /// What it's served with, in order.
     var sides: [MealSide] = []
+    /// How long it takes, in minutes before dinner. Without one, the start-cooking nudge estimates from the tags.
+    var cookMinutes: Int? = nil
 }
 
 /// A side dish: another meal from the library (Caesar salad) or a simple item (garlic bread).

@@ -49,6 +49,7 @@ struct MealDraft: Equatable, Sendable {
         let madeByMemberID: UUID?
         let lines: [Line]
         var sides: [Side] = []
+        var cookMinutes: Int? = nil
     }
 
     /// A side while editing: a library meal by id, or an item by name.
@@ -82,6 +83,8 @@ struct MealDraft: Equatable, Sendable {
     var link: String
     var madeByMemberID: UUID?
     var sides: [Side]
+    /// Time to cook, or nil to let the start-cooking nudge estimate.
+    var cookMinutes: Int?
 
     init(_ meal: LibraryMeal) {
         name = meal.name
@@ -97,6 +100,7 @@ struct MealDraft: Equatable, Sendable {
             case .item(_, let name): .item(name)
             }
         }
+        cookMinutes = meal.cookMinutes
         mealID = meal.id
     }
 
@@ -110,6 +114,7 @@ struct MealDraft: Equatable, Sendable {
         link = ""
         madeByMemberID = nil
         sides = []
+        cookMinutes = nil
         mealID = nil
     }
 
@@ -173,7 +178,8 @@ struct MealDraft: Equatable, Sendable {
 
         return Saved(
             name: name, servings: servings, tags: MealTag.allCases.filter(tags.contains), steps: steps,
-            sourceURL: try Self.webLink(link), madeByMemberID: madeByMemberID, lines: savedLines, sides: savedSides
+            sourceURL: try Self.webLink(link), madeByMemberID: madeByMemberID, lines: savedLines, sides: savedSides,
+            cookMinutes: cookMinutes
         )
     }
 
@@ -221,6 +227,20 @@ enum MealText {
         return history.timesMade == 1
             ? String(localized: "Made once, last on \(day)")
             : String(localized: "Made \(history.timesMade) times, last on \(day)")
+    }
+
+    /// The editor's choices, in minutes: a picker, so nobody types on a phone. A saved time not on the list stays offered.
+    static func cookTimeChoices(including saved: Int?) -> [Int] {
+        let usual = [15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 480]
+        guard let saved, !usual.contains(saved) else { return usual }
+        return (usual + [saved]).sorted()
+    }
+
+    /// "45 minutes", "1 hour, 30 minutes".
+    static func cookTime(minutes: Int, locale: Locale = .current) -> String {
+        var style = Duration.UnitsFormatStyle(allowedUnits: [.hours, .minutes], width: .wide)
+        style.locale = locale
+        return Duration.seconds(minutes * 60).formatted(style)
     }
 
     static func leadTime(hours: Int?) -> String? {

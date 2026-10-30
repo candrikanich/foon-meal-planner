@@ -203,7 +203,8 @@ struct WeekView: View {
 
     private func card(_ night: WeekNight) -> some View {
         let isAway = night.readsAway(in: settings.awayDates, today: week.todayDay)
-        let model = WeekStore.card(for: night, members: household.visibleMembers, sides: sideNames, badges: badges,
+        let model = WeekStore.card(for: night, members: household.visibleMembers, sides: sideNames,
+                                   badges: { meal, home in badges(meal, home: home, night: night) },
                                    notes: { meal, home in
                                        ServingNotes.lines(library.servingNotes, mealID: meal, home: home,
                                                           members: household.visibleMembers)
@@ -423,9 +424,12 @@ struct WeekView: View {
         library.meal(mealID).map(library.sideNames(for:)) ?? []
     }
 
-    private func badges(_ mealID: UUID, home: Set<UUID>) -> [DayCardModel.Badge] {
+    private func badges(_ mealID: UUID, home: Set<UUID>, night: WeekNight) -> [DayCardModel.Badge] {
         guard let meal = library.meal(mealID) else { return [] }
-        return NightBadges.badges(meal: meal, library: library.meals, allergies: library.allergies, home: home)
+        return NightBadges.badges(meal: meal, library: library.meals, allergies: library.allergies, home: home,
+                                  settings: settings,
+                                  start: StartCooking.nudge(for: meal, on: night, settings: settings, today: week.todayDay,
+                                                            minuteNow: settings.minuteOfDay()))
     }
 
     private func openNightsText(_ count: Int) -> String {

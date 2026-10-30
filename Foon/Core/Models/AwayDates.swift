@@ -78,6 +78,12 @@ extension HouseholdSettings {
         timeZone == nil ? .current : DinnerPrompts.calendar(for: self)
     }
 
+    /// Minutes after midnight on the household's clock.
+    func minuteOfDay(now: Date = .now) -> Int {
+        let time = dayCalendar.dateComponents([.hour, .minute], from: now)
+        return (time.hour ?? 0) * 60 + (time.minute ?? 0)
+    }
+
     func today(now: Date = .now) -> CalendarDay {
         CalendarDay(now, calendar: dayCalendar)
     }

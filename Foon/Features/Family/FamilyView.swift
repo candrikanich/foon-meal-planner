@@ -76,6 +76,18 @@ struct FamilyView: View {
                     }
                 }
 
+                if canPlan {
+                    Section {
+                        NavigationLink {
+                            KitchenView()
+                        } label: {
+                            LabeledContent("Kitchen", value: kitchenSummary)
+                        }
+                    } footer: {
+                        Text("What you have to cook with, and when to start.")
+                    }
+                }
+
                 // Family order, not a ranking: credit, not a leaderboard.
                 let cooks = Dictionary(dinner.cookTally.map { ($0.memberID, $0) }, uniquingKeysWith: { first, _ in first })
                 let cooking = store.visibleMembers.filter { cooks[$0.id] != nil }
@@ -184,6 +196,15 @@ struct FamilyView: View {
         guard let settings = store.household?.planningSettings else { return String(localized: "None") }
         let today = settings.today()
         return settings.awayDates(endingOnOrAfter: today).first?.summary(today: today) ?? String(localized: "None")
+    }
+
+    private var kitchenSummary: String {
+        let missing = store.household?.planningSettings.missingEquipment.count ?? 0
+        switch missing {
+        case 0: return String(localized: "Everything", comment: "Family: the household has all the kitchen equipment")
+        case 1: return String(localized: "1 thing missing", comment: "Family: kitchen equipment the household lacks")
+        default: return String(localized: "\(missing) things missing", comment: "Family: kitchen equipment the household lacks")
+        }
     }
 
     private func loadDinners() async {

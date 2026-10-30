@@ -95,12 +95,16 @@ struct SwapSheet: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(meal.name).font(.foonHeadline).foregroundStyle(Palette.ink)
                                 Chip(text: suggestion.reason.text, systemImage: "sparkles")
+                                ForEach(settings.missingEquipment(for: meal), id: \.self) { equipment in
+                                    Chip(text: equipment.usuallyUsesText, systemImage: "frying.pan", tint: Palette.paprika)
+                                }
                             }
                             Spacer()
                             Image(systemName: "chevron.right").foregroundStyle(.tertiary)
                         }
                     }
-                    .accessibilityLabel("\(meal.name), \(suggestion.reason.text)")
+                    .accessibilityLabel(([meal.name, suggestion.reason.text]
+                        + settings.missingEquipment(for: meal).map(\.usuallyUsesText)).joined(separator: ", "))
                 }
             }
         } header: {
@@ -110,6 +114,10 @@ struct SwapSheet: View {
                 Button("More ideas", systemImage: "arrow.clockwise") { Task { await suggest() } }
                     .labelStyle(.iconOnly)
                     .accessibilityLabel("More ideas")
+            }
+        } footer: {
+            if settings.setsAsideDishes(in: library.meals), let night, night.date >= week.todayDay {
+                Text("Foon holds back dishes that usually use kitchen equipment you don't have, unless few others fit. Search your meals to plan one anyway.")
             }
         }
     }

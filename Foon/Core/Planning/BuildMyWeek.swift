@@ -87,11 +87,19 @@ enum BuildMyWeek {
             [planner.knownMeals]
         }
         var rng = SeededGenerator(seed: seed)
-        for pool in pools {
-            guard let meal = planner.draw(for: night, from: pool, excluding: used, replacing: night.mealID,
-                                          requiring: feedsLeftovers ? .leftovers : nil, rng: &rng) else { continue }
-            return NightPlan(nightID: night.id, date: night.date, pick: .meal(meal.id),
-                             reason: feedsLeftovers ? .bigBatch : planner.reason(for: meal, on: night), isKept: false)
+        // Pick for me on an empty night is the planner choosing, and a dish already needing what they don't have has
+        // nothing to lose. Otherwise Shuffle won't trade a dish they can make for one they can't.
+        let canTakeAny = current.map(planner.needsMissingEquipment) ?? true
+        for allowingMissingEquipment in canTakeAny ? [false, true] : [false] {
+            for pool in pools {
+                guard let meal = planner.draw(for: night, from: pool, excluding: used, replacing: night.mealID,
+                                              requiring: feedsLeftovers ? .leftovers : nil,
+                                              allowingMissingEquipment: allowingMissingEquipment, rng: &rng)
+                else { continue }
+                return NightPlan(nightID: night.id, date: night.date, pick: .meal(meal.id),
+                                 reason: feedsLeftovers ? .bigBatch : planner.reason(for: meal, on: night),
+                                 isKept: false)
+            }
         }
         return nil
     }
@@ -110,7 +118,8 @@ extension BuildMyWeek {
     /// dish already in the week (the night's own included), trial dishes only while the week's budget has room.
     /// Unlike Shuffle, any night can be swapped, so kept nights get suggestions too. A night before today is
     /// logging what was eaten, so prep time and the repeat window don't apply to it. Each pick joins `used`, so it
-    /// counts as a repeat for the next: three suggestions are three choices, not three pastas.
+    /// counts as a repeat for the next: three suggestions are three choices, not three pastas. Dishes usually using
+    /// equipment the household doesn't have only come after everything else that fits, and the sheet says so.
     static func suggestions(night nightID: UUID, inputs: PlanningInputs, seed: UInt64, count: Int = 3) -> [Suggestion] {
         let planner = Planner(inputs)
         guard let night = planner.nights.first(where: { $0.id == nightID }) else { return [] }
@@ -124,6 +133,12 @@ extension BuildMyWeek {
         while picks.count < count,
               let meal = planner.draw(for: night, from: pool, excluding: used, replacing: night.mealID,
                                       loggingPast: past, rng: &rng) {
+            used.insert(meal.id)
+            picks.append(Suggestion(mealID: meal.id, reason: planner.reason(for: meal, on: night)))
+        }
+        while picks.count < count,
+              let meal = planner.draw(for: night, from: pool, excluding: used, replacing: night.mealID,
+                                      allowingMissingEquipment: true, rng: &rng) {
             used.insert(meal.id)
             picks.append(Suggestion(mealID: meal.id, reason: planner.reason(for: meal, on: night)))
         }
@@ -179,16 +194,23 @@ private struct Planner {
     // MARK: Filters
 
     /// Step 3 of the spec. Allergies are never a filter: they're flagged on the card, and the planner decides.
-    /// Grill dishes fit any night until a setting says otherwise.
-    func fits(_ meal: LibraryMeal, on night: PlanningNight, loggingPast: Bool = false) -> Bool {
+    /// `allowingMissingEquipment` is for when the planner is choosing (Swap, Pick for me). A build never plans such a
+    /// dish on its own: nobody chose it, so the night says Nothing fits, like one where everything's been disliked.
+    func fits(_ meal: LibraryMeal, on night: PlanningNight, loggingPast: Bool = false,
+              allowingMissingEquipment: Bool = false) -> Bool {
         guard meal.status.isInRotation, !inputs.snoozedMealIDs.contains(meal.id) else { return false }
         if loggingPast { return true }
+        if !allowingMissingEquipment, needsMissingEquipment(meal) { return false }
         if let lastMade = historyByMeal[meal.id]?.lastMade,
            night.date.days(since: lastMade) < inputs.settings.repeatWindowDays { return false }
         let notForMe = inputs.notForMe[meal.id] ?? [:]
         if night.home.contains(where: { (notForMe[$0] ?? 0) >= 1 }) { return false }
         if night.effort == .rushed, !meal.tags.contains(.quick) { return false }
         return hoursUntilDinner(on: night) >= leadHours(meal)
+    }
+
+    func needsMissingEquipment(_ meal: LibraryMeal) -> Bool {
+        traitsByMeal[meal.id]?.equipment.isDisjoint(with: inputs.settings.missingEquipment) == false
     }
 
     /// Time from this morning to that night's dinner: tonight leaves the day, each night after adds a full one.
@@ -233,9 +255,10 @@ private struct Planner {
     /// `replacing` is the dish leaving this night: it can't be drawn again, but it isn't a repeat either.
     func draw(for night: PlanningNight, from pool: [LibraryMeal], excluding used: Set<UUID>,
               replacing: UUID? = nil, requiring tag: MealTag? = nil, loggingPast: Bool = false,
-              rng: inout SeededGenerator) -> LibraryMeal? {
+              allowingMissingEquipment: Bool = false, rng: inout SeededGenerator) -> LibraryMeal? {
         let candidates = pool.filter { meal in
-            !used.contains(meal.id) && fits(meal, on: night, loggingPast: loggingPast)
+            !used.contains(meal.id)
+                && fits(meal, on: night, loggingPast: loggingPast, allowingMissingEquipment: allowingMissingEquipment)
                 && (tag.map { meal.tags.contains($0) } ?? true)
         }
         let counts = categoryCounts(in: used.filter { $0 != replacing })
