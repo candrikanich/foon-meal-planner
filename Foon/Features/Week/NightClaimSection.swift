@@ -27,7 +27,8 @@ struct NightClaimSection: View {
                                     away: settings.awayDates, today: today)
         } ?? []
         let isBusy = dinner.saving.contains(night.id)
-        if cook != nil || standing != nil || !offering.isEmpty {
+        let message = dinner.claimMessage(for: night.id)
+        if cook != nil || standing != nil || !offering.isEmpty || message != nil {
             Section {
                 if let cook {
                     Label {
@@ -35,6 +36,17 @@ struct NightClaimSection: View {
                     } icon: {
                         MemberAvatar(member: .fixture(id: cook.memberID, firstName: cook.firstName, avatar: cook.avatar), size: 28)
                     }
+                }
+                if let log, let cook, CookCredit.canTakeOffCook(log, thanks: dinner.thanks(for: log.id), me: household.me,
+                                                                canPlan: canPlan, members: members) {
+                    Button(cook.isYou ? String(localized: "That wasn't me")
+                                      : String(localized: "\(cook.firstName) didn't cook this"),
+                           systemImage: "arrow.uturn.backward") {
+                        Task { await dinner.takeOffCook(log) }
+                    }
+                    .tint(Palette.paprika)
+                    .disabled(isBusy)
+                    .accessibilityHint(String(localized: "Takes them off as the cook for this dinner"))
                 }
                 if case .onHold(let hold) = standing, let name = members.first(where: { $0.id == claim?.memberID })?.firstName {
                     Text(ClaimText.onHold(name, hold)).foregroundStyle(.secondary)
@@ -51,14 +63,17 @@ struct NightClaimSection: View {
                 }
                 ForEach(offering) { member in
                     Button(member.id == household.me?.id ? ClaimText.offer(night.date, today: today)
-                                                         : ClaimText.willCook(member.firstName, night.date, today: today),
+                                                         : ClaimText.putDown(member.firstName, night.date, today: today),
                            systemImage: "frying.pan") {
                         Task { await dinner.claim(nightID: night.id, memberID: member.id) }
                     }
                     .tint(Palette.paprika)
                     .disabled(isBusy)
+                    .accessibilityHint(member.id == household.me?.id
+                        ? String(localized: "Tells the family you're cooking this night")
+                        : String(localized: "For someone without their own account: tells the family \(member.firstName) is cooking this night"))
                 }
-                if let message = dinner.claimMessage {
+                if let message {
                     Text(message).font(.callout).foregroundStyle(.red)
                 }
             } header: {

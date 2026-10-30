@@ -52,6 +52,51 @@ struct DinnerJobsTests {
         }
     }
 
+    /// "Do the dishes" can't be a job that never shows just because it's last.
+    @Test func withTooFewPeopleADifferentJobDropsEachNight() {
+        let two = Set(family.prefix(2).map(\.id))
+        let nights = week { _ in two }
+        let assigned = assign(nights, DinnerJobSettings(jobs: [.setTable, .clearTable, .dishes]))
+        let counts = assigned.values.flatMap { $0 }.reduce(into: [DinnerJob: Int]()) { $0[$1.job, default: 0] += 1 }
+        #expect(counts.count == 3, "every job turns up")
+        #expect((counts.values.max() ?? 0) - (counts.values.min() ?? 0) <= 1, "evenly")
+        for night in nights {
+            let jobs = assigned[night.id]?.map(\.job) ?? []
+            #expect(jobs == DinnerJob.allCases.filter(jobs.contains), "shown in the usual order")
+        }
+    }
+
+    private func forWeek(_ nights: [WeekNight], claims: [NightClaim] = [], today: CalendarDay) -> [UUID: [DinnerJobs.Assignment]] {
+        DinnerJobs.forWeek(nights: nights, settings: both, members: family, claims: claims, away: [], today: today)
+    }
+
+    /// Ben offered Sunday. Sunday goes by, and whoever answers who cooked: Monday on read the same as they did on Sunday.
+    @Test func aPromisedNightGoingByDoesntReshuffleTheWeek() {
+        let nights = week { _ in everyone }
+        let claims = [NightClaim(nightID: nights[0].id, memberID: family[1].id, date: nights[0].date)]
+        let onSunday = forWeek(nights, claims: claims, today: nights[0].date)
+        let onWednesday = forWeek(nights, claims: claims, today: nights[3].date)
+        #expect(onSunday == onWednesday)
+        #expect(!(onSunday[nights[0].id] ?? []).map(\.memberID).contains(family[1].id), "and Sunday's cook had it off")
+    }
+
+    /// A week across two months: logs before the 1st aren't loaded, and it makes no difference, since logs aren't read.
+    @Test func aWeekAcrossTwoMonthsReadsTheSame() {
+        let start = CalendarDay(year: 2037, month: 10, day: 28)
+        let nights = week(from: start) { _ in everyone }
+        let claims = [NightClaim(nightID: nights[1].id, memberID: family[2].id, date: nights[1].date)]
+        let inOctober = forWeek(nights, claims: claims, today: nights[1].date)
+        let inNovember = forWeek(nights, claims: claims, today: nights[5].date)
+        #expect(inOctober == inNovember)
+    }
+
+    @Test func aClaimOnHoldDoesntGiveTheNightOff() {
+        var nights = week { _ in everyone }
+        nights[0].attendance[family[1].id] = false
+        let claims = [NightClaim(nightID: nights[0].id, memberID: family[1].id, date: nights[0].date)]
+        #expect(NightClaims.cooks(nights: nights, claims: claims, members: family, away: [], today: sunday).isEmpty)
+    }
+
     @Test func eachJobGoesRoundToo() {
         let assigned = assign(week { _ in everyone })
         let dishes = assigned.values.flatMap { $0 }.filter { $0.job == .dishes }

@@ -32,7 +32,7 @@ struct CookCreditTests {
         let yesterday = WeekNight(id: UUID(), date: today.adding(days: -1), effort: .normal, dinnerTime: "18:00",
                                   mealID: UUID(), mealName: "Chili", quickPick: nil, locked: false, attendance: [:])
         let cooked = DinnerLog(id: UUID(), nightID: yesterday.id, date: yesterday.date, mealID: yesterday.mealID,
-                               mealName: "Chili", quickPick: nil, cookedByMemberID: ann)
+                               mealName: "Chili", quickPick: nil, cookedByMemberID: ann, leftovers: false)
         let uncooked = DinnerLog(id: UUID(), nightID: yesterday.id, date: yesterday.date, mealID: yesterday.mealID,
                                  mealName: "Chili", quickPick: nil)
         let morning = calendar.date(from: DateComponents(year: 2026, month: 11, day: 12, hour: 9))!
@@ -41,6 +41,57 @@ struct CookCreditTests {
                                   now: morning, calendar: calendar) == [cooked])
         #expect(CookCredit.recent(nights: [yesterday], logs: [cooked], defaultDinnerTime: "18:00", now: evening,
                                   calendar: calendar).isEmpty, "gone by the next evening")
+    }
+}
+
+struct CookCreditSettledTests {
+    private let ann = UUID(), ben = UUID()
+    private let today = CalendarDay(year: 2026, month: 11, day: 12)
+    private var calendar: Calendar { DinnerPrompts.calendar(for: HouseholdSettings()) }
+    private var morning: Date { calendar.date(from: DateComponents(year: 2026, month: 11, day: 12, hour: 9))! }
+
+    private var night: WeekNight {
+        WeekNight(id: nightID, date: today.adding(days: -1), effort: .normal, dinnerTime: "18:00", mealID: UUID(),
+                  mealName: "Chili", quickPick: nil, locked: false, attendance: [:])
+    }
+    private let nightID = UUID()
+
+    private func log(verified: Bool, leftovers: Bool?, cook: UUID) -> DinnerLog {
+        DinnerLog(id: UUID(), nightID: nightID, date: today.adding(days: -1), mealID: UUID(), mealName: "Chili", quickPick: nil,
+                  cookedByMemberID: cook, leftovers: leftovers, verified: verified)
+    }
+
+    private func recent(_ log: DinnerLog, me: UUID?) -> [DinnerLog] {
+        CookCredit.recent(nights: [night], logs: [log], me: me, defaultDinnerTime: "18:00", now: morning, calendar: calendar)
+    }
+
+    /// A claim's default lands with the first tap. A thanks locks the cook, so nobody's offered one on a guess.
+    @Test func nobodyElseCanThankUntilWhoCookedIsSettled() {
+        #expect(recent(log(verified: true, leftovers: nil, cook: ann), me: ben).isEmpty, "the follow-up isn't answered")
+        #expect(recent(log(verified: false, leftovers: nil, cook: ann), me: ben).isEmpty, "saved overnight, unconfirmed")
+        #expect(recent(log(verified: false, leftovers: true, cook: ann), me: ben).isEmpty, "answered but unconfirmed")
+        #expect(recent(log(verified: true, leftovers: false, cook: ann), me: ben).count == 1, "settled")
+    }
+
+    @Test func theCookSeesItFromTheStartSoTheyCanSayThatWasntMe() {
+        #expect(recent(log(verified: false, leftovers: nil, cook: ann), me: ann).count == 1)
+        #expect(recent(log(verified: true, leftovers: nil, cook: ann), me: ann).count == 1)
+    }
+
+    @Test func whoCanTakeOffACook() {
+        let me = Member.fixture(firstName: "Ann", userID: UUID())
+        let hasAccount = Member.fixture(firstName: "Ben", userID: UUID())
+        let noAccount = Member.fixture(firstName: "Nora")
+        let family = [me, hasAccount, noAccount]
+        func can(_ cook: Member, canPlan: Bool = false, thanks: [ChefThanks] = []) -> Bool {
+            CookCredit.canTakeOffCook(log(verified: true, leftovers: nil, cook: cook.id), thanks: thanks, me: me, canPlan: canPlan,
+                                      members: family)
+        }
+        #expect(can(me), "themselves")
+        #expect(can(noAccount), "a profile nobody has claimed")
+        #expect(!can(hasAccount), "not someone else with an account")
+        #expect(can(hasAccount, canPlan: true), "a planner can")
+        #expect(!can(me, thanks: [ChefThanks(logID: UUID(), fromMemberID: UUID())]), "not once thanked: the server keeps them")
     }
 }
 

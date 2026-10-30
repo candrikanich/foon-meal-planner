@@ -32,7 +32,7 @@ struct DinnerPromptsSection: View {
                     ForEach(dinner.extras(me: me.id, settings: settings, at: context.date)) { prompt in
                         DinnerExtrasCard(prompt: prompt)
                     }
-                    ForEach(dinner.recentlyCooked(settings: settings, at: context.date)) { log in
+                    ForEach(dinner.recentlyCooked(me: me.id, settings: settings, at: context.date)) { log in
                         if let cook = household.members.first(where: { $0.id == log.cookedByMemberID }) {
                             ThanksChefCard(log: log, cook: cook, me: me)
                         }
@@ -160,10 +160,13 @@ struct DinnerExtrasCard: View {
     @State private var leftovers: Bool?
     /// Starts with who offered to cook, if anyone, so a tap only corrects it.
     @State private var cook: UUID?
+    /// What the server said when `cook` was last in step: Save sends the cook only if this person changed it.
+    @State private var startedFrom: UUID?
 
     init(prompt: DinnerPrompts.Prompt) {
         self.prompt = prompt
         _cook = State(initialValue: prompt.log?.cookedByMemberID)
+        _startedFrom = State(initialValue: prompt.log?.cookedByMemberID)
     }
 
     var body: some View {
@@ -198,8 +201,8 @@ struct DinnerExtrasCard: View {
             }
             Button("Save") {
                 Task {
-                    await dinner.saveExtras(nightID: prompt.night.id, leftovers: leftovers ?? guess,
-                                            cookedBy: cooked ? cook : nil)
+                    await dinner.saveExtras(nightID: prompt.night.id, leftovers: leftovers ?? guess, cookedBy: cook,
+                                            startedFrom: startedFrom)
                 }
             }
             .buttonStyle(.borderedProminent)
@@ -209,10 +212,16 @@ struct DinnerExtrasCard: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 16).fill(Palette.cardSurface))
+        // Someone took them off as the cook on another phone: follow it, unless this person has already picked.
+        .onChange(of: prompt.log?.cookedByMemberID) { _, latest in
+            if cook == startedFrom { cook = latest }
+            startedFrom = latest
+        }
     }
 }
 
-/// Cook credit: "Ann cooked the chili" with a one-tap Thanks, chef for everyone else; the cook sees their thanks.
+/// Cook credit: "Ann cooked the chili" with a one-tap Thanks, chef for everyone else; the cook sees their thanks, and can
+/// say "That wasn't me" until someone has thanked them.
 /// Only shown when the cook is someone in the family (the section filters), so it never renders empty.
 struct ThanksChefCard: View {
     @Environment(DinnerStore.self) private var dinner
@@ -230,6 +239,14 @@ struct ThanksChefCard: View {
             MemberAvatar(member: cook, size: 32)
             if cook.id == me.id {
                 Text(Self.cookLine(thanks: thanks.count, dish: dish)).font(.foonBody)
+                if CookCredit.canTakeOffCook(log, thanks: thanks, me: me, canPlan: false, members: [me, cook]) {
+                    if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
+                    Button("That wasn't me") { Task { await dinner.takeOffCook(log) } }
+                        .buttonStyle(.bordered)
+                        .tint(Palette.paprika)
+                        .disabled(dinner.saving.contains(log.nightID))
+                        .accessibilityHint("Takes you off as the cook for this dinner")
+                }
             } else {
                 Text("\(cook.firstName) cooked the \(dish)").font(.foonBody)
                 if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }

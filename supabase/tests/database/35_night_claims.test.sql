@@ -2,7 +2,7 @@
 -- claimed, two people get one answer, and only functions write it. Every way a night changes either leaves it or ends it,
 -- and credit only comes from the log it fills in. Jobs are a setting only planners change, one key at a time.
 begin;
-select plan(100);
+select plan(116);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -20,7 +20,8 @@ insert into auth.users (id, email, aud, role) values
   ('b0000000-0000-0000-0000-00000000000b', 'bob@example.com', 'authenticated', 'authenticated'),
   ('c0000000-0000-0000-0000-00000000000c', 'carol@example.com', 'authenticated', 'authenticated'),
   ('d0000000-0000-0000-0000-00000000000d', 'kim@example.com', 'authenticated', 'authenticated'),
-  ('e0000000-0000-0000-0000-00000000000e', 'dee@example.com', 'authenticated', 'authenticated');
+  ('e0000000-0000-0000-0000-00000000000e', 'dee@example.com', 'authenticated', 'authenticated'),
+  ('f0000000-0000-0000-0000-00000000000f', 'zed@example.com', 'authenticated', 'authenticated');
 insert into public.households (id, name, owner) values
   ('00000000-0000-0000-0000-0000000000a0', 'Andersons', 'a0000000-0000-0000-0000-00000000000a'),
   ('00000000-0000-0000-0000-0000000000b0', 'Carters', 'c0000000-0000-0000-0000-00000000000c');
@@ -39,6 +40,8 @@ insert into public.members (id, household_id, first_name, role, age_group, eats_
   ('00000000-0000-0000-0000-0000000000a6', '00000000-0000-0000-0000-0000000000a0', 'Dee', 'member', 'adult', false,
    'e0000000-0000-0000-0000-00000000000e'),
   ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000a0', 'Gus', 'member', 'adult', false, null),
+  ('00000000-0000-0000-0000-0000000000a8', '00000000-0000-0000-0000-0000000000a0', 'Zed', 'member', 'kid', false,
+   'f0000000-0000-0000-0000-00000000000f'),
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000b0', 'Carol', 'planner', 'adult', false,
    'c0000000-0000-0000-0000-00000000000c');
 insert into public.meals (id, household_id, name) values
@@ -168,6 +171,15 @@ select is(pg_temp.open_claimer('00000000-0000-0000-0000-0000000000f0'), '0000000
 select lives_ok($$ select public.remove_away_dates('00000000-0000-0000-0000-0000000000a0',
     public.household_today('00000000-0000-0000-0000-0000000000a0'), public.household_today('00000000-0000-0000-0000-0000000000a0')) $$,
   'and off again');
+
+-- Tonight inside new dates, swapped off: it reads as away. Ending the dates doesn't bring the promise back.
+select public.add_away_dates('00000000-0000-0000-0000-0000000000a0', public.household_today('00000000-0000-0000-0000-0000000000a0'), public.household_today('00000000-0000-0000-0000-0000000000a0'));
+update public.plan_nights set meal_id = null where id = '00000000-0000-0000-0000-0000000000f0';
+select public.remove_away_dates('00000000-0000-0000-0000-0000000000a0', public.household_today('00000000-0000-0000-0000-0000000000a0'), public.household_today('00000000-0000-0000-0000-0000000000a0'));
+select is(pg_temp.open_claimer('00000000-0000-0000-0000-0000000000f0'), null::uuid,
+  'tonight swapped off inside the dates: ending the dates doesn''t bring the claim back');
+update public.plan_nights set meal_id = '00000000-0000-0000-0000-0000000002a1' where id = '00000000-0000-0000-0000-0000000000f0';
+select public.claim_night('00000000-0000-0000-0000-0000000000f0', '00000000-0000-0000-0000-0000000000a1');
 
 -- Taking it back ------------------------------------------------------------------------------------------------------
 select pg_temp.as_user('e0000000-0000-0000-0000-00000000000e');
@@ -306,11 +318,11 @@ select throws_ok(format($$ select public.release_claim(%L) $$,
     (select id from public.night_claims where night_id = '00000000-0000-0000-0000-0000000000f1')),
   'FD006', null, 'and once it''s logged it''s history, even for a planner');
 
--- An unverified log picks up a claim it didn't have, as it's confirmed: only when the plan comes back to a dish.
+-- Confirming an overnight log doesn't look at the claim again: blank there may be someone saying "That wasn't me".
 update public.plan_nights set quick_pick = null, meal_id = '00000000-0000-0000-0000-0000000002a1' where id = '00000000-0000-0000-0000-0000000000f8';
 select public.confirm_dinner('00000000-0000-0000-0000-0000000000f8');
-select is(pg_temp.logged_cook('00000000-0000-0000-0000-0000000000f8'), '00000000-0000-0000-0000-0000000000a2'::uuid,
-  'back to a dish after the overnight save, the promise counts when it''s confirmed');
+select is(pg_temp.logged_cook('00000000-0000-0000-0000-0000000000f8'), null::uuid,
+  'back to a dish after the overnight save: a claim only fills in a new log, so this cook stays blank to answer');
 
 -- Tonight's claim (Alice's, from above), confirmed.
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
@@ -333,15 +345,54 @@ update public.meal_logs set meal_id = '00000000-0000-0000-0000-0000000002a2' whe
 select is(pg_temp.logged_cook('00000000-0000-0000-0000-0000000000f2'), '00000000-0000-0000-0000-0000000000a2'::uuid,
   'We had something else leaves who cooked for the first responder to fix');
 
--- Wasn't home clears the cook, unless they've been thanked (a thanked cook doesn't move).
 select public.set_not_home('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000a2');
 select is(pg_temp.logged_cook('00000000-0000-0000-0000-0000000000f1'), null::uuid, 'whoever says they weren''t home didn''t cook');
+
+-- A claim's cook is a guess until someone settles it ---------------------------------------------------------------------
+-- An overnight log with Bob down from his claim, not yet confirmed. Saying "That wasn't me" sticks when it's confirmed.
+reset role;
+insert into public.night_claims (household_id, night_id, member_id) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000a2');
+update public.night_attendance set expected = true
+where plan_night_id = '00000000-0000-0000-0000-0000000000f2' and member_id = '00000000-0000-0000-0000-0000000000a2';
+update public.meal_logs set cooked_by_member_id = '00000000-0000-0000-0000-0000000000a2', verified = false,
+  meal_id = '00000000-0000-0000-0000-0000000002a1' where night_id = '00000000-0000-0000-0000-0000000000f2';
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
-select public.thank_the_chef((select id from public.meal_logs where night_id = '00000000-0000-0000-0000-0000000000f2'));
+select throws_ok($$ select public.thank_the_chef((select id from public.meal_logs where night_id = '00000000-0000-0000-0000-0000000000f2')) $$,
+  '22023', null, 'an overnight log nobody confirmed can''t be thanked: its cook is a guess');
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
-select public.set_not_home('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000a2');
+select lives_ok($$ update public.meal_logs set cooked_by_member_id = null where night_id = '00000000-0000-0000-0000-0000000000f2' $$,
+  '"That wasn''t me" on an overnight log');
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.confirm_dinner('00000000-0000-0000-0000-0000000000f2');
+select is(pg_temp.logged_cook('00000000-0000-0000-0000-0000000000f2'), null::uuid,
+  'and confirming the log doesn''t put them back, with their claim still open');
+update public.meal_logs set cooked_by_member_id = '00000000-0000-0000-0000-0000000000a2' where night_id = '00000000-0000-0000-0000-0000000000f2';
+select throws_ok($$ select public.thank_the_chef((select id from public.meal_logs where night_id = '00000000-0000-0000-0000-0000000000f2')) $$,
+  '22023', null, 'confirmed, but the follow-up isn''t answered: still no thanks');
+-- So the follow-up card can always correct the guess, and We had something else stays open.
+select lives_ok($$ update public.meal_logs set meal_id = '00000000-0000-0000-0000-0000000002a2' where night_id = '00000000-0000-0000-0000-0000000000f2' $$,
+  'We had something else, with nobody able to have thanked yet');
+select lives_ok($$ update public.meal_logs set leftovers = false, cooked_by_member_id = '00000000-0000-0000-0000-0000000000a6'
+  where night_id = '00000000-0000-0000-0000-0000000000f2' $$, 'the follow-up corrects the cook, and its leftovers save');
+select is(pg_temp.logged_cook('00000000-0000-0000-0000-0000000000f2'), '00000000-0000-0000-0000-0000000000a6'::uuid, 'to who really cooked');
+update public.meal_logs set cooked_by_member_id = '00000000-0000-0000-0000-0000000000a2' where night_id = '00000000-0000-0000-0000-0000000000f2';
+select lives_ok($$ select public.thank_the_chef((select id from public.meal_logs where night_id = '00000000-0000-0000-0000-0000000000f2')) $$,
+  'settled, thanks are fine');
+-- Now it's locked, and each way of trying says why in its own words.
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select throws_ok($$ update public.meal_logs set cooked_by_member_id = null where night_id = '00000000-0000-0000-0000-0000000000f2' $$,
+  'FD011', null, 'a thanked cook can''t say "That wasn''t me": refused as thanked, not as a connection problem');
+select throws_ok($$ update public.meal_logs set meal_id = '00000000-0000-0000-0000-0000000002a1' where night_id = '00000000-0000-0000-0000-0000000000f2' $$,
+  'FD011', null, 'nor can the dish move: refused as thanked, not as rated');
+select lives_ok($$ update public.meal_logs set leftovers = true where night_id = '00000000-0000-0000-0000-0000000000f2' $$,
+  'a leftovers answer sent alone still lands');
+select lives_ok($$ select public.set_not_home('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000a2') $$,
+  'Wasn''t home still saves the attendance, and the app says the cook stayed');
+select is((select expected from public.night_attendance where plan_night_id = '00000000-0000-0000-0000-0000000000f2'
+           and member_id = '00000000-0000-0000-0000-0000000000a2'), false, 'they''re out that night');
 select is(pg_temp.logged_cook('00000000-0000-0000-0000-0000000000f2'), '00000000-0000-0000-0000-0000000000a2'::uuid,
-  'but a cook someone thanked stays');
+  'and the thanked cook stays, for the app to say so');
 
 -- Retention -----------------------------------------------------------------------------------------------------------
 reset role;
@@ -369,6 +420,15 @@ select is(public.delete_account_data('b0000000-0000-0000-0000-00000000000b'), 'p
 select isnt((select released_at from public.night_claims where id = '00000000-0000-0000-0000-000000000013'), null,
   'and his open claim ends');
 select is(pg_temp.open_claimer('00000000-0000-0000-0000-0000000000d6'), null::uuid, 'so the night''s open');
+
+-- A kid deleting their own account keeps the profile, nobody's on it now, and what they promised is off.
+update public.night_claims set released_at = now() where id = '00000000-0000-0000-0000-000000000012';
+insert into public.night_claims (id, household_id, night_id, member_id, entered_by_member_id) values
+  ('00000000-0000-0000-0000-000000000015', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000e0',
+   '00000000-0000-0000-0000-0000000000a8', '00000000-0000-0000-0000-0000000000a8');
+select is(public.delete_account_data('f0000000-0000-0000-0000-00000000000f'), 'unlinked', 'Zed, a kid, deletes his account');
+select isnt((select released_at from public.night_claims where id = '00000000-0000-0000-0000-000000000015'), null,
+  'and his open claim ends');
 
 -- A removed kid's open claim ends with retention.
 update public.night_claims set member_id = '00000000-0000-0000-0000-0000000000a4', entered_by_member_id = '00000000-0000-0000-0000-0000000000a1',

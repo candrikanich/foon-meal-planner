@@ -22,14 +22,23 @@ enum CookCredit {
         .sorted { $0.memberID.uuidString < $1.memberID.uuidString }
     }
 
-    /// Dinners whose card is still open and someone is down as the cook: a Thanks, chef for everyone else, and the
-    /// count for the cook.
-    static func recent(nights: [WeekNight], logs: [DinnerLog], defaultDinnerTime: String, now: Date,
+    /// Dinners whose card is still open and someone is down as the cook: a Thanks, chef for everyone else once who cooked
+    /// is settled (a thanks locks the cook, and a claim's default is only a guess), and from the start for the cook, who
+    /// can say "That wasn't me".
+    static func recent(nights: [WeekNight], logs: [DinnerLog], me: UUID? = nil, defaultDinnerTime: String, now: Date,
                        calendar: Calendar) -> [DinnerLog] {
         let nights = Dictionary(nights.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return logs.filter { log in
-            guard log.cookedByMemberID != nil, log.mealID != nil, let night = nights[log.nightID] else { return false }
+            guard log.cookedByMemberID != nil, log.mealID != nil, let night = nights[log.nightID],
+                  log.isSettled || log.cookedByMemberID == me else { return false }
             return DinnerPrompts.isOpen(night, defaultDinnerTime: defaultDinnerTime, now: now, calendar: calendar)
         }
+    }
+
+    /// Who can take someone off as a dinner's cook from the app: them, anyone for a profile nobody has claimed, or a
+    /// planner. Not once they've been thanked: the server keeps a thanked cook.
+    static func canTakeOffCook(_ log: DinnerLog, thanks: [ChefThanks], me: Member?, canPlan: Bool, members: [Member]) -> Bool {
+        guard let cook = log.cookedByMemberID, log.mealID != nil, thanks.isEmpty else { return false }
+        return canPlan || cook == me?.id || members.first { $0.id == cook }?.userID == nil
     }
 }

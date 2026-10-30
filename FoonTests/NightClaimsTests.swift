@@ -190,6 +190,9 @@ struct NightClaimsTests {
         #expect(ClaimText.offer(today.adding(days: 1, calendar: calendar), today: today, calendar: calendar) == "I'll cook tomorrow")
         #expect(ClaimText.offer(thursday, today: today, calendar: calendar) == "I'll cook Thursday")
         #expect(ClaimText.willCook("Ben", thursday, today: today, calendar: calendar) == "Ben will cook Thursday")
+        #expect(ClaimText.putDown("Nora", thursday, today: today, calendar: calendar) == "Put Nora down to cook Thursday",
+                "a button says what it does")
+        #expect(ClaimText.putDown("Nora", today, today: today, calendar: calendar) == "Put Nora down to cook tonight")
         #expect(ClaimText.willCook("Ben", thursday.adding(days: 7, calendar: calendar), today: today, calendar: calendar)
                 == "Ben will cook Thursday, Nov 12", "a week off, it says which Thursday")
     }
@@ -234,6 +237,23 @@ struct NightClaimsTests {
         #expect(news([promise], away: [AwayDates(from: promise.date, to: promise.date)]).isEmpty, "away")
     }
 
+    /// The card goes by the week on screen, and so does the note: this phone just changed the night.
+    @Test func theNoteGoesByTheWeekOnScreen() {
+        var thursday = night()
+        let promise = claim(thursday, by: ben)
+        func notes() -> [NightClaim] {
+            NightClaims.news(claims: [promise], nights: [thursday], me: ann.id, canPlan: true, members: family, logged: [],
+                             away: [], today: today, dismissed: [])
+        }
+        #expect(notes() == [promise])
+        thursday.mealID = nil
+        thursday.quickPick = .takeout
+        #expect(notes().isEmpty, "it became takeout after the claim was read")
+        thursday.quickPick = nil
+        thursday.attendance[ben.id] = false
+        #expect(notes().isEmpty, "Ben was marked out after the claim was read")
+    }
+
     @Test func soonestFirst() {
         let later = claim(night(5), by: ben), sooner = claim(night(1), by: owen)
         #expect(news([later, sooner]) == [sooner, later])
@@ -252,6 +272,12 @@ struct NightClaimsTests {
         #expect(claim.nightQuickPick == .takeout)
         #expect(claim.memberIsOut)
     }
+}
+
+private final class RecordedCorrections: Sendable {
+    private let sent = Mutex<[DinnerCorrection]>([])
+    func add(_ correction: DinnerCorrection) { sent.withLock { $0.append(correction) } }
+    var all: [DinnerCorrection] { sent.withLock { $0 } }
 }
 
 private func refusal(_ code: String) -> PostgrestError {
@@ -318,12 +344,47 @@ struct NightClaimsStoreTests {
         #expect(store.claimMessage == "Couldn't save that. Check your connection and try again.")
     }
 
+    /// This Week reads the night and the dates when this counts up, so the card stops offering what was refused.
+    @Test func anyRefusalAsksForTheLatestButNotReachingTheServerDoesnt() async {
+        for code in ["FD005", "FD006", "FD009", "FD010", "P0002", "42501"] {
+            var client = DinnerClient.preview
+            client.claimNight = { _, _ in throw refusal(code) }
+            let store = store(client)
+            await store.claim(nightID: UUID(), memberID: UUID())
+            #expect(store.claimRefusals == 1, "\(code)")
+        }
+        var offline = DinnerClient.preview
+        offline.claimNight = { _, _ in throw URLError(.notConnectedToInternet) }
+        let store = store(offline)
+        await store.claim(nightID: UUID(), memberID: UUID())
+        #expect(store.claimRefusals == 0)
+    }
+
+    @Test func aRefusalBelongsToItsNight() async {
+        var client = DinnerClient.preview
+        client.claimNight = { _, _ in throw refusal("FD005") }
+        let store = store(client)
+        let tapped = UUID()
+        await store.claim(nightID: tapped, memberID: UUID())
+        #expect(store.claimMessage(for: tapped) != nil)
+        #expect(store.claimMessage(for: UUID()) == nil, "not on another night's detail")
+    }
+
+    @Test func dinnerJobsGetTheWholeWeeksClaims() async {
+        let asked = Mutex<CalendarDay?>(nil)
+        var client = DinnerClient.preview
+        client.claims = { _, since in asked.withLock { $0 = since }; return [] }
+        let store = store(client)
+        await store.load(settings: HouseholdSettings())
+        #expect(asked.withLock { $0 } == CalendarDay(year: 2037, month: 10, day: 27), "a week back, past any month's start")
+    }
+
     @Test func anAwayRefusalAsksForTheDates() async {
         var client = DinnerClient.preview
         client.claimNight = { _, _ in throw refusal("FD007") }
         let store = store(client)
         await store.claim(nightID: UUID(), memberID: UUID())
-        #expect(store.claimAwayRefusals == 1, "this phone hasn't heard about the dates")
+        #expect(store.claimRefusals == 1, "this phone hasn't heard about the dates")
     }
 
     @Test func takingBackIsByTheClaimAndHasItsOwnRefusal() async {
@@ -340,6 +401,83 @@ struct NightClaimsStoreTests {
         let other = self.store(refusing)
         #expect(await other.release(claim) == false)
         #expect(other.claimMessage == "Only they or a planner can take that back.")
+    }
+
+    // MARK: - The follow-up, and a wrong default
+
+    private let dish = UUID(), nightID = UUID(), logID = UUID(), bob = UUID(), dee = UUID()
+
+    private func log(cook: UUID?, meal: UUID?) -> DinnerLog {
+        DinnerLog(id: logID, nightID: nightID, date: CalendarDay(year: 2037, month: 11, day: 2), mealID: meal,
+                  mealName: "Chili", quickPick: meal == nil ? .takeout : nil, cookedByMemberID: cook)
+    }
+
+    /// Alice's card started on Bob; Bob said he wasn't home; her untouched Save mustn't put him back.
+    @Test func aStaleCardDoesntReCreditAnyone() async {
+        let sent = RecordedCorrections()
+        var client = DinnerClient.preview
+        let log = log(cook: nil, meal: dish)
+        client.logs = { _, _ in [log] }
+        client.correct = { _, correction in sent.add(correction) }
+        let store = store(client)
+        await store.load(settings: HouseholdSettings())
+        #expect(await store.saveExtras(nightID: nightID, leftovers: true, cookedBy: bob, startedFrom: bob))
+        #expect(sent.all == [.leftovers(true)], "only the leftovers")
+    }
+
+    @Test func aCardSendsTheCookOnlyIfThisPersonChangedIt() {
+        func saved(from: UUID?, chosen: UUID?, isDish: Bool = true) -> DinnerCorrection {
+            DinnerPrompts.followUp(leftovers: false, startedFrom: from, chosen: chosen, isDish: isDish)
+        }
+        #expect(saved(from: bob, chosen: bob) == .leftovers(false), "left alone")
+        #expect(saved(from: nil, chosen: nil) == .leftovers(false), "nobody, left alone")
+        #expect(saved(from: bob, chosen: dee) == .extras(leftovers: false, cookedByMemberID: dee), "corrected")
+        #expect(saved(from: bob, chosen: nil) == .extras(leftovers: false, cookedByMemberID: nil), "cleared")
+        #expect(saved(from: nil, chosen: dee) == .extras(leftovers: false, cookedByMemberID: dee), "answered")
+        #expect(saved(from: bob, chosen: bob, isDish: false) == .extras(leftovers: false, cookedByMemberID: nil),
+                "nobody cooked takeout")
+    }
+
+    @Test func thatWasntMeSendsOnlyTheCook() async {
+        let sent = RecordedCorrections()
+        var client = DinnerClient.preview
+        client.correct = { _, correction in sent.add(correction) }
+        let store = store(client)
+        #expect(await store.takeOffCook(log(cook: bob, meal: dish)))
+        #expect(sent.all == [.cook(nil)])
+    }
+
+    /// Someone thanked between this phone's read and the tap: the words say that, not the connection, and not "rated".
+    @Test func aThankedCookIsRefusedInItsOwnWords() async {
+        let words = "Someone already thanked the cook, so the cook and the dish stay as they are."
+        var client = DinnerClient.preview
+        let log = log(cook: bob, meal: dish)
+        client.logs = { _, _ in [log] }
+        client.confirm = { [logID] _ in logID }
+        client.correct = { _, _ in throw refusal("FD011") }
+        let store = store(client)
+        await store.load(settings: HouseholdSettings())
+
+        #expect(await store.saveExtras(nightID: nightID, leftovers: true, cookedBy: dee, startedFrom: bob) == false)
+        #expect(store.errorMessage == words)
+        store.clearError()
+        #expect(await store.hadInstead(nightID: nightID, .quickPick(.takeout)) == false)
+        #expect(store.errorMessage == words)
+        store.clearError()
+        #expect(await store.takeOffCook(log) == false)
+        #expect(store.errorMessage == words)
+    }
+
+    @Test func wasntHomeSaysSoWhenTheThankedCookStays() async {
+        var client = DinnerClient.preview
+        let log = log(cook: bob, meal: dish)
+        client.logs = { _, _ in [log] }
+        let store = store(client)
+        await store.load(settings: HouseholdSettings())
+        #expect(await store.notHome(nightID: nightID, memberID: bob))
+        #expect(store.errorMessage == "Saved. They're still down as the cook, because someone already thanked them.")
+        #expect(await store.notHome(nightID: nightID, memberID: dee))
+        #expect(store.errorMessage == nil, "someone else, nothing to say")
     }
 
     @Test func theFirstResponderStillGetsAskedWhenAClaimFilledInTheCook() {

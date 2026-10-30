@@ -113,14 +113,11 @@ struct NightDetailView: View {
     @ViewBuilder
     private func dinnerJobs(_ night: WeekNight) -> some View {
         let settings = household.household?.planningSettings ?? HouseholdSettings()
-        let nights = week.week?.nights ?? []
         let members = household.visibleMembers
         let lines = DinnerJobs.lines(
             for: night,
-            in: DinnerJobs.assign(nights: nights, settings: settings.dinnerJobs, members: members,
-                                  cooks: NightClaims.cooks(nights: nights, claims: dinnerStore.claims, logs: dinnerStore.logs,
-                                                           members: members, away: settings.awayDates, today: week.todayDay),
-                                  away: settings.awayDates, today: week.todayDay),
+            in: DinnerJobs.forWeek(nights: week.week?.nights ?? [], settings: settings.dinnerJobs, members: members,
+                                   claims: dinnerStore.claims, away: settings.awayDates, today: week.todayDay),
             members: members, today: week.todayDay)
         if !lines.isEmpty {
             Section {

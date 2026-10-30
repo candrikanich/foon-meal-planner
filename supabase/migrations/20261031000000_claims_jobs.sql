@@ -9,8 +9,10 @@
 --    - a removed member, or one who now eats separately: it doesn't count.
 --    Who can claim: yourself, or (pass the phone) a profile nobody has claimed. Who can take one back: the same, or a planner.
 -- 2. A claim is a promise and a log is what happened, so credit only ever comes from meal_logs. A claim fills in
---    meal_logs.cooked_by_member_id as the default when a dish is logged (confirm_dinner and the overnight job). After that
---    the log stands on its own.
+--    meal_logs.cooked_by_member_id as the default when a new log is made for a dish (confirm_dinner and the overnight job).
+--    After that the log stands on its own, and confirming a saved log doesn't look at the claim again. That default is a
+--    guess until the first responder settles it, so thank_the_chef waits for a verified log with its follow-up answered:
+--    a thanks locks the cook, and it mustn't lock a guess.
 -- 3. M2 car 6 (push): planners see new claims in the app today (ClaimNewsSection). The push reads the same thing, rows in
 --    night_claims with released_at null, sending to the household's planners except entered_by_member_id, and it asks
 --    household_away_on before it sends, like everything else in that car.
@@ -20,7 +22,8 @@
 --    is assigned, tracked, or missed (DinnerJobs). left_out can hold a removed member's id: that's their anonymized profile.
 --
 -- Errors the app words itself: FD005 someone else has the night; FD006 the night's gone by or its dinner is logged; FD007
--- the family is away; FD008 they eat separately; FD009 a quick pick, so nothing to cook; FD010 they're out that night.
+-- the family is away; FD008 they eat separately; FD009 a quick pick, so nothing to cook; FD010 they're out that night; FD011
+-- someone has thanked the cook, so the cook and the dish stay.
 
 create table public.night_claims (
   id uuid primary key default gen_random_uuid(),
@@ -178,9 +181,11 @@ $$;
 
 revoke execute on function public.night_claimer(uuid) from public, anon, authenticated;
 
--- For confirm_dinner, which runs as the caller. Nothing for someone outside the household. It doesn't hold the night: two
--- phones confirming would then deadlock with meal_logs_follow_what_was_eaten. claim_night holds it and refuses once there's
--- a log, so the worst timing leaves the cook blank to fill in, never wrong.
+-- For confirm_dinner, which runs as the caller. Nothing for someone outside the household. It reads without holding the
+-- night. FOR UPDATE isn't allowed in a stable function, and a volatile one holding the night would deadlock this confirm
+-- against We had something else, which locks the log and then the night (two confirms holding it would only queue). What
+-- that costs is timing, in milliseconds: a claim made as this reads can leave the cook blank, and a claim being taken back
+-- as this reads can still name that person. Either is a default the follow-up card or "That wasn't me" corrects.
 create function public.claimed_cook_for_logging(target_night uuid)
 returns uuid
 language sql stable security definer set search_path = ''
@@ -213,10 +218,7 @@ begin
   on conflict (night_id) do update
     set verified = true,
         meal_id = case when existing.verified then existing.meal_id else excluded.meal_id end,
-        quick_pick = case when existing.verified then existing.quick_pick else excluded.quick_pick end,
-        -- Only as it's first confirmed: after that a cook left blank was left blank by someone.
-        cooked_by_member_id = case when existing.verified then existing.cooked_by_member_id
-                                   else coalesce(existing.cooked_by_member_id, excluded.cooked_by_member_id) end
+        quick_pick = case when existing.verified then existing.quick_pick else excluded.quick_pick end
   returning id into log_id;
   return log_id;
 end;
@@ -287,6 +289,60 @@ begin
 end;
 $$;
 
+create or replace function public.thank_the_chef(target_log uuid)
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  log public.meal_logs;
+  night_date date;
+  me uuid;
+begin
+  select * into log from public.meal_logs where id = target_log;
+  if log.id is null or not public.is_household_member(log.household_id) then
+    raise exception 'no dinner %', target_log using errcode = 'P0002';
+  end if;
+  me := public.my_member_id(log.household_id);
+  if me is null then
+    raise exception 'thanks come from your own profile' using errcode = '42501';
+  end if;
+  if log.cooked_by_member_id is null then
+    raise exception 'nobody is down as the cook' using errcode = '22023';
+  end if;
+  if log.meal_id is null then
+    raise exception 'thanks are for a cooked dish' using errcode = '22023';
+  end if;
+  -- A thanks locks the cook, so it waits until the cook isn't a guess: an older app's card can't get ahead of this either.
+  if not log.verified or log.leftovers is null then
+    raise exception 'who cooked isn''t settled yet' using errcode = '22023';
+  end if;
+  if log.cooked_by_member_id = me then
+    raise exception 'no thanking yourself' using errcode = '22023';
+  end if;
+  select date into night_date from public.plan_nights where id = log.night_id;
+  if night_date < public.household_today(log.household_id) - 7 then
+    raise exception 'that dinner was too long ago' using errcode = '22023';
+  end if;
+  insert into public.chef_thanks (household_id, meal_log_id, from_member_id)
+  values (log.household_id, log.id, me)
+  on conflict (meal_log_id, from_member_id) do nothing;
+end;
+$$;
+
+create or replace function public.meal_logs_keep_the_thanked_cook()
+returns trigger
+language plpgsql set search_path = ''
+as $$
+begin
+  if current_user = 'authenticated'
+     and (new.cooked_by_member_id, new.meal_id) is distinct from (old.cooked_by_member_id, old.meal_id)
+     and exists (select 1 from public.chef_thanks where meal_log_id = old.id) then
+    raise exception 'someone already thanked the cook for this dinner' using errcode = 'FD011';
+  end if;
+  return new;
+end;
+$$;
+
 -- 4. Away dates end a claim --------------------------------------------------------------------------------------------
 
 create or replace function public.write_away_dates(target_household uuid, before jsonb, dates jsonb)
@@ -321,6 +377,15 @@ begin
   set expected = public.member_usually_home(m, n.date)
   from public.plan_nights n, public.members m
   where n.id = a.plan_night_id and m.id = a.member_id and m.status <> 'removed'
+    and n.household_id = target_household and n.date >= today
+    and n.meal_id is null and n.quick_pick is null
+    and public.away_dates_cover(before, n.date) and not public.away_dates_cover(dates, n.date)
+    and not exists (select 1 from public.meal_logs l where l.night_id = n.id);
+
+  -- And tonight, swapped off while the dates covered it: it had no dinner to keep, so it ends the same way.
+  update public.night_claims c set released_at = now()
+  from public.plan_nights n
+  where n.id = c.night_id and c.released_at is null
     and n.household_id = target_household and n.date >= today
     and n.meal_id is null and n.quick_pick is null
     and public.away_dates_cover(before, n.date) and not public.away_dates_cover(dates, n.date)
@@ -545,6 +610,8 @@ begin
 
   if profile.age_group = 'kid' then
     update public.members set user_id = null, declared_age_band = null where id = profile.id;
+    -- What they promised is off. Their profile stays, so nothing else would end it.
+    update public.night_claims set released_at = now() where member_id = profile.id and released_at is null;
     return 'unlinked';
   end if;
 

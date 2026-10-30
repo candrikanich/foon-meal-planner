@@ -155,29 +155,34 @@ enum NightClaims {
         return DayCardModel.Cook(member: member, isYou: member.id == me, tense: .willCook)
     }
 
-    /// Each night's cook, by what happened or else what was promised: dinner jobs leave them out.
-    static func cooks(nights: [WeekNight], claims: [NightClaim], logs: [DinnerLog], members: [Member], away: [AwayDates],
+    /// Who dinner jobs give the night off: whoever's claim stands. Claims only, not logs, past nights included: answering
+    /// who cooked last night mustn't change who has the dishes tomorrow, and nor must a promised night going by.
+    static func cooks(nights: [WeekNight], claims: [NightClaim], members: [Member], away: [AwayDates],
                       today: CalendarDay) -> [UUID: UUID] {
         var cooks: [UUID: UUID] = [:]
         for night in nights {
-            let log = logs.first { $0.nightID == night.id }
-            cooks[night.id] = cookLine(night: night, claims: claims, log: log, members: members, me: nil, away: away,
-                                       today: today)?.memberID
+            guard let held = claim(on: night.id, in: claims),
+                  standing(of: held, on: night, members: members, away: away, today: today) == .cooking else { continue }
+            cooks[night.id] = held.memberID
         }
         return cooks
     }
 
     /// The planner's note (docs/spec.md → Claim a night): someone else offering, on a night still ahead, that counts as
-    /// it stands. Not what you entered yourself, and not what's dismissed on this device.
-    static func news(claims: [NightClaim], me: UUID?, canPlan: Bool, members: [Member], logged: Set<UUID>,
-                     away: [AwayDates], today: CalendarDay, dismissed: Set<UUID>) -> [NightClaim] {
+    /// it stands. Not what you entered yourself, and not what's dismissed on this device. Goes by `nights` (the week on
+    /// screen, as fresh as the card) where it can, and what the claim was read with for a night beyond them.
+    static func news(claims: [NightClaim], nights: [WeekNight] = [], me: UUID?, canPlan: Bool, members: [Member],
+                     logged: Set<UUID>, away: [AwayDates], today: CalendarDay, dismissed: Set<UUID>) -> [NightClaim] {
         guard canPlan else { return [] }
         return claims.filter { claim in
+            guard claim.date >= today, !dismissed.contains(claim.id), !logged.contains(claim.nightID), claim.memberID != me,
+                  claim.enteredByMemberID != me else { return false }
+            if let night = nights.first(where: { $0.id == claim.nightID }) {
+                return standing(of: claim, on: night, members: members, away: away, today: today) == .cooking
+            }
             let planned = claim.nightMealID != nil || claim.nightQuickPick != nil
             let readsAway = away.contains { $0.contains(claim.date) } && !(claim.date <= today && planned)
-            return claim.date >= today && !dismissed.contains(claim.id) && !logged.contains(claim.nightID)
-                && claim.memberID != me && claim.enteredByMemberID != me
-                && standing(memberID: claim.memberID, quickPick: claim.nightQuickPick, isOut: claim.memberIsOut,
+            return standing(memberID: claim.memberID, quickPick: claim.nightQuickPick, isOut: claim.memberIsOut,
                             readsAway: readsAway, members: members) == .cooking
         }
         .sorted { $0.date < $1.date }
@@ -216,6 +221,16 @@ enum ClaimText {
         case .tomorrow: String(localized: "\(name) will cook tomorrow")
         case .later(let day):
             String(localized: "\(name) will cook \(day)", comment: "Someone offering to cook: their name, then a weekday, maybe with its date")
+        }
+    }
+
+    /// A button, passing the phone: "Put Nora down to cook Thursday".
+    static func putDown(_ name: String, _ day: CalendarDay, today: CalendarDay, calendar: Calendar = .current) -> String {
+        switch when(day, today: today, calendar: calendar) {
+        case .tonight: String(localized: "Put \(name) down to cook tonight")
+        case .tomorrow: String(localized: "Put \(name) down to cook tomorrow")
+        case .later(let day):
+            String(localized: "Put \(name) down to cook \(day)", comment: "Button, passing the phone: their name, then a weekday, maybe with its date")
         }
     }
 

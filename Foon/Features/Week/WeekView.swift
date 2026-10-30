@@ -86,8 +86,12 @@ struct WeekView: View {
         .onChange(of: week.awayRefusals) {
             Task { await household.refreshQuietly() }
         }
-        .onChange(of: dinner.claimAwayRefusals) {
-            Task { await household.refreshQuietly() }
+        .onChange(of: dinner.claimRefusals) {
+            // This phone was behind: show the night and the away dates as they are, not just the message.
+            Task {
+                await household.refreshQuietly()
+                await week.refresh()
+            }
         }
         .onChange(of: household.members) { _, members in
             if canPlan { Task { await week.fillInMissing(members: members) } }
@@ -241,14 +245,10 @@ struct WeekView: View {
         }
     }
 
-    /// The week's jobs, worked out from who's home and who's cooking.
+    /// The week's jobs, worked out from who's home and who offered to cook.
     private var dinnerJobs: [UUID: [DinnerJobs.Assignment]] {
-        guard !settings.dinnerJobs.jobs.isEmpty else { return [:] }
-        let nights = week.week?.nights ?? []
-        let cooks = NightClaims.cooks(nights: nights, claims: dinner.claims, logs: dinner.logs,
-                                      members: household.visibleMembers, away: settings.awayDates, today: week.todayDay)
-        return DinnerJobs.assign(nights: nights, settings: settings.dinnerJobs, members: household.visibleMembers,
-                                 cooks: cooks, away: settings.awayDates, today: week.todayDay)
+        DinnerJobs.forWeek(nights: week.week?.nights ?? [], settings: settings.dinnerJobs, members: household.visibleMembers,
+                           claims: dinner.claims, away: settings.awayDates, today: week.todayDay)
     }
 
     /// The weekly list for the nights still ahead: their meals and sides merged by item, minus what's in stock,

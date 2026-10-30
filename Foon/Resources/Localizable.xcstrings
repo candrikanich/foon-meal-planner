@@ -76,6 +76,9 @@
         }
       }
     },
+    "%@ didn't cook this" : {
+
+    },
     "%@ is cooking" : {
 
     },
@@ -1149,6 +1152,9 @@
     "For shared custody and the like: every other week, or every other weekend." : {
 
     },
+    "For someone without their own account: tells the family %@ is cooking this night" : {
+
+    },
     "For the quick list" : {
 
     },
@@ -1983,6 +1989,23 @@
     "Put %@ back in the freezer" : {
 
     },
+    "Put %@ down to cook %@" : {
+      "comment" : "Button, passing the phone: their name, then a weekday, maybe with its date",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Put %1$@ down to cook %2$@"
+          }
+        }
+      }
+    },
+    "Put %@ down to cook tomorrow" : {
+
+    },
+    "Put %@ down to cook tonight" : {
+
+    },
     "Put back" : {
 
     },
@@ -2092,6 +2115,9 @@
 
     },
     "Saved schedules" : {
+
+    },
+    "Saved. They're still down as the cook, because someone already thanked them." : {
 
     },
     "Saves everyone's usual nights home as they are now. Using a name again replaces that one." : {
@@ -2248,6 +2274,9 @@
     "Someone already rated this dinner, so it stays as it was." : {
 
     },
+    "Someone already thanked the cook, so the cook and the dish stay as they are." : {
+
+    },
     "Someone already took that out of the freezer. Pick something else." : {
 
     },
@@ -2400,6 +2429,12 @@
     "Takes it out of the cart" : {
 
     },
+    "Takes them off as the cook for this dinner" : {
+
+    },
+    "Takes you off as the cook for this dinner" : {
+
+    },
     "Tap the dinners your family already makes. You can add your own anytime." : {
 
     },
@@ -2483,6 +2518,9 @@
 
     },
     "That was too long to keep it all, so some may be missing. Allergy flags only see what's here." : {
+
+    },
+    "That wasn't me" : {
 
     },
     "That's a different Apple ID from the one you use with Foon. Confirm with the Apple ID you signed in with. Nothing was deleted." : {

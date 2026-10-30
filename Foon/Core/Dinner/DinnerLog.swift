@@ -104,6 +104,10 @@ struct DinnerLog: Identifiable, Equatable, Sendable, Decodable {
         reactions = try container.decodeIfPresent([Reaction].self, forKey: .reactions) ?? []
     }
 
+    /// Someone has confirmed it and answered the follow-up, so who cooked isn't just what a claim guessed. A thanks locks
+    /// the cook, so it waits for this (`thank_the_chef` asks the same).
+    var isSettled: Bool { verified && leftovers != nil }
+
     func reaction(of memberID: UUID) -> Reaction? {
         reactions.first { $0.memberID == memberID }
     }
@@ -116,6 +120,10 @@ enum DinnerCorrection: Equatable, Sendable, Encodable {
     case dish(mealID: UUID?, quickPick: QuickPick?)
     /// The first responder's follow-up.
     case extras(leftovers: Bool, cookedByMemberID: UUID?)
+    /// The follow-up, with the cook left as it is on the server.
+    case leftovers(Bool)
+    /// "That wasn't me": only the cook.
+    case cook(UUID?)
 
     private enum CodingKeys: String, CodingKey {
         case mealID = "meal_id"
@@ -132,6 +140,10 @@ enum DinnerCorrection: Equatable, Sendable, Encodable {
             try container.encode(quickPick, forKey: .quickPick)
         case .extras(let leftovers, let cook):
             try container.encode(leftovers, forKey: .leftovers)
+            try container.encode(cook, forKey: .cookedByMemberID)
+        case .leftovers(let leftovers):
+            try container.encode(leftovers, forKey: .leftovers)
+        case .cook(let cook):
             try container.encode(cook, forKey: .cookedByMemberID)
         }
     }

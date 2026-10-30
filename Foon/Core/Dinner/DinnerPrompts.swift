@@ -52,6 +52,14 @@ enum DinnerPrompts {
         }
     }
 
+    /// What the follow-up card saves. The cook goes only if this person changed it: the card may have started from a cook
+    /// someone has since taken off, and an untouched card mustn't put them back. A quick pick clears any cook, since nobody
+    /// cooks takeout.
+    static func followUp(leftovers: Bool, startedFrom: UUID?, chosen: UUID?, isDish: Bool) -> DinnerCorrection {
+        if !isDish { return startedFrom == nil ? .leftovers(leftovers) : .extras(leftovers: leftovers, cookedByMemberID: nil) }
+        return chosen == startedFrom ? .leftovers(leftovers) : .extras(leftovers: leftovers, cookedByMemberID: chosen)
+    }
+
     /// Leftovers are likely when someone expected was out (the spec's pre-filled guess).
     static func expectsLeftovers(_ night: WeekNight) -> Bool {
         night.attendance.values.contains(false)

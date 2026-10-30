@@ -33,17 +33,17 @@ insert into public.plan_nights (id, household_id, plan_id, date, meal_id) values
    public.household_today('00000000-0000-0000-0000-0000000000a0') - 1, '00000000-0000-0000-0000-0000000002a1'),
   ('00000000-0000-0000-0000-0000000004a2', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000003a2',
    public.household_today('00000000-0000-0000-0000-0000000000a0') - 30, '00000000-0000-0000-0000-0000000002a1');
-insert into public.meal_logs (id, household_id, night_id, meal_id, cooked_by_member_id) values
+insert into public.meal_logs (id, household_id, night_id, meal_id, cooked_by_member_id, leftovers) values
   ('00000000-0000-0000-0000-0000000005a1', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000004a1',
-   '00000000-0000-0000-0000-0000000002a1', '00000000-0000-0000-0000-0000000000a1'),
+   '00000000-0000-0000-0000-0000000002a1', '00000000-0000-0000-0000-0000000000a1', false),
   ('00000000-0000-0000-0000-0000000005a2', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000004a2',
-   '00000000-0000-0000-0000-0000000002a1', '00000000-0000-0000-0000-0000000000a1');
+   '00000000-0000-0000-0000-0000000002a1', '00000000-0000-0000-0000-0000000000a1', false);
 insert into public.plan_nights (id, household_id, plan_id, date, quick_pick) values
   ('00000000-0000-0000-0000-0000000004a3', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000003a1',
    public.household_today('00000000-0000-0000-0000-0000000000a0'), 'takeout');
-insert into public.meal_logs (id, household_id, night_id, quick_pick, cooked_by_member_id) values
+insert into public.meal_logs (id, household_id, night_id, quick_pick, cooked_by_member_id, leftovers) values
   ('00000000-0000-0000-0000-0000000005a3', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000004a3',
-   'takeout', '00000000-0000-0000-0000-0000000000a1');
+   'takeout', '00000000-0000-0000-0000-0000000000a1', false);
 
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 select lives_ok($$ select public.thank_the_chef('00000000-0000-0000-0000-0000000005a1') $$, 'Bob thanks Alice for the chili');
@@ -59,7 +59,7 @@ select throws_ok($$ delete from public.chef_thanks $$, '42501', null, 'thanks ar
 select throws_ok($$ select public.thank_the_chef('00000000-0000-0000-0000-0000000005a3') $$, '22023', null,
   'takeout isn''t a cooked dish');
 select throws_ok($$ update public.meal_logs set cooked_by_member_id = '00000000-0000-0000-0000-0000000000a2'
-  where id = '00000000-0000-0000-0000-0000000005a1' $$, '42501', null,
+  where id = '00000000-0000-0000-0000-0000000005a1' $$, 'FD011', null,
   'once thanked, the cook can''t be changed to someone else (here, Bob himself)');
 select lives_ok($$ update public.meal_logs set leftovers = true where id = '00000000-0000-0000-0000-0000000005a1' $$,
   'leftovers can still be answered');

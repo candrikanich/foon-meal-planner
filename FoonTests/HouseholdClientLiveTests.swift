@@ -748,6 +748,19 @@ struct HouseholdClientLiveTests {
         #expect(log.cookedByMemberID == nora.id)
         #expect(CookCredit.thisMonth(logs: [log], thanks: [], today: today).map(\.memberID) == [nora.id])
 
+        // A guess can't be thanked. The follow-up leaves the cook alone, and then thanks lock it.
+        await #expect("not until who cooked is settled") {
+            try await dinners.thankTheChef(log.id)
+        } throws: { ($0 as? PostgrestError)?.code == "22023" }
+        try await dinners.correct(log.id, .leftovers(true))
+        let settled = try #require(try await dinners.logs(household.id, today).first { $0.nightID == tonight.id })
+        #expect(settled.isSettled)
+        #expect(settled.cookedByMemberID == nora.id, "the leftovers answer leaves the cook")
+        try await dinners.thankTheChef(log.id)
+        await #expect("thanked, the cook stays, and it says why") {
+            try await dinners.correct(log.id, .cook(nil))
+        } throws: { ($0 as? PostgrestError)?.code == "FD011" }
+
         // Dinner jobs, one change at a time.
         #expect(try await households.setDinnerJob(household.id, .dishes, true).jobs == [.dishes])
         #expect(try await households.setDinnerJob(household.id, .setTable, true).jobs == [.dishes, .setTable])

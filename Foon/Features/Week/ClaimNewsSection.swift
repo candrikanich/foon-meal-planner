@@ -16,7 +16,7 @@ struct ClaimNewsSection: View {
 
     var body: some View {
         let settings = household.household?.planningSettings ?? HouseholdSettings()
-        let news = NightClaims.news(claims: dinner.claims, me: household.me?.id, canPlan: canPlan,
+        let news = NightClaims.news(claims: dinner.claims, nights: week.week?.nights ?? [], me: household.me?.id, canPlan: canPlan,
                                     members: household.visibleMembers, logged: Set(dinner.logs.map(\.nightID)),
                                     away: settings.awayDates, today: week.todayDay, dismissed: dismissed)
         if !news.isEmpty {
