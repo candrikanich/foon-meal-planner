@@ -128,6 +128,21 @@ extension LibraryClient {
     }
 }
 
+extension FreezerClient {
+    /// Something in the freezer, something planned, and something used up.
+    static let preview = FreezerClient(
+        items: { _ in
+            let tacos = LibraryMeal.sampleLibrary[0], mac = LibraryMeal.sampleLibrary[1]
+            let today = CalendarDay(Date())
+            return [FreezerItem(id: UUID(), mealID: tacos.id, mealName: tacos.name, madeOn: today.adding(days: -40), state: .in),
+                    FreezerItem(id: UUID(), mealID: mac.id, mealName: mac.name, madeOn: today.adding(days: -9), state: .in),
+                    FreezerItem(id: UUID(), mealID: mac.id, mealName: mac.name, madeOn: today.adding(days: -70), state: .used)]
+        },
+        add: { _, _, _ in },
+        setState: { _, _ in }
+    )
+}
+
 extension WeekClient {
     /// A week for the sample family, started or not. Owen (away at camp) is out until his return date.
     static func preview(started: Bool = false) -> WeekClient {

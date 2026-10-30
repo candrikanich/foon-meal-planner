@@ -27,6 +27,7 @@ struct DayCardModel: Identifiable, Equatable, Sendable {
         case prep(String)
         case equipment(String)
         case startCooking(String)
+        case doubled(String)
     }
 
     let date: CalendarDay
@@ -37,6 +38,8 @@ struct DayCardModel: Identifiable, Equatable, Sendable {
     var isLocked: Bool
     /// "Nora: keep everything separate", for people home that night.
     var servingNotes: [String] = []
+    /// On a leftovers night that knows its dish: "From Monday's Chili".
+    var leftoversNote: String? = nil
 
     var id: CalendarDay { date }
 }
@@ -118,7 +121,8 @@ enum DayCardText {
 
     static func badgeLabel(_ badge: DayCardModel.Badge) -> String {
         switch badge {
-        case .allergy(let text), .tradition(let text), .prep(let text), .equipment(let text), .startCooking(let text): text
+        case .allergy(let text), .tradition(let text), .prep(let text), .equipment(let text), .startCooking(let text),
+             .doubled(let text): text
         case .request(let name): String(localized: "\(name)'s request", comment: "Day card badge: the member who asked for this dish")
         }
     }
@@ -130,7 +134,7 @@ enum DayCardText {
         case .empty: parts.append(String(localized: "Nothing planned yet"))
         case .meal(let name, _, let reason, let sides):
             parts.append([name, reason, sidesLabel(sides)].compactMap { $0 }.joined(separator: ", "))
-        case .quickPick(let pick): parts.append(quickPickLabel(pick))
+        case .quickPick(let pick): parts.append([quickPickLabel(pick), card.leftoversNote].compactMap { $0 }.joined(separator: ", "))
         case .away: parts.append(String(localized: "Away, no dinner to plan"))
         }
         if card.slot != .away { parts.append(effortLabel(card.effort)) }

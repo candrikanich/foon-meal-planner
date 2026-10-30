@@ -7,6 +7,7 @@ struct SwapSheet: View {
     @Environment(IdeasStore.self) private var ideas: IdeasStore?
     @Environment(LibraryStore.self) private var library
     @Environment(HouseholdStore.self) private var household
+    @Environment(FreezerStore.self) private var freezer: FreezerStore?
     @Environment(\.dismiss) private var dismiss
     let nightID: UUID
 
@@ -43,6 +44,7 @@ struct SwapSheet: View {
                 }
                 if search.isEmpty {
                     suggestionsSection
+                    freezerSection
                     quickPicksSection
                     if night?.isPlanned == true {
                         Section {
@@ -50,6 +52,9 @@ struct SwapSheet: View {
                         } footer: {
                             Text("Fill or Pick for me can plan it again.")
                         }
+                    }
+                    if let unwinding {
+                        Section { Text(unwinding).font(.foonCaption).foregroundStyle(.secondary) }
                     }
                 } else {
                     searchResults
@@ -70,6 +75,7 @@ struct SwapSheet: View {
                 week.clearError()
                 library.clearError()
                 await suggest()
+                await freezer?.load()
             }
         }
     }
@@ -120,6 +126,62 @@ struct SwapSheet: View {
                 Text("Foon holds back dishes that usually use kitchen equipment you don't have, unless few others fit. Search your meals to plan one anyway.")
             }
         }
+    }
+
+    /// What changing this night also changes, said before it happens.
+    private var unwinding: String? {
+        guard let night else { return nil }
+        if week.week?.nights.contains(where: { $0.leftoversFrom == night.id }) == true {
+            return String(localized: "This dish is doubled. Changing it takes its leftovers night back to what it held.")
+        }
+        if night.leftoversFrom != nil {
+            return String(localized: "These are planned leftovers. Changing this night means the dish goes back to its regular amounts when you update the list.")
+        }
+        if night.stashItemID != nil {
+            return String(localized: "This dish is from the freezer. Changing it puts it back in the freezer.")
+        }
+        return nil
+    }
+
+    /// Dinners already cooked, oldest first, with allergy flags for whoever's home that night. Empty, it isn't shown.
+    @ViewBuilder
+    private var freezerSection: some View {
+        if let night, let freezer {
+            let offers = FreezerStash.offers(freezer.items, on: night, week: week.week?.nights ?? [], library: library.meals,
+                                             notForMe: library.reactions.notForMe,
+                                             snoozed: library.reactions.snoozed(today: week.todayDay),
+                                             allergies: library.allergies, today: week.todayDay)
+            if !offers.isEmpty {
+                Section("From the freezer") {
+                    ForEach(offers, id: \.item.id) { offer in
+                        freezerRow(offer)
+                    }
+                }
+            }
+        }
+    }
+
+    private func freezerRow(_ offer: FreezerStash.Offer) -> some View {
+        let made = FreezerStash.madeText(offer.item.madeOn, today: week.todayDay)
+        return Button {
+            Task {
+                await choose(.freezer(offer.item, reason: FreezerStash.reason(madeOn: offer.item.madeOn, today: week.todayDay)))
+                await freezer?.load()
+            }
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(offer.meal.name).font(.foonHeadline).foregroundStyle(Palette.ink)
+                    Chip(text: made, systemImage: "snowflake")
+                    ForEach(offer.flags, id: \.summary) { flag in
+                        Chip(text: flag.summary, systemImage: "exclamationmark.triangle.fill", tint: Palette.caution)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+            }
+        }
+        .accessibilityLabel(([offer.meal.name, made] + offer.flags.map(\.summary)).joined(separator: ", "))
     }
 
     private var quickPicksSection: some View {
@@ -233,6 +295,7 @@ struct SwapSheet: View {
         .environment(household)
         .environment(week)
         .environment(library)
+        .environment(FreezerStore(householdID: Household.sample.id, client: .preview))
         .task {
             await household.load()
             await week.load(settings: HouseholdSettings())

@@ -16,8 +16,13 @@ struct ShoppingLine: Equatable, Sendable {
 /// too, so what's flagged is what's served.
 enum ShoppingLines {
     static func lines(for meal: LibraryMeal, library: [LibraryMeal]) -> [ShoppingLine] {
+        ingredients(of: meal) + sides(for: meal, library: library)
+    }
+
+    /// Only the sides: what a dish already cooked and in the freezer still needs.
+    static func sides(for meal: LibraryMeal, library: [LibraryMeal]) -> [ShoppingLine] {
         let byID = Dictionary(library.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        return ingredients(of: meal) + meal.sides.flatMap { side -> [ShoppingLine] in
+        return meal.sides.flatMap { side -> [ShoppingLine] in
             switch side {
             case .meal(let id):
                 guard let side = byID[id], side.status != .retired else { return [] }

@@ -324,10 +324,14 @@ extension WeekClient {
         setNight: @escaping @Sendable (NightUpdate, Bool) async throws -> Void = { _, _ in },
         approve: @escaping @Sendable (UUID, [WeeklyList.Line]) async throws -> Void = { _, _ in },
         traditions: @escaping @Sendable (UUID) async throws -> [Tradition] = { _ in [] },
-        setTradition: @escaping @Sendable (UUID, Int, Tradition?) async throws -> Void = { _, _, _ in }
+        setTradition: @escaping @Sendable (UUID, Int, Tradition?) async throws -> Void = { _, _, _ in },
+        doubleIt: @escaping @Sendable (DoubleItRequest) async throws -> Void = { _ in },
+        undoDouble: @escaping @Sendable (UUID) async throws -> Void = { _ in },
+        useFreezerItem: @escaping @Sendable (UUID, UUID, String) async throws -> Void = { _, _, _ in }
     ) -> WeekClient {
         WeekClient(week: week, create: create, setExpected: setExpected, setEffort: setEffort, setLocked: setLocked,
                    setNights: setNights, setNight: setNight, approve: approve, traditions: traditions,
-                   setTradition: setTradition)
+                   setTradition: setTradition, doubleIt: doubleIt, undoDouble: undoDouble,
+                   useFreezerItem: useFreezerItem)
     }
 }

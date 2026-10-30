@@ -8,7 +8,9 @@ struct NightDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let nightID: UUID
     let canPlan: Bool
+    @Environment(IdeasStore.self) private var ideas: IdeasStore?
     @State private var swapping = false
+    @State private var choosingLeftovers = false
 
     private static let efforts: [NightEffort] = [.normal, .rushed, .full, .event]
 
@@ -40,6 +42,8 @@ struct NightDetailView: View {
             } header: {
                 Text(DayCardText.dateLabel(for: night.date))
             }
+
+            cookOnceEatTwice(night)
 
             Section("Effort") {
                 if canPlan {
@@ -98,6 +102,77 @@ struct NightDetailView: View {
         .sheet(isPresented: $swapping) {
             SwapSheet(nightID: nightID)
         }
+    }
+
+    /// Everyone sees what's doubled and where the leftovers are; planners double a dish or undo it.
+    @ViewBuilder
+    private func cookOnceEatTwice(_ night: WeekNight) -> some View {
+        let nights = week.week?.nights ?? []
+        let later = DoubleIt.leftoversNight(of: night, in: nights)
+        let source = nights.first { $0.id == night.leftoversFrom }
+        if later != nil || source != nil {
+            Section {
+                if let later {
+                    Text(DoubleIt.doubledText(leftoversOn: later, today: week.todayDay))
+                } else if let note = source.flatMap({ DoubleIt.leftoversNote(from: $0) }) {
+                    Text(note)
+                }
+                if canPlan {
+                    Button("Undo Double it", systemImage: "arrow.uturn.backward") {
+                        Task {
+                            if await week.undoDouble(nightID: night.id) { await syncIdeas() }
+                        }
+                    }
+                    .tint(Palette.paprika)
+                    .disabled(week.isBuilding)
+                    .accessibilityHint("Goes back to what the leftovers night held, and the regular amounts")
+                }
+            } header: {
+                Text("Cook once, eat twice")
+            } footer: {
+                if canPlan, week.week?.approvedAt != nil {
+                    Text("Update the list on This Week after undoing, to go back to the regular amounts.")
+                }
+            }
+        } else if canPlan, let layout = week.layout, DoubleIt.canDouble(night, in: layout) {
+            let choices = DoubleIt.choices(for: night, in: layout)
+            Section {
+                Button("Double it", systemImage: "square.on.square") { choosingLeftovers = true }
+                    .tint(Palette.paprika)
+                    .disabled(week.isBuilding || choices.isEmpty)
+                    .confirmationDialog("Which night for the leftovers?", isPresented: $choosingLeftovers,
+                                        titleVisibility: .visible) {
+                        ForEach(choices) { later in
+                            Button(leftoversChoice(later)) {
+                                Task {
+                                    if await week.doubleIt(nightID: night.id, leftoversNightID: later.id) {
+                                        await syncIdeas()
+                                    }
+                                }
+                            }
+                        }
+                    } message: {
+                        Text(DoubleIt.listNote(approved: week.week?.approvedAt != nil))
+                    }
+            } header: {
+                Text("Cook once, eat twice")
+            } footer: {
+                Text(choices.isEmpty ? "No later night this week can take the leftovers."
+                                     : "Cook twice as much, and plan a night off later this week.")
+            }
+        }
+    }
+
+    private func leftoversChoice(_ later: WeekNight) -> String {
+        let day = DayCardText.dayLabel(for: later.date, today: week.todayDay)
+        guard later.isPlanned, later.quickPick != .leftovers else { return day }
+        return String(localized: "\(day): replaces \(PlanIt.currentPick(later))",
+                      comment: "Double it, choosing the leftovers night: the night and what's planned there now")
+    }
+
+    /// A dish that leaves a night takes its request back to open, as after a swap.
+    private func syncIdeas() async {
+        await ideas?.sync(with: week.week, today: week.todayDay, requestNights: week.requestNights, away: week.awayDates)
     }
 
     @ViewBuilder

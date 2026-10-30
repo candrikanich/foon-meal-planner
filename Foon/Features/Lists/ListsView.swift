@@ -37,6 +37,13 @@ struct ListsView: View {
                 }
                 onTheList
                 runningLow
+                Section {
+                    NavigationLink { FreezerView() } label: {
+                        Label("Freezer stash", systemImage: "snowflake")
+                    }
+                } footer: {
+                    Text("Dinners cooked ahead, with the date they were made.")
+                }
             }
             .navigationTitle("Lists")
             .toolbar {
@@ -205,6 +212,8 @@ struct ListEntryRow: View {
     ListsView()
         .environment(HouseholdStore.preview())
         .environment(\.itemClient, .preview)
+        .environment(FreezerStore(householdID: Household.sample.id, client: .preview))
+        .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .modelContainer(try! SyncService.inMemoryContainer())
 }
 

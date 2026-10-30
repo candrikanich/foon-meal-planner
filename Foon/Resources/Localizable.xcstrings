@@ -161,8 +161,22 @@
         }
       }
     },
+    "%@: replaces %@" : {
+      "comment" : "Double it, choosing the leftovers night: the night and what's planned there now",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: replaces %2$@"
+          }
+        }
+      }
+    },
     "%lld" : {
 
+    },
+    "%lld days ago" : {
+      "comment" : "Freezer stash: how long ago"
     },
     "%lld days ahead" : {
 
@@ -178,6 +192,9 @@
     },
     "%lld me-toos" : {
 
+    },
+    "%lld months ago" : {
+      "comment" : "Freezer stash: how long ago"
     },
     "%lld more people" : {
 
@@ -212,6 +229,9 @@
     },
     "%lld to buy" : {
 
+    },
+    "%lld weeks ago" : {
+      "comment" : "Freezer stash: how long ago"
     },
     "%lld." : {
 
@@ -256,6 +276,9 @@
       "comment" : "Family: kitchen equipment the household lacks"
     },
     "A demo family with dinners and a planned week, to look around first." : {
+
+    },
+    "A doubled or freezer night changed what to buy. Update the list." : {
 
     },
     "A family favorite" : {
@@ -342,6 +365,9 @@
     "Add to our meals" : {
 
     },
+    "Add to the freezer" : {
+
+    },
     "Add to the quick list" : {
 
     },
@@ -352,6 +378,9 @@
 
     },
     "Add “%@” as a new dish" : {
+
+    },
+    "Adds it to the freezer" : {
 
     },
     "Adds it to your library and plans it" : {
@@ -564,6 +593,12 @@
         }
       }
     },
+    "Cook once, eat twice" : {
+
+    },
+    "Cook twice as much, and plan a night off later this week." : {
+
+    },
     "Cooked this month" : {
 
     },
@@ -579,10 +614,16 @@
     "Couldn't add %@. Try again." : {
 
     },
+    "Couldn't add that to the freezer. Check your connection and try again." : {
+
+    },
     "Couldn't approve the week. Check your connection and try again." : {
 
     },
     "Couldn't archive that meal. Check your connection and try again." : {
+
+    },
+    "Couldn't change that. Check your connection and try again." : {
 
     },
     "Couldn't change the dinner. Check your connection and try again." : {
@@ -612,6 +653,9 @@
     "Couldn't delete your account, and nothing was deleted. Check your connection and try again." : {
 
     },
+    "Couldn't double the night. Check your connection and try again." : {
+
+    },
     "Couldn't export your household. Check your connection and try again." : {
 
     },
@@ -622,6 +666,9 @@
 
     },
     "Couldn't load last night's dinner. Check your connection and try again." : {
+
+    },
+    "Couldn't load the freezer. Check your connection and try again." : {
 
     },
     "Couldn't load the ideas. Check your connection and try again." : {
@@ -717,6 +764,9 @@
     "Couldn't switch schedules. Pull to refresh, then try again." : {
 
     },
+    "Couldn't undo it. Check your connection and try again." : {
+
+    },
     "Couldn't upload the photo. Check your connection and try again." : {
 
     },
@@ -789,6 +839,9 @@
     "Dinners" : {
 
     },
+    "Dinners cooked ahead, with the date they were made." : {
+
+    },
     "Discard" : {
 
     },
@@ -803,6 +856,15 @@
     },
     "Done" : {
       "comment" : "Cook mode: a timer that has finished\nCook mode: leave cook mode"
+    },
+    "Double it" : {
+
+    },
+    "Doubled for %@" : {
+      "comment" : "Weekly list note: the amount is already twice the recipe, for the dish"
+    },
+    "Doubled: leftovers %@" : {
+      "comment" : "Day card badge: this dish is cooked twice over, with leftovers on that night"
     },
     "Drinks" : {
 
@@ -969,11 +1031,25 @@
     "Freezer raid" : {
 
     },
+    "Freezer stash" : {
+
+    },
     "From" : {
 
     },
     "From %@" : {
 
+    },
+    "From %@'s %@" : {
+      "comment" : "Day card, on a leftovers night: the weekday and dish they're from",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "From %1$@'s %2$@"
+          }
+        }
+      }
     },
     "From %@, for %@" : {
       "comment" : "Idea row: who asked and the night they want it",
@@ -998,6 +1074,12 @@
     "From the dinners logged after each meal. Tap Thanks, chef on This Week to say so." : {
 
     },
+    "From the freezer" : {
+
+    },
+    "From the freezer, made %@" : {
+      "comment" : "Reason chip: a dish already cooked and frozen, and the date it was made"
+    },
     "From your meals" : {
 
     },
@@ -1009,6 +1091,9 @@
     },
     "Get dairy-free" : {
       "comment" : "Shopping note for a milk allergy"
+    },
+    "Get double for %@" : {
+      "comment" : "Weekly list note: buy twice as much for the dish; no amount to scale"
     },
     "Get egg-free" : {
       "comment" : "Shopping note for an egg allergy"
@@ -1032,6 +1117,9 @@
 
     },
     "Go to This Week" : {
+
+    },
+    "Goes back to what the leftovers night held, and the regular amounts" : {
 
     },
     "Goes on the quick list. Several at once: separate them with commas." : {
@@ -1117,6 +1205,9 @@
     "In the cart" : {
 
     },
+    "In the freezer" : {
+
+    },
     "In use" : {
 
     },
@@ -1177,6 +1268,9 @@
     "It's archived; this puts it back in rotation." : {
 
     },
+    "It's undone, but the week didn't refresh. Pull down to see it." : {
+
+    },
     "Join family" : {
 
     },
@@ -1234,6 +1328,9 @@
     "Loading the dish..." : {
 
     },
+    "Loading what's in the freezer…" : {
+
+    },
     "Loading your profile..." : {
 
     },
@@ -1252,6 +1349,20 @@
     "Low" : {
 
     },
+    "Made %@" : {
+      "comment" : "Freezer stash: the date a dish was made"
+    },
+    "Made %@ · %@" : {
+      "comment" : "Freezer stash: the date a dish was made, and how long ago",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Made %1$@ · %2$@"
+          }
+        }
+      }
+    },
     "Made %lld times, last on %@" : {
       "localizations" : {
         "en" : {
@@ -1266,6 +1377,9 @@
 
     },
     "Made by %@" : {
+
+    },
+    "Made on" : {
 
     },
     "Made once, last on %@" : {
@@ -1373,6 +1487,9 @@
     "No backup dinners" : {
 
     },
+    "No dishes match. Add it to your library first." : {
+
+    },
     "No favorites yet" : {
 
     },
@@ -1383,6 +1500,9 @@
 
     },
     "No ingredients yet. Tap Edit to add them." : {
+
+    },
+    "No later night this week can take the leftovers." : {
 
     },
     "No matches" : {
@@ -1466,6 +1586,9 @@
     "Nothing fits tonight" : {
       "comment" : "Reason chip: no dish passed the filters"
     },
+    "Nothing in the freezer yet. Cooked extra? Add it so it gets eaten." : {
+
+    },
     "Nothing left on the list." : {
 
     },
@@ -1493,6 +1616,9 @@
     "Notifications" : {
 
     },
+    "Oldest first. Planners see these in Swap, with allergy flags for whoever's home that night." : {
+
+    },
     "On the list" : {
 
     },
@@ -1506,6 +1632,12 @@
 
     },
     "One step per line" : {
+
+    },
+    "Only people in this family can change its freezer." : {
+
+    },
+    "Only planners can change the plan." : {
 
     },
     "Only planners can do that with someone else's idea." : {
@@ -1583,6 +1715,9 @@
     "Pick for me" : {
 
     },
+    "Pick today or an earlier day: it has to be made already." : {
+
+    },
     "Pizza" : {
       "comment" : "Dish category in a variety note"
     },
@@ -1593,6 +1728,9 @@
 
     },
     "Plan on" : {
+
+    },
+    "Planned" : {
 
     },
     "Planned for %@" : {
@@ -1617,6 +1755,12 @@
 
     },
     "Pull to refresh the library, then try again." : {
+
+    },
+    "Put %@ back in the freezer" : {
+
+    },
+    "Put back" : {
 
     },
     "Quick" : {
@@ -1857,7 +2001,13 @@
     "Someday" : {
 
     },
+    "Someone already changed that one. Here's what's in the freezer now." : {
+
+    },
     "Someone already rated this dinner, so it stays as it was." : {
+
+    },
+    "Someone already took that out of the freezer. Pick something else." : {
 
     },
     "Someone archived it." : {
@@ -2043,6 +2193,9 @@
     "That dinner can't be thanked anymore." : {
 
     },
+    "That dish can't go on this night: it's been taken out of rotation, or it wasn't made yet." : {
+
+    },
     "That doesn't look like a web link." : {
 
     },
@@ -2059,6 +2212,9 @@
 
     },
     "That meal isn't in your library anymore. Pull to refresh." : {
+
+    },
+    "That night changed on another phone. Here's the latest; try again if you still want to." : {
 
     },
     "That night has already passed." : {
@@ -2094,10 +2250,16 @@
     "The family likes it" : {
       "comment" : "Reason chip"
     },
+    "The family voted this dish out, so Foon won't offer it." : {
+
+    },
     "The family's away that night, so it can't take a dinner. Change the away dates in Family to plan it." : {
 
     },
     "The family's away that night, so there's no dinner to plan. Pick another night, or send it without one." : {
+
+    },
+    "The list gets twice this dish's amounts. Anything marked in stock stays off it, so check you have enough." : {
 
     },
     "The night stays locked, so Rebuild keeps it." : {
@@ -2113,6 +2275,9 @@
 
     },
     "Their ratings and cooking history stay." : {
+
+    },
+    "These are planned leftovers. Changing this night means the dish goes back to its regular amounts when you update the list." : {
 
     },
     "They lose access right away. Their ratings and history stay." : {
@@ -2143,6 +2308,15 @@
 
     },
     "This dish has no steps yet. Add them on the meal to cook along here." : {
+
+    },
+    "This dish is archived, so Foon won't offer it." : {
+
+    },
+    "This dish is doubled. Changing it takes its leftovers night back to what it held." : {
+
+    },
+    "This dish is from the freezer. Changing it puts it back in the freezer." : {
 
     },
     "This household is already deleted, or you're not its owner any more." : {
@@ -2202,6 +2376,9 @@
     "Too many tries. Wait 15 minutes and try again." : {
 
     },
+    "Toss" : {
+
+    },
     "Tradition" : {
       "comment" : "Reason chip: a standing weekday tradition"
     },
@@ -2235,10 +2412,19 @@
     "Type them naturally, like \"1 lb ground beef, taco shells, cheese\"." : {
 
     },
+    "Undo Double it" : {
+
+    },
     "Unlock night" : {
 
     },
     "Up to %lld characters." : {
+
+    },
+    "Update the list on This Week after undoing, to go back to the regular amounts." : {
+
+    },
+    "Update the list on This Week to see it. Foon won't list something you've already bought again, so add any extra yourself." : {
 
     },
     "Update the list · %lld items" : {
@@ -2251,6 +2437,12 @@
 
     },
     "Use this if a phone is lost or shared. Every device, this one included, signs out right away." : {
+
+    },
+    "Used up" : {
+
+    },
+    "Used up or tossed" : {
 
     },
     "Uses what's on hand" : {
@@ -2323,6 +2515,12 @@
 
     },
     "When do you plan the week?" : {
+
+    },
+    "Which dish?" : {
+
+    },
+    "Which night for the leftovers?" : {
 
     },
     "Which of these does your family make?" : {
@@ -2501,6 +2699,9 @@
     "soy" : {
       "comment" : "Allergen, lowercase inside a sentence"
     },
+    "today" : {
+      "comment" : "Freezer stash: made today"
+    },
     "tree nuts" : {
       "comment" : "Allergen, lowercase inside a sentence"
     },
@@ -2509,6 +2710,9 @@
     },
     "with %@" : {
       "comment" : "Side dishes after a meal name: a list of sides"
+    },
+    "yesterday" : {
+      "comment" : "Freezer stash: made yesterday"
     }
   },
   "version" : "1.0"

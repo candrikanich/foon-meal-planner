@@ -511,6 +511,75 @@ struct HouseholdClientLiveTests {
         #expect(after.nights[2].attendance[ann.id] == true)
     }
 
+    @Test func doubleItAndTheFreezerRoundTrip() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let weeks = WeekClient.live(supabase)
+        let freezer = FreezerClient.live(supabase)
+        let library = LibraryClient.live(supabase)
+        let household = try await households.createHousehold("Freezer family", nil, "Ann", HouseholdSettings())
+        let chili = try await library.create(household.id, try MealDraft(newNamed: "Chili").validated())
+        let tacos = try await library.create(household.id, try MealDraft(newNamed: "Tacos").validated())
+
+        // 2037-11-01 is a Sunday, ahead of the clock.
+        let sunday = CalendarDay(year: 2037, month: 11, day: 1)
+        let week = try await weeks.create(household.id, sunday)
+        let monday = week.nights[1], tuesday = week.nights[2], wednesday = week.nights[3]
+        try await weeks.setNight(NightUpdate(nightID: monday.id, mealID: chili), false)
+        try await weeks.setNight(NightUpdate(nightID: tuesday.id, mealID: tacos), false)
+
+        let request = DoubleItRequest(nightID: monday.id, leftoversNightID: tuesday.id, expectedMeal: chili,
+                                      expectedLeftoversMeal: tacos, expectedLeftoversPick: nil)
+        try await weeks.doubleIt(request)
+        var loaded = try #require(try await weeks.week(household.id, sunday))
+        #expect(loaded.nights[2].leftoversFrom == monday.id)
+        #expect(loaded.nights[2].quickPick == .leftovers)
+        #expect(loaded.nights[1].locked)
+
+        do {
+            try await weeks.doubleIt(request)
+            Issue.record("a dish is doubled once")
+        } catch {
+            #expect((error as? PostgrestError)?.code == "FD001")
+        }
+
+        try await weeks.undoDouble(monday.id)
+        loaded = try #require(try await weeks.week(household.id, sunday))
+        #expect(loaded.nights[2].mealID == tacos, "the dish Double it replaced comes back")
+        #expect(loaded.nights[2].leftoversFrom == nil)
+
+        try await freezer.add(household.id, chili, CalendarDay(year: 2026, month: 1, day: 5))
+        let item = try #require(try await freezer.items(household.id).first)
+        #expect(item.mealName == "Chili")
+        #expect(item.state == .in)
+        #expect(item.plannedOn == nil)
+
+        try await weeks.useFreezerItem(wednesday.id, item.id, "From the freezer, made Jan 5")
+        loaded = try #require(try await weeks.week(household.id, sunday))
+        #expect(loaded.nights[3].stashItemID == item.id)
+        #expect(loaded.nights[3].mealName == "Chili")
+        let planned = try #require(try await freezer.items(household.id).first)
+        #expect(planned.state == .used)
+        #expect(planned.plannedOn == wednesday.date)
+
+        do {
+            try await weeks.useFreezerItem(monday.id, item.id, "From the freezer")
+            Issue.record("the same item can't go on two nights")
+        } catch {
+            #expect((error as? PostgrestError)?.code == "FD002")
+        }
+
+        try await weeks.setNight(NightUpdate(nightID: wednesday.id, quickPick: .takeout), true)
+        let back = try #require(try await freezer.items(household.id).first)
+        #expect(back.state == .in, "swapping the night puts it back")
+        #expect(back.plannedOn == nil)
+
+        try await freezer.setState(item.id, .archived)
+        #expect(try await freezer.items(household.id).first?.state == .archived)
+    }
+
     @Test func aPlannerSavesAndSwitchesSchedules() async throws {
         let households = try await Self.signedUpClient()
         let household = try await households.createHousehold("Season family", nil, "Ann", HouseholdSettings())
