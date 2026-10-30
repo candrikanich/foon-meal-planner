@@ -86,6 +86,16 @@ struct FamilyView: View {
                     } footer: {
                         Text("What you have to cook with, and when to start.")
                     }
+
+                    Section {
+                        NavigationLink {
+                            FoodRulesView()
+                        } label: {
+                            LabeledContent("Food rules", value: foodRulesSummary)
+                        }
+                    } footer: {
+                        Text("What your household skips, and when.")
+                    }
                 }
 
                 // Family order, not a ranking: credit, not a leaderboard.
@@ -196,6 +206,15 @@ struct FamilyView: View {
         guard let settings = store.household?.planningSettings else { return String(localized: "None") }
         let today = settings.today()
         return settings.awayDates(endingOnOrAfter: today).first?.summary(today: today) ?? String(localized: "None")
+    }
+
+    private var foodRulesSummary: String {
+        let count = store.household?.planningSettings.foodRules.count ?? 0
+        switch count {
+        case 0: return String(localized: "None", comment: "Family: the household has no food rules")
+        case 1: return String(localized: "1 rule", comment: "Family: how many food rules the household has")
+        default: return String(localized: "\(count) rules", comment: "Family: how many food rules the household has")
+        }
     }
 
     private var kitchenSummary: String {

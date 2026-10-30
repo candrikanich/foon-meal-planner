@@ -37,6 +37,9 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
     var otherMissingEquipment: [String] = []
     /// Whether cards say when to start cooking. Saved with `kitchen`, like the list.
     var showsStartCooking = true
+    /// What the household skips, and when. Read here, but written only through `set_food_rule`, which merges on the server,
+    /// so it isn't encoded: a stale copy saved with other settings can't undo another planner's rule.
+    var foodRules: [FoodRule] = []
 
     /// Onboarding's presets (docs/spec.md → Notifications): how much Foon nudges.
     enum NotificationPreset: String, Codable, CaseIterable, Sendable {
@@ -90,6 +93,13 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         return merged
     }
 
+    /// These settings, with the food rules from `other`, which is what's known from the server.
+    func withFoodRules(of other: HouseholdSettings) -> HouseholdSettings {
+        var merged = self
+        merged.foodRules = other.foodRules
+        return merged
+    }
+
     init() {}
 
     private enum CodingKeys: String, CodingKey {
@@ -109,6 +119,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         case awayDates = "away_dates"
         case missingEquipment = "missing_equipment"
         case showsStartCooking = "start_cooking_nudge"
+        case foodRules = "food_rules"
     }
 
     /// One bad entry shouldn't cost the rest.
@@ -165,6 +176,8 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         missingEquipment = Set(missing.compactMap(KitchenEquipment.init(rawValue:)))
         otherMissingEquipment = missing.filter { KitchenEquipment(rawValue: $0) == nil }
         showsStartCooking = (try? container.decodeIfPresent(Bool.self, forKey: .showsStartCooking)).flatMap { $0 } ?? true
+        foodRules = ((try? container.decodeIfPresent([FoodRule.Lenient].self, forKey: .foodRules)) ?? nil)?
+            .compactMap(\.rule) ?? []
     }
 
     /// "HH:mm", or nil for anything else.

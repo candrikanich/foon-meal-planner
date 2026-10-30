@@ -49,6 +49,12 @@ struct MemberEditorView: View {
                         Text("Parents manage the family, allergies, and privacy choices. Planners build the week and manage meals.")
                     }
 
+                    Section {
+                        Toggle("Eats separately", isOn: $draft.eatsSeparately)
+                    } footer: {
+                        Text("For babies and toddlers. They aren't asked to rate dinners, and their ratings and me-toos don't count. They still count as home, so allergy flags and serving notes cover them.")
+                    }
+
                     Section("Status") {
                         Picker("Status", selection: $draft.status) {
                             Text("Home").tag(MemberStatus.active)
@@ -72,6 +78,7 @@ struct MemberEditorView: View {
                     } footer: {
                         Text("Each new week starts from this. Tap a day they're usually out, like a work or practice night.")
                     }
+                    awayPatternSection
                 }
 
                 if let member, store.canInvite(member) {
@@ -154,6 +161,55 @@ struct MemberEditorView: View {
                 Text("They lose access right away. Their ratings and history stay.")
             }
         }
+    }
+
+    /// Shared custody and the like. Weeks already started stay as they are, like the usual days.
+    @ViewBuilder
+    private var awayPatternSection: some View {
+        Section {
+            Toggle("Away on a repeating schedule", isOn: Binding(
+                get: { draft.awayPattern != nil },
+                set: { draft.awayPattern = $0 ? AwayPattern(from: today) : nil }
+            ))
+            if let pattern = draft.awayPattern {
+                Picker("How often", selection: Binding(
+                    get: { pattern.everyWeeks },
+                    set: { draft.awayPattern?.everyWeeks = $0 }
+                )) {
+                    ForEach(2...4, id: \.self) { Text(AwayPattern.everyWeeksTitle($0)).tag($0) }
+                }
+                Picker("Which nights", selection: Binding(
+                    get: { pattern.days },
+                    set: {
+                        draft.awayPattern?.days = $0
+                        draft.awayPattern = draft.awayPattern?.snapped()
+                    }
+                )) {
+                    Text("The whole week").tag(Set<Int>())
+                    Text("Friday to Sunday").tag(AwayPattern.weekend)
+                }
+                DatePicker(pattern.days == AwayPattern.weekend ? "First weekend" : "First night away", selection: Binding(
+                    get: { pattern.from.date() },
+                    set: {
+                        draft.awayPattern?.from = CalendarDay($0)
+                        draft.awayPattern = draft.awayPattern?.snapped()
+                    }
+                ), displayedComponents: .date)
+            }
+        } header: {
+            Text("Repeating time away")
+        } footer: {
+            if let next = draft.awayPattern?.nextNight(onOrAfter: today) {
+                Text("Next night out: \(DayCardText.dateLabel(for: next)). Each new week starts from this.")
+            } else {
+                Text("For shared custody and the like: every other week, or every other weekend.")
+            }
+        }
+    }
+
+    /// The household's day, which is what the server starts weeks by.
+    private var today: CalendarDay {
+        (store.household?.planningSettings ?? HouseholdSettings()).today()
     }
 
     @ViewBuilder

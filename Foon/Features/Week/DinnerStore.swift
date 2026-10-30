@@ -158,7 +158,8 @@ final class DinnerStore {
             errorMessage = nil
         } catch {
             let code = (error as? PostgrestError)?.code
-            errorMessage = code == "42501" || code == "22023" ? (refused ?? failure) : failure
+            errorMessage = code == "FD004" ? String(localized: "They eat separately, so they don't rate dinners.")
+                : code == "42501" || code == "22023" ? (refused ?? failure) : failure
             return false
         }
         await reload()

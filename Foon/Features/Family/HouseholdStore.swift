@@ -226,6 +226,7 @@ final class HouseholdStore {
             try await client.updateSettings(household.id, settings)
             loadGeneration += 1
             household.settings = settings.withKitchen(of: household.planningSettings)
+                .withFoodRules(of: household.planningSettings)
             phase = .ready(household)
             errorMessage = nil
             return true
@@ -249,6 +250,29 @@ final class HouseholdStore {
             return true
         } catch {
             errorMessage = String(localized: "Couldn't save the settings. Check your connection and try again.")
+            return false
+        }
+    }
+
+    /// Sets or (nil) takes away one food's rule, and shows the list the server sends back, which includes what other
+    /// planners have changed since this device loaded. Returns whether it saved.
+    @discardableResult
+    func setFoodRule(_ avoid: FoodRule.Avoid, nights: FoodRule.Nights?) async -> Bool {
+        guard let id = household?.id else { return false }
+        do {
+            let rules = try await client.setFoodRule(id, avoid, nights)
+            loadGeneration += 1
+            guard var household else { return false }
+            var settings = household.planningSettings
+            settings.foodRules = rules
+            household.settings = settings
+            phase = .ready(household)
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = (error as? PostgrestError)?.code == "42501"
+                ? String(localized: "Only planners can change food rules.")
+                : String(localized: "Couldn't save the food rule. Check your connection and try again.")
             return false
         }
     }

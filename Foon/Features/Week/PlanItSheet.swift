@@ -31,6 +31,12 @@ enum PlanIt {
         includingPlanned ? layout.plannable : layout.plannable.filter { $0.mealID != mealID }
     }
 
+    /// The planner's choosing, so a food rule doesn't stop them: it just says so before they pick the night.
+    static func foodRuleWarnings(for meal: LibraryMeal, on night: WeekNight, settings: HouseholdSettings,
+                                 library: [LibraryMeal]) -> [String] {
+        FoodRuleMatcher.broken(by: meal, on: night.date, rules: settings.foodRules, library: library).map(\.looksLikeText)
+    }
+
     /// What a night holds now, so picking it says what gets replaced.
     static func currentPick(_ night: WeekNight) -> String {
         if let name = night.mealName { return name }
@@ -44,6 +50,7 @@ enum PlanIt {
 struct PlanItSheet: View {
     @Environment(WeekStore.self) private var week
     @Environment(HouseholdStore.self) private var household
+    @Environment(LibraryStore.self) private var library: LibraryStore?
     @Environment(\.showTab) private var showTab
     @Environment(\.dismiss) private var dismiss
     let meal: LibraryMeal
@@ -59,6 +66,8 @@ struct PlanItSheet: View {
                      loadError: week.errorMessage, includingPlanned: onPlanned != nil,
                      awayForTheRest: week.isAwayForTheRestOfTheWeek)
     }
+
+    private var settings: HouseholdSettings { household.household?.planningSettings ?? HouseholdSettings() }
 
     private var whichWeek: String {
         week.showingNextWeek ? String(localized: "Next week") : String(localized: "This week")
@@ -155,6 +164,9 @@ struct PlanItSheet: View {
                 if let warning = DoubleIt.changeWarning(for: night, in: week.week?.nights ?? []) {
                     Text(warning).font(.foonCaption).foregroundStyle(Palette.paprika)
                 }
+                ForEach(PlanIt.foodRuleWarnings(for: meal, on: night, settings: settings, library: library?.meals ?? [meal]), id: \.self) {
+                    Text($0).font(.foonCaption).foregroundStyle(Palette.paprika)
+                }
             }
             Spacer()
             if saving == night.id {
@@ -192,6 +204,7 @@ struct PlanItSheet: View {
     PlanItSheet(meal: LibraryMeal.sampleLibrary[0])
         .environment(household)
         .environment(week)
+        .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .task {
             await household.load()
             await week.load(settings: HouseholdSettings())

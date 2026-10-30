@@ -110,6 +110,16 @@ extension LibraryClient {
                                 reactedOn: CalendarDay(Date()).adding(days: -2))
                 }
             },
+            comments: { _ in
+                guard let first = meals.first else { return [] }
+                let day = CalendarDay(Date()).adding(days: -2)
+                return [
+                    MealComment(id: UUID(), mealID: first.id, memberID: Member.sampleFamily[1].id,
+                                text: "A little more cumin next time", dinnerOn: day, hidden: false),
+                    MealComment(id: UUID(), mealID: first.id, memberID: Member.sampleFamily[4].id,
+                                text: "Too spicy", dinnerOn: day, hidden: true)
+                ]
+            },
             servingNotes: { _ in
                 guard let first = meals.first else { return [] }
                 return [ServingNote(mealID: first.id, memberID: Member.sampleFamily[4].id,

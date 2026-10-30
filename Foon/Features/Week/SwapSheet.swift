@@ -47,6 +47,7 @@ struct SwapSheet: View {
                 }
                 if search.isEmpty {
                     suggestionsSection
+                    heldBackSection
                     freezerSection
                     quickPicksSection
                     if night?.isPlanned == true {
@@ -128,6 +129,49 @@ struct SwapSheet: View {
         }
     }
 
+    /// Dishes a food rule held back from the suggestions, and why: a guess from the name, so the planner can still pick one.
+    private var heldBack: [(meal: LibraryMeal, rules: [FoodRule])] {
+        guard let night, night.date >= week.todayDay else { return [] }
+        return FoodRuleMatcher.heldBack(on: night, week: week.week?.nights ?? [], meals: library.meals,
+                                        rules: settings.foodRules)
+    }
+
+    private static let heldBackShown = 12
+
+    @ViewBuilder
+    private var heldBackSection: some View {
+        let heldBack = heldBack
+        if !heldBack.isEmpty {
+            Section {
+                ForEach(heldBack.prefix(Self.heldBackShown), id: \.meal.id) { entry in
+                    Button { Task { await choose(.meal(id: entry.meal.id, name: entry.meal.name)) } } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(entry.meal.name).font(.foonHeadline).foregroundStyle(Palette.ink)
+                            ForEach(entry.rules, id: \.self) { rule in
+                                Chip(text: rule.looksLikeText, systemImage: "fork.knife", tint: Palette.paprika)
+                            }
+                        }
+                    }
+                    .accessibilityLabel(([entry.meal.name] + entry.rules.map(\.looksLikeText)).joined(separator: ", "))
+                    .accessibilityHint("Plans it anyway")
+                }
+            } header: {
+                Text("Held back by your food rules")
+            } footer: {
+                if heldBack.count > Self.heldBackShown {
+                    Text("Foon goes by names and ingredients, so it can be wrong either way. Tap one to plan it anyway, or search your meals for the rest.")
+                } else {
+                    Text("Foon goes by names and ingredients, so it can be wrong either way. Tap one to plan it anyway.")
+                }
+            }
+        }
+    }
+
+    private func rulesBroken(by meal: LibraryMeal) -> [FoodRule] {
+        guard let night, night.date >= week.todayDay else { return [] }
+        return FoodRuleMatcher.broken(by: meal, on: night.date, rules: settings.foodRules, library: library.meals)
+    }
+
     /// What changing this night also changes, said before it happens.
     private var unwinding: String? {
         night.flatMap { DoubleIt.changeWarning(for: $0, in: week.week?.nights ?? []) }
@@ -140,7 +184,8 @@ struct SwapSheet: View {
             let offers = FreezerStash.offers(freezer.items, on: night, week: week.week?.nights ?? [], library: library.meals,
                                              notForMe: library.reactions.notForMe,
                                              snoozed: library.reactions.snoozed(today: week.todayDay),
-                                             allergies: library.allergies, today: week.todayDay)
+                                             allergies: library.allergies, today: week.todayDay,
+                                             foodRules: settings.foodRules)
             if !offers.isEmpty {
                 Section("From the freezer") {
                     ForEach(offers, id: \.item.id) { offer in
@@ -191,8 +236,17 @@ struct SwapSheet: View {
         if !libraryMatches.isEmpty {
             Section("Your meals") {
                 ForEach(libraryMatches) { entry in
-                    Button(entry.meal.name) { Task { await choose(.meal(id: entry.meal.id, name: entry.meal.name)) } }
-                        .tint(Palette.ink)
+                    let rules = rulesBroken(by: entry.meal)
+                    Button { Task { await choose(.meal(id: entry.meal.id, name: entry.meal.name)) } } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(entry.meal.name)
+                            ForEach(rules, id: \.self) { rule in
+                                Chip(text: rule.looksLikeText, systemImage: "fork.knife", tint: Palette.paprika)
+                            }
+                        }
+                    }
+                    .tint(Palette.ink)
+                    .accessibilityLabel(([entry.meal.name] + rules.map(\.looksLikeText)).joined(separator: ", "))
                 }
             }
         }

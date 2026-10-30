@@ -56,7 +56,17 @@ enum DinnerPrompts {
         night.attendance.values.contains(false)
     }
 
-    /// Who can rate on this phone: yourself and anyone home with no account of their own (pass the phone).
+    /// Someone who eats separately isn't asked: the server refuses their ratings too.
+    static func rates(_ member: Member) -> Bool {
+        !member.eatsSeparately
+    }
+
+    /// Who Pass the phone lists. Only for ratings: someone who eats separately can still ask for a dish.
+    static func whoRates(among members: [Member]) -> [Member] {
+        members.filter(rates)
+    }
+
+    /// Who can rate, or ask for a dish, on this phone: yourself and anyone with no account of their own (pass the phone).
     static func raters(home: [Member], me: UUID) -> [Member] {
         home.filter { $0.id == me || $0.userID == nil }
     }

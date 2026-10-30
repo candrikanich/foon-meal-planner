@@ -44,15 +44,20 @@ struct AttendanceTemplate: Decodable, Equatable, Identifiable, Sendable {
     /// Switching to it would change nothing. Someone added since it was saved keeps their own schedule either way.
     func isInUse(by members: [Member]) -> Bool {
         let covered = members.filter { $0.status != .removed && schedules[$0.id] != nil }
-        return !covered.isEmpty && covered.allSatisfy { schedules[$0.id]?.usuallyAway == $0.usuallyAway }
+        return !covered.isEmpty && covered.allSatisfy {
+            schedules[$0.id]?.usuallyAway == $0.usuallyAway && schedules[$0.id]?.awayPattern == $0.awayPattern
+        }
     }
 
     /// "Owen out Mon, Tue · Grace out Fri", in family order.
     func summary(members: [Member]) -> String {
         let out = members.compactMap { member -> String? in
-            guard member.status != .removed, let away = schedules[member.id]?.usuallyAway, !away.isEmpty else { return nil }
-            let days = WeekMath.weekdays.filter { away.contains($0.iso) }.map { $0.shortName() }.joined(separator: ", ")
-            return String(localized: "\(member.firstName) out \(days)", comment: "Saved schedule: a name, then weekdays")
+            guard member.status != .removed, let schedule = schedules[member.id],
+                  !schedule.usuallyAway.isEmpty || schedule.awayPattern != nil else { return nil }
+            var parts = WeekMath.weekdays.filter { schedule.usuallyAway.contains($0.iso) }.map { $0.shortName() }
+            if let pattern = schedule.awayPattern { parts.append(pattern.summary.lowercased()) }
+            let days = parts.joined(separator: ", ")
+            return String(localized: "\(member.firstName) out \(days)", comment: "Saved schedule: a name, then weekdays or how often")
         }
         return out.isEmpty ? String(localized: "Everyone home every night") : out.joined(separator: " · ")
     }

@@ -39,6 +39,8 @@ final class LibraryStore {
 
     /// The family's reactions: current verdicts and likes, for favorites, the sorts, and Build my week.
     private(set) var reactions = ReactionSummary()
+    /// Comments this person may see: a hidden one reaches planners only.
+    private(set) var comments: [MealComment] = []
     /// Everyone's serving notes, for meal detail and day cards.
     private(set) var servingNotes: [ServingNote] = []
 
@@ -97,9 +99,12 @@ final class LibraryStore {
             async let verdicts = client.verdicts(householdID)
             async let likes = client.likes(householdID)
             async let notes = client.servingNotes(householdID)
+            async let comments = client.comments(householdID)
             let loaded = try await (meals, history, catalog, allergyRows, itemNames)
             let reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
             let servingNotes = try await notes
+            // Not worth failing the Library for: a failed read keeps what was shown.
+            let loadedComments = (try? await comments) ?? self.comments
             guard generation == loadGeneration else { return }
             self.meals = loaded.0
             self.history = loaded.1
@@ -108,6 +113,7 @@ final class LibraryStore {
             self.itemNames = loaded.4
             self.reactions = reactions
             self.servingNotes = servingNotes
+            self.comments = loadedComments
             hasLoaded = true
             errorMessage = nil
         } catch {
@@ -155,11 +161,33 @@ final class LibraryStore {
             async let verdicts = client.verdicts(householdID)
             async let likes = client.likes(householdID)
             async let notes = client.servingNotes(householdID)
+            async let comments = client.comments(householdID)
             reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
             // Serving notes are family input too: a note Mom just wrote shows on Dad's cards.
             servingNotes = try await notes
+            if let comments = try? await comments { self.comments = comments }
         } catch {
             // Offline: last load's reactions still stand.
+        }
+    }
+
+    func comments(for mealID: UUID) -> [MealComment] {
+        comments.filter { $0.mealID == mealID }
+    }
+
+    /// Hides a comment from the family, or brings it back. Nothing's deleted. Returns whether it saved.
+    @discardableResult
+    func setCommentHidden(_ comment: MealComment, hidden: Bool) async -> Bool {
+        do {
+            try await client.setCommentHidden(comment.id, hidden)
+            if let index = comments.firstIndex(where: { $0.id == comment.id }) { comments[index].hidden = hidden }
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = (error as? PostgrestError)?.code == "42501"
+                ? String(localized: "Only planners can hide a comment.")
+                : String(localized: "Couldn't change that comment. Check your connection and try again.")
+            return false
         }
     }
 

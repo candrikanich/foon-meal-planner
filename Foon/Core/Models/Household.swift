@@ -41,9 +41,22 @@ struct Member: Decodable, Equatable, Identifiable, Sendable {
     var awayUntil: CalendarDay?
     var userID: UUID?
     var attendanceDefaults: AttendanceDefaults?
+    /// `eats_separately`, read through `eatsSeparately`.
+    var separately: Bool? = nil
 
     /// ISO weekdays (1 = Monday) they're usually out for dinner ("Owen works Mon to Thu").
     var usuallyAway: Set<Int> { attendanceDefaults?.usuallyAway ?? [] }
+
+    /// "Every other week": a repeating stretch out, on top of the usual weekdays.
+    var awayPattern: AwayPattern? { attendanceDefaults?.awayPattern }
+
+    /// Babies and toddlers, mostly (docs/spec.md → Outliers): they aren't asked to rate dinners, their old ratings stop
+    /// counting, and they don't count toward me-toos. They stay home on attendance, so allergy flags and serving notes
+    /// still count them. The tonight poll (#43) isn't built yet: when it is, this is who it leaves out of the votes.
+    var eatsSeparately: Bool {
+        get { separately == true }
+        set { separately = newValue }
+    }
 
     private enum CodingKeys: String, CodingKey {
         case id, avatar, guardian, role, status
@@ -53,30 +66,36 @@ struct Member: Decodable, Equatable, Identifiable, Sendable {
         case awayUntil = "away_until"
         case userID = "user_id"
         case attendanceDefaults = "attendance_defaults"
+        case separately = "eats_separately"
     }
 }
 
 /// `members.attendance_defaults`: the usual weekly schedule that pre-fills each new week's attendance.
 struct AttendanceDefaults: Codable, Equatable, Sendable {
     var usuallyAway: Set<Int> = []
+    var awayPattern: AwayPattern?
 
-    private enum CodingKeys: String, CodingKey {
+    enum CodingKeys: String, CodingKey {
         case usuallyAway = "usually_away"
+        case awayPattern = "away_pattern"
     }
 
-    init(usuallyAway: Set<Int> = []) {
+    init(usuallyAway: Set<Int> = [], awayPattern: AwayPattern? = nil) {
         self.usuallyAway = usuallyAway
+        self.awayPattern = awayPattern
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let days = (try? container.decodeIfPresent([Int].self, forKey: .usuallyAway)) ?? nil
         usuallyAway = Set((days ?? []).filter { (1...7).contains($0) })
+        awayPattern = (try? container.decodeIfPresent(AwayPattern.self, forKey: .awayPattern)) ?? nil
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(usuallyAway.sorted(), forKey: .usuallyAway)
+        try container.encodeIfPresent(awayPattern, forKey: .awayPattern)
     }
 }
 
@@ -90,6 +109,8 @@ struct MemberDraft: Equatable, Sendable {
     var status: MemberStatus = .active
     var awayUntil: CalendarDay?
     var usuallyAway: Set<Int> = []
+    var awayPattern: AwayPattern?
+    var eatsSeparately = false
 
     init() {}
 
@@ -102,6 +123,8 @@ struct MemberDraft: Equatable, Sendable {
         status = member.status
         awayUntil = member.awayUntil
         usuallyAway = member.usuallyAway
+        awayPattern = member.awayPattern
+        eatsSeparately = member.eatsSeparately
     }
 
     /// Normalized for the database's rules, or nil if the name doesn't fit.
@@ -113,6 +136,7 @@ struct MemberDraft: Equatable, Sendable {
         draft.avatar = avatar?.trimmingCharacters(in: .whitespaces).nilIfEmpty
         draft.guardian = guardian && ageGroup == .adult
         draft.awayUntil = status == .away ? awayUntil : nil
+        draft.awayPattern = awayPattern?.snapped()
         return draft
     }
 }
@@ -124,6 +148,7 @@ extension MemberDraft: Encodable {
         case ageGroup = "age_group"
         case awayUntil = "away_until"
         case attendanceDefaults = "attendance_defaults"
+        case eatsSeparately = "eats_separately"
     }
 
     // Nulls are written explicitly so clearing an avatar or a return date reaches the database.
@@ -136,7 +161,9 @@ extension MemberDraft: Encodable {
         try container.encode(role, forKey: .role)
         try container.encode(status, forKey: .status)
         try container.encode(awayUntil, forKey: .awayUntil)
-        try container.encode(AttendanceDefaults(usuallyAway: usuallyAway), forKey: .attendanceDefaults)
+        try container.encode(AttendanceDefaults(usuallyAway: usuallyAway, awayPattern: awayPattern),
+                             forKey: .attendanceDefaults)
+        try container.encode(eatsSeparately, forKey: .eatsSeparately)
     }
 }
 
@@ -151,7 +178,10 @@ struct MemberChanges: Equatable, Sendable, Encodable {
     var role: MemberRole?
     var status: MemberStatus?
     var awayUntil: CalendarDay??
+    /// Only its usual days are sent; the pattern has `awayPattern`.
     var attendanceDefaults: AttendanceDefaults?
+    var awayPattern: AwayPattern??
+    var eatsSeparately: Bool?
 
     var isEmpty: Bool { self == MemberChanges() }
 
@@ -161,6 +191,7 @@ struct MemberChanges: Equatable, Sendable, Encodable {
         case ageGroup = "age_group"
         case awayUntil = "away_until"
         case attendanceDefaults = "attendance_defaults"
+        case eatsSeparately = "eats_separately"
     }
 
     func encode(to encoder: Encoder) throws {
@@ -172,7 +203,12 @@ struct MemberChanges: Equatable, Sendable, Encodable {
         if let role { try container.encode(role, forKey: .role) }
         if let status { try container.encode(status, forKey: .status) }
         if let awayUntil { try container.encode(awayUntil, forKey: .awayUntil) }
-        if let attendanceDefaults { try container.encode(attendanceDefaults, forKey: .attendanceDefaults) }
+        if let eatsSeparately { try container.encode(eatsSeparately, forKey: .eatsSeparately) }
+        // The server merges attendance_defaults by key, so what wasn't edited stays what another phone made it.
+        guard attendanceDefaults != nil || awayPattern != nil else { return }
+        var schedule = container.nestedContainer(keyedBy: AttendanceDefaults.CodingKeys.self, forKey: .attendanceDefaults)
+        if let attendanceDefaults { try schedule.encode(attendanceDefaults.usuallyAway.sorted(), forKey: .usuallyAway) }
+        if let awayPattern { try schedule.encode(awayPattern, forKey: .awayPattern) }
     }
 }
 
@@ -187,6 +223,12 @@ extension Member {
         if let status = changes.status { member.status = status }
         if let awayUntil = changes.awayUntil { member.awayUntil = awayUntil }
         if let attendanceDefaults = changes.attendanceDefaults { member.attendanceDefaults = attendanceDefaults }
+        if let awayPattern = changes.awayPattern {
+            var defaults = member.attendanceDefaults ?? AttendanceDefaults()
+            defaults.awayPattern = awayPattern
+            member.attendanceDefaults = defaults
+        }
+        if let eatsSeparately = changes.eatsSeparately { member.eatsSeparately = eatsSeparately }
         return member
     }
 }
@@ -206,6 +248,8 @@ extension MemberDraft {
             defaults.usuallyAway = usuallyAway
             changes.attendanceDefaults = defaults
         }
+        if awayPattern != member.awayPattern { changes.awayPattern = .some(awayPattern) }
+        if eatsSeparately != member.eatsSeparately { changes.eatsSeparately = eatsSeparately }
         return changes
     }
 }

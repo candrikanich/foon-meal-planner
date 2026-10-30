@@ -94,10 +94,11 @@ enum FreezerStash {
     /// Oldest first, so nothing gets forgotten at the back. Offered: items still in the freezer, made by that night, of a
     /// dish in rotation and not already in the week. Someone home saying "not for me", or a snooze, skips it, as in Build
     /// my week; a past night is logging what was eaten, so they don't apply there. The repeat window, prep time, rushed
-    /// nights and missing equipment don't apply either: it's already cooked.
+    /// nights and missing equipment don't apply either: it's already cooked. A food rule does, as in a build: it's the
+    /// same dish, and the planner can still pick it from their meals.
     static func offers(_ items: [FreezerItem], on night: WeekNight, week: [WeekNight], library: [LibraryMeal],
                        notForMe: [UUID: [UUID: Int]], snoozed: Set<UUID>, allergies: [MemberAllergies],
-                       today: CalendarDay) -> [Offer] {
+                       today: CalendarDay, foodRules: [FoodRule] = []) -> [Offer] {
         let meals = Dictionary(library.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let planned = Set(week.compactMap(\.mealID))
         let home = Set(night.attendance.filter(\.value).keys)
@@ -111,6 +112,9 @@ enum FreezerStash {
                 if !logging {
                     let dislikes = notForMe[meal.id] ?? [:]
                     if snoozed.contains(meal.id) || home.contains(where: { (dislikes[$0] ?? 0) >= 1 }) { return nil }
+                    if !FoodRuleMatcher.broken(by: meal, on: night.date, rules: foodRules, library: library).isEmpty {
+                        return nil
+                    }
                 }
                 let flags = AllergyMatcher.flags(ingredients: ShoppingLines.lines(for: meal, library: library).map(\.name),
                                                  members: athome)

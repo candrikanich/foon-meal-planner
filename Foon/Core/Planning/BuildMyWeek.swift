@@ -8,9 +8,12 @@ import Foundation
 /// 1. **Keep** pinned nights, event nights, and nights before `today` as they are, then land dated requests
 ///    on their nights, then standing traditions on their weekdays, then someday requests several people want on
 ///    the first night they're all home (all saved locked).
-/// 2. **Special slots:** takeout on the busiest nights, trial dishes on full-attendance nights, then leftover
+/// 2. **Takeout** on the busiest nights, a rushed one first, food rule or not.
+/// 3. **Food-rule nights** draw next if the week has any, rushed nights ahead of them, before anything else spends the few
+///    dishes they can have.
+/// 4. **Special slots:** trial dishes on full-attendance nights, then leftover
 ///    nights, each after a big-batch meal when one fits. Kept nights, past ones too, count toward each setting.
-/// 3. **Fill** the rest, rushed nights first and then in date order, with a weighted draw from dishes that
+/// 5. **Fill** the rest, rushed nights first and then in date order, with a weighted draw from dishes that
 ///    pass every filter. The season and what's already in the week only move the odds, after the filters.
 enum BuildMyWeek {
     /// Scoring weights. A dish's weight is
@@ -53,9 +56,11 @@ enum BuildMyWeek {
         state.landTraditions()
         state.landWanted()
         state.placeTakeout()
+        state.fillFoodRuleNights(rng: &rng)
         state.placeNewDishes(rng: &rng)
         state.placeLeftovers(rng: &rng)
         state.fillTheRest(rng: &rng)
+        state.sayWhichTraditionsSatOut()
         return state.plans
     }
 
@@ -86,12 +91,15 @@ enum BuildMyWeek {
         } else {
             [planner.knownMeals]
         }
+        // What feeds tomorrow's leftovers is on tomorrow's table too, so tomorrow's food rule counts.
+        let tomorrow = feedsLeftovers ? planner.nights[index + 1].date : nil
         var rng = SeededGenerator(seed: seed)
         // Pick for me on an empty night is the planner choosing, and a dish already needing what they don't have has
         // nothing to lose. Otherwise Shuffle won't trade a dish they can make for one they can't.
         let canTakeAny = current.map(planner.needsMissingEquipment) ?? true
         for allowingMissingEquipment in canTakeAny ? [false, true] : [false] {
             for pool in pools {
+                let pool = tomorrow.map { day in pool.filter { !planner.breaksFoodRule($0, on: day) } } ?? pool
                 guard let meal = planner.draw(for: night, from: pool, excluding: used, replacing: night.mealID,
                                               requiring: feedsLeftovers ? .leftovers : nil,
                                               allowingMissingEquipment: allowingMissingEquipment, rng: &rng)
@@ -119,7 +127,8 @@ extension BuildMyWeek {
     /// Unlike Shuffle, any night can be swapped, so kept nights get suggestions too. A night before today is
     /// logging what was eaten, so prep time and the repeat window don't apply to it. Each pick joins `used`, so it
     /// counts as a repeat for the next: three suggestions are three choices, not three pastas. Dishes usually using
-    /// equipment the household doesn't have only come after everything else that fits, and the sheet says so.
+    /// equipment the household doesn't have only come after everything else that fits, and the sheet says so. A dish that
+    /// looks to break a food rule never comes: the sheet lists those apart, saying why, and the planner can pick one.
     static func suggestions(night nightID: UUID, inputs: PlanningInputs, seed: UInt64, count: Int = 3) -> [Suggestion] {
         let planner = Planner(inputs)
         guard let night = planner.nights.first(where: { $0.id == nightID }) else { return [] }
@@ -160,6 +169,8 @@ private struct Planner {
     /// Dishes on trial: what "new dishes per week" counts and caps.
     let trialMeals: [LibraryMeal]
     let traitsByMeal: [UUID: DishTraits]
+    /// What each dish looks to have, of what the household's rules ask about. Empty without rules.
+    let foodRuleHits: [UUID: Set<FoodRule.Avoid>]
 
     init(_ inputs: PlanningInputs) {
         self.inputs = inputs
@@ -171,6 +182,10 @@ private struct Planner {
         knownMeals = rotation.filter { $0.status != .trial }
         trialMeals = rotation.filter { $0.status == .trial }
         traitsByMeal = mealsByID.mapValues { DishTraits(name: $0.name, tags: $0.tags) }
+        let asked = Set(inputs.settings.foodRules.map(\.avoid))
+        foodRuleHits = asked.isEmpty ? [:] : mealsByID.mapValues { meal in
+            asked.filter { FoodRuleMatcher.looksLikeIt($0, meal: meal, library: inputs.meals) }
+        }
     }
 
     func isKept(_ night: PlanningNight) -> Bool {
@@ -193,13 +208,16 @@ private struct Planner {
 
     // MARK: Filters
 
-    /// Step 3 of the spec. Allergies are never a filter: they're flagged on the card, and the planner decides.
+    /// Step 3 of the spec. Allergies are never a filter: they're flagged on the card, and the planner decides. A food rule
+    /// is: a household that set one doesn't want the dish, and Nothing fits is better than a wrong dish. It's a guess from
+    /// the name and ingredients, so the card says "looks like", and Swap lists what it held back.
     /// `allowingMissingEquipment` is for when the planner is choosing (Swap, Pick for me). A build never plans such a
     /// dish on its own: nobody chose it, so the night says Nothing fits, like one where everything's been disliked.
     func fits(_ meal: LibraryMeal, on night: PlanningNight, loggingPast: Bool = false,
               allowingMissingEquipment: Bool = false) -> Bool {
         guard meal.status.isInRotation, !inputs.snoozedMealIDs.contains(meal.id) else { return false }
         if loggingPast { return true }
+        if breaksFoodRule(meal, on: night.date) { return false }
         if !allowingMissingEquipment, needsMissingEquipment(meal) { return false }
         if let lastMade = historyByMeal[meal.id]?.lastMade,
            night.date.days(since: lastMade) < inputs.settings.repeatWindowDays { return false }
@@ -207,6 +225,17 @@ private struct Planner {
         if night.home.contains(where: { (notForMe[$0] ?? 0) >= 1 }) { return false }
         if night.effort == .rushed, !meal.tags.contains(.quick) { return false }
         return hoursUntilDinner(on: night) >= leadHours(meal)
+    }
+
+    func breaksFoodRule(_ meal: LibraryMeal, on day: CalendarDay) -> Bool {
+        guard let hits = foodRuleHits[meal.id], !hits.isEmpty else { return false }
+        return inputs.settings.foodRules.contains { $0.applies(on: day) && hits.contains($0.avoid) }
+    }
+
+    /// A rule for some nights and not others: leftovers with no dish behind them could be from a night it didn't apply. A
+    /// rule for every night has already kept such a dish out of the week.
+    func hasOccasionalFoodRule(on day: CalendarDay) -> Bool {
+        inputs.settings.foodRules.contains { $0.nights != .everyNight && $0.applies(on: day) }
     }
 
     func needsMissingEquipment(_ meal: LibraryMeal) -> Bool {
@@ -310,6 +339,8 @@ private struct DraftState {
     let planner: Planner
     var plans: [NightPlan]
     var used: Set<UUID>
+    /// Nights a tradition sat out for a food rule, and whose: the night says so, whatever it ends up holding.
+    var traditionsSatOut: [Int: String?] = [:]
 
     init(planner: Planner) {
         self.planner = planner
@@ -358,14 +389,16 @@ private struct DraftState {
 
     /// Someday requests with two or more me-toos (docs/spec.md → Inbox rules): most wanted first, each on the first
     /// open night everyone who wants it is home, saved locked. Like any request, it skips the filters; it still needs a
-    /// dish in rotation that isn't already in the week. No such night, and it waits for another week.
+    /// dish in rotation that isn't already in the week. No such night, and it waits for another week. It has no date, so it
+    /// takes a night a food rule doesn't apply to if there is one; if not, it lands like a dated request, and the card says.
     mutating func landWanted() {
         let ordered = planner.inputs.wanted.enumerated()
             .sorted { ($0.element.wanters.count, $1.offset) > ($1.element.wanters.count, $0.offset) }
             .map(\.element)
         for request in ordered {
             guard let meal = planner.mealsByID[request.mealID], meal.status.isInRotation, !used.contains(meal.id),
-                  let index = openIndices.first(where: { request.wanters.isSubset(of: planner.nights[$0].home) })
+                  case let homes = openIndices.filter({ request.wanters.isSubset(of: planner.nights[$0].home) }),
+                  let index = homes.first(where: { !planner.breaksFoodRule(meal, on: plans[$0].date) }) ?? homes.first
             else { continue }
             fill(index, with: .meal(meal.id), reason: .request(name: planner.name(of: request.requesterID)), kept: true)
             plans[index].locks = true
@@ -375,8 +408,9 @@ private struct DraftState {
     /// Taco Tuesday lands on every open Tuesday, kept and saved locked. A dated request for that night wins, and
     /// a tradition meal no longer in rotation, or already in the week, is skipped. It also sits out a week when
     /// it's snoozed or someone home that night said "not for me" (the dislike rule); the repeat window, rushed
-    /// nights, and prep time don't apply, since a weekly tradition is chosen on purpose. Quick picks count toward
-    /// their settings like any other.
+    /// nights, and prep time don't apply, since a weekly tradition is chosen on purpose. Nor does it land on a night a food
+    /// rule looks to rule it out: nobody asked for it this week, so the night fills as usual and its chip says the
+    /// tradition sat out. Quick picks count toward their settings like any other.
     mutating func landTraditions() {
         for tradition in planner.inputs.traditions {
             for index in openIndices where plans[index].date.isoWeekday == tradition.weekday {
@@ -385,10 +419,31 @@ private struct DraftState {
                           !planner.inputs.snoozedMealIDs.contains(mealID) else { continue }
                     let notForMe = planner.inputs.notForMe[mealID] ?? [:]
                     if planner.nights[index].home.contains(where: { (notForMe[$0] ?? 0) >= 1 }) { continue }
+                    if planner.breaksFoodRule(meal, on: plans[index].date) {
+                        traditionsSatOut[index] = .some(tradition.name)
+                        continue
+                    }
                 }
                 fill(index, with: tradition.pick, reason: .tradition(name: tradition.name), kept: true)
                 plans[index].locks = true
             }
+        }
+    }
+
+    /// A night a rule applies to has fewer dishes to choose from, and a dish spent on Monday can leave Friday with nothing
+    /// when Monday could have had anything. Rushed nights have fewer still, so they go ahead of it. Without such a night
+    /// this does nothing, and a rule for every night makes no night special, so neither changes the order.
+    /// Finding nothing leaves the night open: it can still take a special slot, and the fill says Nothing fits.
+    mutating func fillFoodRuleNights(rng: inout SeededGenerator) {
+        let open = openIndices
+        let ruled = open.filter { planner.hasOccasionalFoodRule(on: plans[$0].date) }
+        guard !ruled.isEmpty else { return }
+        let rushed = open.filter { planner.nights[$0].effort == .rushed }
+        for index in rushed + ruled.filter({ !rushed.contains($0) }) {
+            let night = planner.nights[index]
+            guard let meal = planner.draw(for: night, from: planner.knownMeals, excluding: used, rng: &rng)
+                ?? planner.draw(for: night, from: planner.trialMeals, excluding: used, rng: &rng) else { continue }
+            fill(index, with: .meal(meal.id), reason: planner.reason(for: meal, on: night))
         }
     }
 
@@ -432,10 +487,10 @@ private struct DraftState {
         let needed = planner.inputs.settings.leftoverNights - count { $0 == .quickPick(.leftovers) }
         for _ in 0..<max(needed, 0) {
             if let after = plans.indices.first(where: { planner.hasTag(.leftovers, plans[$0].pick)
-                && isOpenNextNight($0) }) {
+                && isOpenNextNight($0) && !leftoversBreakRule(from: $0) }) {
                 fill(after + 1, with: .quickPick(.leftovers), reason: .leftoversAfterBigBatch)
             } else if !placeBigBatchPair(rng: &rng) {
-                guard let fallback = openIndices.min(by: { lhs, rhs in
+                guard let fallback = openIndices.filter({ !planner.hasOccasionalFoodRule(on: plans[$0].date) }).min(by: { lhs, rhs in
                     (planner.nights[lhs].effort == .rushed ? 0 : 1, lhs == 0 ? 1 : 0, -lhs)
                         < (planner.nights[rhs].effort == .rushed ? 0 : 1, rhs == 0 ? 1 : 0, -rhs)
                 }) else { return }
@@ -454,6 +509,7 @@ private struct DraftState {
         let pools = trialBudgetLeft > 0 ? [planner.knownMeals, planner.trialMeals] : [planner.knownMeals]
         for index in pairs {
             for pool in pools {
+                let pool = pool.filter { !planner.breaksFoodRule($0, on: plans[index + 1].date) }
                 guard let meal = planner.draw(for: planner.nights[index], from: pool, excluding: used,
                                               requiring: .leftovers, rng: &rng) else { continue }
                 fill(index, with: .meal(meal.id), reason: .bigBatch)
@@ -462,6 +518,13 @@ private struct DraftState {
             }
         }
         return false
+    }
+
+    /// Leftovers are the same dish, so the next night's food rule counts for it.
+    private func leftoversBreakRule(from index: Int) -> Bool {
+        guard let mealID = plans[index].pick?.mealID, let meal = planner.mealsByID[mealID],
+              plans.indices.contains(index + 1) else { return false }
+        return planner.breaksFoodRule(meal, on: plans[index + 1].date)
     }
 
     private func isOpenNextNight(_ index: Int) -> Bool {
@@ -485,6 +548,13 @@ private struct DraftState {
             } else {
                 plans[index].reason = .nothingFits
             }
+        }
+    }
+
+    /// Nothing fits stays as it is: that's what the card has to offer on.
+    mutating func sayWhichTraditionsSatOut() {
+        for (index, name) in traditionsSatOut where plans[index].pick != nil && !plans[index].isKept {
+            plans[index].reason = .traditionSatOut(name: name)
         }
     }
 }

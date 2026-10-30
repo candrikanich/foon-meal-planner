@@ -32,14 +32,12 @@ struct Reaction: Equatable, Sendable, Decodable {
     let memberID: UUID
     let kind: ReactionKind
     let offTonight: Bool
-    let comment: String?
     let createdAt: Date
 
     private enum CodingKeys: String, CodingKey {
         case memberID = "member_id"
         case kind = "reaction"
         case offTonight = "off_tonight"
-        case comment
         case createdAt = "created_at"
     }
 }
@@ -179,7 +177,7 @@ extension DinnerClient {
                         id, night_id, meal_id, quick_pick, cooked_by_member_id, leftovers, verified, \
                         confirmed_by_member_id, \
                         plan_nights!inner(date), meals(name), \
-                        reactions(member_id, reaction, off_tonight, comment, created_at)
+                        reactions(member_id, reaction, off_tonight, created_at)
                         """)
                     .eq("household_id", value: householdID)
                     .gte("plan_nights.date", value: since.isoString)

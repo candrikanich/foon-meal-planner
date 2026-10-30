@@ -615,6 +615,86 @@ struct HouseholdClientLiveTests {
         }
     }
 
+    /// Household shapes (#49) through the real clients: a schedule's two keys don't overwrite each other, food rules merge
+    /// on the server, and hiding a comment takes it out of what the family reads.
+    @Test func householdShapesRoundTrip() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let household = try await households.createHousehold("Shapes family", nil, "Ann", HouseholdSettings())
+        let ann = try #require(try await households.members(household.id).first { $0.firstName == "Ann" })
+
+        // The pattern, then the days, from two copies of the same profile.
+        let first = CalendarDay(year: 2037, month: 11, day: 2)
+        var kid = MemberDraft()
+        kid.firstName = "Owen"
+        kid.usuallyAway = [3]
+        kid.awayPattern = AwayPattern(from: first)
+        let owen = try await households.addMember(household.id, try #require(kid.validated()))
+        #expect(owen.awayPattern == AwayPattern(from: first), "adding someone saves it")
+
+        var days = MemberDraft(owen)
+        days.usuallyAway = [4]
+        let saved = try await households.updateMember(owen.id, days.changes(from: owen))
+        #expect(saved.usuallyAway == [4])
+        #expect(saved.awayPattern == AwayPattern(from: first))
+        var ended = MemberDraft(saved)
+        ended.awayPattern = nil
+        let cleared = try await households.updateMember(owen.id, ended.changes(from: saved))
+        #expect(cleared.awayPattern == nil)
+        #expect(cleared.usuallyAway == [4])
+
+        var pattern = MemberDraft(cleared)
+        pattern.awayPattern = AwayPattern(from: first)
+        _ = try await households.updateMember(owen.id, pattern.changes(from: cleared))
+        let sunday = CalendarDay(year: 2037, month: 11, day: 1)
+        let week = try await WeekClient.live(supabase).create(household.id, sunday)
+        #expect(week.nights.filter { $0.attendance[owen.id] == false }.count == 6, "Monday to Saturday")
+        #expect(week.nights.first { $0.date == sunday }?.attendance[owen.id] == true)
+
+        // Eats separately.
+        var tot = MemberDraft()
+        tot.firstName = "Tot"
+        tot.ageGroup = .kid
+        tot.eatsSeparately = true
+        let toddler = try await households.addMember(household.id, try #require(tot.validated()))
+        #expect(toddler.eatsSeparately)
+
+        // Food rules.
+        #expect(try await households.setFoodRule(household.id, .meat, .lentFridays) == [FoodRule(avoid: .meat, nights: .lentFridays)])
+        #expect(try await households.setFoodRule(household.id, .pork, .everyNight).count == 2)
+        #expect(try await households.setFoodRule(household.id, .pork, nil) == [FoodRule(avoid: .meat, nights: .lentFridays)])
+        var rhythm = HouseholdSettings()
+        rhythm.takeoutNights = 2
+        try await households.updateSettings(household.id, rhythm)
+        #expect(try await households.myHousehold()?.planningSettings.foodRules == [FoodRule(avoid: .meat, nights: .lentFridays)])
+
+        // A rating refused, and a comment hidden.
+        let library = LibraryClient.live(supabase)
+        let chili = try await library.create(household.id, try MealDraft(newNamed: "Chili").validated())
+        var newYork = Calendar(identifier: .gregorian)
+        newYork.timeZone = TimeZone(identifier: "America/New_York")!
+        let today = CalendarDay(Date(), calendar: newYork)
+        let thisWeek = try await WeekClient.live(supabase).create(household.id, WeekMath.start(of: today, weekStart: 7))
+        let tonight = try #require(thisWeek.nights.first { $0.date == today })
+        try await WeekClient.live(supabase).setNight(NightUpdate(nightID: tonight.id, mealID: chili), false)
+        let dinners = DinnerClient.live(supabase)
+        await #expect(throws: PostgrestError.self, "nobody rates for someone who eats separately") {
+            _ = try await dinners.react(tonight.id, toddler.id, .good)
+        }
+        _ = try await dinners.react(tonight.id, ann.id, .good)
+        // Nothing in the app writes a comment yet: the column's there for #42's follow-up.
+        try await supabase.from("reactions").update(["comment": "A little spicy"]).eq("member_id", value: ann.id).execute()
+        let comments = try await library.comments(household.id)
+        #expect(comments.map(\.text) == ["A little spicy"])
+        let comment = try #require(comments.first)
+        try await library.setCommentHidden(comment.id, true)
+        #expect(try await library.comments(household.id).first?.hidden == true, "a planner still reads it, marked")
+        try await library.setCommentHidden(comment.id, false)
+        #expect(try await library.comments(household.id).first?.hidden == false)
+    }
+
     private static let config = try! SupabaseConfig.fromMainBundle()
     private static func sampleJPEG() throws -> Data {
         let context = try #require(CGContext(

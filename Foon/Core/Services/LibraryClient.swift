@@ -43,6 +43,10 @@ struct LibraryClient: Sendable {
     /// Each member's current verdict on each dish, and how often each was liked: what reactions feed planning.
     var verdicts: @Sendable (_ householdID: UUID) async throws -> [MealVerdict] = { _ in [] }
     var likes: @Sendable (_ householdID: UUID) async throws -> [MealLikes] = { _ in [] }
+    /// Comments the person signed in may see.
+    var comments: @Sendable (_ householdID: UUID) async throws -> [MealComment] = { _ in [] }
+    /// Hides a comment or brings it back. Planners only; nothing's deleted.
+    var setCommentHidden: @Sendable (_ commentID: UUID, _ hidden: Bool) async throws -> Void = { _, _ in }
     var servingNotes: @Sendable (_ householdID: UUID) async throws -> [ServingNote] = { _ in [] }
     /// Sets, changes, or (with a blank note) clears a member's serving note on a dish.
     var setServingNote: @Sendable (_ mealID: UUID, _ memberID: UUID, _ note: String) async throws -> Void = { _, _, _ in }
@@ -169,6 +173,19 @@ extension LibraryClient {
                     .eq("household_id", value: householdID)
                     .execute()
                     .value
+            },
+            comments: { householdID in
+                try await client.from("meal_comments")
+                    .select("id, meal_id, member_id, comment, dinner_on, hidden")
+                    .eq("household_id", value: householdID)
+                    .order("dinner_on", ascending: false)
+                    .execute()
+                    .value
+            },
+            setCommentHidden: { commentID, hidden in
+                try await client.rpc("set_comment_hidden", params: SetCommentHiddenParams(
+                    targetReaction: commentID, hide: hidden
+                )).execute()
             },
             servingNotes: { householdID in
                 try await client.from("serving_notes")
@@ -387,4 +404,14 @@ private struct ItemName: Decodable, Sendable {
 
 private struct AddedMeal: Decodable, Sendable {
     let id: UUID
+}
+
+private struct SetCommentHiddenParams: Encodable {
+    let targetReaction: UUID
+    let hide: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case hide
+        case targetReaction = "target_reaction"
+    }
 }

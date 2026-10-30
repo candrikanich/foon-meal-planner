@@ -49,6 +49,7 @@ struct MealDetailView: View {
                     .accessibilityHint("One step at a time, with timers")
                 }
                 verdicts(meal)
+                comments(meal)
                 servingNotes(meal)
                 if let message = library.errorMessage {
                     Text(message).font(.callout).foregroundStyle(.red)
@@ -192,6 +193,48 @@ struct MealDetailView: View {
                         .accessibilityElement(children: .combine)
                     }
                 }
+            }
+        }
+    }
+
+    /// What people said about the dish. A hidden comment only reaches planners (the server's rule), who can bring it back.
+    @ViewBuilder
+    private func comments(_ meal: LibraryMeal) -> some View {
+        let comments = library.comments(for: meal.id)
+        if !comments.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Comments").font(.foonTitle).accessibilityAddTraits(.isHeader)
+                ForEach(comments) { comment in
+                    commentRow(comment)
+                }
+            }
+        }
+    }
+
+    private func commentRow(_ comment: MealComment) -> some View {
+        let member = household.members.first { $0.id == comment.memberID }
+        let name = member?.firstName ?? String(localized: "Someone")
+        return HStack(alignment: .top, spacing: 10) {
+            if let member { MemberAvatar(member: member, size: 28) }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name).font(.foonCaption).foregroundStyle(.secondary)
+                Text(comment.text).font(.foonBody).foregroundStyle(comment.hidden ? .secondary : Palette.ink)
+                if comment.hidden {
+                    Label("Hidden from the family", systemImage: "eye.slash")
+                        .font(.foonCaption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+            if canEdit {
+                Button(comment.hidden ? "Show" : "Hide") {
+                    Task { await library.setCommentHidden(comment, hidden: !comment.hidden) }
+                }
+                .font(.foonCaption)
+                .buttonStyle(.borderless)
+                .tint(Palette.paprika)
+                .accessibilityLabel(comment.hidden ? String(localized: "Show \(name)'s comment")
+                                                   : String(localized: "Hide \(name)'s comment"))
             }
         }
     }
