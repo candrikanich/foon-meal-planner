@@ -333,6 +333,7 @@ struct HadInsteadSheet: View {
     @Environment(DinnerStore.self) private var dinner
     @Environment(LibraryStore.self) private var library
     @Environment(HouseholdStore.self) private var household
+    @Environment(WeekStore.self) private var week: WeekStore?
     @Environment(\.dismiss) private var dismiss
     let nightID: UUID
     @State private var search = ""
@@ -382,7 +383,11 @@ struct HadInsteadSheet: View {
 
     private func choose(_ instead: DinnerStore.Instead) {
         Task {
-            if await dinner.hadInstead(nightID: nightID, instead) { dismiss() }
+            if await dinner.hadInstead(nightID: nightID, instead) {
+                // The server let go of a leftovers night or freezer dinner that depended on this one.
+                await week?.refresh()
+                dismiss()
+            }
         }
     }
 }

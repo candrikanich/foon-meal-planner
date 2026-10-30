@@ -4,13 +4,33 @@ import Foundation
 /// this week. What's doubled is never stored: a night is doubled because a leftovers night points at it (`leftoversFrom`),
 /// and the list is rebuilt from that each time, so a scale can't compound and undoing it can't leave a stale amount.
 enum DoubleIt {
-    /// The nights the weekly list is built from, each saying whether it's doubled or already in the freezer.
+    /// The nights the weekly list is built from, each saying whether it's doubled or already in the freezer. A doubled
+    /// dish is also eaten on its leftovers night, so whoever's home then counts for its allergy notes.
     static func listNights(_ layout: WeekLayout) -> [WeeklyList.Night] {
         layout.plannable.map { night in
-            WeeklyList.Night(mealID: night.mealID, home: Set(night.attendance.filter(\.value).keys),
-                             doubled: leftoversNight(of: night, in: layout.ahead) != nil,
-                             fromFreezer: night.stashItemID != nil)
+            let later = leftoversNight(of: night, in: layout.ahead)
+            return WeeklyList.Night(mealID: night.mealID, home: home(night).union(later.map(home) ?? []),
+                                    doubled: later != nil, fromFreezer: night.stashItemID != nil)
         }
+    }
+
+    private static func home(_ night: WeekNight) -> Set<UUID> {
+        Set(night.attendance.filter(\.value).keys)
+    }
+
+    /// What changing this night also changes, said before it happens: in Swap, and in Plan it. Shuffle isn't offered on
+    /// these nights, since it has nowhere to say it.
+    static func changeWarning(for night: WeekNight, in nights: [WeekNight]) -> String? {
+        if leftoversNight(of: night, in: nights) != nil {
+            return String(localized: "This dish is doubled. Changing it takes its leftovers night back to what it held.")
+        }
+        if night.leftoversFrom != nil {
+            return String(localized: "These are planned leftovers. Changing this night means the dish goes back to its regular amounts when you update the list.")
+        }
+        if night.stashItemID != nil {
+            return String(localized: "This dish is from the freezer. Changing it puts it back in the freezer.")
+        }
+        return nil
     }
 
     static func leftoversNight(of night: WeekNight, in nights: [WeekNight]) -> WeekNight? {
@@ -61,7 +81,7 @@ enum DoubleIt {
     /// What Double it does to the list, said before it's done. An approved week's list waits for Update the list, like
     /// every other change to a night; what's bought is never listed again, so an extra has to be added by hand.
     static func listNote(approved: Bool) -> String {
-        let doubles = String(localized: "The list gets twice this dish's amounts. Anything marked in stock stays off it, so check you have enough.")
+        let doubles = String(localized: "The list gets twice this dish's amounts. Anything marked in stock stays off it, and a line someone added by hand or another approved week wrote keeps its own amount, so check you have enough.")
         guard approved else { return doubles }
         let update = String(localized: "Update the list on This Week to see it. Foon won't list something you've already bought again, so add any extra yourself.")
         return doubles + " " + update

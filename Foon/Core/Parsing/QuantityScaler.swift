@@ -7,7 +7,28 @@ enum QuantityScaler {
     static func scale(_ quantity: String, by factor: Double) -> String {
         guard factor > 0, abs(factor - 1) > 0.001 else { return quantity }
         let chars = Array(quantity)
-        guard let (first, firstEnd) = amount(in: chars, at: 0) else { return quantity }
+        guard let (scaled, end) = leading(chars, by: factor) else { return quantity }
+        return scaled + String(chars[end...])
+    }
+
+    /// For a shopping amount, where a wrong number means the wrong thing bought: only one amount and what it counts, with
+    /// a package size in brackets allowed ("1 (15 oz) can"). Anything else with a number in it ("1 to 2 lb", "2 lb 8 oz",
+    /// "1/2 cup + 2 tbsp") returns nil, because scaling the start alone would state something false.
+    static func scaledIfSimple(_ quantity: String, by factor: Double) -> String? {
+        let chars = Array(quantity)
+        guard let (scaled, end) = leading(chars, by: factor) else { return nil }
+        var depth = 0
+        for character in chars[end...] {
+            if character == "(" { depth += 1 }
+            if character == ")" { depth = max(depth - 1, 0) }
+            if depth == 0, character.isNumber { return nil }
+        }
+        return scaled + String(chars[end...])
+    }
+
+    /// The scaled amount at the start, and where it ends.
+    private static func leading(_ chars: [Character], by factor: Double) -> (String, Int)? {
+        guard let (first, firstEnd) = amount(in: chars, at: 0) else { return nil }
         var end = firstEnd
         var scaled = format(first * factor)
         if end < chars.count, rangeDashes.contains(chars[end]), let (second, secondEnd) = amount(in: chars, at: end + 1) {
@@ -19,7 +40,7 @@ enum QuantityScaler {
             }
             end = secondEnd
         }
-        return scaled + String(chars[end...])
+        return (scaled, end)
     }
 
     private static let rangeDashes: Set<Character> = ["-", "–"]

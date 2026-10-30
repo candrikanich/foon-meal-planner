@@ -50,7 +50,7 @@ enum WeeklyList {
                     order.append(line.itemID)
                     drafts[line.itemID] = Draft(name: line.name)
                 }
-                drafts[line.itemID]?.add(line, doubledFor: night.doubled ? meal.name : nil,
+                drafts[line.itemID]?.add(line, doubled: night.doubled,
                                          flags: AllergyMatcher.flags(ingredients: [line.name], members: athome))
             }
         }
@@ -85,25 +85,19 @@ enum WeeklyList {
         var meals: [String] = []
         /// In the order first seen, with everyone it affects.
         var flags: [(trigger: AllergyFlag.Trigger, names: Set<String>)] = []
-        /// Dishes cooked twice over: their amounts were scaled here, or couldn't be and the note says so.
-        var doubledMeals: [String] = []
-        var unscaledDouble = false
-
         init(name: String) {
             self.name = name
         }
 
         /// A doubled dish's amount scales here, on the way in, once per night: this is built fresh from the plan each time,
-        /// so nothing scaled is ever read back and scaled again.
-        mutating func add(_ line: ShoppingLine, doubledFor doubled: String? = nil, flags found: [AllergyFlag]) {
-            if let quantity = line.quantity {
-                let scaled = doubled == nil ? quantity : QuantityScaler.scale(quantity, by: 2)
-                if doubled != nil, scaled == quantity { unscaledDouble = true }
-                quantities.append(scaled)
-            } else if doubled != nil {
-                unscaledDouble = true
+        /// so nothing scaled is ever read back and scaled again. Each part says for itself whether it's already doubled, so
+        /// "3 lb (doubled) + 1 lb" can't be doubled again by hand, and notes stay for allergies.
+        mutating func add(_ line: ShoppingLine, doubled: Bool = false, flags found: [AllergyFlag]) {
+            if doubled {
+                quantities.append(Self.doubledAmount(line.quantity))
+            } else if let quantity = line.quantity {
+                quantities.append(quantity)
             }
-            if let doubled, !doubledMeals.contains(doubled) { doubledMeals.append(doubled) }
             if !meals.contains(line.forMeal) { meals.append(line.forMeal) }
             for flag in found {
                 let names = Set(flag.members.map(\.firstName))
@@ -117,26 +111,17 @@ enum WeeklyList {
 
         func line(itemID: UUID) -> Line {
             Line(itemID: itemID, name: name, quantity: Self.joined(quantities, limit: 60), forMeals: meals,
-                 note: note, isStaple: false)
+                 note: allergyNote, isStaple: false)
         }
 
-        /// Allergies first, always. The double note is added only if it fits the database's 140: a missing one is the
-        /// planner's to work out from the night, a missing allergy isn't.
-        private var note: String? {
-            guard let doubled = doubledNote else { return allergyNote }
-            guard let allergyNote else { return doubled }
-            let both = "\(allergyNote); \(doubled)"
-            return both.unicodeScalars.count <= 140 ? both : allergyNote
-        }
-
-        /// Says the amount was scaled, or to scale it by hand when there's no number to scale ("a big can", or nothing).
-        private var doubledNote: String? {
-            guard !doubledMeals.isEmpty else { return nil }
-            let dishes = doubledMeals.formatted(.list(type: .and))
-            let note = unscaledDouble
-                ? String(localized: "Get double for \(dishes)", comment: "Weekly list note: buy twice as much for the dish; no amount to scale")
-                : String(localized: "Doubled for \(dishes)", comment: "Weekly list note: the amount is already twice the recipe, for the dish")
-            return note.unicodeScalars.count <= 140 ? note : nil
+        private static func doubledAmount(_ quantity: String?) -> String {
+            guard let quantity else {
+                return String(localized: "get double", comment: "Weekly list amount: a doubled dish's ingredient with no amount to scale")
+            }
+            guard let scaled = QuantityScaler.scaledIfSimple(quantity, by: 2) else {
+                return String(localized: "\(quantity) (get double)", comment: "Weekly list amount: as the recipe wrote it, for a doubled dish; buy twice that")
+            }
+            return String(localized: "\(scaled) (doubled)", comment: "Weekly list amount: already twice the recipe, for a doubled dish")
         }
 
         /// Every flag, always: the full notes when they fit the database's 140, else one compact line that still

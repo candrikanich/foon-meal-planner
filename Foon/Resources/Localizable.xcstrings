@@ -40,6 +40,12 @@
     "%@ (copy)" : {
       "comment" : "Copy and tweak: the copied meal's starting name"
     },
+    "%@ (doubled)" : {
+      "comment" : "Weekly list amount: already twice the recipe, for a doubled dish"
+    },
+    "%@ (get double)" : {
+      "comment" : "Weekly list amount: as the recipe wrote it, for a doubled dish; buy twice that"
+    },
     "%@ +%lld" : {
       "comment" : "Allergy note: first name and how many more",
       "localizations" : {
@@ -638,6 +644,9 @@
     "Couldn't check that code. Check your connection and try again." : {
 
     },
+    "Couldn't check this one for allergies. Pull down to try again." : {
+
+    },
     "Couldn't copy %@. Check your connection and try again." : {
 
     },
@@ -859,9 +868,6 @@
     },
     "Double it" : {
 
-    },
-    "Doubled for %@" : {
-      "comment" : "Weekly list note: the amount is already twice the recipe, for the dish"
     },
     "Doubled: leftovers %@" : {
       "comment" : "Day card badge: this dish is cooked twice over, with leftovers on that night"
@@ -1091,9 +1097,6 @@
     },
     "Get dairy-free" : {
       "comment" : "Shopping note for a milk allergy"
-    },
-    "Get double for %@" : {
-      "comment" : "Weekly list note: buy twice as much for the dish; no amount to scale"
     },
     "Get egg-free" : {
       "comment" : "Shopping note for an egg allergy"
@@ -2259,7 +2262,7 @@
     "The family's away that night, so there's no dinner to plan. Pick another night, or send it without one." : {
 
     },
-    "The list gets twice this dish's amounts. Anything marked in stock stays off it, so check you have enough." : {
+    "The list gets twice this dish's amounts. Anything marked in stock stays off it, and a line someone added by hand or another approved week wrote keeps its own amount, so check you have enough." : {
 
     },
     "The night stays locked, so Rebuild keeps it." : {
@@ -2478,6 +2481,9 @@
     "Want steak Friday, or crab legs someday? Ask here, and the planner sees it." : {
 
     },
+    "Was on the plan for %@" : {
+
+    },
     "Wasn't home" : {
 
     },
@@ -2662,6 +2668,9 @@
     },
     "fish" : {
       "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "get double" : {
+      "comment" : "Weekly list amount: a doubled dish's ingredient with no amount to scale"
     },
     "https://" : {
 

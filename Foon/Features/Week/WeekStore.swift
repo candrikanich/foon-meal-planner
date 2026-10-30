@@ -28,6 +28,8 @@ final class WeekStore {
     private let seed: () -> UInt64
     /// The last write queued per night, so the next one waits for it.
     private var lastWrite: [UUID: Task<Void, Never>] = [:]
+    /// Counts writes started, so a read begun before a tap isn't shown over it.
+    private var writesStarted = 0
     private(set) var isBuilding = false
     /// Nights the last build couldn't fill (nothing passed the filters): This Week offers starter dishes for them.
     private(set) var unfillableNights: Set<UUID> = []
@@ -40,8 +42,6 @@ final class WeekStore {
     private(set) var requestNights: [UUID: UUID] = [:]
     /// The household's away dates, as of the last load: those nights show as away and aren't planned.
     private(set) var awayDates: [AwayDates] = []
-    /// A doubled or freezer night changed on this approved week since its list was last written.
-    private(set) var listNeedsUpdating = false
 
     init(householdID: UUID, client: WeekClient, today: (() -> CalendarDay)? = nil,
          seed: @escaping () -> UInt64 = { UInt64.random(in: .min ... .max) }, now: @escaping () -> Date = { .now }) {
@@ -70,10 +70,7 @@ final class WeekStore {
         calendar = settings.dayCalendar
         let thisWeek = WeekMath.start(of: today(), weekStart: settings.weekStart)
         let start = showingNextWeek ? thisWeek.adding(days: 7) : thisWeek
-        if start != self.start {
-            week = nil
-            listNeedsUpdating = false
-        }
+        if start != self.start { week = nil }
         awayDates = settings.awayDates
         self.start = start
         isLoading = true
@@ -261,7 +258,7 @@ final class WeekStore {
             // An unlocked half of a doubled pair or a freezer night: the server moved the other end.
             if touchesLink {
                 noteListChanged()
-                await reload()
+                await settleThenReload()
             }
         } catch {
             errorMessage = message(for: error, otherwise: String(localized: "Couldn't save the plan. Check your connection and try again."))
@@ -328,7 +325,7 @@ final class WeekStore {
         }
         if succeeded, linked || write != nil { noteListChanged() }
         // The server just moved the night at the other end of a link; show what it did.
-        if succeeded, linked { await reload() }
+        if succeeded, linked { await settleThenReload() }
         return succeeded
     }
 
@@ -372,15 +369,18 @@ final class WeekStore {
         }
         guard saved else { return false }
         noteListChanged()
-        if !(await reload()) {
+        if !(await settleThenReload()) {
             errorMessage = String(localized: "It's undone, but the week didn't refresh. Pull down to see it.")
         }
         return true
     }
 
-    /// Double it on a week already approved: the list waits for Update the list, like any other change to a night.
+    /// An approved week whose list is behind a doubled or freezer night. The server keeps this; the store shows a change
+    /// it just made before the next read.
+    var listNeedsUpdating: Bool { week?.listStale == true }
+
     private func noteListChanged() {
-        if week?.approvedAt != nil { listNeedsUpdating = true }
+        if week?.approvedAt != nil { week?.listStale = true }
     }
 
     /// Whether a change to this night moves another row on the server: its leftovers night, or a freezer item.
@@ -393,7 +393,7 @@ final class WeekStore {
 
     /// Reads the week again before something is built from it, so a list isn't written from what another planner changed.
     func refresh() async {
-        await reload()
+        await settleThenReload()
     }
 
     // MARK: - Approve
@@ -405,8 +405,10 @@ final class WeekStore {
         do {
             try await client.approve(planID, lines)
             // The week may have switched while this was out; stamp only the one approved.
-            if week?.planID == planID { week?.approvedAt = .now }
-            listNeedsUpdating = false
+            if week?.planID == planID {
+                week?.approvedAt = .now
+                week?.listStale = false
+            }
             errorMessage = nil
             return true
         } catch {
@@ -476,6 +478,32 @@ final class WeekStore {
         return .empty
     }
 
+    /// The card This Week shows: the night's dish, or the one its leftovers are from, with flags for whoever's home that
+    /// night; what's doubled and where the leftovers are; nothing about cooking something already cooked.
+    static func planCard(for night: WeekNight, nights: [WeekNight], members: [Member], library: [LibraryMeal],
+                         allergies: [MemberAllergies], settings: HouseholdSettings, today: CalendarDay, minuteNow: Int,
+                         sides: (UUID) -> [String] = { _ in [] }, notes: (UUID, Set<UUID>) -> [String] = { _, _ in [] },
+                         isAway: Bool = false) -> DayCardModel {
+        let dish = night.mealID.flatMap { id in library.first { $0.id == id } }
+            ?? DoubleIt.leftoversDish(on: night, nights: nights, library: library)
+        let source = nights.first { $0.id == night.leftoversFrom }
+        var model = card(for: night, members: members, sides: sides,
+                         badges: { _, home in
+                             guard let dish else { return [] }
+                             return NightBadges.badges(
+                                 meal: dish, library: library, allergies: allergies, home: home, settings: settings,
+                                 start: StartCooking.nudge(for: dish, on: night, settings: settings, today: today,
+                                                           minuteNow: minuteNow),
+                                 alreadyCooked: night.mealID == nil || night.stashItemID != nil)
+                         },
+                         notes: notes, isAway: isAway, leftoversDish: dish?.id,
+                         leftoversNote: source.flatMap { DoubleIt.leftoversNote(from: $0) })
+        if !isAway, let later = DoubleIt.leftoversNight(of: night, in: nights) {
+            model.badges.append(.doubled(DoubleIt.doubledText(leftoversOn: later, today: today)))
+        }
+        return model
+    }
+
     func night(_ date: CalendarDay) -> WeekNight? {
         week?.nights.first { $0.date == date }
     }
@@ -486,6 +514,7 @@ final class WeekStore {
     /// Returns whether this write saved.
     @discardableResult
     private func send(nightID: UUID, failure: String, _ write: @escaping @Sendable () async throws -> Void) async -> Bool {
+        writesStarted += 1
         let previous = lastWrite[nightID]
         let task = Task { () -> Bool in
             _ = await previous?.value
@@ -508,6 +537,23 @@ final class WeekStore {
     private func reload() async -> Bool {
         guard let start, let loaded = try? await client.week(householdID, start) else { return false }
         if start == self.start { week = loaded }
+        return true
+    }
+
+    /// A read after a write that went through: other taps may be on their way, so it waits for them, and reads again if
+    /// another starts while it's reading. A few goes, then it leaves the screen as it is rather than undo a tap. Returns
+    /// whether it read.
+    @discardableResult
+    private func settleThenReload() async -> Bool {
+        guard let start else { return false }
+        for _ in 0..<3 {
+            for write in Array(lastWrite.values) { await write.value }
+            let started = writesStarted
+            guard let loaded = try? await client.week(householdID, start) else { return false }
+            guard started == writesStarted else { continue }
+            if start == self.start { week = loaded }
+            return true
+        }
         return true
     }
 

@@ -133,6 +133,12 @@ enum FreezerStash {
                comment: "Reason chip: a dish already cooked and frozen, and the date it was made")
     }
 
+    /// Without the dish there's nothing to check allergies against, and no flag mustn't read as safe.
+    static func allergyUnknownNote(for meal: LibraryMeal?, isLoading: Bool) -> String? {
+        guard meal == nil, !isLoading else { return nil }
+        return String(localized: "Couldn't check this one for allergies. Pull down to try again.")
+    }
+
     /// Why an item on the list isn't being offered, when the dish is the reason.
     static func notOfferedNote(for meal: LibraryMeal?) -> String? {
         switch meal?.status {

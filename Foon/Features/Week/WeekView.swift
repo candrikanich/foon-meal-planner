@@ -203,19 +203,13 @@ struct WeekView: View {
 
     private func card(_ night: WeekNight) -> some View {
         let isAway = night.readsAway(in: settings.awayDates, today: week.todayDay)
-        let nights = week.week?.nights ?? []
-        let source = nights.first { $0.id == night.leftoversFrom }
-        var model = WeekStore.card(for: night, members: household.visibleMembers, sides: sideNames,
-                                   badges: { meal, home in badges(meal, home: home, night: night) },
-                                   notes: { meal, home in
-                                       ServingNotes.lines(library.servingNotes, mealID: meal, home: home,
-                                                          members: household.visibleMembers)
-                                   }, isAway: isAway,
-                                   leftoversDish: DoubleIt.leftoversDish(on: night, nights: nights, library: library.meals)?.id,
-                                   leftoversNote: source.flatMap { DoubleIt.leftoversNote(from: $0) })
-        if !isAway, let later = DoubleIt.leftoversNight(of: night, in: nights) {
-            model.badges.append(.doubled(DoubleIt.doubledText(leftoversOn: later, today: week.todayDay)))
-        }
+        let model = WeekStore.planCard(for: night, nights: week.week?.nights ?? [], members: household.visibleMembers,
+                                       library: library.meals, allergies: library.allergies, settings: settings,
+                                       today: week.todayDay, minuteNow: settings.minuteOfDay(), sides: sideNames,
+                                       notes: { meal, home in
+                                           ServingNotes.lines(library.servingNotes, mealID: meal, home: home,
+                                                              members: household.visibleMembers)
+                                       }, isAway: isAway)
         // An away night has nothing to open or change: planners shorten the dates in Family instead.
         return DayCard(model: model, today: week.todayDay, actions: canPlan && !isAway ? actions(for: night) : nil)
             .contentShape(Rectangle())
@@ -386,7 +380,10 @@ struct WeekView: View {
             cycleEffort: { Task { await week.cycleEffort(nightID: night.id) } },
             toggleLock: { Task { await week.toggleLock(nightID: night.id) } },
             // Quick-pick nights change through Swap (#25); shuffle re-rolls meals and fills empty nights.
-            shuffle: night.quickPick == nil && !week.isBuilding ? { Task { await shuffle(night.id) } } : nil,
+            // Nor on a doubled or freezer night: changing it moves something else, and Swap says what first.
+            shuffle: night.quickPick == nil && !week.isBuilding
+                && DoubleIt.changeWarning(for: night, in: week.week?.nights ?? []) == nil
+                ? { Task { await shuffle(night.id) } } : nil,
             swap: week.isBuilding ? nil : { swappingNight = night.id },
             open: { openNight = night.id }
         )
@@ -433,15 +430,6 @@ struct WeekView: View {
 
     private func sideNames(_ mealID: UUID) -> [String] {
         library.meal(mealID).map(library.sideNames(for:)) ?? []
-    }
-
-    private func badges(_ mealID: UUID, home: Set<UUID>, night: WeekNight) -> [DayCardModel.Badge] {
-        guard let meal = library.meal(mealID) else { return [] }
-        return NightBadges.badges(meal: meal, library: library.meals, allergies: library.allergies, home: home,
-                                  settings: settings,
-                                  start: StartCooking.nudge(for: meal, on: night, settings: settings, today: week.todayDay,
-                                                            minuteNow: settings.minuteOfDay()),
-                                  alreadyCooked: night.mealID == nil || night.stashItemID != nil)
     }
 
     private func openNightsText(_ count: Int) -> String {

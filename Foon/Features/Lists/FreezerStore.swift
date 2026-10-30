@@ -10,6 +10,8 @@ final class FreezerStore {
     private(set) var items: [FreezerItem] = []
     private(set) var hasLoaded = false
     private(set) var errorMessage: String?
+    /// Bumped per load, so an older load that finishes last can't bring back an item someone just used.
+    private var loadGeneration = 0
 
     let householdID: UUID
     private let client: FreezerClient
@@ -24,22 +26,27 @@ final class FreezerStore {
         items.filter { $0.state == .in }.sorted { ($0.madeOn, $0.id.uuidString) < ($1.madeOn, $1.id.uuidString) }
     }
 
-    var planned: [FreezerItem] {
-        items.filter { $0.state == .used && $0.plannedOn != nil }
+    func planned(today: CalendarDay) -> [FreezerItem] {
+        items.filter { item in item.state == .used && item.plannedOn.map { $0 >= today } == true }
     }
 
-    /// Used up or tossed: kept so a mistaken tap can be put back.
-    var gone: [FreezerItem] {
-        items.filter { $0.state != .in && $0.plannedOn == nil }.sorted { $0.madeOn > $1.madeOn }
+    /// Used up, tossed, or on a night that's gone by. Kept so a mistaken tap can be put back.
+    func gone(today: CalendarDay) -> [FreezerItem] {
+        items.filter { item in item.state != .in && !(item.state == .used && item.plannedOn.map { $0 >= today } == true) }
+            .sorted { $0.madeOn > $1.madeOn }
     }
 
     func load() async {
+        loadGeneration += 1
+        let generation = loadGeneration
         do {
-            items = try await client.items(householdID)
+            let loaded = try await client.items(householdID)
+            guard generation == loadGeneration else { return }
+            items = loaded
             hasLoaded = true
             errorMessage = nil
         } catch {
-            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
+            guard generation == loadGeneration, !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
             errorMessage = String(localized: "Couldn't load the freezer. Check your connection and try again.")
         }
     }

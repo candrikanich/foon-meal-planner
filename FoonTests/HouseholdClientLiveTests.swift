@@ -537,6 +537,7 @@ struct HouseholdClientLiveTests {
         #expect(loaded.nights[2].leftoversFrom == monday.id)
         #expect(loaded.nights[2].quickPick == .leftovers)
         #expect(loaded.nights[1].locked)
+        #expect(!loaded.listStale, "not approved, so no list to be behind")
 
         do {
             try await weeks.doubleIt(request)
@@ -549,6 +550,12 @@ struct HouseholdClientLiveTests {
         loaded = try #require(try await weeks.week(household.id, sunday))
         #expect(loaded.nights[2].mealID == tacos, "the dish Double it replaced comes back")
         #expect(loaded.nights[2].leftoversFrom == nil)
+
+        try await weeks.approve(week.planID, [])
+        try await weeks.doubleIt(request)
+        loaded = try #require(try await weeks.week(household.id, sunday))
+        #expect(loaded.listStale, "every phone can see the list is behind")
+        try await weeks.undoDouble(monday.id)
 
         try await freezer.add(household.id, chili, CalendarDay(year: 2026, month: 1, day: 5))
         let item = try #require(try await freezer.items(household.id).first)

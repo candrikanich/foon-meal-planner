@@ -7,6 +7,8 @@ struct Week: Equatable, Sendable {
     let start: CalendarDay
     var approvedAt: Date?
     var nights: [WeekNight]
+    /// The approved list is behind a doubled or freezer night (`plans.list_stale`), kept by the server for every phone.
+    var listStale = false
 }
 
 struct WeekNight: Identifiable, Equatable, Sendable {
@@ -76,7 +78,7 @@ extension WeekClient {
     static func live(_ client: SupabaseClient) -> WeekClient {
         let fetch: @Sendable (UUID, CalendarDay) async throws -> Week? = { householdID, start in
             let rows: [PlanWithNights] = try await client.from("plans")
-                .select("id, week_start, approved_at, plan_nights(\(PlanNightRow.columns))")
+                .select("id, week_start, approved_at, list_stale, plan_nights(\(PlanNightRow.columns))")
                 .eq("household_id", value: householdID)
                 .eq("week_start", value: start.isoString)
                 .limit(1)
@@ -315,17 +317,19 @@ private struct PlanWithNights: Decodable, Sendable {
     let id: UUID
     let weekStart: CalendarDay
     let approvedAt: Date?
+    let listStale: Bool
     let planNights: [PlanNightRow]
 
     enum CodingKeys: String, CodingKey {
         case id
         case weekStart = "week_start"
         case approvedAt = "approved_at"
+        case listStale = "list_stale"
         case planNights = "plan_nights"
     }
 
     var week: Week {
         Week(planID: id, start: weekStart, approvedAt: approvedAt,
-             nights: planNights.sorted { $0.date < $1.date }.map(\.night))
+             nights: planNights.sorted { $0.date < $1.date }.map(\.night), listStale: listStale)
     }
 }

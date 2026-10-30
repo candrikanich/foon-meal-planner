@@ -152,6 +152,9 @@ struct PlanItSheet: View {
                 Text("\(DayCardText.dayLabel(for: night.date, today: week.currentDay)) · \(DayCardText.dateLabel(for: night.date))")
                     .font(.foonHeadline)
                 Text(PlanIt.currentPick(night)).font(.foonCaption).foregroundStyle(.secondary)
+                if let warning = DoubleIt.changeWarning(for: night, in: week.week?.nights ?? []) {
+                    Text(warning).font(.foonCaption).foregroundStyle(Palette.paprika)
+                }
             }
             Spacer()
             if saving == night.id {

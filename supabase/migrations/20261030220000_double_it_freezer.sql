@@ -6,10 +6,12 @@
 --    another week, a staple, or a hand-add, so nothing here scales or deletes by plan_id.
 --    double_it and undo_double_it lock both nights and check what the device saw. leftovers_restore holds what the
 --    leftovers night held before, so an undo puts it back. Both nights are saved locked, as any planner's pick is.
--- 2. Every other way a night changes goes through triggers, so Swap, Plan it, Build, away dates, We had something else,
---    and an older app (which writes meal_id, quick_pick, reason and locked directly and has never heard of the link) all
---    agree. A different dish on the doubled night takes its leftovers night back to what it held; a different pick on the
---    leftovers night ends the link and keeps the pick. Nights already past keep what was eaten.
+-- 2. Every other way a night changes goes through triggers, so Swap, Plan it, Build, away dates, and an older app (which
+--    writes meal_id, quick_pick, reason and locked directly and has never heard of the link) all agree. A different dish
+--    on the doubled night takes its leftovers night back to what it held; a different pick on the leftovers night ends the
+--    link and keeps the pick. Past nights and logged dinners keep what was eaten. We had something else writes only
+--    meal_logs, so it has its own trigger, meal_logs_follow_what_was_eaten, that does the same from the log. plans.list_stale
+--    says an approved week's list is behind these links, for every phone.
 -- 3. freezer_stash: one row per dinner cooked ahead, always a library dish, so its allergy flags and sides come along.
 --    Household-owned, and only functions write it: anyone in the family adds to it and uses it up; only planners plan a
 --    night from it (use_freezer_item, which locks the item, so two phones offered the same one can't both have it). An
@@ -58,7 +60,8 @@ create unique index plan_nights_one_leftovers_night on public.plan_nights (lefto
 create unique index plan_nights_one_stash_night on public.plan_nights (stash_item_id) where stash_item_id is not null;
 
 -- Takes a leftovers night back to what it held before. From today on: a dish no longer in rotation, or a night the family
--- is now away, stays empty. Past nights keep what was eaten and only lose the link.
+-- is now away, stays empty. Past nights and logged dinners keep what was eaten and only lose the link. A night someone
+-- has unlocked stays unlocked, so a build that clears a whole pair can go on to write it.
 create function public.unwind_leftovers_night(target uuid)
 returns void
 language plpgsql security definer set search_path = ''
@@ -70,7 +73,8 @@ declare
   restored_pick public.quick_pick;
 begin
   select * into night from public.plan_nights where id = target for update;
-  if night.date < public.household_today(night.household_id) then
+  if night.date < public.household_today(night.household_id)
+     or exists (select 1 from public.meal_logs l where l.night_id = night.id) then
     update public.plan_nights set leftovers_from = null, leftovers_restore = null where id = target;
     return;
   end if;
@@ -94,7 +98,8 @@ begin
   else
     update public.plan_nights
     set meal_id = restored_meal, quick_pick = restored_pick, reason = before ->> 'reason',
-        locked = coalesce((before ->> 'locked')::boolean, false), leftovers_from = null, leftovers_restore = null
+        locked = night.locked and coalesce((before ->> 'locked')::boolean, false),
+        leftovers_from = null, leftovers_restore = null
     where id = target;
   end if;
 end;
@@ -142,6 +147,86 @@ revoke execute on function public.plan_nights_follow_links() from public, anon, 
 
 create trigger plan_nights_follow_links after update of meal_id, quick_pick on public.plan_nights
   for each row execute function public.plan_nights_follow_links();
+
+-- We had something else writes only the log, and any member can make it, so the night follows here. A dish that wasn't
+-- eaten left no leftovers, and a freezer dinner that wasn't eaten is still in the freezer. The plan itself keeps saying
+-- what was planned, as it does for any corrected night. Correcting back takes the item out again if nothing else has it;
+-- the leftovers night stays as it is, because someone may have planned it by then.
+alter table public.meal_logs
+  add column returned_stash_item_id uuid,
+  add constraint meal_logs_returned_item_fkey foreign key (returned_stash_item_id, household_id)
+    references public.freezer_stash (id, household_id);
+
+create function public.meal_logs_follow_what_was_eaten()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  night public.plan_nights;
+begin
+  select * into night from public.plan_nights where id = new.night_id for update;
+
+  if (new.meal_id, new.quick_pick) is not distinct from (night.meal_id, night.quick_pick) then
+    if new.returned_stash_item_id is not null then
+      update public.freezer_stash s set state = 'used', state_changed_at = now()
+      where s.id = new.returned_stash_item_id and s.state = 'in'
+        and not exists (select 1 from public.plan_nights n where n.stash_item_id = s.id);
+      if found and night.stash_item_id is null then
+        update public.plan_nights set stash_item_id = new.returned_stash_item_id where id = night.id;
+      end if;
+      update public.meal_logs set returned_stash_item_id = null where id = new.id;
+    end if;
+    return null;
+  end if;
+
+  perform public.unwind_leftovers_night(l.id) from public.plan_nights l where l.leftovers_from = night.id;
+  if night.stash_item_id is not null then
+    update public.freezer_stash set state = 'in', state_changed_at = now() where id = night.stash_item_id and state = 'used';
+    update public.plan_nights set stash_item_id = null where id = night.id;
+    update public.meal_logs set returned_stash_item_id = night.stash_item_id where id = new.id;
+  end if;
+  return null;
+end;
+$$;
+
+revoke execute on function public.meal_logs_follow_what_was_eaten() from public, anon, authenticated;
+
+create trigger meal_logs_follow_what_was_eaten after insert or update of meal_id, quick_pick on public.meal_logs
+  for each row execute function public.meal_logs_follow_what_was_eaten();
+
+-- Whether an approved week's list is behind its doubled and freezer nights, on the plan so every phone sees it. The links
+-- are what the app builds the list from. A BEFORE trigger can end a link, so this asks of the row, not the columns written.
+alter table public.plans add column list_stale boolean not null default false;
+
+create function public.plan_nights_mark_list_stale()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  update public.plans set list_stale = true where id = new.plan_id and approved_at is not null and not list_stale;
+  return null;
+end;
+$$;
+
+revoke execute on function public.plan_nights_mark_list_stale() from public, anon, authenticated;
+
+create trigger plan_nights_mark_list_stale after update on public.plan_nights
+  for each row when ((old.leftovers_from, old.stash_item_id) is distinct from (new.leftovers_from, new.stash_item_id))
+  execute function public.plan_nights_mark_list_stale();
+
+-- approve_plan and an older app's Approve both stamp approved_at, which is what writing the list does.
+create function public.plans_list_written()
+returns trigger
+language plpgsql set search_path = ''
+as $$
+begin
+  new.list_stale := false;
+  return new;
+end;
+$$;
+
+create trigger plans_list_written before update of approved_at on public.plans
+  for each row execute function public.plans_list_written();
 
 -- Cooks twice as much on one night and plans the leftovers on a later night in the same week. The device says what it saw
 -- on both, so a stale phone can't double a dish that's been swapped or plan over something it never saw.
@@ -327,6 +412,8 @@ begin
     raise exception 'the family is away that night' using errcode = '22023';
   end if;
 
+  -- Even the same dish: it's not being cooked now, so there's nothing doubled. The meal-change trigger wouldn't see it.
+  perform public.unwind_leftovers_night(l.id) from public.plan_nights l where l.leftovers_from = night.id;
   update public.freezer_stash set state = 'used', state_changed_at = now() where id = item.id;
   update public.plan_nights
   set meal_id = item.meal_id, quick_pick = null, reason = left(nullif(btrim(night_reason), ''), 80), locked = true,

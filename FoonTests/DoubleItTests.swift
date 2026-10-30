@@ -32,28 +32,43 @@ private let tacos = dish("Tacos", [(beef, "ground beef", "1 lb"), (shells, "taco
 struct DoubleItListTests {
     @Test func aDoubledNightBuysTwiceItsAmountsAndSaysSo() {
         let lines = WeeklyList.build(nights: [WeeklyList.Night(mealID: chili.id, home: [], doubled: true)], library: [chili])
-        let meat = lines.first { $0.itemID == beef }
-        #expect(meat?.quantity == "3 lb")
-        #expect(meat?.note == "Doubled for Chili")
+        #expect(lines.first { $0.itemID == beef }?.quantity == "3 lb (doubled)")
+        #expect(lines.allSatisfy { $0.note == nil }, "the amount says it, and notes stay for allergies")
     }
 
-    @Test func anAmountThatWontScaleStaysAsWrittenAndTheNoteSaysToGetDouble() {
+    @Test func anAmountThatWontScaleStaysAsWrittenAndSaysToGetDouble() {
         let lines = WeeklyList.build(nights: [WeeklyList.Night(mealID: chili.id, home: [], doubled: true)], library: [chili])
-        let can = lines.first { $0.itemID == beans }
-        #expect(can?.quantity == "a big can")
-        #expect(can?.note == "Get double for Chili")
-        let noAmount = lines.first { $0.itemID == salsa }
-        #expect(noAmount?.quantity == nil)
-        #expect(noAmount?.note == "Get double for Chili")
+        #expect(lines.first { $0.itemID == beans }?.quantity == "a big can (get double)")
+        #expect(lines.first { $0.itemID == salsa }?.quantity == "get double")
+    }
+
+    @Test(arguments: ["1 to 2 lb", "2 lb 8 oz", "1/2 cup + 2 tbsp", "1 or 2 cloves"])
+    func anAmountThatIsntOneSimpleNumberIsLeftToThePerson(amount: String) {
+        let meal = dish("Stew", [(beef, "beef", amount)])
+        let lines = WeeklyList.build(nights: [WeeklyList.Night(mealID: meal.id, home: [], doubled: true)], library: [meal])
+        #expect(lines[0].quantity == "\(amount) (get double)")
+    }
+
+    @Test func aPackageSizeIsntPartOfTheAmount() {
+        let meal = dish("Stew", [(beans, "beans", "1 (15 oz) can")])
+        let lines = WeeklyList.build(nights: [WeeklyList.Night(mealID: meal.id, home: [], doubled: true)], library: [meal])
+        #expect(lines[0].quantity == "2 (15 oz) can (doubled)")
     }
 
     @Test func onlyTheDoubledNightsShareOfASharedItemScales() {
         let lines = WeeklyList.build(nights: [WeeklyList.Night(mealID: chili.id, home: [], doubled: true),
                                               WeeklyList.Night(mealID: tacos.id, home: [])],
                                      library: [chili, tacos])
-        #expect(lines.first { $0.itemID == beef }?.quantity == "3 lb + 1 lb")
+        #expect(lines.first { $0.itemID == beef }?.quantity == "3 lb (doubled) + 1 lb")
         #expect(lines.first { $0.itemID == shells }?.quantity == "12", "tacos aren't doubled")
-        #expect(lines.first { $0.itemID == shells }?.note == nil)
+    }
+
+    @Test func aMixedLineSaysWhichPartIsAlreadyDoubled() {
+        let soup = dish("Soup", [(beef, "ground beef", "a big can")])
+        let lines = WeeklyList.build(nights: [WeeklyList.Night(mealID: chili.id, home: [], doubled: true),
+                                              WeeklyList.Night(mealID: soup.id, home: [], doubled: true)],
+                                     library: [chili, soup])
+        #expect(lines.first { $0.itemID == beef }?.quantity == "3 lb (doubled) + a big can (get double)")
     }
 
     @Test func rebuildingTheListNeverScalesTwiceAndUndoingRestoresIt() {
@@ -62,23 +77,13 @@ struct DoubleItListTests {
         #expect(WeeklyList.build(nights: doubled, library: [chili]) == first, "Update the list twice is one scale")
         let undone = WeeklyList.build(nights: [WeeklyList.Night(mealID: chili.id, home: [])], library: [chili])
         #expect(undone.first { $0.itemID == beef }?.quantity == "1 1/2 lb")
-        #expect(undone.allSatisfy { $0.note == nil })
     }
 
-    @Test func allergyNotesAlwaysFitAndComeBeforeTheDoubledNote() {
+    @Test func aDoubledDishStillGetsItsAllergyNote() {
         let allergies = [MemberAllergies(memberID: nora, firstName: "Nora", allergens: [.milk])]
         let lines = WeeklyList.build(nights: [WeeklyList.Night(mealID: chili.id, home: [nora], doubled: true)],
                                      library: [chili], allergies: allergies)
-        #expect(lines.first { $0.itemID == salsa }?.note == "Get dairy-free (Nora); Get double for Chili")
-
-        let many = (0..<14).map { "ingredient number \($0)" }
-        let flagged = MemberAllergies(memberID: nora, firstName: "Nora", customTexts: many)
-        var crowded = LibraryMeal.fixture(name: "Crowded")
-        crowded.ingredients = [MealIngredient(itemID: beef, name: many.joined(separator: " "), quantityText: "1 lb", position: 1)]
-        let line = WeeklyList.build(nights: [WeeklyList.Night(mealID: crowded.id, home: [nora], doubled: true)],
-                                    library: [crowded], allergies: [flagged])[0]
-        #expect((line.note?.unicodeScalars.count ?? 0) <= 140, "the database's limit")
-        #expect(line.note?.contains("Check") == true, "and the allergy is what stays")
+        #expect(lines.first { $0.itemID == salsa }?.note == "Get dairy-free (Nora)")
     }
 
     @Test func aFreezerNightBuysOnlyItsSides() {
@@ -104,7 +109,17 @@ struct DoubleItListTests {
         #expect(nights.map(\.fromFreezer) == [false, false, true, false])
     }
 
-    @Test func aNightWhoseLeftoversNightLeftIsNoLongerDoubled() {
+    @Test func someoneHomeOnlyForTheLeftoversStillGetsAnAllergyNote() throws {
+        let monday = night(1, meal: chili, home: [nora: false, owen: true])
+        let tuesday = night(2, pick: .leftovers, leftoversFrom: monday.id, home: [nora: true, owen: true])
+        let nights = DoubleIt.listNights(WeekLayout(nights: [monday, tuesday], today: sunday))
+        #expect(nights[0].home == [nora, owen], "the extra batch is for Tuesday's table too")
+        let allergies = [MemberAllergies(memberID: nora, firstName: "Nora", allergens: [.milk])]
+        let lines = WeeklyList.build(nights: nights, library: [chili], allergies: allergies)
+        #expect(lines.first { $0.itemID == salsa }?.note == "Get dairy-free (Nora)")
+    }
+
+    @Test func aNightWithNoLeftoversNightIsNotDoubled() {
         let layout = WeekLayout(nights: [night(1, meal: chili), night(2, meal: tacos)], today: sunday)
         #expect(DoubleIt.listNights(layout).allSatisfy { !$0.doubled })
     }
@@ -188,6 +203,27 @@ struct DoubleItChoicesTests {
     }
 }
 
+struct DoubleItWarningTests {
+    @Test func changingALinkedNightSaysWhatElseMoves() {
+        let monday = night(1, meal: chili, locked: true)
+        let tuesday = night(2, pick: .leftovers, locked: true, leftoversFrom: monday.id)
+        let freezer = night(3, meal: tacos, stashItemID: UUID())
+        let plain = night(4, meal: tacos)
+        let week = [monday, tuesday, freezer, plain]
+        #expect(DoubleIt.changeWarning(for: monday, in: week)?.contains("leftovers night") == true)
+        #expect(DoubleIt.changeWarning(for: tuesday, in: week)?.contains("regular amounts") == true)
+        #expect(DoubleIt.changeWarning(for: freezer, in: week)?.contains("back in the freezer") == true)
+        #expect(DoubleIt.changeWarning(for: plain, in: week) == nil)
+    }
+
+    @Test func theDialogSaysWhatTheListWontDo() {
+        let note = DoubleIt.listNote(approved: false)
+        #expect(note.contains("in stock"))
+        #expect(note.contains("another approved week"), "a line another week owns stays as it is")
+        #expect(DoubleIt.listNote(approved: true).contains("already bought"))
+    }
+}
+
 struct DoubleItCardTests {
     private let allergies = [MemberAllergies(memberID: nora, firstName: "Nora", allergens: [.milk])]
 
@@ -210,6 +246,21 @@ struct DoubleItCardTests {
                                         start: start, alreadyCooked: true)
         #expect(cooked.allSatisfy { if case .allergy = $0 { true } else { false } })
         #expect(cooked.count == 1)
+    }
+
+    @MainActor
+    @Test func theWeekCardDeliversTheFlagAndNoteToALeftoversNight() {
+        let monday = night(1, meal: chili, home: [nora: false, owen: true])
+        let tuesday = night(2, pick: .leftovers, leftoversFrom: monday.id, home: [nora: true, owen: true])
+        let card = WeekStore.planCard(for: tuesday, nights: [monday, tuesday], members: [], library: [chili],
+                                      allergies: allergies, settings: HouseholdSettings(), today: sunday, minuteNow: 0)
+        #expect(card.badges.count == 1)
+        guard case .allergy(let text) = card.badges.first else { Issue.record("no allergy flag"); return }
+        #expect(text.contains("Nora"))
+        #expect(card.leftoversNote == "From Monday's Chili")
+        let dish = WeekStore.planCard(for: monday, nights: [monday, tuesday], members: [], library: [chili],
+                                      allergies: allergies, settings: HouseholdSettings(), today: sunday, minuteNow: 0)
+        #expect(dish.badges == [.doubled("Doubled: leftovers Tuesday")], "Nora's out for the dish itself")
     }
 
     @MainActor
@@ -367,7 +418,7 @@ struct DoubleItStoreTests {
         #expect(await calls.loads == before + 1)
     }
 
-    @Test func onAnApprovedWeekDoublingAndUndoingSayTheListNeedsUpdating() async {
+    @Test func onAnApprovedWeekDoublingSaysTheListNeedsUpdatingUntilItsWritten() async {
         let monday = night(1, meal: chili), tuesday = night(2)
         let saved = week([monday, tuesday], approved: true)
         let store = await store(.fake(week: { _, _ in saved }))
@@ -376,6 +427,55 @@ struct DoubleItStoreTests {
         #expect(store.listNeedsUpdating)
         #expect(await store.approve([]))
         #expect(!store.listNeedsUpdating, "updating the list settles it")
+    }
+
+    @Test func undoingOnAnApprovedWeekAndAnotherPhonesChangeBothReadFromThePlan() async {
+        let monday = night(1, meal: chili, locked: true)
+        let tuesday = night(2, pick: .leftovers, locked: true, leftoversFrom: monday.id)
+        var stale = week([monday, night(2)], approved: true)
+        stale.listStale = true
+        let behind = stale
+        let settled = week([monday, tuesday], approved: true)
+        let calls = Calls()
+        let store = await store(.fake(week: { _, _ in await calls.undos.isEmpty ? settled : behind },
+                                      undoDouble: { await calls.record(undo: $0) }))
+        #expect(!store.listNeedsUpdating)
+        #expect(await store.undoDouble(nightID: monday.id))
+        #expect(store.listNeedsUpdating, "the server's flag, so a cold start or the other phone sees it too")
+    }
+
+    /// A reload after a linked write must not overwrite a tap still on its way to the server.
+    @Test func aReloadAfterALinkedWriteWaitsForAnAttendanceTapInFlight() async throws {
+        let monday = night(1, meal: chili, locked: true)
+        let tuesday = night(2, pick: .leftovers, locked: true, leftoversFrom: monday.id)
+        let saved = week([monday, tuesday])
+        let tapped = Mutex(false)
+        let (parked, parkedSignal) = AsyncStream.makeStream(of: Void.self)
+        let (gate, release) = AsyncStream.makeStream(of: Void.self)
+        let (swapWrote, swapWroteSignal) = AsyncStream.makeStream(of: Void.self)
+        let store = await store(.fake(
+            week: { _, _ in
+                var current = saved
+                if tapped.withLock({ $0 }) { current.nights[0].attendance[nora] = false }
+                return current
+            },
+            setExpected: { _, _, _ in
+                parkedSignal.yield()
+                for await _ in gate {}
+                tapped.withLock { $0 = true }
+            },
+            setNight: { _, _ in swapWroteSignal.yield() }
+        ))
+        let tap = Task { await store.toggleAttendance(nightID: monday.id, memberID: nora) }
+        for await _ in parked { break }
+        let swap = Task { await store.swap(nightID: tuesday.id, to: .quickPick(.takeout)) }
+        for await _ in swapWrote { break }
+        for _ in 0..<50 { await Task.yield() }
+        #expect(store.week?.nights[0].attendance[nora] == false, "the tap still shows")
+        release.finish()
+        await tap.value
+        #expect(await swap.value)
+        #expect(store.week?.nights[0].attendance[nora] == false, "and the read back includes it")
     }
 
     @Test func beforeApprovalThereIsNoListToUpdate() async {
@@ -387,29 +487,70 @@ struct DoubleItStoreTests {
     }
 }
 
-/// Every path that plans a night leaves a doubled pair alone, because both are saved locked.
+/// Every path that plans a night leaves a real doubled pair alone: both nights are saved locked and linked.
+@MainActor
 struct DoubleItPlanningTests {
-    private func inputs() -> (PlanningInputs, monday: PlanningNight, tuesday: PlanningNight) {
-        let monday = PlanningNight(id: UUID(), date: sunday.adding(days: 1), attendance: [nora: true], locked: true,
-                                   mealID: chili.id)
-        let tuesday = PlanningNight(id: UUID(), date: sunday.adding(days: 2), attendance: [nora: true], locked: true,
-                                    quickPick: .leftovers)
-        let others = [0, 3, 4].map { PlanningNight(id: UUID(), date: sunday.adding(days: $0), attendance: [nora: true]) }
-        let meals = (0..<6).map { LibraryMeal.fixture(name: "Dish \($0)") } + [chili]
-        return (PlanningInputs(nights: [monday, tuesday] + others, meals: meals, today: sunday), monday, tuesday)
+    private let meals = (0..<6).map { LibraryMeal.fixture(name: "Dish \($0)") } + [chili]
+
+    private func pair() -> (Week, monday: WeekNight, tuesday: WeekNight) {
+        let monday = night(1, meal: chili, locked: true)
+        let tuesday = night(2, pick: .leftovers, locked: true, leftoversFrom: monday.id)
+        let others = [0, 3, 4].map { night($0) }
+        return (Week(planID: UUID(), start: sunday, nights: [others[0], monday, tuesday, others[1], others[2]]), monday, tuesday)
     }
 
-    @Test func buildAndFillKeepThePairAndCountTheLeftovers() {
-        let (planning, monday, tuesday) = inputs()
-        let draft = BuildMyWeek.draft(planning, seed: 3)
-        #expect(draft.first { $0.nightID == monday.id }?.pick == .meal(chili.id))
-        #expect(draft.first { $0.nightID == tuesday.id }?.pick == .quickPick(.leftovers))
-        #expect(draft.filter { $0.pick == .quickPick(.leftovers) }.count == 1, "it's the week's leftovers night")
+    private func context() -> PlanningContext {
+        PlanningContext(meals: meals, history: [], settings: HouseholdSettings(), members: [])
     }
 
-    @Test func shuffleLeavesThemAlone() {
-        let (planning, monday, tuesday) = inputs()
-        #expect(BuildMyWeek.shuffle(night: monday.id, inputs: planning, seed: 1) == nil)
-        #expect(BuildMyWeek.shuffle(night: tuesday.id, inputs: planning, seed: 1) == nil)
+    @Test func rebuildAndFillNeverWriteThePair() async throws {
+        let (saved, monday, tuesday) = pair()
+        let written = Mutex<[[UUID]]>([])
+        let store = WeekStore(householdID: Household.sample.id, client: .fake(
+            week: { _, _ in saved },
+            setNights: { _, updates in written.withLock { $0.append(updates.map(\.nightID)) } }
+        ), today: { sunday }, seed: { 3 })
+        await store.load(settings: HouseholdSettings())
+        await store.buildWeek { context() }
+        await store.fillRemaining { context() }
+        let writes = written.withLock { $0 }
+        #expect(!writes.isEmpty)
+        #expect(writes.allSatisfy { !$0.contains(monday.id) && !$0.contains(tuesday.id) })
+        #expect(store.week?.nights[2].leftoversFrom == monday.id)
+        #expect(store.week?.nights[1].mealID == chili.id)
+    }
+
+    @Test func shuffleNeverWritesThePair() async throws {
+        let (saved, monday, tuesday) = pair()
+        let written = Mutex(0)
+        let store = WeekStore(householdID: Household.sample.id, client: .fake(
+            week: { _, _ in saved },
+            setNights: { _, _ in written.withLock { $0 += 1 } }
+        ), today: { sunday }, seed: { 3 })
+        await store.load(settings: HouseholdSettings())
+        await store.shuffle(nightID: monday.id) { context() }
+        await store.shuffle(nightID: tuesday.id) { context() }
+        #expect(written.withLock { $0 } == 0)
+    }
+
+    /// Swapping the leftovers night away, then asking what the list buys.
+    @Test func afterTheLeftoversNightLeavesTheDishIsNoLongerDoubled() async throws {
+        let (saved, monday, tuesday) = pair()
+        let swapped = Mutex(false)
+        let store = WeekStore(householdID: Household.sample.id, client: .fake(
+            week: { _, _ in
+                guard swapped.withLock({ $0 }) else { return saved }
+                var after = saved
+                after.nights[2].quickPick = .takeout
+                after.nights[2].leftoversFrom = nil
+                return after
+            },
+            setNight: { _, _ in swapped.withLock { $0 = true } }
+        ), today: { sunday })
+        await store.load(settings: HouseholdSettings())
+        #expect(store.layout.map(DoubleIt.listNights)?.contains { $0.doubled } == true)
+        #expect(await store.swap(nightID: tuesday.id, to: .quickPick(.takeout)))
+        #expect(store.layout.map(DoubleIt.listNights)?.contains { $0.doubled } == false)
+        #expect(store.week?.nights[1].id == monday.id)
     }
 }

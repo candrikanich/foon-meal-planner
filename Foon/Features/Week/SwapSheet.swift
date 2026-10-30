@@ -42,6 +42,9 @@ struct SwapSheet: View {
                 if let message = week.errorMessage ?? library.errorMessage {
                     Text(message).font(.callout).foregroundStyle(.red)
                 }
+                if let unwinding {
+                    Section { Text(unwinding).font(.foonCaption).foregroundStyle(.secondary) }
+                }
                 if search.isEmpty {
                     suggestionsSection
                     freezerSection
@@ -52,9 +55,6 @@ struct SwapSheet: View {
                         } footer: {
                             Text("Fill or Pick for me can plan it again.")
                         }
-                    }
-                    if let unwinding {
-                        Section { Text(unwinding).font(.foonCaption).foregroundStyle(.secondary) }
                     }
                 } else {
                     searchResults
@@ -130,17 +130,7 @@ struct SwapSheet: View {
 
     /// What changing this night also changes, said before it happens.
     private var unwinding: String? {
-        guard let night else { return nil }
-        if week.week?.nights.contains(where: { $0.leftoversFrom == night.id }) == true {
-            return String(localized: "This dish is doubled. Changing it takes its leftovers night back to what it held.")
-        }
-        if night.leftoversFrom != nil {
-            return String(localized: "These are planned leftovers. Changing this night means the dish goes back to its regular amounts when you update the list.")
-        }
-        if night.stashItemID != nil {
-            return String(localized: "This dish is from the freezer. Changing it puts it back in the freezer.")
-        }
-        return nil
+        night.flatMap { DoubleIt.changeWarning(for: $0, in: week.week?.nights ?? []) }
     }
 
     /// Dinners already cooked, oldest first, with allergy flags for whoever's home that night. Empty, it isn't shown.

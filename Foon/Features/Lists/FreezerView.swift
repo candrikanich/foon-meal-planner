@@ -41,9 +41,9 @@ struct FreezerView: View {
             } footer: {
                 Text("Oldest first. Planners see these in Swap, with allergy flags for whoever's home that night.")
             }
-            if !freezer.planned.isEmpty {
+            if !freezer.planned(today: today).isEmpty {
                 Section("Planned") {
-                    ForEach(freezer.planned) { item in
+                    ForEach(freezer.planned(today: today)) { item in
                         VStack(alignment: .leading, spacing: 3) {
                             row(item)
                             if let night = item.plannedOn {
@@ -56,17 +56,28 @@ struct FreezerView: View {
                     }
                 }
             }
-            if !freezer.gone.isEmpty {
+            if !freezer.gone(today: today).isEmpty {
                 Section("Used up or tossed") {
-                    ForEach(freezer.gone) { item in
+                    ForEach(freezer.gone(today: today)) { item in
                         HStack {
-                            row(item)
+                            VStack(alignment: .leading, spacing: 3) {
+                                row(item)
+                                if let night = item.plannedOn {
+                                    Text("Was on the plan for \(DayCardText.dateLabel(for: night))")
+                                        .font(.foonCaption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .accessibilityElement(children: .combine)
                             Spacer()
-                            Button("Put back") { change(.in, item) }
-                                .font(.foonCaption)
-                                .buttonStyle(.borderless)
-                                .tint(Palette.paprika)
-                                .accessibilityLabel("Put \(item.mealName) back in the freezer")
+                            // One that was on a night comes back by changing that night; the server refuses otherwise.
+                            if item.plannedOn == nil {
+                                Button("Put back") { change(.in, item) }
+                                    .font(.foonCaption)
+                                    .buttonStyle(.borderless)
+                                    .tint(Palette.paprika)
+                                    .accessibilityLabel("Put \(item.mealName) back in the freezer")
+                            }
                         }
                     }
                 }
@@ -78,7 +89,10 @@ struct FreezerView: View {
                 Button("Add", systemImage: "plus") { adding = true }
             }
         }
-        .refreshable { await freezer.load() }
+        .refreshable {
+            if !library.hasLoaded { await library.load(members: household.members) }
+            await freezer.load()
+        }
         .sheet(isPresented: $adding) { FreezerAddSheet() }
         .task {
             if !library.hasLoaded { await library.load(members: household.members) }
@@ -97,6 +111,11 @@ struct FreezerView: View {
             Text(FreezerStash.madeText(item.madeOn, today: today)).font(.foonCaption).foregroundStyle(.secondary)
             ForEach(flags, id: \.summary) { flag in
                 Chip(text: flag.summary, systemImage: "exclamationmark.triangle.fill", tint: Palette.caution)
+            }
+            if let note = FreezerStash.allergyUnknownNote(for: meal, isLoading: library.isLoading) {
+                Label(note, systemImage: "exclamationmark.triangle.fill")
+                    .font(.foonCaption)
+                    .foregroundStyle(Palette.caution)
             }
             if item.state == .in, let note = FreezerStash.notOfferedNote(for: meal) {
                 Text(note).font(.foonCaption).foregroundStyle(.secondary)

@@ -117,6 +117,12 @@ struct FreezerTextTests {
         #expect(FreezerStash.notOfferedNote(for: nil) == nil)
     }
 
+    @Test func aDishWeCantReadSaysAllergiesArentChecked() {
+        #expect(FreezerStash.allergyUnknownNote(for: nil, isLoading: false)?.contains("allergies") == true)
+        #expect(FreezerStash.allergyUnknownNote(for: nil, isLoading: true) == nil, "still loading")
+        #expect(FreezerStash.allergyUnknownNote(for: LibraryMeal.fixture(), isLoading: false) == nil)
+    }
+
     @Test func aStateAnOlderBuildDoesntKnowReadsAsGone() throws {
         let json = """
         {"id": "\(UUID())", "meal_id": "\(UUID())", "made_on": "2037-10-01", "state": "defrosting",
@@ -141,14 +147,35 @@ struct FreezerTextTests {
 struct FreezerStoreTests {
     private let chili = LibraryMeal.fixture(name: "Chili")
 
-    @Test func itemsSortIntoInPlannedAndGone() async {
+    @Test func itemsSortIntoInPlannedAndGoneByTheHouseholdsDay() async {
         let inside = item(chili), planned = item(chili, state: .used, plannedOn: sunday), used = item(chili, state: .used)
-        let tossed = item(chili, state: .archived)
-        let store = FreezerStore(householdID: Household.sample.id, client: .fake(items: { _ in [inside, planned, used, tossed] }))
+        let tossed = item(chili, state: .archived), eaten = item(chili, state: .used, plannedOn: sunday.adding(days: -3))
+        let store = FreezerStore(householdID: Household.sample.id,
+                                 client: .fake(items: { _ in [inside, planned, used, tossed, eaten] }))
         await store.load()
         #expect(store.inTheFreezer.map(\.id) == [inside.id])
-        #expect(store.planned.map(\.id) == [planned.id])
-        #expect(Set(store.gone.map(\.id)) == [used.id, tossed.id])
+        #expect(store.planned(today: sunday).map(\.id) == [planned.id])
+        #expect(Set(store.gone(today: sunday).map(\.id)) == [used.id, tossed.id, eaten.id], "a plan from last week isn't still planned")
+    }
+
+    @Test func anOlderLoadFinishingLastIsIgnored() async {
+        let old = item(chili), fresh = item(chili)
+        let calls = Mutex(0)
+        let (parked, parkedSignal) = AsyncStream.makeStream(of: Void.self)
+        let (gate, release) = AsyncStream.makeStream(of: Void.self)
+        let store = FreezerStore(householdID: Household.sample.id, client: .fake(items: { _ in
+            let call = calls.withLock { $0 += 1; return $0 }
+            guard call == 1 else { return [fresh] }
+            parkedSignal.yield()
+            for await _ in gate {}
+            return [old]
+        }))
+        let slow = Task { await store.load() }
+        for await _ in parked { break }
+        await store.load()
+        release.finish()
+        await slow.value
+        #expect(store.items.map(\.id) == [fresh.id])
     }
 
     @Test func addingSendsTheDishAndDateAndReloads() async {
@@ -242,19 +269,30 @@ struct FreezerSwapTests {
         #expect(store.errorMessage?.contains("can't go") == true)
     }
 
-    @Test func swappingAStashNightReadsTheWeekBackAndClearsTheLinkLocally() async throws {
+    @Test func swappingAStashNightClearsTheLinkAndReadsTheWeekBack() async throws {
         var frozen = night(2, meal: chili)
         frozen.stashItemID = UUID()
         let loads = Mutex(0)
         let saved = Week(planID: UUID(), start: sunday, nights: [frozen])
-        let store = WeekStore(householdID: Household.sample.id, client: .fake(week: { _, _ in
-            loads.withLock { $0 += 1 }
-            return saved
-        }), today: { sunday })
+        var after = saved
+        after.nights[0].mealID = nil
+        after.nights[0].mealName = nil
+        after.nights[0].quickPick = .takeout
+        after.nights[0].stashItemID = nil
+        let written = after
+        let swapped = Mutex(false)
+        let store = WeekStore(householdID: Household.sample.id, client: .fake(
+            week: { _, _ in
+                loads.withLock { $0 += 1 }
+                return swapped.withLock { $0 } ? written : saved
+            },
+            setNight: { _, _ in swapped.withLock { $0 = true } }
+        ), today: { sunday })
         await store.load(settings: HouseholdSettings())
         let before = loads.withLock { $0 }
         #expect(await store.swap(nightID: frozen.id, to: .quickPick(.takeout)))
         #expect(loads.withLock { $0 } == before + 1)
+        #expect(store.week?.nights[0].stashItemID == nil)
     }
 }
 
