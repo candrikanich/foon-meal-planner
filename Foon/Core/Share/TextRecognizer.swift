@@ -50,7 +50,10 @@ enum TextRecognizer {
                 let observations = try await RecognizeTextRequest().perform(on: image)
                 return observations.compactMap { $0.topCandidates(1).first?.string }
             } catch {
-                // The kind of failure only, never what was read. A rare flake in tests has no known cause yet.
+                // The kind of failure only, never what was read. A rare flake in tests logged CRImageReaderError, "Missing E5
+                // bundle resource ... Must re-compile the E5", under ~/Library/Caches/com.andrikanich.foon/
+                // com.apple.e5rt.e5bundlecache/, at 15-30 seconds per try. Every worktree's test run shares that cache through
+                // the bundle id, so it's likely a cold or contended model cache, though that isn't proven.
                 log.error("Text recognition failed: \(String(describing: type(of: error)), privacy: .public)")
             }
         }

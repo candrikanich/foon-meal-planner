@@ -108,6 +108,12 @@ struct FamilyView: View {
                     }
                 }
 
+                Section {
+                    NavigationLink("Plan activity") { PlanActivityView() }
+                } footer: {
+                    Text("Who changed what on the plan, so two planners don't confuse each other.")
+                }
+
                 // Family order, not a ranking: credit, not a leaderboard.
                 let cooks = Dictionary(dinner.cookTally.map { ($0.memberID, $0) }, uniquingKeysWith: { first, _ in first })
                 let cooking = store.visibleMembers.filter { cooks[$0.id] != nil }
@@ -315,5 +321,6 @@ struct MemberRow: View {
         .environment(store)
         .environment(SessionStore(auth: .preview()))
         .environment(DinnerStore(householdID: Household.sample.id, client: .preview))
+        .environment(PlanActivityStore(householdID: Household.sample.id, client: .preview(started: true)))
         .task { await store.load() }
 }

@@ -10,6 +10,7 @@ struct NightDetailView: View {
     let nightID: UUID
     let canPlan: Bool
     @Environment(IdeasStore.self) private var ideas: IdeasStore?
+    @Environment(PlanActivityStore.self) private var activity: PlanActivityStore?
     @State private var swapping = false
     @State private var choosingLeftovers = false
 
@@ -95,6 +96,8 @@ struct NightDetailView: View {
                 }
             }
 
+            NightChangesSection(night: night, canPlan: canPlan) { await syncIdeas() }
+
             if let message = week.errorMessage {
                 Section { Text(message).foregroundStyle(.red) }
             }
@@ -106,6 +109,10 @@ struct NightDetailView: View {
         }
         .sheet(isPresented: $swapping) {
             SwapSheet(nightID: nightID)
+        }
+        // Again when the swap sheet closes, by when its write has landed. The pick shows before it does.
+        .task(id: swapping) {
+            if !swapping { await activity?.load() }
         }
     }
 
@@ -149,6 +156,7 @@ struct NightDetailView: View {
                     Button("Undo Double it", systemImage: "arrow.uturn.backward") {
                         Task {
                             if await week.undoDouble(nightID: night.id) { await syncIdeas() }
+                            await activity?.load()
                         }
                     }
                     .tint(Palette.paprika)
@@ -176,6 +184,7 @@ struct NightDetailView: View {
                                     if await week.doubleIt(nightID: night.id, leftoversNightID: later.id) {
                                         await syncIdeas()
                                     }
+                                    await activity?.load()
                                 }
                             }
                         }

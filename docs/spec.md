@@ -286,6 +286,20 @@ v1 rules (#24, `Foon/Core/Planning/BuildMyWeek.swift`, a pure function of the in
 
 **Event nights.** Holidays and dinner parties are marked on the plan and skipped by voting and ratings. Leftovers from them are still logged.
 
+**Change history and undo (#57).** So two planners don't confuse each other. Everyone in the family can read it: a night's detail shows its recent changes, and Family → Plan activity shows the household's, one line each ("Dad swapped Tuesday to Tacos"). Only planners can undo, on the server and in the app.
+- **What's logged:** a change to what a night holds, from any writer: Swap, Plan it, Build, Fill, Shuffle, Double it and its undo, the freezer, away dates, or an older app's direct write. A trigger on `plan_nights` does it, so nothing has to remember to. A whole Build or Fill is one line ("Ann planned 5 nights") and shows night by night in each night's detail. Effort, who's home, the lock, and the reason chip aren't logged. Nor are nights being created, or the plan's list.
+- **Who it names:** whoever's signed in when the write is made, including inside server functions. What the system moved on its own says Foon: "Foon cleared Tuesday for away dates," and "Foon put Thursday back to Tacos when Monday's dinner changed" for a leftovers night going back, whoever swapped Monday or corrected its dinner. Someone removed reads "Former member." An entry an older copy of the app doesn't recognize isn't shown.
+- **What Undo covers:** the last change on a night, if it was a plain change of pick, from the night's detail. It puts back what the night held (dish or quick pick, reason, and lock) by the same write Swap makes, so everything that follows a night still follows it, and a request that was planned there goes back to open as after a swap. The undo is logged too.
+- **What it doesn't:** it's refused, with "Can't undo that one. Swap it instead," for:
+  - a night gone by in the household's day, or a logged dinner;
+  - either night of a doubled pair, a freezer night, or a change that ended a link, since putting back the pick wouldn't put back the link. Undo Double it and Swap are the ways back there;
+  - a dish that's since left rotation;
+  - an undo, Double it, the freezer, away dates, or anything Foon moved itself. Undoing isn't a chain: only one step back, and Swap does the rest.
+  An away night says the family's away, as Swap does. Earlier changes on a night can't be undone. The activity view is read-only: open the night to undo.
+- **A stale phone:** the server holds the night, then checks that this entry is still the night's last and that the night holds what it says, lock included. If not, nothing changes: "That night has changed since. Here's the latest; swap it if you still want to."
+- **Older apps:** their writes are logged, and nothing they do is refused because of this. They don't show the log or offer Undo. A failure writing the log never stops a plan write; that entry is just missing.
+- **Stored:** `plan_changes`, written only by the trigger and read by the family. Eight weeks are kept, and the daily retention job deletes the rest. A device reads the latest 300.
+
 ## After-dinner loop
 
 The plan is the log by default; one notification per person confirms it, rates it, and captures leftovers.
@@ -538,7 +552,7 @@ Every family is different; these are all in, each optional and off or unobtrusiv
 | Cooking start time | "Start cooking at 5:45 for 6:30 dinner," from prep time. v1: see Cooking start time (#55) | 2 |
 | Kitchen equipment | Household owns an air fryer, Instant Pot, grill; filter suggestions. v1: see Kitchen equipment (#55) | 2 |
 | Dinner jobs | Optional rotating helper tasks (set the table, dishes). v1: see Dinner jobs (#50) | 2 |
-| Change history and undo | "Dad swapped Tuesday to tacos"; undo recent changes | 2 |
+| Change history and undo | "Dad swapped Tuesday to tacos"; undo a night's last change. v1: see Change history and undo (#57) | 2 |
 | Calendar awareness | With permission, read the family calendar on-device and pre-mark busy nights as rushed; nothing leaves the phone | 3 |
 | Picky-eater wins | "Nora tried 3 new dishes this month"; celebrates trying, not just liking | 3 |
 | Dinner memories | Photo timeline of family dinners and a yearly recap | 3 |
@@ -580,6 +594,7 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
   - a kid's account is unlinked and the profile their parents entered stays.
   The auth account goes last, and the device signs out and wipes its offline cache. Other family members' devices wipe theirs the next time they find no household (#110). Planners can export the household as a JSON file (meals, ingredients, sides, items, traditions, plans, nights, attendance, saved schedules, lists, members, allergies, consents); account ids and invite codes are left out.
 - v1 Delete household (owner only, Family → Your data): erases the household and everything in it, photos included, for everyone, and every account stays. Each device then finds no household, wipes its offline cache, and shows start or join a household. A real household needs its name typed to confirm (with Export offered first); a sample family doesn't. A household made with "Load a sample family" is marked (`settings.sample`), and Family offers **Start your real family**, which is Delete household for the sample. On the server, one `erase_household` does the erase for both this and account deletion: a migration that adds a household table adds its delete there; pgTAP seeds every household table and checks none keeps rows after an erase. The typed name is the confirmation (no fresh Apple sign-in, unlike account deletion). The sample shortcut applies only while nobody else in the household has their own account; otherwise it's an ordinary Delete household. After the delete, this device goes straight to start or join; other members' devices find no household the next time they load it.
+- Plan activity (#57) keeps eight weeks and is then deleted by the same daily job. It names people by their profile, so someone removed reads "Former member." Entries a withdrawn kid made themselves go with their other data. Delete household erases it, and export includes it.
 - No tracking and no ad SDKs, so no App Tracking Transparency prompt. Market it.
 - Delete receipt images after parsing. US-only launch at first.
 - Imported recipe instructions stay private to the household; never shared across families or added to the catalog.
@@ -664,7 +679,7 @@ Build everything, in order: Phase 1 (the Sunday flow) is what to sit down with y
 - [ ] Cook once, eat twice; freezer stash
 - [x] Seasonal weighting and variety nudges in the algorithm (#54)
 - [ ] Cooking start time nudge; kitchen equipment filter
-- [ ] Change history and undo
+- [x] Change history and undo (#57)
 
 **Phase 3: Wow layer**
 

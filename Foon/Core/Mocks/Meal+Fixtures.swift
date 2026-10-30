@@ -179,7 +179,28 @@ extension WeekClient {
             setNights: { _, _ in },
             setNight: { _, _ in },
             traditions: { _ in [Tradition(weekday: 2, pick: .meal(LibraryMeal.sampleLibrary[0].id), name: "Taco Tuesday")] },
-            setTradition: { _, _, _ in }
+            setTradition: { _, _, _ in },
+            planChanges: { _ in PlanChange.samples }
         )
     }
+}
+
+extension PlanChange {
+    /// A Build, then a swap, for previews.
+    static let samples: [PlanChange] = {
+        let today = CalendarDay(Date.now, calendar: .current)
+        let ann = Member.sampleFamily[0].id
+        let tacos = LibraryMeal.sampleLibrary[0]
+        let planned = Date.now.addingTimeInterval(-86_400)
+        return [
+            PlanChange(id: 3, nightID: UUID(), nightDate: today.adding(days: 2), actorID: ann, kind: .pick,
+                       before: Held(quickPick: .takeout), after: Held(mealID: tacos.id, mealName: tacos.name),
+                       afterLocked: true, restorable: true, createdAt: .now.addingTimeInterval(-3_600)),
+            PlanChange(id: 2, nightID: UUID(), nightDate: today.adding(days: 1), actorID: ann, kind: .pick,
+                       after: Held(mealID: tacos.id, mealName: tacos.name), afterLocked: false, restorable: true,
+                       createdAt: planned),
+            PlanChange(id: 1, nightID: UUID(), nightDate: today.adding(days: 3), actorID: ann, kind: .pick,
+                       after: Held(quickPick: .takeout), afterLocked: false, restorable: true, createdAt: planned)
+        ]
+    }()
 }
