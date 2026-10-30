@@ -1,6 +1,28 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ %lld times next week" : {
+      "comment" : "Variety note on the week: Pasta 3 times next week",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$lld times next week"
+          }
+        }
+      }
+    },
+    "%@ %lld times this week" : {
+      "comment" : "Variety note on the week: Pasta 3 times this week",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$lld times this week"
+          }
+        }
+      }
+    },
     "%@ (%@)" : {
       "comment" : "Weekly list allergy note: advice, then who it's for",
       "localizations" : {
@@ -403,11 +425,17 @@
     "Balanced" : {
 
     },
+    "Beef" : {
+      "comment" : "Dish category in a variety note"
+    },
     "Before you start" : {
 
     },
     "Beginner-friendly" : {
 
+    },
+    "Breakfast for dinner" : {
+      "comment" : "Dish category in a variety note"
     },
     "Bring back a dish the family voted out?" : {
 
@@ -457,6 +485,9 @@
           }
         }
       }
+    },
+    "Chicken" : {
+      "comment" : "Dish category in a variety note"
     },
     "Clear the note" : {
 
@@ -923,6 +954,9 @@
     },
     "Got it" : {
 
+    },
+    "Grilling" : {
+      "comment" : "Dish category in a variety note"
     },
     "Haven't had in a while" : {
 
@@ -1398,6 +1432,9 @@
     "Pass the phone" : {
 
     },
+    "Pasta" : {
+      "comment" : "Dish category in a variety note: Pasta 3 times this week"
+    },
     "People write their own notes; parents can write anyone's." : {
 
     },
@@ -1412,6 +1449,9 @@
     },
     "Pick for me" : {
 
+    },
+    "Pizza" : {
+      "comment" : "Dish category in a variety note"
     },
     "Plan %@" : {
 
@@ -1436,6 +1476,9 @@
     },
     "Popular" : {
 
+    },
+    "Pork" : {
+      "comment" : "Dish category in a variety note"
     },
     "Prep ahead" : {
 
@@ -1518,6 +1561,9 @@
     "Rushed" : {
 
     },
+    "Sandwiches" : {
+      "comment" : "Dish category in a variety note"
+    },
     "Save" : {
 
     },
@@ -1548,6 +1594,9 @@
           }
         }
       }
+    },
+    "Seafood" : {
+      "comment" : "Dish category in a variety note"
     },
     "Search dinners" : {
 
@@ -1669,6 +1718,9 @@
     "Sort" : {
 
     },
+    "Soup" : {
+      "comment" : "Dish category in a variety note"
+    },
     "Special occasion" : {
 
     },
@@ -1756,6 +1808,9 @@
     },
     "Tap the dinners your family already makes. You can add your own anytime." : {
 
+    },
+    "Tex-Mex" : {
+      "comment" : "Dish category in a variety note"
     },
     "Thanked" : {
 

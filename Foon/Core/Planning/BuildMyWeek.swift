@@ -11,10 +11,11 @@ import Foundation
 /// 2. **Special slots:** takeout on the busiest nights, trial dishes on full-attendance nights, then leftover
 ///    nights, each after a big-batch meal when one fits. Kept nights, past ones too, count toward each setting.
 /// 3. **Fill** the rest, rushed nights first and then in date order, with a weighted draw from dishes that
-///    pass every filter.
+///    pass every filter. The season and what's already in the week only move the odds, after the filters.
 enum BuildMyWeek {
     /// Scoring weights. A dish's weight is
-    /// `recency × (1 + favorite × favoritesHome) × (1 + onHand × fractionOnHand) × (1 + like × likes)`.
+    /// `recency × (1 + favorite × favoritesHome) × (1 + onHand × fractionOnHand) × (1 + like × likes)
+    /// × inSeason × repeatInWeek^repeats`.
     enum Weight {
         /// Recency is days from last made to that night, capped: past three months a dish is simply "due",
         /// and an uncapped value would let one long-forgotten dish crowd out everything else. A dish never
@@ -28,6 +29,12 @@ enum BuildMyWeek {
         /// A gentle nudge per thumbs-up, capped, so popular dishes lean ahead without taking over the week.
         static let likePerReaction = 0.1
         static let likeCap = 5
+        /// Grill and cold dishes in summer, soups and slow cooker in winter: double the odds, the same lean as
+        /// everything on hand, so the season shows without outvoting a favorite or a dish long overdue.
+        static let inSeason = 2.0
+        /// Halved for each dish of the same category already in the week. Never zero, so a family that mostly
+        /// makes pasta still gets a full week. With the season boost, a second grill night is back to even odds.
+        static let repeatInWeek = 0.5
     }
 
     /// Advance prep (thawing, marinating) is measured in hours before dinner.
@@ -135,6 +142,7 @@ private struct Planner {
     let knownMeals: [LibraryMeal]
     /// Dishes on trial: what "new dishes per week" counts and caps.
     let trialMeals: [LibraryMeal]
+    let traitsByMeal: [UUID: DishTraits]
 
     init(_ inputs: PlanningInputs) {
         self.inputs = inputs
@@ -145,6 +153,7 @@ private struct Planner {
         let rotation = inputs.meals.filter(\.status.isInRotation).sorted { $0.id.uuidString < $1.id.uuidString }
         knownMeals = rotation.filter { $0.status != .trial }
         trialMeals = rotation.filter { $0.status == .trial }
+        traitsByMeal = mealsByID.mapValues { DishTraits(name: $0.name) }
     }
 
     func isKept(_ night: PlanningNight) -> Bool {
@@ -201,6 +210,22 @@ private struct Planner {
             * (1 + BuildMyWeek.Weight.favoritePerMemberHome * favorites)
             * (1 + BuildMyWeek.Weight.onHand * fractionOnHand(meal))
             * (1 + BuildMyWeek.Weight.likePerReaction * likes)
+            * (traitsByMeal[meal.id]?.isInSeason(night.date.season, tags: meal.tags) == true
+                ? BuildMyWeek.Weight.inSeason : 1)
+    }
+
+    /// Dishes in each category among those already in the week, kept nights included.
+    private func categoryCounts(in used: Set<UUID>) -> [DishCategory: Int] {
+        used.reduce(into: [:]) { counts, mealID in
+            for category in traitsByMeal[mealID]?.categories ?? [] { counts[category, default: 0] += 1 }
+        }
+    }
+
+    /// A dish in two categories answers to the more repeated one, not both: Chicken Alfredo after a pasta night
+    /// is one repeat.
+    private func varietyFactor(of meal: LibraryMeal, counts: [DishCategory: Int]) -> Double {
+        let repeats = traitsByMeal[meal.id]?.categories.map { counts[$0] ?? 0 }.max() ?? 0
+        return pow(BuildMyWeek.Weight.repeatInWeek, Double(repeats))
     }
 
     /// A weighted draw among the pool's dishes that fit this night and aren't already in the week.
@@ -210,7 +235,8 @@ private struct Planner {
             !used.contains(meal.id) && fits(meal, on: night, loggingPast: loggingPast)
                 && (tag.map { meal.tags.contains($0) } ?? true)
         }
-        let weights = candidates.map { weight(of: $0, on: night) }
+        let counts = categoryCounts(in: used)
+        let weights = candidates.map { weight(of: $0, on: night) * varietyFactor(of: $0, counts: counts) }
         let total = weights.reduce(0, +)
         guard total > 0 else { return nil }
         var remaining = Double.random(in: 0..<total, using: &rng)
