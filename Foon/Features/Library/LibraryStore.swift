@@ -218,6 +218,17 @@ final class LibraryStore {
         }
     }
 
+    /// Shows what a parent just saved, so flags and their profile are right whether or not the reload that follows gets
+    /// through. That reload also drops any older one still out, which would bring the old allergies back.
+    func showAllergies(_ saved: AllergyChoice, for member: Member, members: [Member]) async {
+        let others = allergies.filter { $0.memberID != member.id }
+        allergies = saved.isEmpty ? others : others + [
+            MemberAllergies(memberID: member.id, firstName: member.firstName, allergens: saved.allergens,
+                            customTexts: saved.custom.sorted())
+        ]
+        await load(members: members)
+    }
+
     func meal(_ id: UUID) -> LibraryMeal? {
         meals.first { $0.id == id }
     }

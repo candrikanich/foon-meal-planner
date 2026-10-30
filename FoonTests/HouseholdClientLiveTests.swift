@@ -364,6 +364,53 @@ struct HouseholdClientLiveTests {
                 "turning everything back on reaches the database")
     }
 
+    @MainActor @Test func theFamilyTabSavesOnlyWhatChangedAndEditsAllergiesLater() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let household = try await households.createHousehold("Family tab family", nil, "Ann", HouseholdSettings())
+        #expect(try await households.latestWeekStart(household.id) == nil, "no plan yet, so the week start is free")
+
+        // A stale phone: it opened with the defaults, and another planner has since moved dinner.
+        var other = HouseholdSettings()
+        other.dinnerTime = "17:30"
+        try await households.updateRhythm(household.id, RhythmChanges(from: HouseholdSettings(), to: other))
+        var draft = HouseholdSettings()
+        draft.notificationPreset = .engaged
+        draft.repeatWindowDays = 21
+        try await households.updateRhythm(household.id, RhythmChanges(from: HouseholdSettings(), to: draft))
+        let saved = try #require(try await households.myHousehold()?.planningSettings)
+        #expect(saved.notificationPreset == .engaged)
+        #expect(saved.repeatWindowDays == 21)
+        #expect(saved.dinnerTime == "17:30", "the stale phone's save left dinner alone")
+
+        // A week reads back as the day it starts.
+        let start = WeekMath.start(of: saved.today(), weekStart: saved.weekStart)
+        _ = try await WeekClient.live(supabase).create(household.id, start)
+        #expect(try await households.latestWeekStart(household.id) == start)
+
+        // A household that answered No in onboarding has no consent. Adding later records it, through the same model.
+        var kid = MemberDraft()
+        kid.firstName = "Nora"
+        kid.ageGroup = .kid
+        let nora = try await households.addMember(household.id, try #require(kid.validated()))
+        let library = LibraryClient.live(supabase)
+        let adding = AllergyEditorModel(memberID: nora.id, householdID: household.id, household: households, library: library)
+        await adding.load()
+        adding.answer.allergens = [.milk]
+        adding.answer.otherText = "kiwi"
+        #expect(await adding.save() == AllergyChoice(allergens: [.milk], custom: ["kiwi"]))
+        #expect(Set(try await library.allergies(household.id).map(\.allergen)) == [.milk, .custom])
+
+        let clearing = AllergyEditorModel(memberID: nora.id, householdID: household.id, household: households, library: library)
+        await clearing.load()
+        #expect(clearing.answer.otherText == "kiwi")
+        clearing.answer = OnboardingModel.Answer()
+        #expect(await clearing.save() == AllergyChoice())
+        #expect(try await library.allergies(household.id).isEmpty)
+    }
+
     @Test func dinnersAreConfirmedRatedAndCorrected() async throws {
         let supabase = Self.newSupabaseClient()
         try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",

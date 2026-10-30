@@ -31,6 +31,10 @@ struct HouseholdClient: Sendable {
     var updateSettings: @Sendable (_ householdID: UUID, _ settings: HouseholdSettings) async throws -> Void = { _, _ in }
     /// Saves only the kitchen's keys, so a stale copy of anything else can't go with them.
     var updateKitchen: @Sendable (_ householdID: UUID, _ kitchen: HouseholdSettings.Kitchen) async throws -> Void = { _, _ in }
+    /// Saves only what the Rhythm screen changed, so a stale copy of anything else can't go with it.
+    var updateRhythm: @Sendable (_ householdID: UUID, _ changes: RhythmChanges) async throws -> Void = { _, _ in }
+    /// The day the household's latest plan starts, if it has one.
+    var latestWeekStart: @Sendable (_ householdID: UUID) async throws -> CalendarDay? = { _ in nil }
     /// Sets or (nil) takes away one food's rule, in the list as it is on the server, and returns the list.
     var setFoodRule: @Sendable (_ householdID: UUID, _ avoid: FoodRule.Avoid, _ nights: FoodRule.Nights?) async throws -> [FoodRule]
         = { _, _, _ in [] }
@@ -186,6 +190,21 @@ extension HouseholdClient {
                     targetHousehold: householdID, patch: kitchen
                 )).execute()
             },
+            updateRhythm: { householdID, changes in
+                try await client.rpc("update_household_settings", params: RhythmParams(
+                    targetHousehold: householdID, patch: changes
+                )).execute()
+            },
+            latestWeekStart: { householdID in
+                let plans: [StartedWeek] = try await client.from("plans")
+                    .select("week_start")
+                    .eq("household_id", value: householdID)
+                    .order("week_start", ascending: false)
+                    .limit(1)
+                    .execute()
+                    .value
+                return plans.first?.weekStart
+            },
             setFoodRule: { householdID, avoid, nights in
                 let rules: [FoodRule.Lenient] = try await client.rpc("set_food_rule", params: FoodRuleParams(
                     targetHousehold: householdID, avoid: avoid, nights: nights
@@ -325,6 +344,24 @@ private struct KitchenParams: Encodable, Sendable {
     enum CodingKeys: String, CodingKey {
         case targetHousehold = "target_household"
         case patch
+    }
+}
+
+private struct RhythmParams: Encodable, Sendable {
+    let targetHousehold: UUID
+    let patch: RhythmChanges
+
+    enum CodingKeys: String, CodingKey {
+        case targetHousehold = "target_household"
+        case patch
+    }
+}
+
+private struct StartedWeek: Decodable, Sendable {
+    let weekStart: CalendarDay
+
+    enum CodingKeys: String, CodingKey {
+        case weekStart = "week_start"
     }
 }
 

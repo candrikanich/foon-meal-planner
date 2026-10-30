@@ -64,7 +64,7 @@ struct MemberEditorView: View {
                         if draft.status == .away {
                             Toggle("Return date", isOn: hasReturnDate)
                             if draft.awayUntil != nil {
-                                DatePicker("Back on", selection: returnDate, in: Date()..., displayedComponents: .date)
+                                DatePicker("Back on", selection: returnDate, in: today.date()..., displayedComponents: .date)
                             }
                         }
                     }
@@ -259,13 +259,14 @@ struct MemberEditorView: View {
     private var hasReturnDate: Binding<Bool> {
         Binding(
             get: { draft.awayUntil != nil },
-            set: { draft.awayUntil = $0 ? CalendarDay(Date()) : nil }
+            // Tomorrow: back on today is home already, not away.
+            set: { draft.awayUntil = $0 ? today.adding(days: 1) : nil }
         )
     }
 
     private var returnDate: Binding<Date> {
         Binding(
-            get: { draft.awayUntil?.date() ?? Date() },
+            get: { (draft.awayUntil ?? today).date() },
             set: { draft.awayUntil = CalendarDay($0) }
         )
     }

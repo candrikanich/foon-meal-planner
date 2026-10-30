@@ -255,6 +255,45 @@ final class HouseholdStore {
         }
     }
 
+    /// Saves what the Rhythm screen changed, and nothing else. A change to the week start looks at the plans again first:
+    /// another planner may have started a week since the screen opened. Returns whether it saved.
+    func updateRhythm(_ changes: RhythmChanges) async -> Bool {
+        guard let id = household?.id else { return false }
+        guard !changes.isEmpty else { return true }
+        if changes.weekStart != nil {
+            guard await weekStartCheck() == .free else {
+                errorMessage = String(localized: "The week start can't change while a plan is running. Nothing was saved.")
+                return false
+            }
+        }
+        do {
+            try await client.updateRhythm(id, changes)
+            loadGeneration += 1
+            // Looked up after the wait: a reload may have brought in what another planner changed.
+            guard var household else { return false }
+            household.settings = changes.applied(to: household.planningSettings)
+            phase = .ready(household)
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = (error as? PostgrestError)?.code == "42501"
+                ? String(localized: "Only planners can change the household's rhythm.")
+                : String(localized: "Couldn't save the settings. Check your connection and try again.")
+            return false
+        }
+    }
+
+    /// Whether the week start can change today, going by the household's day.
+    func weekStartCheck() async -> WeekStartCheck {
+        guard let household else { return .unknown }
+        do {
+            let latest = try await client.latestWeekStart(household.id)
+            return .of(latestWeek: latest, today: household.planningSettings.today())
+        } catch {
+            return .unknown
+        }
+    }
+
     /// Sets or (nil) takes away one food's rule, and shows the list the server sends back, which includes what other
     /// planners have changed since this device loaded. Returns whether it saved.
     @discardableResult
@@ -464,9 +503,17 @@ final class HouseholdStore {
             }
             return true
         } catch {
-            errorMessage = String(localized: "Couldn't save. Pull to refresh in case someone else changed this, then try again.")
+            errorMessage = Self.isRefusal(error)
+                ? String(localized: "Only a parent can change that.")
+                : String(localized: "Couldn't save. Pull to refresh in case someone else changed this, then try again.")
             return false
         }
+    }
+
+    /// The guard on `members` refuses out loud (42501). Row-level security hides a row the caller can't touch, so asking for
+    /// the updated row back finds none (PGRST116).
+    private static func isRefusal(_ error: any Error) -> Bool {
+        ["42501", "PGRST116"].contains((error as? PostgrestError)?.code)
     }
 
     /// Removal keeps the profile's history and unlinks their account.
