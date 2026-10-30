@@ -72,6 +72,10 @@ struct WeekClient: Sendable {
     var undoDouble: @Sendable (_ nightID: UUID) async throws -> Void = { _ in }
     /// Puts a stash item on a night (`use_freezer_item`), refused if someone else got there first.
     var useFreezerItem: @Sendable (_ nightID: UUID, _ itemID: UUID, _ reason: String) async throws -> Void = { _, _, _ in }
+    /// The household's recent plan changes, newest first.
+    var planChanges: @Sendable (_ householdID: UUID) async throws -> [PlanChange] = { _ in [] }
+    /// Puts back what a night held before its last change (`undo_plan_change`), refused if that isn't safe any more.
+    var undoPlanChange: @Sendable (_ changeID: Int64) async throws -> Void = { _ in }
 }
 
 extension WeekClient {
@@ -167,6 +171,18 @@ extension WeekClient {
                 try await client.rpc("use_freezer_item", params: [
                     "target_night": nightID.uuidString, "target_item": itemID.uuidString, "night_reason": reason
                 ]).execute()
+            },
+            planChanges: { householdID in
+                try await client.from("plan_changes")
+                    .select(PlanChange.columns)
+                    .eq("household_id", value: householdID)
+                    .order("id", ascending: false)
+                    .limit(PlanActivity.fetchLimit)
+                    .execute()
+                    .value
+            },
+            undoPlanChange: { changeID in
+                try await client.rpc("undo_plan_change", params: ["target_change": changeID]).execute()
             }
         )
     }

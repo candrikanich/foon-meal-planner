@@ -8,6 +8,7 @@ struct RootTabView: View {
     @State private var dinner: DinnerStore
     @State private var ideas: IdeasStore
     @State private var freezer: FreezerStore
+    @State private var activity: PlanActivityStore
     @Environment(\.scenePhase) private var scenePhase
     /// What the Share Sheet extension saved, the one being handled, and any put off with Not now until the next launch.
     @State private var waitingShares: [SharedItem] = []
@@ -21,6 +22,7 @@ struct RootTabView: View {
         _dinner = State(initialValue: DinnerStore(householdID: householdID, client: dinnerClient))
         _ideas = State(initialValue: IdeasStore(householdID: householdID, client: ideasClient))
         _freezer = State(initialValue: FreezerStore(householdID: householdID, client: freezerClient))
+        _activity = State(initialValue: PlanActivityStore(householdID: householdID, client: weekClient))
     }
 
     var body: some View {
@@ -37,6 +39,7 @@ struct RootTabView: View {
         .environment(dinner)
         .environment(ideas)
         .environment(freezer)
+        .environment(activity)
         .environment(\.showTab) { selection = $0 }
         .sheet(item: $shared) { item in
             SharedItemSheet(item: item) { outcome in finishShared(item, outcome) }

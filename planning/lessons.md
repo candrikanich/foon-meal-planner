@@ -6,6 +6,13 @@ _None yet._
 
 ## Patterns
 
+### TextRecognizerTests can fail on a cold or contended model cache
+**Times seen:** 1
+
+**What happened (2026-10-30):** A test log showed `CRImageReaderError` with `Missing E5 bundle resource ... Must re-compile the E5`, under `~/Library/Caches/com.andrikanich.foon/com.apple.e5rt.e5bundlecache/`, at 15-30 seconds per try. Every worktree's test run shares that cache through the bundle id, so a cold or contended cache is the likely cause. That isn't proven.
+
+**Rule (test runs):** If `TextRecognizerTests` fails, check the log for that error. If it's there, rerun before suspecting the code.
+
 ### A default that lands earlier breaks rules written for an answer
 **Times seen:** 1
 

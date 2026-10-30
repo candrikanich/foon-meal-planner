@@ -63,6 +63,16 @@
     "%@ and anything else planned for those nights come off, locked nights included, and don't come back if you change your mind." : {
 
     },
+    "%@ cleared %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ cleared %2$@"
+          }
+        }
+      }
+    },
     "%@ cooked" : {
 
     },
@@ -78,6 +88,17 @@
     },
     "%@ didn't cook this" : {
 
+    },
+    "%@ doubled %@'s dinner, with leftovers on %@" : {
+      "comment" : "Activity: the person, the night cooking twice as much, the leftovers night",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ doubled %2$@'s dinner, with leftovers on %3$@"
+          }
+        }
+      }
     },
     "%@ is cooking" : {
 
@@ -116,11 +137,75 @@
         }
       }
     },
+    "%@ planned %@ from the freezer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ planned %2$@ from the freezer"
+          }
+        }
+      }
+    },
+    "%@ planned %@ on %@" : {
+      "comment" : "Activity: the person, the dish, the night",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ planned %2$@ on %3$@"
+          }
+        }
+      }
+    },
+    "%@ planned %lld nights" : {
+      "comment" : "Activity: a whole Build or Fill. The person's first name, then how many nights",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ planned %2$lld nights"
+          }
+        }
+      }
+    },
+    "%@ planned leftovers on %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ planned leftovers on %2$@"
+          }
+        }
+      }
+    },
+    "%@ put %@ from the freezer on %@" : {
+      "comment" : "Activity: the person, the dish, the night",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ put %2$@ from the freezer on %3$@"
+          }
+        }
+      }
+    },
     "%@ sat out for a food rule" : {
       "comment" : "Reason chip: the night's tradition looks to break a food rule"
     },
     "%@ signs out right away and can rejoin only with your consent and a new invite." : {
 
+    },
+    "%@ swapped %@ to %@" : {
+      "comment" : "Activity: the person, the night, what it holds now, as in Dad swapped Tuesday to Tacos",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ swapped %2$@ to %3$@"
+          }
+        }
+      }
     },
     "%@ to %@" : {
       "comment" : "Away dates: two short dates",
@@ -135,6 +220,37 @@
     },
     "%@ tonight?" : {
       "comment" : "After-dinner card: the dish, then the question"
+    },
+    "%@ undid Double it on %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ undid Double it on %2$@"
+          }
+        }
+      }
+    },
+    "%@ undid the last change to %@, back to %@" : {
+      "comment" : "Activity: the person, the night, what it holds now",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ undid the last change to %2$@, back to %3$@"
+          }
+        }
+      }
+    },
+    "%@ undid the last change to %@, so it's empty again" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ undid the last change to %2$@, so it's empty again"
+          }
+        }
+      }
     },
     "%@ wasn't home" : {
 
@@ -600,6 +716,9 @@
     "Can't do it tonight? Just trade. Foon doesn't keep score." : {
 
     },
+    "Can't undo that one. Swap it instead." : {
+
+    },
     "Cancel" : {
 
     },
@@ -745,6 +864,9 @@
 
     },
     "Couldn't load last night's dinner. Check your connection and try again." : {
+
+    },
+    "Couldn't load the activity. Check your connection and try again." : {
 
     },
     "Couldn't load the freezer. Check your connection and try again." : {
@@ -1101,6 +1223,22 @@
     "Foon can't open that link. Try the recipe's web page." : {
 
     },
+    "Foon cleared %@" : {
+
+    },
+    "Foon cleared %@ for away dates" : {
+
+    },
+    "Foon cleared %@ when %@'s dinner changed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Foon cleared %1$@ when %2$@'s dinner changed"
+          }
+        }
+      }
+    },
     "Foon couldn't find any text in that. If it's a locked PDF, remove the password and share it again." : {
 
     },
@@ -1124,6 +1262,27 @@
     },
     "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime." : {
       "comment" : "Allergy consent: the one plain sentence parents agree to"
+    },
+    "Foon put %@ back to %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Foon put %1$@ back to %2$@"
+          }
+        }
+      }
+    },
+    "Foon put %@ back to %@ when %@'s dinner changed" : {
+      "comment" : "Activity: a leftovers night going back. The night, what it holds now, the doubled night",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Foon put %1$@ back to %2$@ when %3$@'s dinner changed"
+          }
+        }
+      }
     },
     "Foon reads dish names and ingredients, so it can miss what they don't say, and it can't promise a dish is free of anything. Kosher and halal depend on how food is made and prepared, so Foon can't check them." : {
 
@@ -1162,6 +1321,9 @@
 
     },
     "For tonight" : {
+
+    },
+    "Former member" : {
 
     },
     "Freezer raid" : {
@@ -1689,6 +1851,9 @@
     "No backup dinners" : {
 
     },
+    "No changes yet" : {
+
+    },
     "No dishes match. Add it to your library first." : {
 
     },
@@ -1947,6 +2112,9 @@
     "Plan %@" : {
 
     },
+    "Plan activity" : {
+
+    },
     "Plan it" : {
 
     },
@@ -2009,6 +2177,9 @@
     "Put back" : {
 
     },
+    "Puts back what this night held before its last change" : {
+
+    },
     "Quick" : {
 
     },
@@ -2034,6 +2205,9 @@
 
     },
     "Rebuild unlocked nights" : {
+
+    },
+    "Recent changes" : {
 
     },
     "Recently added" : {
@@ -2511,6 +2685,9 @@
     "That night has already passed." : {
 
     },
+    "That night has changed since. Here's the latest; swap it if you still want to." : {
+
+    },
     "That night's a quick pick now, so there's nothing to cook." : {
 
     },
@@ -2560,6 +2737,9 @@
 
     },
     "The family's away that night, so there's no dinner to plan. Pick another night, or send it without one." : {
+
+    },
+    "The last eight weeks. To undo a change, open that night on This Week." : {
 
     },
     "The list gets twice this dish's amounts. Anything marked in stock stays off it, and a line someone added by hand or another approved week wrote keeps its own amount, so check you have enough." : {
@@ -2733,6 +2913,12 @@
     "Undo Double it" : {
 
     },
+    "Undo: back to %@" : {
+      "comment" : "Button on a night's detail, with the dish it held before"
+    },
+    "Undo: leave it empty" : {
+
+    },
     "Unlock night" : {
 
     },
@@ -2847,6 +3033,9 @@
     "When do you plan the week?" : {
 
     },
+    "When someone changes the plan, it shows here." : {
+
+    },
     "Which dish?" : {
 
     },
@@ -2860,6 +3049,9 @@
 
     },
     "Which of these does your family make?" : {
+
+    },
+    "Who changed what on the plan, so two planners don't confuse each other." : {
 
     },
     "Who cooked?" : {

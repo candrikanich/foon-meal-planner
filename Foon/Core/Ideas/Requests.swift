@@ -333,6 +333,13 @@ enum RequestBoard {
         }
     }
 
+    /// Open requests a swap took off this week, as candidates for the night an undo just put back: request → night, for
+    /// `landed`, which holds them to the dish that's there. A planner's own "not this week" reads the same, and lands too.
+    static func sentBack(_ requests: [DinnerRequest], night nightID: UUID, in week: Week) -> [UUID: UUID] {
+        Dictionary(requests.filter { $0.status == .open && $0.skippedWeek == week.start }.map { ($0.id, nightID) },
+                   uniquingKeysWith: { first, _ in first })
+    }
+
     /// Planned requests whose night (in this week) no longer holds their dish, after a swap or rebuild: back to open.
     static func unlanded(_ requests: [DinnerRequest], nights: [WeekNight]) -> [UUID] {
         let byID = Dictionary(nights.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })

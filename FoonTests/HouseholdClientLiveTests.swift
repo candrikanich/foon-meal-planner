@@ -773,6 +773,75 @@ struct HouseholdClientLiveTests {
         #expect(saved?.takeoutNights == 2)
     }
 
+    @Test func planChangesAreLoggedAndUndone() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let weeks = WeekClient.live(supabase)
+        let library = LibraryClient.live(supabase)
+        let household = try await households.createHousehold("Undo family", nil, "Ann", HouseholdSettings())
+        let ann = try #require(try await households.members(household.id).first)
+        let chili = try await library.create(household.id, try MealDraft(newNamed: "Chili").validated())
+        let tacos = try await library.create(household.id, try MealDraft(newNamed: "Tacos").validated())
+        let sunday = CalendarDay(year: 2037, month: 11, day: 1)
+        let week = try await weeks.create(household.id, sunday)
+        let tuesday = week.nights[2]
+
+        // As an older app sends it: a plain write, with the log finding out for itself.
+        try await weeks.setNight(NightUpdate(nightID: tuesday.id, mealID: chili, reason: "Picked"), true)
+        try await weeks.setNight(NightUpdate(nightID: tuesday.id, mealID: tacos), true)
+        var changes = try await weeks.planChanges(household.id)
+        #expect(changes.count == 2)
+        let swap = try #require(changes.first)
+        #expect(swap.nightID == tuesday.id)
+        #expect(swap.nightDate == tuesday.date)
+        #expect(swap.actorID == ann.id)
+        #expect(swap.kind == .pick)
+        #expect(swap.before.mealName == "Chili")
+        #expect(swap.after.mealName == "Tacos")
+        #expect(swap.restorable)
+        #expect(PlanChangeText.line(swap, members: [ann], today: sunday, calendar: .current) == "Ann swapped Tuesday to Tacos")
+
+        // Two requests never read as one.
+        #expect(PlanActivity.entries(changes).count == 2)
+        try await weeks.setNights(week.planID, [
+            NightUpdate(nightID: week.nights[3].id, mealID: chili), NightUpdate(nightID: week.nights[4].id, quickPick: .takeout)
+        ])
+        changes = try await weeks.planChanges(household.id)
+        #expect(PlanChangeText.line(try #require(PlanActivity.entries(changes).first), members: [ann], today: sunday, calendar: .current)
+            == "Ann planned 2 nights", "a Build through PostgREST is one entry")
+
+        do {
+            try await weeks.undoPlanChange(changes.last?.id ?? 0)
+            Issue.record("only the last change on a night")
+        } catch {
+            #expect((error as? PostgrestError)?.code == "FD012")
+        }
+
+        try await weeks.undoPlanChange(swap.id)
+        var loaded = try #require(try await weeks.week(household.id, sunday))
+        #expect(loaded.nights[2].mealID == chili, "the night holds what it held")
+        #expect(loaded.nights[2].reason == nil, "the chip doesn't come back: the log keeps no reason")
+        let undone = try #require(try await weeks.planChanges(household.id).first)
+        #expect(undone.kind == .undo)
+        #expect(undone.actorID == ann.id)
+
+        do {
+            try await weeks.undoPlanChange(undone.id)
+            Issue.record("an undo isn't undone")
+        } catch {
+            #expect((error as? PostgrestError)?.code == "FD013")
+        }
+        loaded = try #require(try await weeks.week(household.id, sunday))
+        #expect(loaded.nights[2].mealID == chili)
+
+        // Someone else's phone gets nothing back from this household.
+        let other = Self.newSupabaseClient()
+        try await other.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com", password: Self.password)
+        #expect(try await WeekClient.live(other).planChanges(household.id).isEmpty)
+    }
+
     private static let config = try! SupabaseConfig.fromMainBundle()
     private static func sampleJPEG() throws -> Data {
         let context = try #require(CGContext(
