@@ -214,7 +214,13 @@ extension HouseholdClient {
                 try await client.rpc("apply_attendance_template", params: ["target_template": templateID]).execute()
             },
             deleteAttendanceTemplate: { templateID in
-                try await client.from("attendance_templates").delete().eq("id", value: templateID).execute()
+                let deleted: [DeletedTemplate] = try await client.from("attendance_templates")
+                    .delete()
+                    .eq("id", value: templateID)
+                    .select("id")
+                    .execute()
+                    .value
+                if deleted.isEmpty { throw AttendanceTemplateError.notDeleted }
             }
         )
     }
@@ -290,6 +296,10 @@ private struct AwayDatesParams: Encodable, Sendable {
         case firstNight = "first_night"
         case lastNight = "last_night"
     }
+}
+
+private struct DeletedTemplate: Decodable, Sendable {
+    let id: UUID
 }
 
 private struct OpenInvite: Decodable, Sendable {

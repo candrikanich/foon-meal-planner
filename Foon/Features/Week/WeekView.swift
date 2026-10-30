@@ -74,10 +74,13 @@ struct WeekView: View {
             // The household too: another planner may have changed the away dates, and it otherwise only reloads at launch.
             if phase == .active {
                 Task {
-                    await household.load()
+                    await household.refreshQuietly()
                     await load()
                 }
             }
+        }
+        .onChange(of: week.awayRefusals) {
+            Task { await household.refreshQuietly() }
         }
         .onChange(of: household.members) { _, members in
             if canPlan { Task { await week.fillInMissing(members: members) } }
@@ -138,7 +141,7 @@ struct WeekView: View {
     private var awayNote: some View {
         let dates = settings.awayDates(inWeekOf: weekStart).map { $0.summary(today: week.todayDay) }.joined(separator: ", ")
         return Label {
-            Text("Away \(dates). Foon won't plan dinners or build a list for those nights.")
+            Text("Away \(dates). Foon won't plan dinners for those nights or add them to the list.")
         } icon: {
             Image(systemName: "airplane")
         }

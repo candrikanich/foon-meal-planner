@@ -1,5 +1,11 @@
 import Foundation
 
+/// A delete that changed nothing: row-level security refuses it silently for someone who's no longer a parent, and it
+/// looks the same when another device already deleted it.
+enum AttendanceTemplateError: Error, Equatable {
+    case notDeleted
+}
+
 /// Everyone's usual schedule saved under a name ("School year", "Baseball season"), from `attendance_templates`.
 struct AttendanceTemplate: Decodable, Equatable, Identifiable, Sendable {
     let id: UUID

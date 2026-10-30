@@ -507,6 +507,9 @@ struct HouseholdClientLiveTests {
 
         try await households.deleteAttendanceTemplate(school.id)
         #expect(try await households.attendanceTemplates(household.id).isEmpty)
+        await #expect(throws: AttendanceTemplateError.notDeleted, "nothing deleted is reported, not a silent success") {
+            try await households.deleteAttendanceTemplate(school.id)
+        }
     }
 
     private static let config = try! SupabaseConfig.fromMainBundle()

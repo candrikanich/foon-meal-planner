@@ -42,12 +42,17 @@ final class HouseholdStore {
     /// Saved schedules ("School year"), by name; loaded when their screen opens.
     private(set) var attendanceTemplates: [AttendanceTemplate] = []
 
+    /// Bumped per fetch and per save, so a fetch that started before a save can't put old settings back.
+    private var loadGeneration = 0
+
     let userID: UUID
     let client: HouseholdClient
+    private let deviceTimeZone: () -> String
 
-    init(userID: UUID, client: HouseholdClient) {
+    init(userID: UUID, client: HouseholdClient, deviceTimeZone: @escaping () -> String = { TimeZone.current.identifier }) {
         self.userID = userID
         self.client = client
+        self.deviceTimeZone = deviceTimeZone
     }
 
     var household: Household? {
@@ -121,6 +126,7 @@ final class HouseholdStore {
             return false
         }
         // The server erased it: go straight to start or join, whether or not a reload would get through right now.
+        loadGeneration += 1
         members = []
         invitedMemberIDs = []
         parentalConsentMemberIDs = []
@@ -150,21 +156,60 @@ final class HouseholdStore {
         isLoading = true
         defer { isLoading = false }
         errorMessage = nil
+        await fetch(quietly: false)
+    }
+
+    /// Back in the foreground, or told the dates changed: picks up what other devices changed, and otherwise leaves
+    /// everything alone. Offline is normal here, so a failure keeps the household and any message on screen.
+    func refreshQuietly() async {
+        guard !isLoading else { return }
+        guard household != nil else {
+            await load()
+            return
+        }
+        await fetch(quietly: true)
+    }
+
+    private func fetch(quietly: Bool) async {
+        loadGeneration += 1
+        let generation = loadGeneration
         do {
-            guard let household = try await client.myHousehold() else {
+            guard let loaded = try await client.myHousehold() else {
+                guard generation == loadGeneration else { return }
                 phase = .needsHousehold
                 return
             }
-            members = try await client.members(household.id)
-            invitedMemberIDs = (try? await client.invitedMemberIDs(household.id)) ?? []
-            parentalConsentMemberIDs = (try? await client.parentalConsentMemberIDs(household.id)) ?? []
-            phase = .ready(household)
+            let loadedMembers = try await client.members(loaded.id)
+            let invited = (try? await client.invitedMemberIDs(loaded.id)) ?? []
+            let consents = (try? await client.parentalConsentMemberIDs(loaded.id)) ?? []
+            guard generation == loadGeneration else { return }
+            members = loadedMembers
+            invitedMemberIDs = invited
+            parentalConsentMemberIDs = consents
+            phase = .ready(loaded)
         } catch {
             // A view going away cancels its load; that isn't a failure to show.
-            guard !Task.isCancelled else { return }
+            guard generation == loadGeneration, !Task.isCancelled, !quietly else { return }
             if household == nil { phase = .failed }
             errorMessage = String(localized: "Couldn't load your household. Check your connection and try again.")
+            return
         }
+        await saveDeviceTimeZoneIfMissing()
+    }
+
+    /// Only creating a household writes its time zone, so an older one has none and the server falls back to New York.
+    /// A planner's device fills it in; it isn't worth an error, and the next load tries again.
+    private func saveDeviceTimeZoneIfMissing() async {
+        guard let household, household.planningSettings.timeZone == nil, canExport else { return }
+        let zone = deviceTimeZone()
+        var settings = household.planningSettings
+        settings.timeZone = zone
+        guard (try? await client.updateSettings(household.id, settings)) != nil,
+              var current = self.household, current.planningSettings.timeZone == nil else { return }
+        var updated = current.planningSettings
+        updated.timeZone = zone
+        current.settings = updated
+        phase = .ready(current)
     }
 
     /// The owner's first-run setup is still to do (or was interrupted): show onboarding.
@@ -179,6 +224,7 @@ final class HouseholdStore {
         guard var household else { return false }
         do {
             try await client.updateSettings(household.id, settings)
+            loadGeneration += 1
             household.settings = settings
             phase = .ready(household)
             errorMessage = nil
@@ -206,6 +252,7 @@ final class HouseholdStore {
         guard let id = household?.id else { return false }
         do {
             let dates = try await write(id)
+            loadGeneration += 1
             guard var household else { return false }
             var settings = household.planningSettings
             settings.awayDates = dates
@@ -270,6 +317,10 @@ final class HouseholdStore {
             attendanceTemplates = attendanceTemplates.filter { $0.id != template.id }
             errorMessage = nil
             return true
+        } catch AttendanceTemplateError.notDeleted {
+            await loadTemplates()
+            errorMessage = String(localized: "That schedule didn't delete. Only a parent can delete one, and it may already be gone.")
+            return false
         } catch {
             errorMessage = String(localized: "Couldn't delete the schedule. Check your connection and try again.")
             return false

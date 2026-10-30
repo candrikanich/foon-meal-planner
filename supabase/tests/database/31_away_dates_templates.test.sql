@@ -2,7 +2,7 @@
 -- add_away_dates and remove_away_dates so the weeks already started follow; templates are saved copies of everyone's
 -- usual schedule.
 begin;
-select plan(108);
+select plan(122);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -14,7 +14,8 @@ insert into auth.users (id, email, aud, role) values
   ('b0000000-0000-0000-0000-00000000000b', 'bob@example.com', 'authenticated', 'authenticated'),
   ('c0000000-0000-0000-0000-00000000000c', 'carol@example.com', 'authenticated', 'authenticated'),
   ('d0000000-0000-0000-0000-00000000000d', 'dee@example.com', 'authenticated', 'authenticated'),
-  ('e0000000-0000-0000-0000-00000000000e', 'pat@example.com', 'authenticated', 'authenticated');
+  ('e0000000-0000-0000-0000-00000000000e', 'pat@example.com', 'authenticated', 'authenticated'),
+  ('f0000000-0000-0000-0000-00000000000f', 'zed@example.com', 'authenticated', 'authenticated');
 insert into public.households (id, name, owner, settings) values
   ('00000000-0000-0000-0000-0000000000a0', 'Andersons', 'a0000000-0000-0000-0000-00000000000a',
    '{"dinner_time": "17:30"}'),
@@ -95,6 +96,33 @@ select is(pg_temp.away_dates('00000000-0000-0000-0000-0000000000a0'),
   '[{"from": "2037-11-03", "to": "2037-11-04"}]'::jsonb, 'doesn''t touch the dates');
 select is((select settings ->> 'takeout_nights' from public.households where id = '00000000-0000-0000-0000-0000000000a0'),
   '2', 'but saves the rest');
+
+-- A planner can edit settings directly, but not the dates: only the two functions change them.
+update public.households set settings = settings || '{"away_dates": [], "takeout_nights": 3}'
+where id = '00000000-0000-0000-0000-0000000000a0';
+select is(pg_temp.away_dates('00000000-0000-0000-0000-0000000000a0'),
+  '[{"from": "2037-11-03", "to": "2037-11-04"}]'::jsonb, 'a planner''s direct edit can''t clear the dates');
+select is((select settings ->> 'takeout_nights' from public.households where id = '00000000-0000-0000-0000-0000000000a0'),
+  '3', 'and the rest of it saves');
+update public.households set settings = '{"dinner_time": "17:30", "takeout_nights": 2}'
+where id = '00000000-0000-0000-0000-0000000000a0';
+select is(pg_temp.away_dates('00000000-0000-0000-0000-0000000000a0'),
+  '[{"from": "2037-11-03", "to": "2037-11-04"}]'::jsonb, 'nor can replacing all the settings');
+
+select pg_temp.as_user('f0000000-0000-0000-0000-00000000000f');
+create temp table zeds on commit drop as
+  select * from public.create_household('Zeds', null, 'Zed',
+    '{"dinner_time": "18:30", "away_dates": [{"from": "2037-11-03", "to": "2037-11-04"}]}');
+grant select on zeds to authenticated;
+select is((select settings from zeds), '{"dinner_time": "18:30"}'::jsonb, 'a new household can''t start with dates');
+update public.households set settings = settings || '{"away_dates": [{"from": "2037-11-03", "to": "2037-11-04"}]}'
+where id = (select id from zeds);
+select is(pg_temp.away_dates((select id from zeds)), null, 'or get them by a direct edit');
+select is(public.add_away_dates((select id from zeds), '2037-11-03', '2037-11-04'),
+  '[{"from": "2037-11-03", "to": "2037-11-04"}]'::jsonb, 'the function''s own write goes through');
+select is(pg_temp.away_dates((select id from zeds)),
+  '[{"from": "2037-11-03", "to": "2037-11-04"}]'::jsonb, 'and is saved');
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select ok(public.household_away_on('00000000-0000-0000-0000-0000000000a0', '2037-11-03'), 'the first night counts');
 select ok(public.household_away_on('00000000-0000-0000-0000-0000000000a0', '2037-11-04'), 'and the last');
 select ok(not public.household_away_on('00000000-0000-0000-0000-0000000000a0', '2037-11-05'), 'the day after doesn''t');
@@ -270,8 +298,17 @@ select lives_ok($$ update public.plan_nights set meal_id = '00000000-0000-0000-0
 select lives_ok($$ update public.plan_nights set meal_id = '00000000-0000-0000-0000-0000000002a2'
                    where household_id = '00000000-0000-0000-0000-0000000000a0' and date = pg_temp.today() - 1 $$,
   'and a past night can be corrected ("We had something else")');
+-- Swapping tonight's dinner off leaves it an away night like the rest, so a stale device's draft skips it.
+select lives_ok($$ update public.plan_nights set meal_id = null
+                   where household_id = '00000000-0000-0000-0000-0000000000a0' and date = pg_temp.today() $$,
+  'swapping tonight''s dinner off');
+select is(pg_temp.home(pg_temp.today()), '{}'::text[], 'leaves nobody home');
+select throws_ok($$ update public.plan_nights set meal_id = '00000000-0000-0000-0000-0000000002a2'
+                    where household_id = '00000000-0000-0000-0000-0000000000a0' and date = pg_temp.today() $$,
+  '22023', null, 'and a dinner can''t go back on');
 select is(public.remove_away_dates('00000000-0000-0000-0000-0000000000a0', pg_temp.today() - 1, pg_temp.today() + 3),
   '[]'::jsonb, 'cleared');
+select ok(cardinality(pg_temp.home(pg_temp.today())) > 0, 'and tonight is back to usual schedules');
 
 -- Reads leniently: a bad value written directly never stops a week from starting. An ended stretch drops on the next change.
 reset role;
@@ -289,6 +326,20 @@ reset role;
 update public.households set settings = '{"away_dates": "nope"}' where id = '00000000-0000-0000-0000-0000000000b0';
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
 select ok(not public.household_away_on('00000000-0000-0000-0000-0000000000b0', '2037-11-03'), 'a value that isn''t a list is none');
+
+-- However many are stored, removing always works; only adding is capped.
+reset role;
+update public.households
+set settings = jsonb_build_object('away_dates', (
+  select jsonb_agg(jsonb_build_object('from', d::date::text, 'to', d::date::text) order by d)
+  from generate_series('2038-01-01'::date, '2038-01-01'::date + 100, '2 days') d))
+where id = '00000000-0000-0000-0000-0000000000b0';
+select is(jsonb_array_length(pg_temp.away_dates('00000000-0000-0000-0000-0000000000b0')), 51, 'fifty-one stretches stored');
+select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
+select is(jsonb_array_length(public.remove_away_dates('00000000-0000-0000-0000-0000000000b0', '2038-01-01', '2038-01-01')), 50,
+  'one can still be removed');
+select throws_ok($$ select public.add_away_dates('00000000-0000-0000-0000-0000000000b0', '2039-01-01', '2039-01-01') $$,
+  '22023', null, 'but none added');
 
 -- Members can read them, only planners set them.
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');

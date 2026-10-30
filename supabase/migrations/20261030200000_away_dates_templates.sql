@@ -123,9 +123,6 @@ declare
   today date := public.household_today(target_household);
   newly_away uuid[];
 begin
-  if jsonb_array_length(dates) > 40 then
-    raise exception 'too many away dates' using errcode = '22023';
-  end if;
   update public.households
   set settings = settings || jsonb_build_object('away_dates', dates)
   where id = target_household;
@@ -202,6 +199,10 @@ begin
     end if;
   end loop;
   merged := merged || jsonb_build_object('from', run_first::text, 'to', run_last::text);
+  -- Only adding is capped: taking dates away always works, whatever's stored.
+  if jsonb_array_length(merged) > 40 then
+    raise exception 'too many away dates' using errcode = '22023';
+  end if;
 
   return public.write_away_dates(target_household, before, merged);
 end;
@@ -283,21 +284,49 @@ $$;
 create trigger plan_nights_refuse_away before insert or update of meal_id, quick_pick on public.plan_nights
   for each row execute function public.plan_nights_refuse_away();
 
--- Only add_away_dates and remove_away_dates change the list: a settings save, stale or from an older app, can't change it.
-create or replace function public.update_household_settings(target_household uuid, patch jsonb)
-returns void
-language plpgsql security invoker set search_path = ''
+-- Swapping tonight's dinner off an away night leaves it like the other away nights, so a device that hasn't heard about
+-- the dates skips it rather than having its whole draft refused above.
+create function public.plan_nights_away_night_cleared()
+returns trigger
+language plpgsql set search_path = ''
 as $$
 begin
-  if jsonb_typeof(patch) is distinct from 'object' then
-    raise exception 'settings must be an object' using errcode = '22023';
+  if new.date >= public.household_today(new.household_id) and public.household_away_on(new.household_id, new.date) then
+    update public.night_attendance set expected = false where plan_night_id = new.id;
   end if;
-  if not public.is_household_planner(target_household) then
-    raise exception 'only planners change household settings' using errcode = '42501';
-  end if;
-  update public.households set settings = settings || (patch - 'away_dates') where id = target_household;
+  return null;
 end;
 $$;
+
+create trigger plan_nights_away_night_cleared after update of meal_id, quick_pick on public.plan_nights
+  for each row when (new.meal_id is null and new.quick_pick is null
+                     and (old.meal_id is not null or old.quick_pick is not null))
+  execute function public.plan_nights_away_night_cleared();
+
+-- households.settings can be written directly (planners, and create_household), so the rule that only add_away_dates and
+-- remove_away_dates change the dates is kept here. Security definer functions run as their owner and pass; a settings
+-- save, stale or from an older app, keeps what's there.
+create function public.households_keep_away_dates()
+returns trigger
+language plpgsql set search_path = ''
+as $$
+begin
+  if current_user <> 'authenticated' then
+    return new;
+  end if;
+  if tg_op = 'INSERT' then
+    new.settings := new.settings - 'away_dates';
+  elsif old.settings ? 'away_dates' then
+    new.settings := new.settings || jsonb_build_object('away_dates', old.settings -> 'away_dates');
+  else
+    new.settings := new.settings - 'away_dates';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger households_keep_away_dates before insert or update of settings on public.households
+  for each row execute function public.households_keep_away_dates();
 
 create table public.attendance_templates (
   id uuid primary key default gen_random_uuid(),

@@ -48,7 +48,7 @@ struct AwayDatesView: View {
                     .tint(Palette.paprika)
                     .disabled(isSaving)
             } footer: {
-                Text("Foon won't plan dinners, build a list, or send reminders for those nights. Everyone shows as out, and you'll see Away on This Week.")
+                Text("Foon won't plan dinners for those nights, add them to the list, or send reminders about them. Everyone shows as out, and you'll see Away on This Week.")
             }
 
             if let message = store.errorMessage {

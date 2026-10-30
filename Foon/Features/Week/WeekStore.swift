@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import Supabase
 
 /// This week (or next) for the planner: start it, toggle who's home, and cycle each night's effort.
 /// Changes show at once. Writes to one night go out in order; if one fails, the week reloads from the server.
@@ -19,7 +20,10 @@ final class WeekStore {
     private let fixedToday: (() -> CalendarDay)?
     private let now: () -> Date
     /// The household's calendar, from the last load's settings: the server clears away nights by the same day.
-    private var calendar = DinnerPrompts.calendar(for: HouseholdSettings())
+    private var calendar = Calendar.current
+    /// Bumped when the server refuses a dinner because the family is away: this device hasn't heard about the dates, so
+    /// This Week reloads the household.
+    private(set) var awayRefusals = 0
     /// A fresh seed per build or shuffle; tests pin it so drafts are predictable.
     private let seed: () -> UInt64
     /// The last write queued per night, so the next one waits for it.
@@ -61,7 +65,7 @@ final class WeekStore {
     }
 
     func load(settings: HouseholdSettings) async {
-        calendar = DinnerPrompts.calendar(for: settings)
+        calendar = settings.dayCalendar
         let thisWeek = WeekMath.start(of: today(), weekStart: settings.weekStart)
         let start = showingNextWeek ? thisWeek.adding(days: 7) : thisWeek
         if start != self.start { week = nil }
@@ -249,7 +253,7 @@ final class WeekStore {
             try await client.setNights(planID, updates)
             errorMessage = nil
         } catch {
-            errorMessage = String(localized: "Couldn't save the plan. Check your connection and try again.")
+            errorMessage = message(for: error, otherwise: String(localized: "Couldn't save the plan. Check your connection and try again."))
             await reload()
         }
     }
@@ -393,7 +397,7 @@ final class WeekStore {
                 errorMessage = nil
                 return true
             } catch {
-                errorMessage = failure
+                errorMessage = message(for: error, otherwise: failure)
                 await reload()
                 return false
             }
@@ -406,6 +410,13 @@ final class WeekStore {
     private func reload() async {
         guard let start else { return }
         if let loaded = try? await client.week(householdID, start), start == self.start { week = loaded }
+    }
+
+    /// `plan_nights_refuse_away`'s refusal has nothing to do with the connection.
+    private func message(for error: any Error, otherwise: String) -> String {
+        guard (error as? PostgrestError)?.code == "22023" else { return otherwise }
+        awayRefusals += 1
+        return String(localized: "The family's away that night, so it can't take a dinner. Change the away dates in Family to plan it.")
     }
 
     private func nightIndex(_ id: UUID) -> Int? {

@@ -30,10 +30,10 @@ struct WeekLayout: Equatable, Sendable {
     /// Nights ahead outside the household's away dates: the ones to plan and shop for.
     var plannable: [WeekNight] { ahead.filter { !$0.readsAway(in: away, today: today) } }
 
-    /// Approve needs something planned. An approved week with away nights may have nothing left, but its list still
-    /// holds what those nights needed, so it keeps the way to update it.
+    /// Approve needs something planned. An approved week may have nothing left (away dates cleared it, even if they've
+    /// ended since), but its list still holds what those nights needed, so it keeps the way to update it.
     func offersApprove(approved: Bool) -> Bool {
-        plannable.contains(where: \.isPlanned) || (approved && plannable.count != ahead.count)
+        plannable.contains(where: \.isPlanned) || (approved && !ahead.isEmpty)
     }
 
     /// Plannable nights with nothing planned yet.

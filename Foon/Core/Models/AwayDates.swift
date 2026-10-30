@@ -57,7 +57,8 @@ struct AwayDates: Codable, Hashable, Identifiable, Sendable {
             : String(localized: "\(coming.formatted(.list(type: .and))) and anything else planned for those nights come off, locked nights included, and don't come back if you change your mind.")
         let tonight = contains(today)
             ? [String(localized: "Tonight's dinner stays, in case you've eaten it. Swap it off if you won't be home.")] : []
-        return ([nights, off] + tonight).joined(separator: " ")
+        let list = String(localized: "The shopping list keeps what's already on it until someone taps Update the list on This Week.")
+        return ([nights, off] + tonight + [list]).joined(separator: " ")
     }
 }
 
@@ -70,9 +71,15 @@ extension WeekNight {
 }
 
 extension HouseholdSettings {
-    /// Today in the household's time zone, which is what the server goes by too.
+    /// The calendar "today" comes from: the household's time zone, which is what the server goes by too. Without one
+    /// (an older household, until a planner's device saves it) it's the device's day, not the server's New York fallback:
+    /// that would show tomorrow as tonight during the evening out west.
+    var dayCalendar: Calendar {
+        timeZone == nil ? .current : DinnerPrompts.calendar(for: self)
+    }
+
     func today(now: Date = .now) -> CalendarDay {
-        CalendarDay(now, calendar: DinnerPrompts.calendar(for: self))
+        CalendarDay(now, calendar: dayCalendar)
     }
 
     func isAway(on day: CalendarDay) -> Bool {

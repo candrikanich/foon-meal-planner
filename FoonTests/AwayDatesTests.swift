@@ -81,6 +81,7 @@ struct AwayDatesTests {
         #expect(!message.contains("Chili"))
         #expect(!message.contains("Tonight"))
         #expect(stretch(2, 2).confirmation(today: sunday, week: []).contains("1 night"))
+        #expect(message.contains("Update the list"), "the list keeps what's on it until then")
 
         let fromTonight = stretch(0, 1).confirmation(today: sunday, week: [night(0, "Stew", nil), night(1, "Soup", nil)])
         #expect(fromTonight.contains("Tonight"), "tonight's dinner stays")
@@ -151,7 +152,31 @@ struct AwayWeekTests {
         #expect(!allAway.offersApprove(approved: false), "nothing to approve")
         let partly = WeekLayout(nights: nights(planned: [5]), today: sunday, away: [stretch(0, 3)])
         #expect(partly.offersApprove(approved: false))
-        #expect(!WeekLayout(nights: nights(), today: sunday).offersApprove(approved: true), "nothing to do with no away nights")
+        #expect(!WeekLayout(nights: nights(), today: sunday).offersApprove(approved: false))
+        #expect(!WeekLayout(nights: nights(), today: sunday.adding(days: 7)).offersApprove(approved: true),
+                "a week that's over has nothing to update")
+    }
+
+    /// Approve, mark Tuesday to Sunday away (the nights lose their dinners), then end the stretch: the old ingredients
+    /// are still on the list, so the button has to stay.
+    @Test func updateTheListSurvivesTheDatesEnding() {
+        let cleared = nights(planned: [0])
+        #expect(WeekLayout(nights: cleared, today: sunday, away: [stretch(1, 6)]).offersApprove(approved: true))
+        let empty = nights()
+        #expect(WeekLayout(nights: empty, today: sunday, away: []).offersApprove(approved: true))
+        #expect(WeekLayout(nights: empty, today: sunday.adding(days: 6), away: []).offersApprove(approved: true))
+    }
+
+    /// #54's note is for while a night can still change; an away night can't.
+    @Test func theVarietyNudgeWaitsForANightThatCanChange() {
+        let week = (0..<7).map { offset in
+            WeekNight(id: UUID(), date: sunday.adding(days: offset), effort: .normal, dinnerTime: nil,
+                      mealID: offset < 3 ? UUID() : nil, mealName: offset < 3 ? "Pasta bake" : nil,
+                      quickPick: nil, locked: false, attendance: [:])
+        }
+        let today = sunday.adding(days: 3)
+        #expect(WeekLayout(nights: week, today: today).varietyNudge?.category == .pasta)
+        #expect(WeekLayout(nights: week, today: today, away: [stretch(3, 6)]).varietyNudge == nil)
     }
 
     @Test func aWeekPlannedExceptItsAwayNightsIsPlanned() {
@@ -242,6 +267,53 @@ struct AwayWeekTests {
         household.timeZone = "Pacific/Auckland"
         await store.load(settings: household)
         #expect(store.todayDay == CalendarDay(year: 2026, month: 11, day: 1))
+    }
+
+    /// An older household has no time zone saved; New York would show tomorrow as tonight in the evening out west.
+    @Test func noTimeZoneMeansTheDevicesDay() async {
+        let late = Date(timeIntervalSince1970: 1_793_500_000)
+        #expect(HouseholdSettings().today(now: late) == CalendarDay(late))
+        let store = WeekStore(householdID: Household.sample.id, client: .fake(week: { _, _ in nil }), now: { late })
+        #expect(store.todayDay == CalendarDay(late), "before the first load too")
+        await store.load(settings: HouseholdSettings())
+        #expect(store.todayDay == CalendarDay(late))
+    }
+
+    @Test func aDinnerRefusedForBeingAwaySaysSoAndAsksForTheDates() async {
+        let week = Week(planID: UUID(), start: sunday, nights: nights())
+        let store = WeekStore(householdID: Household.sample.id, client: .fake(
+            week: { _, _ in week },
+            setNight: { _, _ in throw PostgrestError(code: "22023", message: "the family is away that night") }
+        ), today: { sunday })
+        await store.load(settings: HouseholdSettings())
+        #expect(await !store.swap(nightID: week.nights[2].id, to: .quickPick(.takeout)))
+        #expect(store.errorMessage?.contains("away") == true)
+        #expect(store.errorMessage?.contains("connection") == false)
+        #expect(store.awayRefusals == 1, "so the household reloads and the device learns the dates")
+    }
+
+    @Test func aSavedDraftRefusedForBeingAwaySaysSoToo() async {
+        let meal = LibraryMeal.fixture(name: "Soup")
+        let week = Week(planID: UUID(), start: sunday, nights: nights())
+        let store = WeekStore(householdID: Household.sample.id, client: .fake(
+            week: { _, _ in week },
+            setNights: { _, _ in throw PostgrestError(code: "22023", message: "the family is away that night") }
+        ), today: { sunday })
+        await store.load(settings: HouseholdSettings())
+        await store.buildWeek { PlanningContext(meals: [meal], history: [], settings: HouseholdSettings(), members: []) }
+        #expect(store.errorMessage?.contains("away") == true)
+        #expect(store.awayRefusals == 1)
+    }
+
+    @Test func anOrdinaryFailedSwapStillSaysConnection() async {
+        let week = Week(planID: UUID(), start: sunday, nights: nights())
+        let store = WeekStore(householdID: Household.sample.id, client: .fake(
+            week: { _, _ in week }, setNight: { _, _ in throw URLError(.notConnectedToInternet) }
+        ), today: { sunday })
+        await store.load(settings: HouseholdSettings())
+        #expect(await !store.swap(nightID: week.nights[2].id, to: .quickPick(.takeout)))
+        #expect(store.errorMessage?.contains("connection") == true)
+        #expect(store.awayRefusals == 0)
     }
 
     @Test func planItNeverOffersAnAwayNight() {
@@ -386,6 +458,161 @@ struct HouseholdAwayAndTemplateTests {
         #expect(await store.applyTemplate(template))
         #expect(store.members.first?.usuallyAway == [1])
         #expect(template.isInUse(by: store.members))
+    }
+
+    @Test func aPlannerSavesTheDeviceTimeZoneWhenItsMissing() async {
+        let id = household.id, me = me
+        let sent = Mutex<HouseholdSettings?>(nil)
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: { Household(id: id, name: "The Smiths", emoji: nil, owner: me) },
+            updateSettings: { _, settings in sent.withLock { $0 = settings } }
+        ), deviceTimeZone: { "America/Los_Angeles" })
+        await store.load()
+        #expect(sent.withLock { $0?.timeZone } == "America/Los_Angeles")
+        #expect(store.household?.planningSettings.timeZone == "America/Los_Angeles")
+    }
+
+    @Test func aHouseholdWithATimeZoneKeepsIt() async {
+        let id = household.id, me = me
+        var settings = HouseholdSettings()
+        settings.timeZone = "America/Chicago"
+        let saved = settings
+        let sent = Mutex(false)
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: { Household(id: id, name: "The Smiths", emoji: nil, owner: me, settings: saved) },
+            updateSettings: { _, _ in sent.withLock { $0 = true } }
+        ), deviceTimeZone: { "America/Los_Angeles" })
+        await store.load()
+        #expect(!sent.withLock { $0 })
+        #expect(store.household?.planningSettings.timeZone == "America/Chicago")
+    }
+
+    @Test func someoneWhoIsntAPlannerWritesNoTimeZone() async {
+        let household = household, me = me
+        let sent = Mutex(false)
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: { household },
+            members: { _ in [.fixture(firstName: "Bob", role: .member, userID: me)] },
+            updateSettings: { _, _ in sent.withLock { $0 = true } }
+        ), deviceTimeZone: { "America/Los_Angeles" })
+        await store.load()
+        #expect(!sent.withLock { $0 })
+        #expect(store.household?.planningSettings.timeZone == nil)
+    }
+
+    @Test func aFailedTimeZoneSaveIsQuietAndTriedAgainLater() async {
+        let id = household.id, me = me
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: { Household(id: id, name: "The Smiths", emoji: nil, owner: me) },
+            updateSettings: { _, _ in throw URLError(.notConnectedToInternet) }
+        ), deviceTimeZone: { "America/Los_Angeles" })
+        await store.load()
+        #expect(store.errorMessage == nil)
+        #expect(store.household?.planningSettings.timeZone == nil)
+    }
+
+    @Test func aQuietRefreshPicksUpNewDates() async {
+        let dates = Mutex<[AwayDates]>([])
+        let id = household.id
+        let store = HouseholdStore(userID: me, client: .fake(myHousehold: {
+            var settings = HouseholdSettings()
+            settings.awayDates = dates.withLock { $0 }
+            return Household(id: id, name: "The Smiths", emoji: nil, owner: nil, settings: settings)
+        }))
+        await store.load()
+        dates.withLock { $0 = [stretch(2, 3)] }
+        await store.refreshQuietly()
+        #expect(store.household?.planningSettings.awayDates == [stretch(2, 3)])
+    }
+
+    @Test func aQuietRefreshThatFailsChangesNothing() async {
+        let household = household
+        let offline = Mutex(false)
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: {
+                if offline.withLock({ $0 }) { throw URLError(.notConnectedToInternet) }
+                return household
+            },
+            addAwayDates: { _, _ in throw URLError(.notConnectedToInternet) }
+        ))
+        await store.load()
+        #expect(await !store.addAwayDates(stretch(2, 3)))
+        let message = store.errorMessage
+        #expect(message != nil)
+        offline.withLock { $0 = true }
+        await store.refreshQuietly()
+        #expect(store.household == household, "the household stays")
+        #expect(store.errorMessage == message, "the save's error isn't wiped, and none is added")
+
+        store.clearError()
+        await store.refreshQuietly()
+        #expect(store.errorMessage == nil)
+    }
+
+    @Test func aRefreshThatFinishesAfterASaveDoesntPutOldDatesBack() async {
+        let household = household
+        let armed = Mutex(false)
+        let (parked, parkedSignal) = AsyncStream.makeStream(of: Void.self)
+        let (gate, gateSignal) = AsyncStream.makeStream(of: Void.self)
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: {
+                if armed.withLock({ $0 }) {
+                    parkedSignal.yield()
+                    for await _ in gate {}
+                }
+                return household
+            },
+            addAwayDates: { _, new in [new] }
+        ))
+        await store.load()
+        armed.withLock { $0 = true }
+        let refresh = Task { await store.refreshQuietly() }
+        for await _ in parked { break }
+        #expect(await store.addAwayDates(stretch(2, 3)))
+        gateSignal.finish()
+        await refresh.value
+        parkedSignal.finish()
+        #expect(store.household?.planningSettings.awayDates == [stretch(2, 3)])
+    }
+
+    @Test func aRefreshThatFinishesAfterASettingsSaveDoesntPutOldSettingsBack() async {
+        let household = household
+        let armed = Mutex(false)
+        let (parked, parkedSignal) = AsyncStream.makeStream(of: Void.self)
+        let (gate, gateSignal) = AsyncStream.makeStream(of: Void.self)
+        let store = HouseholdStore(userID: me, client: .fake(myHousehold: {
+            if armed.withLock({ $0 }) {
+                parkedSignal.yield()
+                for await _ in gate {}
+            }
+            return household
+        }))
+        await store.load()
+        armed.withLock { $0 = true }
+        let refresh = Task { await store.refreshQuietly() }
+        for await _ in parked { break }
+        var changed = HouseholdSettings()
+        changed.takeoutNights = 3
+        #expect(await store.updateSettings(changed))
+        gateSignal.finish()
+        await refresh.value
+        parkedSignal.finish()
+        #expect(store.household?.planningSettings.takeoutNights == 3)
+    }
+
+    @Test func aDeleteThatRemovedNothingSaysSo() async {
+        let household = household
+        let template = AttendanceTemplate(id: UUID(), name: "Summer", schedules: [:])
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: { household }, attendanceTemplates: { _ in [template] },
+            deleteAttendanceTemplate: { _ in throw AttendanceTemplateError.notDeleted }
+        ))
+        await store.load()
+        await store.loadTemplates()
+        #expect(await !store.deleteTemplate(template))
+        #expect(store.errorMessage?.contains("parent") == true)
+        #expect(store.errorMessage?.contains("connection") == false)
+        #expect(store.attendanceTemplates == [template], "what the server still has stays listed")
     }
 
     @Test func deletingATemplateTakesItOffTheList() async {
