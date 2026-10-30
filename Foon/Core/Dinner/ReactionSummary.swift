@@ -27,6 +27,8 @@ struct MealLikes: Equatable, Sendable, Decodable {
 }
 
 /// A comment on a dish, from `meal_comments`. A hidden one only reaches planners, marked, so they can bring it back.
+/// Not shown isn't secret: `reactions.comment` stays readable to the household through the API. Revisit that when a comment
+/// box is built (docs/spec.md → Prompt design).
 struct MealComment: Identifiable, Equatable, Sendable, Decodable {
     /// The reaction it's part of.
     let id: UUID

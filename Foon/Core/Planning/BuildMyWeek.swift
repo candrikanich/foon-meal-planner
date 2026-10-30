@@ -8,10 +8,12 @@ import Foundation
 /// 1. **Keep** pinned nights, event nights, and nights before `today` as they are, then land dated requests
 ///    on their nights, then standing traditions on their weekdays, then someday requests several people want on
 ///    the first night they're all home (all saved locked).
-/// 2. **Food-rule nights** draw next, before anything else spends the few dishes they can have.
-/// 3. **Special slots:** takeout on the busiest nights, trial dishes on full-attendance nights, then leftover
+/// 2. **Takeout** on the busiest nights, a rushed one first, food rule or not.
+/// 3. **Food-rule nights** draw next if the week has any, rushed nights ahead of them, before anything else spends the few
+///    dishes they can have.
+/// 4. **Special slots:** trial dishes on full-attendance nights, then leftover
 ///    nights, each after a big-batch meal when one fits. Kept nights, past ones too, count toward each setting.
-/// 4. **Fill** the rest, rushed nights first and then in date order, with a weighted draw from dishes that
+/// 5. **Fill** the rest, rushed nights first and then in date order, with a weighted draw from dishes that
 ///    pass every filter. The season and what's already in the week only move the odds, after the filters.
 enum BuildMyWeek {
     /// Scoring weights. A dish's weight is
@@ -53,8 +55,8 @@ enum BuildMyWeek {
         state.landRequests()
         state.landTraditions()
         state.landWanted()
-        state.fillFoodRuleNights(rng: &rng)
         state.placeTakeout()
+        state.fillFoodRuleNights(rng: &rng)
         state.placeNewDishes(rng: &rng)
         state.placeLeftovers(rng: &rng)
         state.fillTheRest(rng: &rng)
@@ -429,10 +431,15 @@ private struct DraftState {
     }
 
     /// A night a rule applies to has fewer dishes to choose from, and a dish spent on Monday can leave Friday with nothing
-    /// when Monday could have had anything. A rule for every night makes no night special, so it changes no order.
+    /// when Monday could have had anything. Rushed nights have fewer still, so they go ahead of it. Without such a night
+    /// this does nothing, and a rule for every night makes no night special, so neither changes the order.
     /// Finding nothing leaves the night open: it can still take a special slot, and the fill says Nothing fits.
     mutating func fillFoodRuleNights(rng: inout SeededGenerator) {
-        for index in openIndices where planner.hasOccasionalFoodRule(on: plans[index].date) {
+        let open = openIndices
+        let ruled = open.filter { planner.hasOccasionalFoodRule(on: plans[$0].date) }
+        guard !ruled.isEmpty else { return }
+        let rushed = open.filter { planner.nights[$0].effort == .rushed }
+        for index in rushed + ruled.filter({ !rushed.contains($0) }) {
             let night = planner.nights[index]
             guard let meal = planner.draw(for: night, from: planner.knownMeals, excluding: used, rng: &rng)
                 ?? planner.draw(for: night, from: planner.trialMeals, excluding: used, rng: &rng) else { continue }

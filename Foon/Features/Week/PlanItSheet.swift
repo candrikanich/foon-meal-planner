@@ -31,13 +31,13 @@ enum PlanIt {
         includingPlanned ? layout.plannable : layout.plannable.filter { $0.mealID != mealID }
     }
 
-    /// What a night holds now, so picking it says what gets replaced.
     /// The planner's choosing, so a food rule doesn't stop them: it just says so before they pick the night.
     static func foodRuleWarnings(for meal: LibraryMeal, on night: WeekNight, settings: HouseholdSettings,
                                  library: [LibraryMeal]) -> [String] {
         FoodRuleMatcher.broken(by: meal, on: night.date, rules: settings.foodRules, library: library).map(\.looksLikeText)
     }
 
+    /// What a night holds now, so picking it says what gets replaced.
     static func currentPick(_ night: WeekNight) -> String {
         if let name = night.mealName { return name }
         if let pick = night.quickPick { return DayCardText.quickPickLabel(pick) }

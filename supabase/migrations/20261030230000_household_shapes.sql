@@ -3,38 +3,61 @@
 --    weekdays]}, away for those weekdays (all, without days) in the first of every N seven-day stretches from "from".
 --    create_week reads it through member_usually_home, and saved schedules snapshot attendance_defaults whole, so it comes
 --    along. Older apps write attendance_defaults whole, without the key, so from the app that column now merges by key:
---    a key left out stays, and null takes one away. Functions that replace the whole thing (a saved schedule, retention)
+--    a key left out stays, and null takes any key away. Functions that replace the whole thing (a saved schedule, retention)
 --    run as their owner and aren't touched by that.
 -- 2. members.eats_separately (babies and toddlers): parents set it. Their ratings stop counting, and new ones are refused.
 --    They stay on attendance, so allergy flags and serving notes still go by who's home. The tonight poll (#43) isn't built;
 --    when it is, it reads this column to leave them out of the votes.
 -- 3. households.settings.food_rules: [{"avoid": "meat", "when": "lent_fridays"}], at most one per food. Build my week's
---    filters read it on the device (BuildMyWeek.fits); only set_food_rule writes it, under a lock on the household.
---    A settings save leaves it alone: update_household_settings merges keys. It says nothing about why a household has it.
+--    filters read it on the device (BuildMyWeek.fits); only set_food_rule writes it, under a lock on the household. The
+--    trigger that keeps away_dates now keeps this too, so update_household_settings and a planner's direct write can't
+--    change it, whatever they send. It says nothing about why a household has it.
 -- 4. Two seatings, the model only: plan_nights.second_seating_time and night_attendance.seating. Nothing writes or reads
 --    them yet (no grant, no planning, no UI), so create_week, attendance and older apps are as they were.
 -- 5. reactions.comment_hidden_at: a planner hides a comment without deleting it. meal_comments is what the app reads.
---    reactions stays readable by the family because older apps select its comment column, and row-level security can't
---    hide one column of one row; they never show it. Retention clears the text as before, hidden or not.
+--    Hidden means not shown, not secret: reactions stays readable by the household through the API, because older apps
+--    select its comment column, and row-level security can't hide one column of one row; they never show it. Accepted
+--    while nothing in the app writes comments. WHEN A COMMENT BOX IS BUILT, revisit this (docs/spec.md → Prompt design).
+--    Retention clears the text as before, hidden or not.
 
 -- 1. Recurring away patterns ----------------------------------------------------------------------------------------
 
 -- Reads leniently: attendance_defaults can be written directly, and a bad value must never stop a week from starting, nor
--- put anyone away.
+-- put anyone away. So anything but the exact shape is no pattern, and AwayPattern reads the same table the same way
+-- (pg_input_is_valid alone would take "Nov 2 2026"). A cycle is seven-night stretches from the first night, which would
+-- split a weekend started on its Saturday or Sunday, so Friday to Sunday always counts from that weekend's Friday.
 create function public.away_pattern_covers(pattern jsonb, day date)
 returns boolean
 language sql immutable set search_path = ''
 as $$
   select coalesce((
-    select day >= parsed.first_night
-           and (day - parsed.first_night) / 7 % parsed.every_weeks = 0
-           and (jsonb_array_length(parsed.days) = 0 or parsed.days @> to_jsonb(extract(isodow from day)::int))
+    select day >= anchored.first_night
+           and (day - anchored.first_night) / 7 % anchored.every_weeks = 0
+           and (jsonb_array_length(anchored.days) = 0 or anchored.days @> to_jsonb(extract(isodow from day)::int))
     from (
-      select case when pg_input_is_valid(pattern ->> 'from', 'date') then (pattern ->> 'from')::date end as first_night,
-             case when pattern ->> 'every_weeks' ~ '^[2-4]$' then (pattern ->> 'every_weeks')::int end as every_weeks,
-             case when jsonb_typeof(pattern -> 'days') = 'array' then pattern -> 'days' else '[]'::jsonb end as days
-    ) parsed
-    where isfinite(parsed.first_night) and parsed.every_weeks is not null
+      select case when parsed.days @> '[5, 6, 7]' and parsed.days <@ '[5, 6, 7]'
+                  then parsed.first_night - (extract(isodow from parsed.first_night)::int + 2) % 7
+                  else parsed.first_night end as first_night,
+             parsed.every_weeks, parsed.days
+      from (
+        select case when jsonb_typeof(pattern -> 'from') = 'string'
+                         and pattern ->> 'from' ~ '^\d{4}-\d{2}-\d{2}$'
+                         and pg_input_is_valid(pattern ->> 'from', 'date')
+                    then (pattern ->> 'from')::date end as first_night,
+               case when jsonb_typeof(pattern -> 'every_weeks') = 'number'
+                    then case when (pattern ->> 'every_weeks')::numeric in (2, 3, 4)
+                              then (pattern ->> 'every_weeks')::numeric::int end end as every_weeks,
+               case when pattern -> 'days' is null then '[]'::jsonb
+                    when jsonb_typeof(pattern -> 'days') = 'array' and not exists (
+                      select 1 from jsonb_array_elements(
+                        case when jsonb_typeof(pattern -> 'days') = 'array' then pattern -> 'days' else '[]'::jsonb end
+                      ) as listed (night)
+                      where (case when jsonb_typeof(listed.night) = 'number'
+                                  then listed.night::text::numeric in (1, 2, 3, 4, 5, 6, 7) end) is not true
+                    ) then pattern -> 'days' end as days
+      ) parsed
+      where parsed.first_night is not null and parsed.every_weeks is not null and parsed.days is not null
+    ) anchored
   ), false);
 $$;
 
@@ -122,10 +145,10 @@ begin
 
   -- A schedule saved from the app changes the keys it sends: an older app or a stale phone doesn't know them all.
   if new.attendance_defaults is distinct from old.attendance_defaults then
-    new.attendance_defaults := old.attendance_defaults || new.attendance_defaults;
-    if new.attendance_defaults -> 'away_pattern' = 'null'::jsonb then
-      new.attendance_defaults := new.attendance_defaults - 'away_pattern';
-    end if;
+    -- Only the top level: a null inside a pattern is a bad pattern, not a key taken away.
+    select coalesce(jsonb_object_agg(kept.key, kept.value), '{}'::jsonb) into new.attendance_defaults
+    from jsonb_each(old.attendance_defaults || new.attendance_defaults) as kept
+    where kept.value <> 'null'::jsonb;
   end if;
 
   return new;
@@ -195,10 +218,11 @@ $$;
 -- 3. Food rules -------------------------------------------------------------------------------------------------------
 
 -- Changes one food's rule in the list as it is now, so a device with an old copy can't undo another planner's. A rule from
--- a newer app is left as it is. Null takes the rule away. Returns the list.
+-- a newer app is left as it is. Null takes the rule away. Returns the list. Security definer: the trigger below keeps
+-- the list from everyone else, as it does the away dates.
 create function public.set_food_rule(target_household uuid, avoid text, on_nights text)
 returns jsonb
-language plpgsql security invoker set search_path = ''
+language plpgsql security definer set search_path = ''
 as $$
 declare
   rules jsonb;
@@ -230,6 +254,32 @@ $$;
 
 revoke execute on function public.set_food_rule(uuid, text, text) from public, anon;
 grant execute on function public.set_food_rule(uuid, text, text) to authenticated;
+
+-- households.settings can be written directly (planners, and create_household), so the rule that only their own functions
+-- change these two keys is kept here. Security definer functions run as their owner and pass; a settings save, stale or
+-- from an older app, keeps what's there.
+create or replace function public.households_keep_away_dates()
+returns trigger
+language plpgsql set search_path = ''
+as $$
+declare
+  kept text;
+begin
+  if current_user <> 'authenticated' then
+    return new;
+  end if;
+  foreach kept in array array['away_dates', 'food_rules'] loop
+    if tg_op = 'INSERT' then
+      new.settings := new.settings - kept;
+    elsif old.settings ? kept then
+      new.settings := new.settings || jsonb_build_object(kept, old.settings -> kept);
+    else
+      new.settings := new.settings - kept;
+    end if;
+  end loop;
+  return new;
+end;
+$$;
 
 -- 4. Two seatings, the model only ---------------------------------------------------------------------------------------
 

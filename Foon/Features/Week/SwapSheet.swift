@@ -131,18 +131,19 @@ struct SwapSheet: View {
 
     /// Dishes a food rule held back from the suggestions, and why: a guess from the name, so the planner can still pick one.
     private var heldBack: [(meal: LibraryMeal, rules: [FoodRule])] {
-        library.meals.filter(\.status.isInRotation).sorted { $0.name < $1.name }.compactMap { meal in
-            let rules = rulesBroken(by: meal)
-            return rules.isEmpty ? nil : (meal, rules)
-        }
+        guard let night, night.date >= week.todayDay else { return [] }
+        return FoodRuleMatcher.heldBack(on: night, week: week.week?.nights ?? [], meals: library.meals,
+                                        rules: settings.foodRules)
     }
+
+    private static let heldBackShown = 12
 
     @ViewBuilder
     private var heldBackSection: some View {
         let heldBack = heldBack
         if !heldBack.isEmpty {
             Section {
-                ForEach(heldBack.prefix(12), id: \.meal.id) { entry in
+                ForEach(heldBack.prefix(Self.heldBackShown), id: \.meal.id) { entry in
                     Button { Task { await choose(.meal(id: entry.meal.id, name: entry.meal.name)) } } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(entry.meal.name).font(.foonHeadline).foregroundStyle(Palette.ink)
@@ -157,7 +158,11 @@ struct SwapSheet: View {
             } header: {
                 Text("Held back by your food rules")
             } footer: {
-                Text("Foon goes by names and ingredients, so it can be wrong either way. Tap one to plan it anyway.")
+                if heldBack.count > Self.heldBackShown {
+                    Text("Foon goes by names and ingredients, so it can be wrong either way. Tap one to plan it anyway, or search your meals for the rest.")
+                } else {
+                    Text("Foon goes by names and ingredients, so it can be wrong either way. Tap one to plan it anyway.")
+                }
             }
         }
     }

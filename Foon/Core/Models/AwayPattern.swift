@@ -8,7 +8,8 @@ struct AwayPattern: Codable, Equatable, Hashable, Sendable {
 
     /// The first of every this many weeks, 2 to 4.
     var everyWeeks: Int
-    /// The first night away. Each week is the seven nights from here, so a pattern can change hands midweek.
+    /// The first night away. Each week is the seven nights from here, so a pattern can change hands midweek. A weekend
+    /// counts from its Friday (`firstNight`).
     var from: CalendarDay
     /// ISO weekdays out, in those weeks. Empty is all seven.
     var days: Set<Int>
@@ -28,9 +29,25 @@ struct AwayPattern: Codable, Equatable, Hashable, Sendable {
         guard (2...4).contains(everyWeeks) else {
             throw DecodingError.dataCorruptedError(forKey: .everyWeeks, in: container, debugDescription: "Expected 2 to 4")
         }
-        from = try container.decode(CalendarDay.self, forKey: .from)
-        let listed = (try? container.decodeIfPresent([Int].self, forKey: .days)) ?? nil
-        days = Set(listed ?? [])
+        let written = try container.decode(String.self, forKey: .from)
+        guard written.wholeMatch(of: /\d{4}-\d{2}-\d{2}/) != nil,
+              let day = try? JSONDecoder().decode(CalendarDay.self, from: Data("\"\(written)\"".utf8)), Self.exists(day) else {
+            throw DecodingError.dataCorruptedError(forKey: .from, in: container, debugDescription: "Expected a real yyyy-MM-dd")
+        }
+        from = day
+        // Missing is all seven; anything else that isn't weekdays is a bad pattern, as on the server.
+        let listed = container.contains(.days) ? try container.decode([Int].self, forKey: .days) : []
+        guard listed.allSatisfy((1...7).contains) else {
+            throw DecodingError.dataCorruptedError(forKey: .days, in: container, debugDescription: "Expected ISO weekdays")
+        }
+        days = Set(listed)
+    }
+
+    /// Postgres won't take February 31st, so this doesn't either.
+    private static func exists(_ day: CalendarDay) -> Bool {
+        let leap = day.year % 4 == 0 && (day.year % 100 != 0 || day.year % 400 == 0)
+        let lengths = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        return day.year >= 1 && (1...12).contains(day.month) && (1...lengths[day.month - 1]).contains(day.day)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -40,15 +57,26 @@ struct AwayPattern: Codable, Equatable, Hashable, Sendable {
         if !days.isEmpty { try container.encode(days.sorted(), forKey: .days) }
     }
 
+    /// Where the cycle counts from. Seven-night stretches from a Saturday would split the weekend, and give a Friday on the
+    /// weekend they're home, so Friday to Sunday counts from that weekend's Friday.
+    var firstNight: CalendarDay {
+        days == Self.weekend ? from.adding(days: -((from.isoWeekday + 2) % 7)) : from
+    }
+
+    /// With the date the editor should show, which is what's saved.
+    func snapped() -> AwayPattern {
+        AwayPattern(everyWeeks: everyWeeks, from: firstNight, days: days)
+    }
+
     func covers(_ day: CalendarDay) -> Bool {
-        let since = day.days(since: from)
+        let since = day.days(since: firstNight)
         return since >= 0 && since / 7 % everyWeeks == 0 && (days.isEmpty || days.contains(day.isoWeekday))
     }
 
     /// The next night out from `day` on. A cycle is at most four weeks, so one's always that close.
     func nextNight(onOrAfter day: CalendarDay) -> CalendarDay? {
         (0..<((everyWeeks + 1) * 7)).lazy
-            .map { max(day, from).adding(days: $0) }
+            .map { max(day, firstNight).adding(days: $0) }
             .first(where: covers)
     }
 

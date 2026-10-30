@@ -2,7 +2,7 @@
 -- Nothing here adds a table: the pattern lives in attendance_defaults, the rules in households.settings, and the rest are
 -- columns, so tenancy, erase and export come with the tables they're on.
 begin;
-select plan(84);
+select plan(126);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -23,7 +23,8 @@ insert into auth.users (id, email, aud, role) values
   ('c0000000-0000-0000-0000-00000000000c', 'carol@example.com', 'authenticated', 'authenticated'),
   ('d0000000-0000-0000-0000-00000000000d', 'gina@example.com', 'authenticated', 'authenticated'),
   ('e0000000-0000-0000-0000-00000000000e', 'pat@example.com', 'authenticated', 'authenticated'),
-  ('f0000000-0000-0000-0000-00000000000f', 'kira@example.com', 'authenticated', 'authenticated');
+  ('f0000000-0000-0000-0000-00000000000f', 'kira@example.com', 'authenticated', 'authenticated'),
+  ('90000000-0000-0000-0000-000000000009', 'nell@example.com', 'authenticated', 'authenticated');
 insert into public.households (id, name, owner) values
   ('00000000-0000-0000-0000-0000000000a0', 'Andersons', 'a0000000-0000-0000-0000-00000000000a'),
   ('00000000-0000-0000-0000-0000000000b0', 'Carters', 'c0000000-0000-0000-0000-00000000000c');
@@ -76,12 +77,31 @@ select is(public.away_pattern_covers('{"every_weeks": 2, "from": "2026-11-06", "
   'home on the weekend between');
 select is(public.away_pattern_covers('{"every_weeks": 2, "from": "2026-11-06", "days": [5, 6, 7]}', '2026-11-20'), true,
   'and out on the next one');
--- A bad value must never stop a week from starting, and must not make someone away.
+-- A weekend started on its Saturday or Sunday is still that weekend: seven-night stretches from there would split it.
+select is(public.away_pattern_covers('{"every_weeks": 2, "from": "2026-11-07", "days": [5, 6, 7]}', d::date), want,
+          format('from a Saturday: %s', d))
+from (values ('2026-11-06', true), ('2026-11-07', true), ('2026-11-08', true), ('2026-11-13', false), ('2026-11-15', false),
+             ('2026-11-20', true), ('2026-11-22', true), ('2026-11-27', false)) as nights (d, want);
+select is(public.away_pattern_covers('{"every_weeks": 2, "from": "2026-11-08", "days": [7, 5, 6]}', d::date), want,
+          format('from a Sunday, in any order: %s', d))
+from (values ('2026-11-06', true), ('2026-11-08', true), ('2026-11-13', false), ('2026-11-20', true), ('2026-11-27', false))
+     as nights (d, want);
+-- A bad value must never stop a week from starting, and must not make someone away. The same table is in
+-- AwayPatternTests, so the two sides can't disagree about what a hand-written value means.
 select is(public.away_pattern_covers(null, '2026-11-02'), false, 'no pattern, home');
-select is(public.away_pattern_covers('"every other week"', '2026-11-02'), false, 'not an object, home');
-select is(public.away_pattern_covers('{"every_weeks": 2, "from": "soon"}', '2026-11-02'), false, 'a bad date, home');
-select is(public.away_pattern_covers('{"every_weeks": 0, "from": "2026-11-02"}', '2026-11-02'), false, 'a bad cycle, home');
-select is(public.away_pattern_covers('{"every_weeks": 2, "from": "infinity"}', '2026-11-02'), false, 'no end of time, home');
+select is(public.away_pattern_covers(pattern::jsonb, '2026-11-02'), false, format('home with %s', pattern))
+from (values ('"every other week"'), ('[]'), ('{"every_weeks": 2, "from": "soon"}'), ('{"every_weeks": 0, "from": "2026-11-02"}'),
+             ('{"every_weeks": 5, "from": "2026-11-02"}'), ('{"every_weeks": 2.5, "from": "2026-11-02"}'),
+             ('{"every_weeks": "2", "from": "2026-11-02"}'), ('{"from": "2026-11-02"}'), ('{"every_weeks": 2}'),
+             ('{"every_weeks": 2, "from": "infinity"}'), ('{"every_weeks": 2, "from": "Nov 2 2026"}'),
+             ('{"every_weeks": 2, "from": "11/02/2026"}'), ('{"every_weeks": 2, "from": "2026-11-2"}'),
+             ('{"every_weeks": 2, "from": 20261102}'), ('{"every_weeks": 2, "from": "2026-11-02", "days": "x"}'),
+             ('{"every_weeks": 2, "from": "2026-11-02", "days": ["x"]}'), ('{"every_weeks": 2, "from": "2026-11-02", "days": [9]}'),
+             ('{"every_weeks": 2, "from": "2026-11-02", "days": [1, "x"]}'), ('{"every_weeks": 2, "from": "2026-11-02", "days": null}'))
+     as junk (pattern);
+select is(public.away_pattern_covers('{"every_weeks": 2, "from": "2026-02-31"}', '2026-03-03'), false, 'a date that doesn''t exist, home');
+select is(public.away_pattern_covers('{"every_weeks": 2.0, "from": "2026-11-02"}', '2026-11-02'), true, '2.0 is 2, as JSON has it');
+select is(public.away_pattern_covers('{"every_weeks": 2, "from": "2026-11-02", "days": []}', '2026-11-02'), true, 'no days is all of them');
 
 -- Everyone edits their own schedule; a parent can change anyone's.
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
@@ -128,6 +148,8 @@ select public.save_attendance_template('00000000-0000-0000-0000-0000000000a0', '
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 update public.members set attendance_defaults = '{"away_pattern": null}' where id = '00000000-0000-0000-0000-0000000000a2';
 select is(pg_temp.defaults('00000000-0000-0000-0000-0000000000a2'), '{"usually_away": [5]}'::jsonb, 'null ends the pattern');
+update public.members set attendance_defaults = '{"usually_away": null}' where id = '00000000-0000-0000-0000-0000000000a2';
+select is(pg_temp.defaults('00000000-0000-0000-0000-0000000000a2'), '{}'::jsonb, 'null takes away any key');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select public.apply_attendance_template(id) from public.attendance_templates where name = 'Custody';
 select is(pg_temp.defaults('00000000-0000-0000-0000-0000000000a2') -> 'away_pattern',
@@ -195,7 +217,11 @@ select throws_ok($$ update public.reactions set reaction = 'good'
 select public.react_to_dinner('00000000-0000-0000-0000-0000000004a2', '00000000-0000-0000-0000-0000000000a7', 'not_for_me');
 select is((select status::text from public.meals where id = '00000000-0000-0000-0000-0000000002a2'), 'active',
   'one not for me and a toddler''s doesn''t retire a dish');
+-- It's about ratings and votes, not asking: a parent can still ask in their name.
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select lives_ok($$ select public.make_request('00000000-0000-0000-0000-0000000000a0',
+  '00000000-0000-0000-0000-0000000000a6', '00000000-0000-0000-0000-0000000002a1', null, null, null, null) $$,
+  'someone who eats separately can still ask for a dish');
 select is((select (m ->> 'eats_separately')::boolean
            from jsonb_array_elements(public.export_household('00000000-0000-0000-0000-0000000000a0') -> 'members') m
            where m ->> 'first_name' = 'Tot'), true, 'the export has the flag');
@@ -239,6 +265,26 @@ select is(public.set_food_rule('00000000-0000-0000-0000-0000000000a0', 'meat', '
   'a rule this version doesn''t know survives');
 select is((select settings -> 'food_rules' -> 1 ->> 'when' from public.households
            where id = '00000000-0000-0000-0000-0000000000a0'), 'fridays', 'and it''s saved');
+
+-- Only set_food_rule writes them. A planner's other routes keep what's there, from any app.
+select pg_temp.as_user('e0000000-0000-0000-0000-00000000000e');
+select public.update_household_settings('00000000-0000-0000-0000-0000000000a0', '{"food_rules": [], "takeout_nights": 1}');
+select is((select settings -> 'food_rules' -> 1 ->> 'avoid' from public.households where id = '00000000-0000-0000-0000-0000000000a0'),
+  'meat', 'a patch with the key doesn''t change them');
+select is((select settings ->> 'takeout_nights' from public.households where id = '00000000-0000-0000-0000-0000000000a0'),
+  '1', 'and the rest of the patch still lands');
+update public.households set settings = settings || '{"food_rules": []}' where id = '00000000-0000-0000-0000-0000000000a0';
+select is((select settings -> 'food_rules' -> 1 ->> 'avoid' from public.households where id = '00000000-0000-0000-0000-0000000000a0'),
+  'meat', 'nor does a direct write');
+update public.households set settings = settings - 'food_rules' where id = '00000000-0000-0000-0000-0000000000a0';
+select is((select settings -> 'food_rules' -> 1 ->> 'avoid' from public.households where id = '00000000-0000-0000-0000-0000000000a0'),
+  'meat', 'nor does leaving the key out of a direct write');
+select is(public.set_food_rule('00000000-0000-0000-0000-0000000000a0', 'meat', 'fridays') -> 1 ->> 'avoid', 'meat',
+  'and set_food_rule still gets through');
+select pg_temp.as_user('90000000-0000-0000-0000-000000000009');
+select ok(not (public.create_household('Nells', null, 'Nell', '{"food_rules": [{"avoid": "meat", "when": "fridays"}]}')).settings ? 'food_rules',
+  'a new household starts without them');
+
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
 select is((select settings -> 'food_rules' from public.households where id = '00000000-0000-0000-0000-0000000000b0'),
   null, 'another household has none of it');
@@ -323,6 +369,22 @@ select lives_ok(format($$ select public.set_comment_hidden(%L, false) $$, (selec
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 select is((select comment from public.meal_comments where id = (select id from the_comment)), 'Still too spicy',
   'and the family sees it again');
+
+-- Like verdicts: someone who eats separately, or who's been removed, doesn't show. Owen's rating is from before.
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+update public.reactions set comment = 'Not this again' where member_id = '00000000-0000-0000-0000-0000000000a7';
+select is((select comment from public.meal_comments where member_id = '00000000-0000-0000-0000-0000000000a7'), 'Not this again',
+  'Owen''s comment shows');
+select pg_temp.as_admin();
+update public.members set eats_separately = true where id = '00000000-0000-0000-0000-0000000000a7';
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select is((select count(*)::int from public.meal_comments where member_id = '00000000-0000-0000-0000-0000000000a7'), 0,
+  'not once they eat separately');
+select pg_temp.as_admin();
+update public.members set eats_separately = false, status = 'removed' where id = '00000000-0000-0000-0000-0000000000a7';
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select is((select count(*)::int from public.meal_comments where member_id = '00000000-0000-0000-0000-0000000000a7'), 0,
+  'nor once they''re removed');
 
 -- Retention clears the text whether it's hidden or not.
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');

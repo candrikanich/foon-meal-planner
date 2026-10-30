@@ -295,8 +295,8 @@ enum RequestBoard {
 
     /// Someday requests for a library dish that enough of the family wants (active members: someone away all week could
     /// never be home for it, so they don't count, and neither do removed ones, or anyone who eats separately: this is a
-    /// vote, and they don't get one): Build my week finds them a night everyone who wants them is home. Not in a week a planner said "not this week" to. Most wanted
-    /// first, then the oldest.
+    /// vote, and they don't get one): Build my week finds them a night everyone who wants them is home. Not in a week a
+    /// planner said "not this week" to. Most wanted first, then the oldest.
     static func wanted(_ requests: [DinnerRequest], weekStart: CalendarDay, today: CalendarDay,
                        members: [Member]) -> [WantedRequest] {
         let family = Set(members.filter { $0.status == .active && !$0.eatsSeparately }.map(\.id))

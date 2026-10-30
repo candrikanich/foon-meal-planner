@@ -180,14 +180,20 @@ struct MemberEditorView: View {
                 }
                 Picker("Which nights", selection: Binding(
                     get: { pattern.days },
-                    set: { draft.awayPattern?.days = $0 }
+                    set: {
+                        draft.awayPattern?.days = $0
+                        draft.awayPattern = draft.awayPattern?.snapped()
+                    }
                 )) {
                     Text("The whole week").tag(Set<Int>())
                     Text("Friday to Sunday").tag(AwayPattern.weekend)
                 }
-                DatePicker("First night away", selection: Binding(
+                DatePicker(pattern.days == AwayPattern.weekend ? "First weekend" : "First night away", selection: Binding(
                     get: { pattern.from.date() },
-                    set: { draft.awayPattern?.from = CalendarDay($0) }
+                    set: {
+                        draft.awayPattern?.from = CalendarDay($0)
+                        draft.awayPattern = draft.awayPattern?.snapped()
+                    }
                 ), displayedComponents: .date)
             }
         } header: {

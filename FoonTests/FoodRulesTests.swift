@@ -37,7 +37,8 @@ struct FoodRuleMatcherTests {
         return FoodRuleMatcher.looksLikeIt(avoid, meal: meal, library: [meal])
     }
 
-    @Test(arguments: ["Beef tacos", "Grilled chicken", "Spaghetti bolognese", "Meatloaf", "Turkey burgers", "BLT with bacon",
+    @Test(arguments: ["Beef tacos", "Grilled chicken", "Spaghetti bolognese", "Meatloaf", "Turkey burgers", "BLT", "BLTs",
+                      "BBQ ribs", "Meatballs",
                       "Pepperoni pizza", "Hot dogs", "Steak night", "Meat sauce", "Sloppy joes", "Shepherd's Pie"])
     func namesThatLookLikeMeat(name: String) {
         #expect(looks(.meat, name))
@@ -75,6 +76,8 @@ struct FoodRuleMatcherTests {
     }
 
     @Test(arguments: [("Pulled pork", true), ("Ham and cheese", true), ("Bacon carbonara", true), ("Italian sausage", true),
+                      ("BLT", true), ("BLTs", true), ("BBQ ribs", true), ("Ribs", true), ("Hot dogs", true), ("Meatballs", true),
+                      ("Turkey meatballs", false), ("Celery ribs and carrots", false), ("Hot dog buns", false),
                       ("Chicken sausage", false), ("Turkey bacon", false), ("Beef tacos", false), ("Veggie sausage", false)])
     func pork(name: String, expected: Bool) {
         #expect(looks(.pork, name) == expected)
@@ -183,6 +186,52 @@ struct FoodRulesPlanningTests {
         for seed in seeds {
             let plans = BuildMyWeek.draft(PlanningInputs(nights: nights(), meals: [burgers, steak, chicken, lentils], settings: withBatch), seed: seed)
             #expect(plan(on: friday, in: plans)?.pick == .meal(lentils.id))
+        }
+    }
+
+    /// Takeout is a dinner the rule has nothing to say about, and a rushed Friday is a rushed night like any other.
+    @Test func aRushedRuleNightTakesTakeoutFirst() {
+        var takeout = settings()
+        takeout.takeoutNights = 1
+        var week = nights()
+        let index = week.firstIndex { $0.date == friday }!
+        week[index].effort = .rushed
+        let quick = LibraryMeal.fixture(name: "Quick lentils", tags: [.quick])
+        for seed in seeds {
+            let plans = BuildMyWeek.draft(PlanningInputs(nights: week, meals: library + [quick], settings: takeout), seed: seed)
+            #expect(plan(on: friday, in: plans)?.pick == .quickPick(.takeout))
+            #expect(plan(on: friday, in: plans)?.reason == .takeoutOnBusiestNight)
+        }
+    }
+
+    /// Monday can only have the quick dish; Friday could have had it, and is the one that goes without.
+    @Test func anOrdinaryRuleNightDrawsAfterRushedNights() {
+        var week = nights()
+        let monday = week.firstIndex { $0.date == sunday.adding(days: 1) }!
+        week[monday].effort = .rushed
+        let quick = LibraryMeal.fixture(name: "Quick lentils", tags: [.quick])
+        for seed in seeds {
+            let plans = BuildMyWeek.draft(PlanningInputs(nights: week, meals: [burgers, steak, chicken, quick], settings: settings()), seed: seed)
+            #expect(plan(on: week[monday].date, in: plans)?.pick == .meal(quick.id))
+            #expect(plan(on: friday, in: plans)?.reason == .nothingFits)
+        }
+    }
+
+    /// A household with no rule that applies draws exactly as before, whatever else the week has going on.
+    @Test func withNoRuleNightTheOrderIsUntouched() {
+        var busy = settings()
+        busy.takeoutNights = 1
+        busy.leftoverNights = 1
+        busy.newDishesPerWeek = 1
+        var week = nights(from: CalendarDay(year: 2027, month: 6, day: 13))
+        week[1].effort = .rushed
+        let meals = library + [.fixture(name: "Quick lentils", tags: [.quick]), .fixture(name: "Bean stew", tags: [.leftovers]),
+                               .fixture(name: "New curry", status: .trial)]
+        var none = busy
+        none.foodRules = []
+        for seed in seeds {
+            #expect(BuildMyWeek.draft(PlanningInputs(nights: week, meals: meals, settings: busy), seed: seed)
+                == BuildMyWeek.draft(PlanningInputs(nights: week, meals: meals, settings: none), seed: seed))
         }
     }
 
@@ -325,9 +374,11 @@ struct FoodRulesPlanningTests {
         let thursday = week.firstIndex { $0.date == friday.adding(days: -1) }!
         week[thursday].mealID = batch.id
         week[thursday].locked = true
+        // Only meat, so Friday's still open when leftovers are placed: nothing else has taken it.
         for seed in seeds {
-            let plans = BuildMyWeek.draft(PlanningInputs(nights: week, meals: [batch, salmon, beans], settings: withLeftovers), seed: seed)
-            #expect(plan(on: friday, in: plans)?.pick != .quickPick(.leftovers))
+            let plans = BuildMyWeek.draft(PlanningInputs(nights: week, meals: [batch, burgers, steak], settings: withLeftovers), seed: seed)
+            #expect(plan(on: friday, in: plans)?.pick == nil)
+            #expect(plan(on: friday, in: plans)?.reason == .nothingFits)
         }
     }
 
@@ -335,10 +386,14 @@ struct FoodRulesPlanningTests {
         var withLeftovers = settings()
         withLeftovers.leftoverNights = 1
         var week = nights()
-        // Only Friday's left, and there's no big batch: an unknown leftovers night could be anything.
-        for index in week.indices where week[index].date != friday { week[index].effort = .event }
-        let plans = BuildMyWeek.draft(PlanningInputs(nights: week, meals: [salmon], settings: withLeftovers), seed: 1)
-        #expect(plan(on: friday, in: plans)?.pick == .meal(salmon.id))
+        // Thursday and Friday are open, there's no big batch, and Friday has no dish: a leftovers night with nothing behind
+        // it could be anything, so it goes to Thursday, though it would otherwise take the later night.
+        for index in week.indices where week[index].date != friday && week[index].date != friday.adding(days: -1) {
+            week[index].effort = .event
+        }
+        let plans = BuildMyWeek.draft(PlanningInputs(nights: week, meals: [burgers], settings: withLeftovers), seed: 1)
+        #expect(plan(on: friday.adding(days: -1), in: plans)?.pick == .quickPick(.leftovers))
+        #expect(plan(on: friday, in: plans)?.pick == nil)
     }
 
     @Test func aRuleForEveryNightDoesntStopLeftoversNights() {
@@ -385,6 +440,17 @@ struct FoodRulesPlanningTests {
         #expect(offered(friday, today: sunday) == [lentils.id])
         #expect(offered(friday.adding(days: -1), today: sunday).count == 2, "Thursday's not a rule night")
         #expect(offered(friday, today: friday.adding(days: 1)).count == 2, "logging a past night")
+    }
+
+    // MARK: Swap's held-back list
+
+    @Test func heldBackLeavesOutWhatsAlreadyInTheWeekAndWhyTheRestAreThere() {
+        let target = night(friday, meal: burgers.id)
+        let elsewhere = night(friday.adding(days: -1), meal: steak.id)
+        let held = FoodRuleMatcher.heldBack(on: target, week: [target, elsewhere], meals: library + [.fixture(name: "Old roast beef", status: .archived)],
+                                            rules: settings().foodRules)
+        #expect(held.map(\.meal.id) == [chicken.id], "not tonight's own dish, nor one on another night, nor one out of rotation")
+        #expect(held.first?.rules == settings().foodRules)
     }
 
     // MARK: The card and Plan it say so

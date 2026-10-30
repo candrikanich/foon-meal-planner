@@ -62,7 +62,7 @@ struct DinnerStoreTests {
 
     @Test func theDishOnlyChangesBeforeAnyoneRates() async {
         let rated = DinnerLog(id: logID, nightID: nightID, date: today, mealID: chili, mealName: "Chili", quickPick: nil,
-                              reactions: [Reaction(memberID: UUID(), kind: .good, offTonight: false, comment: nil,
+                              reactions: [Reaction(memberID: UUID(), kind: .good, offTonight: false,
                                                    createdAt: .now)])
         let store = DinnerStore(householdID: UUID(), client: client(logs: { [rated] }), now: { self.noon })
         #expect(store.canChangeDish(nightID: nightID), "nothing loaded yet")

@@ -65,12 +65,10 @@ struct DinnerPromptsTests {
 
         let dinner = night(monday, meal: chili, home: [me: true])
         let rated = DinnerLog(id: UUID(), nightID: dinner.id, date: monday, mealID: chili, mealName: "Chili",
-                              quickPick: nil, reactions: [Reaction(memberID: me, kind: .good, offTonight: false,
-                                                                   comment: nil, createdAt: .now)])
+                              quickPick: nil, reactions: [Reaction(memberID: me, kind: .good, offTonight: false, createdAt: .now)])
         #expect(due([dinner], logs: [rated], now: at(monday, 20)).isEmpty)
         let ratedByKidOnly = DinnerLog(id: rated.id, nightID: dinner.id, date: monday, mealID: chili, mealName: "Chili",
-                                       quickPick: nil, reactions: [Reaction(memberID: kid, kind: .good, offTonight: false,
-                                                                            comment: nil, createdAt: .now)])
+                                       quickPick: nil, reactions: [Reaction(memberID: kid, kind: .good, offTonight: false, createdAt: .now)])
         #expect(due([dinner], logs: [ratedByKidOnly], now: at(monday, 20)) == [dinner.id])
     }
 

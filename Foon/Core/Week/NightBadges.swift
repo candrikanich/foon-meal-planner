@@ -2,9 +2,9 @@ import Foundation
 
 /// The badges a planned night's card carries. Allergy flags name only who's home that night, and count the
 /// meal's sides, as the shopping list does. Then a food rule it looks to break, on a night still ahead, however it got
-/// there (a request, a pin, the planner's own pick); it never blocks anything. Then what the dish usually uses that the kitchen doesn't have, when to start
-/// cooking, and the first prep step, which reminds what to start ahead. A time to start replaces the slow cooker's step:
-/// the two would be the same instruction, or conflict when the dish has its own time.
+/// there (a request, a pin, the planner's own pick); it never blocks anything. Then what the dish usually uses that the
+/// kitchen doesn't have, when to start cooking, and the first prep step, which reminds what to start ahead. A time to start
+/// replaces the slow cooker's step: the two would be the same instruction, or conflict when the dish has its own time.
 enum NightBadges {
     static func badges(meal: LibraryMeal, library: [LibraryMeal], allergies: [MemberAllergies], home: Set<UUID>,
                        settings: HouseholdSettings = HouseholdSettings(), start: StartCooking? = nil,

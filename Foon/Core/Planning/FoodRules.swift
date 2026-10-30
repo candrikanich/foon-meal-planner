@@ -122,6 +122,18 @@ enum FoodRuleMatcher {
         rules.filter { $0.applies(on: day) && looksLikeIt($0.avoid, meal: meal, library: library) }
     }
 
+    /// What Swap lists apart, for the planner to pick anyway: in rotation, not in the week already (tonight's own dish
+    /// included, like the suggestions), and looking to break a rule that night.
+    static func heldBack(on night: WeekNight, week: [WeekNight], meals: [LibraryMeal],
+                         rules: [FoodRule]) -> [(meal: LibraryMeal, rules: [FoodRule])] {
+        let planned = Set(week.compactMap(\.mealID))
+        return meals.filter { $0.status.isInRotation && !planned.contains($0.id) }.sorted { $0.name < $1.name }
+            .compactMap { meal in
+                let broken = broken(by: meal, on: night.date, rules: rules, library: meals)
+                return broken.isEmpty ? nil : (meal, broken)
+            }
+    }
+
     /// "Veggie burger" isn't a burger; "beef and veggie stir fry" is still beef. Only the word right after one of these.
     private static func notReally(_ words: [String]) -> [String] {
         let standIns = ["vegan", "vegetarian", "veggie", "meatless", "plant based", "soy", "tofu", "impossible",
@@ -129,22 +141,28 @@ enum FoodRuleMatcher {
         return standIns.flatMap { standIn in words.map { "\(standIn) \($0)" } }
     }
 
+    /// Generous on purpose: hot dogs, meatballs and ribs are often something else, but a false positive only holds a dish
+    /// back, and Swap still offers it.
     private static let porkWords = [
         "pork", "ham", "bacon", "pancetta", "prosciutto", "sausage", "brat", "bratwurst", "kielbasa", "chorizo",
-        "salami", "pepperoni", "carnitas", "lard", "spam", "spare rib", "baby back rib",
+        "salami", "pepperoni", "carnitas", "lard", "spam", "blt", "rib", "hot dog", "hotdog", "meatball",
     ]
 
     private static let otherMeatWords = [
-        "meat", "beef", "steak", "burger", "hamburger", "cheeseburger", "meatloaf", "meatball", "pot roast", "brisket",
-        "sloppy joe", "shepherds pie", "cottage pie", "french dip", "sirloin", "ribeye", "chuck roast", "short rib", "rib",
-        "veal", "lamb", "mutton", "goat", "venison", "bison", "pastrami", "hot dog", "hotdog", "carne asada", "barbacoa",
+        "meat", "beef", "steak", "burger", "hamburger", "cheeseburger", "meatloaf", "pot roast", "brisket",
+        "sloppy joe", "shepherds pie", "cottage pie", "french dip", "sirloin", "ribeye", "chuck roast",
+        "veal", "lamb", "mutton", "goat", "venison", "bison", "pastrami", "carne asada", "barbacoa",
         "bolognese", "gyro", "shawarma", "kebab", "kabob", "chicken", "turkey", "duck", "goose", "wings", "drumstick",
     ]
 
     private static let pork = DishTraits.Keywords(
         porkWords,
-        except: notReally(porkWords) + ["chicken sausage", "turkey sausage", "beef sausage", "turkey bacon", "turkey ham",
-                                        "turkey pepperoni", "beef bacon", "beef pepperoni", "ham radio"]
+        except: notReally(porkWords) + [
+            "chicken sausage", "turkey sausage", "beef sausage", "turkey bacon", "turkey ham", "turkey pepperoni",
+            "beef bacon", "beef pepperoni", "ham radio", "turkey meatball", "chicken meatball", "beef meatball",
+            "beef hot dog", "turkey hot dog", "chicken hot dog", "beef rib", "short rib", "celery rib",
+            "hot dog bun", "hotdog bun", "hot dog roll",
+        ]
     )
 
     private static let meat = DishTraits.Keywords(

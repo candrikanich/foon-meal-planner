@@ -267,7 +267,7 @@ struct PassThePhoneSheet: View {
 
     private var home: [Member] {
         guard let night else { return [] }
-        return household.visibleMembers.filter { night.attendance[$0.id] == true && DinnerPrompts.rates($0) }
+        return DinnerPrompts.whoRates(among: household.visibleMembers.filter { night.attendance[$0.id] == true })
     }
 
     var body: some View {

@@ -136,6 +136,7 @@ struct MemberDraft: Equatable, Sendable {
         draft.avatar = avatar?.trimmingCharacters(in: .whitespaces).nilIfEmpty
         draft.guardian = guardian && ageGroup == .adult
         draft.awayUntil = status == .away ? awayUntil : nil
+        draft.awayPattern = awayPattern?.snapped()
         return draft
     }
 }

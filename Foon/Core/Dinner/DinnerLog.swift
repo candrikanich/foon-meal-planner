@@ -32,15 +32,12 @@ struct Reaction: Equatable, Sendable, Decodable {
     let memberID: UUID
     let kind: ReactionKind
     let offTonight: Bool
-    /// Not read from the server any more: comments are shown from `meal_comments`, which leaves hidden ones out.
-    var comment: String? = nil
     let createdAt: Date
 
     private enum CodingKeys: String, CodingKey {
         case memberID = "member_id"
         case kind = "reaction"
         case offTonight = "off_tonight"
-        case comment
         case createdAt = "created_at"
     }
 }

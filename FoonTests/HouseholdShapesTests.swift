@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import Synchronization
 import Testing
 @testable import Foon
 
@@ -32,6 +33,56 @@ struct AwayPatternTests {
         #expect(!everyOtherWeekend.covers(day(9)), "not the rest of that stretch")
         #expect(!everyOtherWeekend.covers(day(13)), "home on the weekend between")
         #expect(everyOtherWeekend.covers(day(20)), "out on the next one")
+    }
+
+    /// Same dates as the SQL. Seven-night stretches from a Saturday would give that weekend's Saturday and Sunday, then the
+    /// Friday of the weekend they're home.
+    @Test(arguments: [7, 8])
+    func aWeekendStartedOnItsSaturdayOrSundayIsStillThatWeekend(start: Int) {
+        let pattern = AwayPattern(from: day(start), days: AwayPattern.weekend)
+        for away in [6, 7, 8, 20, 21, 22] { #expect(pattern.covers(day(away)), "\(away)") }
+        for home in [13, 14, 15, 27, 28, 29] { #expect(!pattern.covers(day(home)), "\(home)") }
+    }
+
+    @Test func pickingAWeekendMovesTheDateToItsFriday() {
+        #expect(AwayPattern(from: day(7), days: AwayPattern.weekend).snapped().from == day(6))
+        #expect(AwayPattern(from: day(8), days: AwayPattern.weekend).snapped().from == day(6))
+        #expect(AwayPattern(from: day(6), days: AwayPattern.weekend).snapped().from == day(6))
+        #expect(AwayPattern(from: day(4), days: AwayPattern.weekend).snapped().from == day(30, month: 10), "a Wednesday's last Friday")
+        #expect(AwayPattern(from: day(7)).snapped().from == day(7), "the whole week starts where it says")
+    }
+
+    @Test func aSavedDraftHasTheFriday() {
+        var draft = MemberDraft()
+        draft.firstName = "Owen"
+        draft.awayPattern = AwayPattern(from: day(7), days: AwayPattern.weekend)
+        #expect(draft.validated()?.awayPattern?.from == day(6))
+    }
+
+    /// The table in 34_household_shapes.test.sql. A hand-written value means the same on both sides, and a bad one puts
+    /// nobody away.
+    @Test(arguments: [
+        #""every other week""#, "[]", #"{"every_weeks": 2, "from": "soon"}"#, #"{"every_weeks": 0, "from": "2026-11-02"}"#,
+        #"{"every_weeks": 5, "from": "2026-11-02"}"#, #"{"every_weeks": 2.5, "from": "2026-11-02"}"#,
+        #"{"every_weeks": "2", "from": "2026-11-02"}"#, #"{"from": "2026-11-02"}"#, #"{"every_weeks": 2}"#,
+        #"{"every_weeks": 2, "from": "infinity"}"#, #"{"every_weeks": 2, "from": "Nov 2 2026"}"#,
+        #"{"every_weeks": 2, "from": "11/02/2026"}"#, #"{"every_weeks": 2, "from": "2026-11-2"}"#,
+        #"{"every_weeks": 2, "from": 20261102}"#, #"{"every_weeks": 2, "from": "2026-02-31"}"#,
+        #"{"every_weeks": 2, "from": "2026-11-02", "days": "x"}"#, #"{"every_weeks": 2, "from": "2026-11-02", "days": ["x"]}"#,
+        #"{"every_weeks": 2, "from": "2026-11-02", "days": [9]}"#, #"{"every_weeks": 2, "from": "2026-11-02", "days": [1, "x"]}"#,
+        #"{"every_weeks": 2, "from": "2026-11-02", "days": null}"#,
+    ])
+    func aBadValueIsNoPattern(pattern: String) throws {
+        let read = try JSONDecoder().decode(AttendanceDefaults.self, from: Data(#"{"away_pattern": \#(pattern)}"#.utf8))
+        #expect(read.awayPattern == nil)
+    }
+
+    @Test func theValuesThatLookOddButAreFine() throws {
+        func read(_ pattern: String) throws -> AwayPattern? {
+            try JSONDecoder().decode(AttendanceDefaults.self, from: Data(#"{"away_pattern": \#(pattern)}"#.utf8)).awayPattern
+        }
+        #expect(try read(#"{"every_weeks": 2.0, "from": "2026-11-02"}"#)?.covers(day(2)) == true)
+        #expect(try read(#"{"every_weeks": 2, "from": "2026-11-02", "days": []}"#)?.covers(day(2)) == true)
     }
 
     @Test func theNextNightOutIsWhatTheEditorShows() {
@@ -138,9 +189,17 @@ struct EatsSeparatelyTests {
         tot.eatsSeparately = true
         let me = Member.fixture(firstName: "Ann", userID: UUID())
         let nora = Member.fixture(firstName: "Nora")
-        #expect(DinnerPrompts.raters(home: [me, nora, tot], me: me.id).map(\.id) == [me.id, nora.id])
+        #expect(DinnerPrompts.whoRates(among: [me, nora, tot]).map(\.id) == [me.id, nora.id])
         #expect(DinnerPrompts.rates(me))
         #expect(!DinnerPrompts.rates(tot))
+    }
+
+    /// "I want..." reads the same list: it's about ratings and votes, not asking.
+    @Test func theyCanStillBeWhoAsksForADish() {
+        var tot = Member.fixture(firstName: "Tot")
+        tot.eatsSeparately = true
+        let me = Member.fixture(firstName: "Ann", userID: UUID())
+        #expect(DinnerPrompts.raters(home: [me, tot], me: me.id).map(\.id) == [me.id, tot.id])
     }
 
     private let weekStart = CalendarDay(year: 2026, month: 11, day: 1)
@@ -205,6 +264,38 @@ struct HiddenCommentsTests {
         #expect(store.comments(for: spicy.mealID).first?.hidden == true, "still there for a planner, marked")
         #expect(await store.setCommentHidden(spicy, hidden: false))
         #expect(store.comments(for: spicy.mealID).first?.hidden == false)
+    }
+
+    /// A feature with nothing in it yet can't be what stops the Library opening.
+    @Test func aFailedReadOfCommentsDoesntFailTheLibrary() async {
+        let meal = LibraryMeal.fixture(name: "Chili")
+        var client = LibraryClient.preview(meals: [meal])
+        client.comments = { _ in throw URLError(.notConnectedToInternet) }
+        let store = LibraryStore(householdID: Household.sample.id, client: client)
+        await store.load(members: [])
+        #expect(store.errorMessage == nil)
+        #expect(store.meals.map(\.name) == ["Chili"])
+        #expect(store.comments.isEmpty)
+    }
+
+    @Test func aRefreshThatCantReadCommentsKeepsTheOthersAndWhatItHad() async {
+        let spicy = comment()
+        var client = LibraryClient.preview(meals: [])
+        let reads = Mutex(0)
+        client.comments = { _ in
+            let read = reads.withLock { count in
+                count += 1
+                return count
+            }
+            if read > 1 { throw URLError(.notConnectedToInternet) }
+            return [spicy]
+        }
+        client.likes = { _ in [MealLikes(mealID: spicy.mealID, likes: 3)] }
+        let store = LibraryStore(householdID: Household.sample.id, client: client)
+        await store.load(members: [])
+        await store.refreshReactions()
+        #expect(store.comments == [spicy])
+        #expect(store.reactions.likes[spicy.mealID] == 3)
     }
 
     @Test func aRefusalSaysWhoCanAndLeavesItAsItWas() async {

@@ -103,7 +103,8 @@ final class LibraryStore {
             let loaded = try await (meals, history, catalog, allergyRows, itemNames)
             let reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
             let servingNotes = try await notes
-            let loadedComments = try await comments
+            // Not worth failing the Library for: a failed read keeps what was shown.
+            let loadedComments = (try? await comments) ?? self.comments
             guard generation == loadGeneration else { return }
             self.meals = loaded.0
             self.history = loaded.1
@@ -164,7 +165,7 @@ final class LibraryStore {
             reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
             // Serving notes are family input too: a note Mom just wrote shows on Dad's cards.
             servingNotes = try await notes
-            self.comments = try await comments
+            if let comments = try? await comments { self.comments = comments }
         } catch {
             // Offline: last load's reactions still stand.
         }
