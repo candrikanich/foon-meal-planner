@@ -333,7 +333,7 @@ private struct RhythmStep: View {
                 }
                 .pickerStyle(.segmented)
             } footer: {
-                Text("Light sends only what matters. You can change any of this later.")
+                Text("\(settings.notificationPreset.summary) You can change any of this later, for each person.")
             }
         }
         .navigationTitle("Your rhythm")

@@ -29,6 +29,9 @@
         }
       }
     },
+    "%@ You can change any of this later, for each person." : {
+
+    },
     "%@ cooked the %@" : {
       "localizations" : {
         "en" : {
@@ -736,6 +739,9 @@
     "Everything's in the cart" : {
 
     },
+    "Everything: idea digests, tonight polls, \"heading to the store,\" the weekly recap, and follow-up reminders." : {
+
+    },
     "Export household data" : {
 
     },
@@ -1046,7 +1052,7 @@
     "Light" : {
 
     },
-    "Light sends only what matters. You can change any of this later." : {
+    "Light, plus a \"home tonight?\" check-in and an after-dinner rating prompt. Kids get a few a week at most." : {
 
     },
     "Lists" : {
@@ -1303,6 +1309,9 @@
 
     },
     "Only planners can do that with someone else's idea." : {
+
+    },
+    "Only what you'd hate to miss: time to plan, the plan's set, urgent list items, and prep reminders. No rating prompts or polls." : {
 
     },
     "Open" : {

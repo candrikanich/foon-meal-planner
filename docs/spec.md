@@ -350,6 +350,16 @@ Few, actionable, and answerable from the lock screen. Every notification asks fo
 - **Server push:** anything another person triggers comes through APNs from Edge Functions. These are Plan's set, urgent list items, new requests, claims, the tonight poll, heading to the store, and "your request made the plan."
 - **Log:** `notification_log` records what was sent and what was answered, from both paths, for ignore handling.
 
+**Notification presets** (decided 2026-10-30). Onboarding's "Your rhythm" step picks one for the household; the screen describes the selected one. Each is a starting point that later settings tune per person.
+
+| Preset | Sends |
+| --- | --- |
+| Light | Only what you'd hate to miss: Time to plan, Plan's set, urgent list items, and prep reminders. No dinner rating prompts or polls; kids get almost nothing. |
+| Balanced (default) | Light, plus the day-of "home tonight?" check-in and the after-dinner rate-the-dish prompt (downshifting to a weekly roundup when ignored). Kids are capped at about 4 to 6 a week. |
+| Engaged | Everything: new-idea digests, the tonight poll, heading to the store, the weekly recap, "your idea made Friday", and one follow-up on reminders. |
+
+Until notifications ship (M2 car 6), the preset is saved but nothing is sent.
+
 **Settings.** Smart defaults; presets in onboarding (Light, Balanced, Engaged); advanced settings for every cap, time, day, and frequency, household-wide or per member. School-hours quiet window for kids' devices by default. Adults own household settings; kids can only turn their own notifications down.
 
 ## AI strategy
@@ -635,7 +645,7 @@ One subscription per household: $5.99 a month or $49.99 a year after a 30-day fr
 - Recruit founding families: personal network first (TestFlight invites), then social media and the landing page waitlist
 - Where to recruit the founding 50 families
 - Starter pack contents and tagging
-- Default notification times and budgets for the Balanced preset
+- Default notification times (what each preset sends is decided above)
 
 **Marketing presence.** Landing page (Nuxt on Vercel) with waitlist, privacy, terms, and support pages. Social accounts reserved under one handle on Instagram, TikTok, Facebook, and X, ideally the same day as the name check. Domain check on 2026-10-25: foon.app, foon.com, foon.co, and foonapp.com are taken; getfoon.com, usefoon.com, and foon.family are available.
 
