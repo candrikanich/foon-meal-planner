@@ -425,9 +425,6 @@
     "Balanced" : {
 
     },
-    "Beef" : {
-      "comment" : "Dish category in a variety note"
-    },
     "Before you start" : {
 
     },
@@ -485,9 +482,6 @@
           }
         }
       }
-    },
-    "Chicken" : {
-      "comment" : "Dish category in a variety note"
     },
     "Clear the note" : {
 
@@ -1477,9 +1471,6 @@
     "Popular" : {
 
     },
-    "Pork" : {
-      "comment" : "Dish category in a variety note"
-    },
     "Prep ahead" : {
 
     },
@@ -1594,9 +1585,6 @@
           }
         }
       }
-    },
-    "Seafood" : {
-      "comment" : "Dish category in a variety note"
     },
     "Search dinners" : {
 

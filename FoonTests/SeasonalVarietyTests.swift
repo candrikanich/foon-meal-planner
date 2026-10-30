@@ -42,6 +42,16 @@ struct SeasonalVarietyTests {
 
     private func mealIDs(_ draft: [NightPlan]) -> [UUID?] { draft.map(\.pick?.mealID) }
 
+    /// How many of `dishes` an average week holds, over 200 seeds.
+    private func averageNights(of dishes: [LibraryMeal], in library: [LibraryMeal], from start: CalendarDay) -> Double {
+        let ids = Set(dishes.map(\.id))
+        let inputs = planning(nights(from: start), library)
+        let total = (UInt64(0)..<200).map { seed in
+            mealIDs(BuildMyWeek.draft(inputs, seed: seed)).compactMap { $0 }.filter(ids.contains).count
+        }.reduce(0, +)
+        return Double(total) / 200
+    }
+
     // MARK: Season
 
     @Test(arguments: [
@@ -239,13 +249,90 @@ struct SeasonalVarietyTests {
     @Test func aSummerOfGrillingDoesNotTakeOverTheWeek() {
         let grills = (0..<7).map { LibraryMeal.fixture(name: "Burgers \($0)", tags: [.grill]) }
         let others = (0..<7).map { LibraryMeal.fixture(name: "Dish \($0)") }
-        let inputs = planning(nights(from: july), grills + others)
-        let grillIDs = Set(grills.map(\.id))
-        let total = (UInt64(0)..<200).map { seed in
-            mealIDs(BuildMyWeek.draft(inputs, seed: seed)).compactMap { $0 }.filter(grillIDs.contains).count
-        }.reduce(0, +)
-        #expect(Double(total) / 200 < 3.5, "The boost is real, but repeats pull it back")
-        #expect(Double(total) / 200 > 2, "It still shows up")
+        let summer = averageNights(of: grills, in: grills + others, from: july)
+        #expect(summer < 3.5, "The boost is real, but repeats pull it back")
+        #expect(summer > averageNights(of: grills, in: grills + others, from: april) + 0.25,
+                "The same library in spring, no boost: it still shows up")
+    }
+
+    /// The boost reads the tag, so the repeats have to as well, or a dish whose name doesn't say grill runs away.
+    @Test func aGrillTaggedDishWithAnUnreadableNameIsDampedLikeAnyOther() {
+        let grills = ["BBQ ribs", "Carne asada", "Dad's special", "Ribs", "Corn on the cob", "Tri-tip", "Pork chops"]
+            .map { LibraryMeal.fixture(name: $0, tags: [.grill]) }
+        let others = (0..<7).map { LibraryMeal.fixture(name: "Dish \($0)") }
+        #expect(averageNights(of: grills, in: grills + others, from: july) < 3.5, "Undamped, this is above 4")
+        #expect(DishTraits(name: "BBQ ribs", tags: [.grill]).categories == [.grilling])
+        #expect(DishTraits(name: "BBQ ribs").categories.isEmpty)
+    }
+
+    /// Kept nights and traditions land whatever the odds say, and still count against what's drawn after them.
+    @Test func keptNightsAndTraditionsIgnoreTheVarietyFactorButCountTowardIt() {
+        let ziti = LibraryMeal.fixture(name: "Baked ziti"), lasagna = LibraryMeal.fixture(name: "Lasagna")
+        let spaghetti = LibraryMeal.fixture(name: "Spaghetti"), fettuccine = LibraryMeal.fixture(name: "Fettuccine")
+        let other = plainDish()
+        var week = nights(from: april, count: 4)
+        week[0].locked = true
+        week[0].mealID = ziti.id
+        var inputs = planning(week, [ziti, lasagna, spaghetti, fettuccine, other])
+        inputs.traditions = [Tradition(weekday: week[1].date.isoWeekday, pick: .meal(lasagna.id), name: "Lasagna night")]
+        inputs.requests = [DatedRequest(mealID: spaghetti.id, date: week[2].date, requesterID: dad)]
+        let picks = seeds.map { BuildMyWeek.draft(inputs, seed: $0) }
+        for draft in picks {
+            #expect(draft[0].pick == .meal(ziti.id))
+            #expect(draft[1].pick == .meal(lasagna.id))
+            #expect(draft[2].pick == .meal(spaghetti.id))
+        }
+        let fettuccineWins = picks.filter { $0[3].pick == .meal(fettuccine.id) }.count
+        #expect(fettuccineWins < 80, "Three pasta nights already: 1 in 9, 44")
+    }
+
+    // MARK: Variety in Shuffle and Swap
+
+    /// Shuffling away the only pasta of the week: that dish is leaving, so it isn't a repeat.
+    @Test func shuffleDoesNotCountTheDishItIsReplacing() {
+        let ziti = LibraryMeal.fixture(name: "Baked ziti"), lasagna = LibraryMeal.fixture(name: "Lasagna")
+        let fettuccine = LibraryMeal.fixture(name: "Fettuccine"), other = plainDish()
+        var alone = nights(from: april, count: 1)
+        alone[0].mealID = ziti.id
+        let aloneInputs = planning(alone, [ziti, fettuccine, other])
+        let evenSplit = seeds.filter {
+            BuildMyWeek.shuffle(night: alone[0].id, inputs: aloneInputs, seed: $0)?.pick == .meal(fettuccine.id)
+        }.count
+        #expect(evenSplit > 165, "Nothing else in the week: an even split, 200")
+
+        var withAnother = nights(from: april, count: 2)
+        withAnother[0].mealID = ziti.id
+        withAnother[1].locked = true
+        withAnother[1].mealID = lasagna.id
+        let anotherInputs = planning(withAnother, [ziti, lasagna, fettuccine, other])
+        let oneRepeat = seeds.filter {
+            BuildMyWeek.shuffle(night: withAnother[0].id, inputs: anotherInputs, seed: $0)?.pick == .meal(fettuccine.id)
+        }.count
+        #expect(oneRepeat < 165, "Another pasta stays in the week: 1 in 3, 133")
+    }
+
+    @Test func swapSuggestionsDoNotCountTheDishBeingSwappedOut() {
+        let ziti = LibraryMeal.fixture(name: "Baked ziti")
+        let fettuccine = LibraryMeal.fixture(name: "Fettuccine"), other = plainDish()
+        var night = nights(from: april, count: 1)
+        night[0].mealID = ziti.id
+        let inputs = planning(night, [ziti, fettuccine, other])
+        let picks = seeds.filter {
+            BuildMyWeek.suggestions(night: night[0].id, inputs: inputs, seed: $0, count: 1).first?.mealID == fettuccine.id
+        }.count
+        #expect(picks > 165, "An even split, 200")
+    }
+
+    /// Three suggestions are three choices, so each leans away from the ones already offered.
+    @Test func swapSuggestionsLeanAwayFromEachOther() {
+        let first = LibraryMeal.fixture(name: "Baked ziti"), second = LibraryMeal.fixture(name: "Lasagna")
+        let night = nights(from: april, count: 1)
+        let inputs = planning(night, [first, second, plainDish()])
+        let bothPasta = seeds.filter { seed in
+            Set(BuildMyWeek.suggestions(night: night[0].id, inputs: inputs, seed: seed, count: 2).map(\.mealID))
+                == [first.id, second.id]
+        }.count
+        #expect(bothPasta < 115, "Expects 2 in 9, 89; counting nothing it would be 1 in 3, 133")
     }
 
     @Test func shuffleAndSwapSuggestionsLeanTheSameWay() {
@@ -264,74 +351,200 @@ struct SeasonalVarietyTests {
 
     // MARK: Telling dishes apart by name
 
+    /// Every dish in docs/starter-pack.md: what each one counts as, and whether it reads as cold.
+    private static let starterDishes: [(name: String, categories: Set<DishCategory>, isCold: Bool)] = [
+        ("Pasta with sauce and meatballs", [.pasta, .beef], false),
+        ("Sausage and noodles", [.pasta, .pork], false),
+        ("Homemade mac and cheese", [.pasta], false),
+        ("Baked ziti", [.pasta], false),
+        ("Lasagna", [.pasta], false),
+        ("Chicken Alfredo", [.pasta, .chicken], false),
+        ("Pasta primavera", [.pasta], false),
+        ("Tacos", [.texMex], false),
+        ("Salsa chicken over rice", [.texMex, .chicken], false),
+        ("Burrito bowls", [.texMex], false),
+        ("Quesadillas", [.texMex], false),
+        ("Enchiladas", [.texMex], false),
+        ("Chili", [.soup], false),
+        ("Shrimp tacos", [.texMex, .seafood], false),
+        ("Burgers", [.grilling, .beef], false),
+        ("Hot dogs", [.grilling], false),
+        ("Brats", [.grilling, .pork], false),
+        ("Grilled chicken", [.grilling, .chicken], false),
+        ("Kebabs", [.grilling], false),
+        ("Steak night", [.grilling, .beef], false),
+        ("Sloppy joes", [.sandwiches, .beef], false),
+        ("BLTs", [.sandwiches], true),
+        ("Italian subs or hoagies", [.sandwiches], true),
+        ("French dip", [.sandwiches, .beef], false),
+        ("Chicken salad sandwiches", [.sandwiches, .chicken], true),
+        ("Paninis", [.sandwiches], false),
+        ("BBQ pulled pork sandwiches", [.sandwiches, .pork], false),
+        ("Chicken Caesar wraps", [.sandwiches, .chicken], true),
+        ("Tomato soup and grilled cheese", [.soup, .sandwiches], false),
+        ("Chicken noodle soup", [.soup, .chicken], false),
+        ("Beef stew", [.soup, .beef], false),
+        ("Potato soup", [.soup], false),
+        ("Broccoli cheddar soup", [.soup], false),
+        ("Vegetable or minestrone soup", [.soup], false),
+        ("White chicken chili", [.soup, .chicken], false),
+        ("Sheet-pan chicken and veggies", [.chicken], false),
+        ("Chicken stir-fry", [.chicken], false),
+        ("Baked chicken thighs and potatoes", [.chicken], false),
+        ("Chicken parmesan", [.chicken], false),
+        ("Rotisserie chicken night", [.chicken], false),
+        ("Pork chops and applesauce", [.pork], false),
+        ("Pork tenderloin", [.pork], false),
+        ("Pulled pork", [.pork], false),
+        ("Ham and scalloped potatoes", [.pork], false),
+        ("Pot roast", [.beef], false),
+        ("Meatloaf and mashed potatoes", [.beef], false),
+        ("Beef stir-fry", [.beef], false),
+        ("Shepherd's pie", [.beef], false),
+        ("Baked salmon and rice", [.seafood], false),
+        ("Baked tilapia", [.seafood], false),
+        ("Crab cakes", [.seafood], false),
+        ("Seared scallops", [.seafood], false),
+        ("Fish and chips night", [.seafood], false),
+        ("Egg sandwiches with bacon", [.sandwiches, .breakfast], false),
+        ("Pancakes", [.breakfast], false),
+        ("Waffles", [.breakfast], false),
+        ("Breakfast burritos", [.texMex, .breakfast], false),
+        ("French toast", [.breakfast], false),
+        ("Make-your-own night", [], false),
+        ("Baked potato bar", [], false),
+        ("Nacho bar", [.texMex], false),
+        ("Homemade pizza night", [.pizza], false),
+        ("Rice bowl bar", [], false),
+        ("Freezer pizza", [.pizza], false),
+        ("Pierogies", [], false),
+        ("Box mac and cheese", [.pasta], false),
+        ("Frozen dumplings or potstickers", [], false),
+        ("Fish sticks and fries", [.seafood], false),
+        ("Chicken nuggets and tots", [.chicken], false),
+    ]
+
+    @Test func everyStarterDishReadsAsWhatItIs() {
+        #expect(Self.starterDishes.count == 69)
+        for dish in Self.starterDishes {
+            let traits = DishTraits(name: dish.name)
+            #expect(traits.categories == dish.categories, "\(dish.name)")
+            #expect(traits.isCold == dish.isCold, "\(dish.name)")
+        }
+    }
+
     @Test(arguments: [
-        ("Pasta with sauce and meatballs", [DishCategory.pasta, .beef]),
-        ("Sausage and noodles", [.pasta, .pork]),
-        ("Homemade mac and cheese", [.pasta]),
-        ("Box mac and cheese", [.pasta]),
-        ("Baked ziti", [.pasta]),
-        ("Lasagna", [.pasta]),
-        ("Chicken Alfredo", [.pasta, .chicken]),
-        ("Tacos", [.texMex]),
-        ("Breakfast burritos", [.texMex, .breakfast]),
-        ("Burgers", [.grilling, .beef]),
-        ("Hot dogs", [.grilling]),
-        ("Steak night", [.grilling, .beef]),
-        ("Tomato soup and grilled cheese", [.soup, .sandwiches]),
-        ("Chicken noodle soup", [.soup, .chicken]),
-        ("White chicken chili", [.soup, .chicken]),
-        ("Vegetable or minestrone soup", [.soup]),
-        ("BLTs", [.sandwiches]),
-        ("Italian subs or hoagies", [.sandwiches]),
-        ("Shepherd's pie", [.beef]),
-        ("Ham and scalloped potatoes", [.pork]),
-        ("Fish sticks and fries", [.seafood]),
-        ("Pancakes", [.breakfast]),
-        ("Freezer pizza", [.pizza]),
-        ("Pierogies", []),
         ("Eggplant parm", []),
-        ("Hamburger helper", [.grilling, .beef]),
         ("Chili dogs", [.grilling]),
         ("Cold cucumber soup", []),
+        // A lookalike rules out only the words it covers, not the rest of the name.
+        ("Sweet chili chicken soup", [DishCategory.soup, .chicken]),
+        ("Chili lime chicken soup", [.soup, .chicken]),
+        ("Grilled cheese and burgers", [.sandwiches, .grilling, .beef]),
+        // Names that look like a category and aren't. Misses are fine; these are just common.
+        ("Hamburger helper", [.beef]),
+        ("Salisbury steak", [.beef]),
+        ("Chicken fried steak", [.beef]),
+        ("Spaghetti squash", []),
+        ("Zucchini noodles", []),
+        ("Thai chili chicken", [.chicken]),
+        ("Honey chili shrimp", [.seafood]),
+        ("Soup dumplings", []),
     ] as [(String, Set<DishCategory>)])
     func aDishNameSaysWhatItIs(name: String, categories: Set<DishCategory>) {
         #expect(DishTraits(name: name).categories == categories)
     }
 
     @Test(arguments: [
-        ("Chicken salad sandwiches", true), ("Italian subs or hoagies", true), ("Chicken Caesar wraps", true),
-        ("BLTs", true), ("Gazpacho", true), ("Cold cucumber soup", true),
+        ("Gazpacho", true), ("Cold cucumber soup", true), ("Chilled pea soup", true), ("Chicken salad", true),
         ("Potato soup", false), ("Saladless Sunday", false), ("Chicken stir-fry", false),
     ])
     func aDishNameSaysWhetherItsCold(name: String, isCold: Bool) {
         #expect(DishTraits(name: name).isCold == isCold)
     }
 
+    /// Only the name saying cold takes a soup out of winter. A salad or sandwich beside it doesn't, and the hot bowl
+    /// keeps the dish out of summer's cold lean.
+    @Test(arguments: [
+        ("Soup and salad", Season.winter), ("Chili and salad", .winter), ("Tomato soup and BLT", .winter),
+        ("Soup and a wrap", .winter), ("Cold night chili", .winter), ("Cold cucumber soup", .summer),
+        ("Chilled pea soup", .summer), ("Gazpacho", .summer),
+    ] as [(String, Season)])
+    func aSoupWithACoolThingBesideItIsStillSoup(name: String, season: Season) {
+        let traits = DishTraits(name: name)
+        #expect(traits.isInSeason(season))
+        #expect(!traits.isInSeason(season == .winter ? .summer : .winter))
+    }
+
     // MARK: The nudge
 
+    private func layout(_ names: [String?], today: Int = 0, locked: Set<Int> = [], events: Set<Int> = []) -> WeekLayout {
+        let nights = names.enumerated().map { index, name in
+            WeekNight(id: UUID(), date: april.adding(days: index), effort: events.contains(index) ? .event : .normal,
+                      dinnerTime: nil, mealID: name == nil ? nil : UUID(), mealName: name, quickPick: nil,
+                      locked: locked.contains(index), attendance: [:])
+        }
+        return WeekLayout(nights: nights, today: april.adding(days: today))
+    }
+
+    private let threePasta: [String?] = ["Baked ziti", "Lasagna", "Pasta primavera", "Tacos"]
+
     @Test func threeOfACategoryInAWeekMakesANudge() {
-        let nudges = VarietyNudge.nudges(mealNames: ["Baked ziti", "Lasagna", "Pasta primavera", "Tacos"])
-        #expect(nudges == [VarietyNudge(category: .pasta, count: 3)])
-        #expect(nudges.first?.text(nextWeek: false) == "Pasta 3 times this week")
-        #expect(nudges.first?.text(nextWeek: true) == "Pasta 3 times next week")
+        let nudge = VarietyNudge.nudge(mealNames: ["Baked ziti", "Lasagna", "Pasta primavera", "Tacos"])
+        #expect(nudge == VarietyNudge(category: .pasta, count: 3))
+        #expect(nudge?.text(nextWeek: false) == "Pasta 3 times this week")
+        #expect(nudge?.text(nextWeek: true) == "Pasta 3 times next week")
     }
 
     @Test func twoOfACategoryIsNotANudge() {
-        #expect(VarietyNudge.nudges(mealNames: ["Baked ziti", "Lasagna", "Tacos", "Pancakes"]).isEmpty)
-        #expect(VarietyNudge.nudges(mealNames: []).isEmpty)
+        #expect(VarietyNudge.nudge(mealNames: ["Baked ziti", "Lasagna", "Tacos", "Pancakes"]) == nil)
+        #expect(VarietyNudge.nudge(mealNames: []) == nil)
     }
 
-    @Test func theMostRepeatedCategoryComesFirstAndATieHasAFixedOrder() {
+    @Test func onlyTheMostRepeatedCategoryIsNamedAndATieHasAFixedOrder() {
         let names = ["Baked ziti", "Lasagna", "Spaghetti", "Tacos", "Burritos", "Enchiladas", "Nachos"]
-        #expect(VarietyNudge.nudges(mealNames: names) == [VarietyNudge(category: .texMex, count: 4),
-                                                         VarietyNudge(category: .pasta, count: 3)])
+        #expect(VarietyNudge.nudge(mealNames: names) == VarietyNudge(category: .texMex, count: 4))
         let tied = ["Baked ziti", "Lasagna", "Spaghetti", "Tacos", "Burritos", "Enchiladas"]
-        #expect(VarietyNudge.nudges(mealNames: tied).map(\.category) == [.pasta, .texMex])
-        #expect(VarietyNudge.nudges(mealNames: tied.reversed()).map(\.category) == [.pasta, .texMex])
+        #expect(VarietyNudge.nudge(mealNames: tied)?.category == .pasta)
+        #expect(VarietyNudge.nudge(mealNames: tied.reversed())?.category == .pasta)
+    }
+
+    /// A name can't tell a turkey burger from a beef one, so the nudge never states a protein. The draw still leans.
+    @Test(arguments: [
+        ["Turkey meatballs", "Pot roast", "Meatloaf"],
+        ["Chicken sausage", "Pork tenderloin", "Ham"],
+        ["Chicken stir-fry", "Chicken parmesan", "Rotisserie chicken"],
+        ["Baked salmon", "Baked tilapia", "Seared scallops"],
+    ])
+    func aProteinIsNeverANudge(names: [String]) {
+        #expect(VarietyNudge.nudge(mealNames: names) == nil)
+    }
+
+    @Test func proteinsStillCountInTheDraw() {
+        let pinned = LibraryMeal.fixture(name: "Rotisserie chicken")
+        let chicken = LibraryMeal.fixture(name: "Chicken parmesan"), other = plainDish()
+        var week = nights(from: april, count: 2)
+        week[0].locked = true
+        week[0].mealID = pinned.id
+        let inputs = planning(week, [pinned, chicken, other])
+        let picks = seeds.filter { BuildMyWeek.draft(inputs, seed: $0)[1].pick == .meal(chicken.id) }.count
+        #expect(picks < 165, "1 in 3, 133")
+    }
+
+    @Test func theLayoutNudgesWhileANightCanStillChange() {
+        #expect(layout(threePasta).varietyNudge?.category == .pasta)
+        #expect(layout(threePasta + [nil], today: 3).varietyNudge?.category == .pasta, "Past nights count")
+    }
+
+    @Test func theLayoutDoesNotNudgeWhenNothingCanChange() {
+        #expect(layout(threePasta, today: 4).varietyNudge == nil, "Every night is past")
+        #expect(layout(threePasta, today: 3, locked: [3]).varietyNudge == nil, "Only a locked night is left")
+        #expect(layout(threePasta, today: 3, events: [3]).varietyNudge == nil, "Only an event night is left")
     }
 
     @Test(arguments: DishCategory.allCases)
-    func everyCategoryHasATitle(category: DishCategory) {
-        #expect(!category.title.isEmpty)
+    func everyCategoryButAProteinHasATitle(category: DishCategory) {
+        let isProtein = [.chicken, .beef, .pork, .seafood].contains(category)
+        #expect(isProtein ? category.title == nil : category.title?.isEmpty == false)
     }
 }

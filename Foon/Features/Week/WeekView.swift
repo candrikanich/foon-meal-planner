@@ -146,14 +146,11 @@ struct WeekView: View {
         if canPlan, library.hasLoaded, unfillable > 0 {
             smallLibrary(unfillable: unfillable, planned: Set(layout.ahead.compactMap(\.mealID)))
         }
-        if canPlan {
-            ForEach(VarietyNudge.nudges(mealNames: (layout.past + layout.ahead).compactMap(\.mealName)),
-                    id: \.category) { nudge in
-                Label(nudge.text(nextWeek: week.showingNextWeek), systemImage: "repeat")
-                    .font(.foonCaption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+        if canPlan, let nudge = layout.varietyNudge {
+            Label(nudge.text(nextWeek: week.showingNextWeek), systemImage: "repeat")
+                .font(.foonCaption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         ForEach(layout.ahead) { night in
             card(night)

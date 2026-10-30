@@ -88,7 +88,7 @@ enum BuildMyWeek {
         }
         var rng = SeededGenerator(seed: seed)
         for pool in pools {
-            guard let meal = planner.draw(for: night, from: pool, excluding: used,
+            guard let meal = planner.draw(for: night, from: pool, excluding: used, replacing: night.mealID,
                                           requiring: feedsLeftovers ? .leftovers : nil, rng: &rng) else { continue }
             return NightPlan(nightID: night.id, date: night.date, pick: .meal(meal.id),
                              reason: feedsLeftovers ? .bigBatch : planner.reason(for: meal, on: night), isKept: false)
@@ -109,7 +109,8 @@ extension BuildMyWeek {
     /// Up to `count` different dishes for one night, drawn by the same filters and weights as a build: never a
     /// dish already in the week (the night's own included), trial dishes only while the week's budget has room.
     /// Unlike Shuffle, any night can be swapped, so kept nights get suggestions too. A night before today is
-    /// logging what was eaten, so prep time and the repeat window don't apply to it.
+    /// logging what was eaten, so prep time and the repeat window don't apply to it. Each pick joins `used`, so it
+    /// counts as a repeat for the next: three suggestions are three choices, not three pastas.
     static func suggestions(night nightID: UUID, inputs: PlanningInputs, seed: UInt64, count: Int = 3) -> [Suggestion] {
         let planner = Planner(inputs)
         guard let night = planner.nights.first(where: { $0.id == nightID }) else { return [] }
@@ -121,7 +122,8 @@ extension BuildMyWeek {
         var picks: [Suggestion] = []
         let past = night.date < inputs.today
         while picks.count < count,
-              let meal = planner.draw(for: night, from: pool, excluding: used, loggingPast: past, rng: &rng) {
+              let meal = planner.draw(for: night, from: pool, excluding: used, replacing: night.mealID,
+                                      loggingPast: past, rng: &rng) {
             used.insert(meal.id)
             picks.append(Suggestion(mealID: meal.id, reason: planner.reason(for: meal, on: night)))
         }
@@ -153,7 +155,7 @@ private struct Planner {
         let rotation = inputs.meals.filter(\.status.isInRotation).sorted { $0.id.uuidString < $1.id.uuidString }
         knownMeals = rotation.filter { $0.status != .trial }
         trialMeals = rotation.filter { $0.status == .trial }
-        traitsByMeal = mealsByID.mapValues { DishTraits(name: $0.name) }
+        traitsByMeal = mealsByID.mapValues { DishTraits(name: $0.name, tags: $0.tags) }
     }
 
     func isKept(_ night: PlanningNight) -> Bool {
@@ -210,8 +212,7 @@ private struct Planner {
             * (1 + BuildMyWeek.Weight.favoritePerMemberHome * favorites)
             * (1 + BuildMyWeek.Weight.onHand * fractionOnHand(meal))
             * (1 + BuildMyWeek.Weight.likePerReaction * likes)
-            * (traitsByMeal[meal.id]?.isInSeason(night.date.season, tags: meal.tags) == true
-                ? BuildMyWeek.Weight.inSeason : 1)
+            * (traitsByMeal[meal.id]?.isInSeason(night.date.season) == true ? BuildMyWeek.Weight.inSeason : 1)
     }
 
     /// Dishes in each category among those already in the week, kept nights included.
@@ -229,13 +230,15 @@ private struct Planner {
     }
 
     /// A weighted draw among the pool's dishes that fit this night and aren't already in the week.
+    /// `replacing` is the dish leaving this night: it can't be drawn again, but it isn't a repeat either.
     func draw(for night: PlanningNight, from pool: [LibraryMeal], excluding used: Set<UUID>,
-              requiring tag: MealTag? = nil, loggingPast: Bool = false, rng: inout SeededGenerator) -> LibraryMeal? {
+              replacing: UUID? = nil, requiring tag: MealTag? = nil, loggingPast: Bool = false,
+              rng: inout SeededGenerator) -> LibraryMeal? {
         let candidates = pool.filter { meal in
             !used.contains(meal.id) && fits(meal, on: night, loggingPast: loggingPast)
                 && (tag.map { meal.tags.contains($0) } ?? true)
         }
-        let counts = categoryCounts(in: used)
+        let counts = categoryCounts(in: used.filter { $0 != replacing })
         let weights = candidates.map { weight(of: $0, on: night) * varietyFactor(of: $0, counts: counts) }
         let total = weights.reduce(0, +)
         guard total > 0 else { return nil }
