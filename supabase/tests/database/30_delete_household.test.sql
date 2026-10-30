@@ -92,6 +92,11 @@ select public.set_serving_note('00000000-0000-0000-0000-0000000002a1', '00000000
 select public.toggle_me_too((select id from public.requests limit 1), '00000000-0000-0000-0000-0000000000a1');
 select public.create_invite('00000000-0000-0000-0000-0000000000a4');
 select public.save_attendance_template('00000000-0000-0000-0000-0000000000a0', 'School year');
+select public.add_to_freezer('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000002a1', '2026-01-01');
+-- A stash item planned on a night: the erase has to clear the night before the item.
+select public.use_freezer_item((select id from public.plan_nights where household_id = '00000000-0000-0000-0000-0000000000a0'
+                                order by date desc limit 1),
+                               (select id from public.freezer_stash limit 1), 'From the freezer');
 reset role;
 insert into public.meal_logs (id, household_id, night_id, meal_id, cooked_by_member_id) values
   ('00000000-0000-0000-0000-0000000003a1', '00000000-0000-0000-0000-0000000000a0',

@@ -6,10 +6,13 @@ import Foundation
 /// the two would be the same instruction, or conflict when the dish has its own time.
 enum NightBadges {
     static func badges(meal: LibraryMeal, library: [LibraryMeal], allergies: [MemberAllergies], home: Set<UUID>,
-                       settings: HouseholdSettings = HouseholdSettings(), start: StartCooking? = nil) -> [DayCardModel.Badge] {
+                       settings: HouseholdSettings = HouseholdSettings(), start: StartCooking? = nil,
+                       alreadyCooked: Bool = false) -> [DayCardModel.Badge] {
         let athome = allergies.filter { home.contains($0.memberID) }
         let flags = AllergyMatcher.flags(ingredients: ShoppingLines.lines(for: meal, library: library).map(\.name),
                                          members: athome)
+        // Out of the freezer or left over: allergies still count, but there's nothing to start or cook it with.
+        guard !alreadyCooked else { return flags.map { .allergy($0.summary) } }
         let prep = meal.prepSteps.first { step in
             start == nil || !DishTraits(name: step.step).equipment.contains(.slowCooker)
         }.map { step in

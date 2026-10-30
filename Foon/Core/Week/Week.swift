@@ -7,6 +7,8 @@ struct Week: Equatable, Sendable {
     let start: CalendarDay
     var approvedAt: Date?
     var nights: [WeekNight]
+    /// The approved list is behind a doubled or freezer night (`plans.list_stale`), kept by the server for every phone.
+    var listStale = false
 }
 
 struct WeekNight: Identifiable, Equatable, Sendable {
@@ -22,6 +24,11 @@ struct WeekNight: Identifiable, Equatable, Sendable {
     var attendance: [UUID: Bool]
     /// The chip Build my week gave the pick ("Haven't had it in 3 weeks").
     var reason: String? = nil
+    /// On a leftovers night planned by Double it: the night cooking twice as much. A night is doubled because one of these
+    /// points at it, so there's nothing else to keep in step.
+    var leftoversFrom: UUID? = nil
+    /// The freezer stash item this night's dish comes from: already cooked, so nothing to cook or buy but its sides.
+    var stashItemID: UUID? = nil
 }
 
 /// One night's pick, as `set_nights` saves it. No meal and no quick pick clears the night.
@@ -59,13 +66,19 @@ struct WeekClient: Sendable {
     /// Sets or replaces a weekday's tradition; nil removes it.
     var setTradition: @Sendable (_ householdID: UUID, _ weekday: Int, _ tradition: Tradition?) async throws -> Void
         = { _, _, _ in }
+    /// Double it (`double_it`): refused if either night isn't what this device saw.
+    var doubleIt: @Sendable (_ request: DoubleItRequest) async throws -> Void = { _ in }
+    /// Takes the doubled night's leftovers night back to what it held (`undo_double_it`).
+    var undoDouble: @Sendable (_ nightID: UUID) async throws -> Void = { _ in }
+    /// Puts a stash item on a night (`use_freezer_item`), refused if someone else got there first.
+    var useFreezerItem: @Sendable (_ nightID: UUID, _ itemID: UUID, _ reason: String) async throws -> Void = { _, _, _ in }
 }
 
 extension WeekClient {
     static func live(_ client: SupabaseClient) -> WeekClient {
         let fetch: @Sendable (UUID, CalendarDay) async throws -> Week? = { householdID, start in
             let rows: [PlanWithNights] = try await client.from("plans")
-                .select("id, week_start, approved_at, plan_nights(\(PlanNightRow.columns))")
+                .select("id, week_start, approved_at, list_stale, plan_nights(\(PlanNightRow.columns))")
                 .eq("household_id", value: householdID)
                 .eq("week_start", value: start.isoString)
                 .limit(1)
@@ -143,6 +156,17 @@ extension WeekClient {
                 try await client.rpc("set_tradition", params: SetTraditionParams(
                     householdID: householdID, weekday: weekday, tradition: tradition
                 )).execute()
+            },
+            doubleIt: { request in
+                try await client.rpc("double_it", params: request).execute()
+            },
+            undoDouble: { nightID in
+                try await client.rpc("undo_double_it", params: ["target_night": nightID.uuidString]).execute()
+            },
+            useFreezerItem: { nightID, itemID, reason in
+                try await client.rpc("use_freezer_item", params: [
+                    "target_night": nightID.uuidString, "target_item": itemID.uuidString, "night_reason": reason
+                ]).execute()
             }
         )
     }
@@ -253,7 +277,7 @@ struct PlanNightRow: Decodable, Sendable {
 
     /// The columns to select for it.
     static let columns = """
-        id, date, effort, dinner_time, meal_id, quick_pick, locked, reason, meals(name), \
+        id, date, effort, dinner_time, meal_id, quick_pick, locked, reason, leftovers_from, stash_item_id, meals(name), \
         night_attendance(member_id, expected)
         """
 
@@ -265,6 +289,8 @@ struct PlanNightRow: Decodable, Sendable {
     let quickPick: QuickPick?
     let locked: Bool
     let reason: String?
+    let leftoversFrom: UUID?
+    let stashItemID: UUID?
     let meals: Meal?
     let nightAttendance: [Attendance]
 
@@ -273,6 +299,8 @@ struct PlanNightRow: Decodable, Sendable {
         case dinnerTime = "dinner_time"
         case mealID = "meal_id"
         case quickPick = "quick_pick"
+        case leftoversFrom = "leftovers_from"
+        case stashItemID = "stash_item_id"
         case nightAttendance = "night_attendance"
     }
 
@@ -281,7 +309,7 @@ struct PlanNightRow: Decodable, Sendable {
                   quickPick: quickPick, locked: locked,
                   attendance: Dictionary(nightAttendance.map { ($0.memberID, $0.expected) },
                                          uniquingKeysWith: { first, _ in first }),
-                  reason: reason)
+                  reason: reason, leftoversFrom: leftoversFrom, stashItemID: stashItemID)
     }
 }
 
@@ -289,17 +317,19 @@ private struct PlanWithNights: Decodable, Sendable {
     let id: UUID
     let weekStart: CalendarDay
     let approvedAt: Date?
+    let listStale: Bool
     let planNights: [PlanNightRow]
 
     enum CodingKeys: String, CodingKey {
         case id
         case weekStart = "week_start"
         case approvedAt = "approved_at"
+        case listStale = "list_stale"
         case planNights = "plan_nights"
     }
 
     var week: Week {
         Week(planID: id, start: weekStart, approvedAt: approvedAt,
-             nights: planNights.sorted { $0.date < $1.date }.map(\.night))
+             nights: planNights.sorted { $0.date < $1.date }.map(\.night), listStale: listStale)
     }
 }

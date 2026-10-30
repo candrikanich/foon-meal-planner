@@ -203,12 +203,13 @@ struct WeekView: View {
 
     private func card(_ night: WeekNight) -> some View {
         let isAway = night.readsAway(in: settings.awayDates, today: week.todayDay)
-        let model = WeekStore.card(for: night, members: household.visibleMembers, sides: sideNames,
-                                   badges: { meal, home in badges(meal, home: home, night: night) },
-                                   notes: { meal, home in
-                                       ServingNotes.lines(library.servingNotes, mealID: meal, home: home,
-                                                          members: household.visibleMembers)
-                                   }, isAway: isAway)
+        let model = WeekStore.planCard(for: night, nights: week.week?.nights ?? [], members: household.visibleMembers,
+                                       library: library.meals, allergies: library.allergies, settings: settings,
+                                       today: week.todayDay, minuteNow: settings.minuteOfDay(), sides: sideNames,
+                                       notes: { meal, home in
+                                           ServingNotes.lines(library.servingNotes, mealID: meal, home: home,
+                                                              members: household.visibleMembers)
+                                       }, isAway: isAway)
         // An away night has nothing to open or change: planners shorten the dates in Family instead.
         return DayCard(model: model, today: week.todayDay, actions: canPlan && !isAway ? actions(for: night) : nil)
             .contentShape(Rectangle())
@@ -224,8 +225,7 @@ struct WeekView: View {
         let staples = cachedItems.filter(\.keepOnHand).compactMap { item in
             item.stockState.map { WeeklyList.Staple(itemID: item.id, name: item.name, state: $0) }
         }
-        let nights = layout.plannable.map { WeeklyList.Night(mealID: $0.mealID, home: Set($0.attendance.filter(\.value).keys)) }
-        return WeeklyList.build(nights: nights, library: library.meals, stock: stock, staples: staples,
+        return WeeklyList.build(nights: DoubleIt.listNights(layout, logged: Set(dinner.logs.map(\.nightID))), library: library.meals, stock: stock, staples: staples,
                                 allergies: library.allergies)
     }
 
@@ -233,7 +233,7 @@ struct WeekView: View {
         let lines = weeklyList(layout)
         let approved = week.week?.approvedAt != nil
         return VStack(spacing: 6) {
-            Button { Task { await approve(lines) } } label: {
+            Button { Task { await approve() } } label: {
                 Label(approved ? approveText(lines.count, update: true) : approveText(lines.count, update: false),
                       systemImage: approved ? "arrow.triangle.2.circlepath" : "checkmark.seal")
                     .frame(maxWidth: .infinity)
@@ -242,18 +242,21 @@ struct WeekView: View {
             .tint(approved ? Palette.herb : Palette.paprika)
             // The list leans on the offline cache for stock and staples, so wait for its first sync.
             .disabled(isApproving || week.isBuilding || !library.hasLoaded || (sync != nil && sync?.lastPulled == nil))
-            Text(approved ? "Approved. Changed a night? Update the list."
-                          : "Approving builds the weekly list from these nights.")
+            Text(!approved ? "Approving builds the weekly list from these nights."
+                 : week.listNeedsUpdating ? "A doubled or freezer night changed what to buy. Update the list."
+                 : "Approved. Changed a night? Update the list.")
                 .font(.foonCaption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(week.listNeedsUpdating && approved ? Palette.paprika : .secondary)
         }
     }
 
-    private func approve(_ lines: [WeeklyList.Line]) async {
+    /// Builds from the week as it is now: another planner may have doubled or swapped a night since this phone last looked,
+    /// and these lines replace the week's own.
+    private func approve() async {
         isApproving = true
         defer { isApproving = false }
         // Pull right away so the cart badge and Lists show the new list without waiting for Realtime.
-        if await week.approve(lines) { await sync?.pull() }
+        if await week.approveLatest(weeklyList) { await sync?.pull() }
     }
 
     private func approveText(_ count: Int, update: Bool) -> String {
@@ -375,7 +378,10 @@ struct WeekView: View {
             cycleEffort: { Task { await week.cycleEffort(nightID: night.id) } },
             toggleLock: { Task { await week.toggleLock(nightID: night.id) } },
             // Quick-pick nights change through Swap (#25); shuffle re-rolls meals and fills empty nights.
-            shuffle: night.quickPick == nil && !week.isBuilding ? { Task { await shuffle(night.id) } } : nil,
+            // Nor on a doubled or freezer night: changing it moves something else, and Swap says what first.
+            shuffle: night.quickPick == nil && !week.isBuilding
+                && DoubleIt.changeWarning(for: night, in: week.week?.nights ?? []) == nil
+                ? { Task { await shuffle(night.id) } } : nil,
             swap: week.isBuilding ? nil : { swappingNight = night.id },
             open: { openNight = night.id }
         )
@@ -422,14 +428,6 @@ struct WeekView: View {
 
     private func sideNames(_ mealID: UUID) -> [String] {
         library.meal(mealID).map(library.sideNames(for:)) ?? []
-    }
-
-    private func badges(_ mealID: UUID, home: Set<UUID>, night: WeekNight) -> [DayCardModel.Badge] {
-        guard let meal = library.meal(mealID) else { return [] }
-        return NightBadges.badges(meal: meal, library: library.meals, allergies: library.allergies, home: home,
-                                  settings: settings,
-                                  start: StartCooking.nudge(for: meal, on: night, settings: settings, today: week.todayDay,
-                                                            minuteNow: settings.minuteOfDay()))
     }
 
     private func openNightsText(_ count: Int) -> String {

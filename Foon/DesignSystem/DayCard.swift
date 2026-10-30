@@ -113,7 +113,12 @@ struct DayCard: View {
                     .fill(Palette.paprika.opacity(0.14))
                     .frame(width: 56, height: 56)
                     .overlay(Image(systemName: pick.systemImage).font(.title2).foregroundStyle(Palette.paprika))
-                Text(DayCardText.quickPickLabel(pick)).font(.foonTitle).foregroundStyle(Palette.ink)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(DayCardText.quickPickLabel(pick)).font(.foonTitle).foregroundStyle(Palette.ink)
+                    if let note = model.leftoversNote {
+                        Text(note).font(.foonCaption).foregroundStyle(.secondary).lineLimit(2)
+                    }
+                }
             }
         case .away:
             HStack(spacing: 12) {
@@ -149,6 +154,8 @@ struct DayCard: View {
                 Chip(text: DayCardText.badgeLabel(badge), systemImage: "frying.pan", tint: Palette.paprika)
             case .startCooking:
                 Chip(text: DayCardText.badgeLabel(badge), systemImage: "flame", tint: .secondary)
+            case .doubled:
+                Chip(text: DayCardText.badgeLabel(badge), systemImage: "square.on.square", tint: Palette.herb)
             }
         }
     }
@@ -287,6 +294,15 @@ private enum DayCardPreview {
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 3), effort: .event,
                                  slot: .quickPick(.eatOut), attendance: DayCardPreview.family,
                                  badges: [], isLocked: true),
+                    actions: DayCardPreview.actions)
+            DayCard(model: .init(date: DayCardPreview.today.adding(days: 5), effort: .normal,
+                                 slot: .meal(name: "Chili", photoURL: nil, reason: "Due for a turn"),
+                                 attendance: DayCardPreview.family, badges: [.doubled("Doubled: leftovers Friday")],
+                                 isLocked: true),
+                    actions: DayCardPreview.actions)
+            DayCard(model: .init(date: DayCardPreview.today.adding(days: 6), effort: .rushed, slot: .quickPick(.leftovers),
+                                 attendance: DayCardPreview.family, badges: [.allergy("Contains milk (Nora)")],
+                                 isLocked: true, leftoversNote: "From Thursday's Chili"),
                     actions: DayCardPreview.actions)
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 4), effort: .normal,
                                  slot: .meal(name: "Homemade mac and cheese", photoURL: nil, reason: "Owen's request"),

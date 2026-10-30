@@ -10,6 +10,7 @@ struct RootView: View {
     let weekClient: WeekClient
     let dinnerClient: DinnerClient
     let ideasClient: IdeasClient
+    let freezerClient: FreezerClient
 
     @ViewBuilder
     private var content: some View {
@@ -20,7 +21,8 @@ struct RootView: View {
             WelcomeView()
         case .signedIn(let userID):
             HouseholdGate(userID: userID, client: householdClient, syncClient: syncClient, libraryClient: libraryClient,
-                          weekClient: weekClient, dinnerClient: dinnerClient, ideasClient: ideasClient)
+                          weekClient: weekClient, dinnerClient: dinnerClient, ideasClient: ideasClient,
+                          freezerClient: freezerClient)
                 .id(userID)
         }
     }
@@ -53,15 +55,17 @@ struct HouseholdGate: View {
     let weekClient: WeekClient
     let dinnerClient: DinnerClient
     let ideasClient: IdeasClient
+    let freezerClient: FreezerClient
 
     init(userID: UUID, client: HouseholdClient, syncClient: SyncClient, libraryClient: LibraryClient,
-         weekClient: WeekClient, dinnerClient: DinnerClient, ideasClient: IdeasClient) {
+         weekClient: WeekClient, dinnerClient: DinnerClient, ideasClient: IdeasClient, freezerClient: FreezerClient) {
         _store = State(initialValue: HouseholdStore(userID: userID, client: client))
         self.syncClient = syncClient
         self.libraryClient = libraryClient
         self.weekClient = weekClient
         self.dinnerClient = dinnerClient
         self.ideasClient = ideasClient
+        self.freezerClient = freezerClient
     }
 
     var body: some View {
@@ -81,7 +85,7 @@ struct HouseholdGate: View {
             case .ready(let household):
                 SyncGate(householdID: household.id, client: syncClient) {
                     RootTabView(householdID: household.id, libraryClient: libraryClient, weekClient: weekClient,
-                                dinnerClient: dinnerClient, ideasClient: ideasClient)
+                                dinnerClient: dinnerClient, ideasClient: ideasClient, freezerClient: freezerClient)
                 }
             case .failed:
                 ContentUnavailableView {
@@ -113,7 +117,7 @@ struct ConfigurationMissingView: View {
 
 #Preview("Signed out") {
     let session = SessionStore(auth: .preview())
-    RootView(householdClient: .preview(), syncClient: .preview, libraryClient: .preview(), weekClient: .preview(), dinnerClient: .preview, ideasClient: .preview())
+    RootView(householdClient: .preview(), syncClient: .preview, libraryClient: .preview(), weekClient: .preview(), dinnerClient: .preview, ideasClient: .preview(), freezerClient: .preview)
         .environment(session)
         .modelContainer(try! SyncService.inMemoryContainer())
         .task { await session.start() }
@@ -121,7 +125,7 @@ struct ConfigurationMissingView: View {
 
 #Preview("Signed in, new") {
     let session = SessionStore(auth: .preview(signedIn: UUID()))
-    RootView(householdClient: .preview(household: nil), syncClient: .preview, libraryClient: .preview(), weekClient: .preview(), dinnerClient: .preview, ideasClient: .preview())
+    RootView(householdClient: .preview(household: nil), syncClient: .preview, libraryClient: .preview(), weekClient: .preview(), dinnerClient: .preview, ideasClient: .preview(), freezerClient: .preview)
         .environment(session)
         .modelContainer(try! SyncService.inMemoryContainer())
         .task { await session.start() }
@@ -129,7 +133,7 @@ struct ConfigurationMissingView: View {
 
 #Preview("Signed in") {
     let session = SessionStore(auth: .preview(signedIn: UUID()))
-    RootView(householdClient: .preview(), syncClient: .preview, libraryClient: .preview(), weekClient: .preview(), dinnerClient: .preview, ideasClient: .preview())
+    RootView(householdClient: .preview(), syncClient: .preview, libraryClient: .preview(), weekClient: .preview(), dinnerClient: .preview, ideasClient: .preview(), freezerClient: .preview)
         .environment(session)
         .modelContainer(try! SyncService.inMemoryContainer())
         .task { await session.start() }
