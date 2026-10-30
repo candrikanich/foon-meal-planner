@@ -16,6 +16,12 @@ final class DinnerStore {
     /// Logged dinners since the start of the month (or yesterday, if earlier): the cards and the cook tally.
     private(set) var logs: [DinnerLog] = []
     private(set) var thanks: [ChefThanks] = []
+    /// Open offers to cook, for nights from a week ago on: dinner jobs read the whole week's.
+    private(set) var claims: [NightClaim] = []
+    /// Why the last offer didn't go through, and for which night.
+    private(set) var claimNote: (nightID: UUID, text: String)?
+    /// Bumped when the server refuses a claim: this device is behind on the night, or the away dates, so This Week reads them.
+    private(set) var claimRefusals = 0
     private(set) var errorMessage: String?
     /// Nights with a write in flight, so their buttons don't fire twice.
     private(set) var saving: Set<UUID> = []
@@ -39,6 +45,7 @@ final class DinnerStore {
 
     func load(settings: HouseholdSettings) async {
         calendar = DinnerPrompts.calendar(for: settings)
+        claimNote = nil
         await reload()
     }
 
@@ -51,9 +58,10 @@ final class DinnerStore {
             async let nights = client.nights(householdID, today.adding(days: -1), today)
             async let logs = client.logs(householdID, since)
             async let thanks = client.thanks(householdID, since)
-            let loaded = try await (nights, logs, thanks)
+            async let claims = client.claims(householdID, today.adding(days: -7))
+            let loaded = try await (nights, logs, thanks, claims)
             guard generation == loadGeneration else { return }
-            (self.nights, self.logs, self.thanks) = loaded
+            (self.nights, self.logs, self.thanks, self.claims) = loaded
             errorMessage = nil
         } catch {
             guard generation == loadGeneration, !(error is CancellationError) else { return }
@@ -76,9 +84,9 @@ final class DinnerStore {
         CookCredit.thisMonth(logs: logs, thanks: thanks, today: today)
     }
 
-    /// Last night's and tonight's dinners with a cook, for Thanks, chef.
-    func recentlyCooked(settings: HouseholdSettings, at date: Date? = nil) -> [DinnerLog] {
-        CookCredit.recent(nights: nights, logs: logs, defaultDinnerTime: settings.dinnerTime, now: date ?? now(),
+    /// Last night's and tonight's dinners with a cook, for Thanks, chef, and for the cook to say "That wasn't me".
+    func recentlyCooked(me: UUID? = nil, settings: HouseholdSettings, at date: Date? = nil) -> [DinnerLog] {
+        CookCredit.recent(nights: nights, logs: logs, me: me, defaultDinnerTime: settings.dinnerTime, now: date ?? now(),
                           calendar: calendar)
     }
 
@@ -108,8 +116,21 @@ final class DinnerStore {
 
     @discardableResult
     func notHome(nightID: UUID, memberID: UUID) async -> Bool {
-        await write(nightID, failure: String(localized: "Couldn't save that. Check your connection and try again.")) {
+        let saved = await write(nightID, failure: String(localized: "Couldn't save that. Check your connection and try again.")) {
             [client] in try await client.setNotHome(nightID, memberID)
+        }
+        // The server takes them off as the cook, unless they've been thanked. Say so rather than leave it looking done.
+        if saved, log(for: nightID)?.cookedByMemberID == memberID {
+            errorMessage = String(localized: "Saved. They're still down as the cook, because someone already thanked them.")
+        }
+        return saved
+    }
+
+    /// "That wasn't me": takes them off as the cook, and touches nothing else on the log.
+    @discardableResult
+    func takeOffCook(_ log: DinnerLog) async -> Bool {
+        await write(log.nightID, failure: String(localized: "Couldn't save that. Check your connection and try again.")) {
+            [client] in try await client.correct(log.id, .cook(nil))
         }
     }
 
@@ -136,15 +157,77 @@ final class DinnerStore {
 
     /// The first responder's leftovers and who cooked.
     @discardableResult
-    func saveExtras(nightID: UUID, leftovers: Bool, cookedBy: UUID?) async -> Bool {
+    func saveExtras(nightID: UUID, leftovers: Bool, cookedBy: UUID?, startedFrom: UUID? = nil) async -> Bool {
         guard let log = log(for: nightID) else { return false }
+        let correction = DinnerPrompts.followUp(leftovers: leftovers, startedFrom: startedFrom, chosen: cookedBy,
+                                                isDish: log.mealID != nil)
         return await write(nightID, failure: String(localized: "Couldn't save that. Check your connection and try again.")) {
-            [client] in try await client.correct(log.id, .extras(leftovers: leftovers, cookedByMemberID: cookedBy))
+            [client] in try await client.correct(log.id, correction)
         }
     }
 
     func clearError() {
         errorMessage = nil
+        claimNote = nil
+    }
+
+    // MARK: - Claims
+
+    /// The last refusal, wherever it was tapped: This Week shows it when no night is open.
+    var claimMessage: String? { claimNote?.text }
+
+    /// The last refusal, for this night only.
+    func claimMessage(for nightID: UUID) -> String? {
+        claimNote?.nightID == nightID ? claimNote?.text : nil
+    }
+
+    /// "I'll cook Thursday". Returns whether it saved. A refusal reads again, so the card shows why.
+    @discardableResult
+    func claim(nightID: UUID, memberID: UUID) async -> Bool {
+        await claimWrite(nightID, refused: String(localized: "You can offer for yourself, or for someone without their own account.")) {
+            [client] in try await client.claimNight(nightID, memberID)
+        }
+    }
+
+    @discardableResult
+    func release(_ claim: NightClaim) async -> Bool {
+        await claimWrite(claim.nightID, refused: String(localized: "Only they or a planner can take that back.")) {
+            [client] in try await client.releaseClaim(claim.id)
+        }
+    }
+
+    private func claimWrite(_ nightID: UUID, refused: String, _ work: @escaping @Sendable () async throws -> Void) async -> Bool {
+        guard !saving.contains(nightID) else { return false }
+        saving.insert(nightID)
+        defer { saving.remove(nightID) }
+        do {
+            try await work()
+            claimNote = nil
+            await reload()
+            if errorMessage != nil { errorMessage = nil }
+            return true
+        } catch {
+            let code = (error as? PostgrestError)?.code
+            let refusal = code == "42501" ? refused : code.flatMap(Self.claimRefusal)
+            claimNote = (nightID, refusal ?? String(localized: "Couldn't save that. Check your connection and try again."))
+            if refusal != nil { claimRefusals += 1 }
+            await reload()
+            return false
+        }
+    }
+
+    /// Refusals that have nothing to do with the connection get their own words.
+    private static func claimRefusal(_ code: String) -> String? {
+        switch code {
+        case "FD005": String(localized: "Someone else just said they'd cook that night.")
+        case "FD006": String(localized: "That dinner has already happened, so its cook is set on the log.")
+        case "FD007": String(localized: "The family's away that night, so nobody's cooking.")
+        case "FD008": String(localized: "They eat separately, so they aren't asked to cook.")
+        case "FD009": String(localized: "That night's a quick pick now, so there's nothing to cook.")
+        case "FD010": String(localized: "They're down as out that night. A planner can change who's home.")
+        case "P0002": String(localized: "That's changed since this phone last looked. Here's the latest.")
+        default: nil
+        }
     }
 
     /// `refused` replaces `failure` when the server turned the change down (rather than not being reached).
@@ -159,6 +242,7 @@ final class DinnerStore {
         } catch {
             let code = (error as? PostgrestError)?.code
             errorMessage = code == "FD004" ? String(localized: "They eat separately, so they don't rate dinners.")
+                : code == "FD011" ? String(localized: "Someone already thanked the cook, so the cook and the dish stay as they are.")
                 : code == "42501" || code == "22023" ? (refused ?? failure) : failure
             return false
         }

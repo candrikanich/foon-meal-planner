@@ -695,6 +695,84 @@ struct HouseholdClientLiveTests {
         #expect(try await library.comments(household.id).first?.hidden == false)
     }
 
+    @Test func aNightIsClaimedAndCreditedAndJobsAreSet() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let household = try await households.createHousehold("Claims family", nil, "Ann", HouseholdSettings())
+        let ann = try #require(try await households.members(household.id).first { $0.firstName == "Ann" })
+        var kid = MemberDraft()
+        kid.firstName = "Nora"
+        kid.ageGroup = .kid
+        let nora = try await households.addMember(household.id, try #require(kid.validated()))
+        var tot = MemberDraft()
+        tot.firstName = "Tot"
+        tot.ageGroup = .kid
+        tot.eatsSeparately = true
+        let toddler = try await households.addMember(household.id, try #require(tot.validated()))
+
+        var newYork = Calendar(identifier: .gregorian)
+        newYork.timeZone = TimeZone(identifier: "America/New_York")!
+        let today = CalendarDay(Date(), calendar: newYork)
+        let weeks = WeekClient.live(supabase)
+        let week = try await weeks.create(household.id, WeekMath.start(of: today, weekStart: 7))
+        let tonight = try #require(week.nights.first { $0.date == today })
+        let chili = try await LibraryClient.live(supabase).create(household.id, try MealDraft(newNamed: "Chili").validated())
+        try await weeks.setNight(NightUpdate(nightID: tonight.id, mealID: chili), false)
+
+        let dinners = DinnerClient.live(supabase)
+        // Passing the phone for Nora, who has no account; then Ann, who can't take a night that's taken.
+        try await dinners.claimNight(tonight.id, nora.id)
+        let claims = try await dinners.claims(household.id, today)
+        let claim = try #require(claims.first)
+        #expect(claims.count == 1)
+        #expect(claim.memberID == nora.id)
+        #expect(claim.enteredByMemberID == ann.id, "and it says whose phone")
+        #expect(claim.date == today)
+        #expect(claim.nightMealID == chili)
+        #expect(!claim.memberIsOut)
+        await #expect("the second person gets a clear answer") {
+            try await dinners.claimNight(tonight.id, ann.id)
+        } throws: { ($0 as? PostgrestError)?.code == "FD005" }
+        await #expect("someone who eats separately isn't the cook") {
+            try await dinners.claimNight(tonight.id, toddler.id)
+        } throws: { ($0 as? PostgrestError)?.code == "FD008" }
+
+        // Taken back, it's gone from what's read. Offered again, it fills in who cooked when dinner's logged.
+        try await dinners.releaseClaim(claim.id)
+        #expect(try await dinners.claims(household.id, today).isEmpty)
+        try await dinners.claimNight(tonight.id, nora.id)
+        _ = try await dinners.react(tonight.id, ann.id, .good)
+        let log = try #require(try await dinners.logs(household.id, today).first { $0.nightID == tonight.id })
+        #expect(log.cookedByMemberID == nora.id)
+        #expect(CookCredit.thisMonth(logs: [log], thanks: [], today: today).map(\.memberID) == [nora.id])
+
+        // A guess can't be thanked. The follow-up leaves the cook alone, and then thanks lock it.
+        await #expect("not until who cooked is settled") {
+            try await dinners.thankTheChef(log.id)
+        } throws: { ($0 as? PostgrestError)?.code == "22023" }
+        try await dinners.correct(log.id, .leftovers(true))
+        let settled = try #require(try await dinners.logs(household.id, today).first { $0.nightID == tonight.id })
+        #expect(settled.isSettled)
+        #expect(settled.cookedByMemberID == nora.id, "the leftovers answer leaves the cook")
+        try await dinners.thankTheChef(log.id)
+        await #expect("thanked, the cook stays, and it says why") {
+            try await dinners.correct(log.id, .cook(nil))
+        } throws: { ($0 as? PostgrestError)?.code == "FD011" }
+
+        // Dinner jobs, one change at a time.
+        #expect(try await households.setDinnerJob(household.id, .dishes, true).jobs == [.dishes])
+        #expect(try await households.setDinnerJob(household.id, .setTable, true).jobs == [.dishes, .setTable])
+        #expect(try await households.setDinnerJobPerson(household.id, ann.id, false).leftOut == [ann.id])
+        var rhythm = HouseholdSettings()
+        rhythm.takeoutNights = 2
+        try await households.updateSettings(household.id, rhythm)
+        let saved = try await households.myHousehold()?.planningSettings
+        #expect(saved?.dinnerJobs == DinnerJobSettings(jobs: [.dishes, .setTable], leftOut: [ann.id]), "a settings save leaves them")
+        #expect(saved?.takeoutNights == 2)
+    }
+
     private static let config = try! SupabaseConfig.fromMainBundle()
     private static func sampleJPEG() throws -> Data {
         let context = try #require(CGContext(

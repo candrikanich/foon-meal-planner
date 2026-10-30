@@ -34,6 +34,7 @@ struct WeekView: View {
                 VStack(spacing: 16) {
                     if !week.showingNextWeek {
                         RequestNewsSection()
+                        ClaimNewsSection()
                         DinnerPromptsSection()
                     }
                     Picker("Week", selection: $week.showingNextWeek) {
@@ -42,6 +43,9 @@ struct WeekView: View {
                     }
                     .pickerStyle(.segmented)
                     if let message = week.errorMessage {
+                        Text(message).font(.callout).foregroundStyle(.red)
+                    }
+                    if openNight == nil, let message = dinner.claimMessage {
                         Text(message).font(.callout).foregroundStyle(.red)
                     }
                     content
@@ -81,6 +85,13 @@ struct WeekView: View {
         }
         .onChange(of: week.awayRefusals) {
             Task { await household.refreshQuietly() }
+        }
+        .onChange(of: dinner.claimRefusals) {
+            // This phone was behind: show the night and the away dates as they are, not just the message.
+            Task {
+                await household.refreshQuietly()
+                await week.refresh()
+            }
         }
         .onChange(of: household.members) { _, members in
             if canPlan { Task { await week.fillInMissing(members: members) } }
@@ -203,18 +214,41 @@ struct WeekView: View {
 
     private func card(_ night: WeekNight) -> some View {
         let isAway = night.readsAway(in: settings.awayDates, today: week.todayDay)
-        let model = WeekStore.planCard(for: night, nights: week.week?.nights ?? [], members: household.visibleMembers,
+        var model = WeekStore.planCard(for: night, nights: week.week?.nights ?? [], members: household.visibleMembers,
                                        library: library.meals, allergies: library.allergies, settings: settings,
                                        today: week.todayDay, minuteNow: settings.minuteOfDay(), sides: sideNames,
                                        notes: { meal, home in
                                            ServingNotes.lines(library.servingNotes, mealID: meal, home: home,
                                                               members: household.visibleMembers)
                                        }, isAway: isAway)
+        let log = dinner.log(for: night.id)
+        model.cook = isAway ? nil : NightClaims.cookLine(night: night, claims: dinner.claims, log: log,
+                                                         members: household.visibleMembers, me: household.me?.id,
+                                                         away: settings.awayDates, today: week.todayDay)
+        model.jobs = DinnerJobs.lines(for: night, in: dinnerJobs, members: household.visibleMembers, today: week.todayDay)
         // An away night has nothing to open or change: planners shorten the dates in Family instead.
-        return DayCard(model: model, today: week.todayDay, actions: canPlan && !isAway ? actions(for: night) : nil)
+        return DayCard(model: model, today: week.todayDay, actions: canPlan && !isAway ? actions(for: night) : nil,
+                       offer: claimOffer(for: night, log: log))
             .contentShape(Rectangle())
             .onTapGesture { if !isAway { openNight = night.id } }
             .accessibilityAction(named: Text("Open night")) { if !isAway { openNight = night.id } }
+    }
+
+    /// Offering for yourself, right on the card. Pass the phone is in the night's detail.
+    private func claimOffer(for night: WeekNight, log: DinnerLog?) -> DayCard.ClaimOffer? {
+        guard let me = household.me,
+              NightClaims.canClaim(me, night: night, claims: dinner.claims, log: log, members: household.visibleMembers,
+                                   away: settings.awayDates, today: week.todayDay) else { return nil }
+        return DayCard.ClaimOffer(title: ClaimText.offer(night.date, today: week.todayDay),
+                                  isDisabled: dinner.saving.contains(night.id)) {
+            Task { await dinner.claim(nightID: night.id, memberID: me.id) }
+        }
+    }
+
+    /// The week's jobs, worked out from who's home and who offered to cook.
+    private var dinnerJobs: [UUID: [DinnerJobs.Assignment]] {
+        DinnerJobs.forWeek(nights: week.week?.nights ?? [], settings: settings.dinnerJobs, members: household.visibleMembers,
+                           claims: dinner.claims, away: settings.awayDates, today: week.todayDay)
     }
 
     /// The weekly list for the nights still ahead: their meals and sides merged by item, minus what's in stock,

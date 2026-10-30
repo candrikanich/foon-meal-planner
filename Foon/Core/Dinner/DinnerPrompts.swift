@@ -45,10 +45,19 @@ enum DinnerPrompts {
         let nights = Dictionary(nights.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return logs.compactMap { log in
             guard let night = nights[log.nightID], log.verified, log.confirmedByMemberID == me,
-                  log.leftovers == nil, log.cookedByMemberID == nil,
+                  // Not whether there's a cook: a claim fills that in, and the card still asks about leftovers and shows it.
+                  log.leftovers == nil,
                   isOpen(night, defaultDinnerTime: defaultDinnerTime, now: now, calendar: calendar) else { return nil }
             return Prompt(night: night, log: log)
         }
+    }
+
+    /// What the follow-up card saves. The cook goes only if this person changed it: the card may have started from a cook
+    /// someone has since taken off, and an untouched card mustn't put them back. A quick pick clears any cook, since nobody
+    /// cooks takeout.
+    static func followUp(leftovers: Bool, startedFrom: UUID?, chosen: UUID?, isDish: Bool) -> DinnerCorrection {
+        if !isDish { return startedFrom == nil ? .leftovers(leftovers) : .extras(leftovers: leftovers, cookedByMemberID: nil) }
+        return chosen == startedFrom ? .leftovers(leftovers) : .extras(leftovers: leftovers, cookedByMemberID: chosen)
     }
 
     /// Leftovers are likely when someone expected was out (the spec's pre-filled guess).

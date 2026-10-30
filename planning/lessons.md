@@ -6,6 +6,13 @@ _None yet._
 
 ## Patterns
 
+### A default that lands earlier breaks rules written for an answer
+**Times seen:** 1
+
+**What happened (2026-10-30):** On #152, a claim filled in who cooked on the first rating. On main, a cook only existed after the follow-up was saved, and "a thanks locks the cook" assumed that. So a thanks could lock a guess, the follow-up failed with a false connection error, and the wrongly credited person had no way to fix it. The tests asserted the silent no-op as correct.
+
+**Rule (derived data):** When a value that used to come from a person starts being filled in by a default, list everything that reads or locks it, and ask of each: "is this still true of a guess?" Give the person it names a way to correct it. Read the extra paths with a stale phone in mind too.
+
 ### Read the checks before merging; never chain the merge after them
 **Times seen:** 1
 

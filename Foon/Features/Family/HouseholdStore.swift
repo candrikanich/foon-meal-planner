@@ -227,6 +227,7 @@ final class HouseholdStore {
             loadGeneration += 1
             household.settings = settings.withKitchen(of: household.planningSettings)
                 .withFoodRules(of: household.planningSettings)
+                .withDinnerJobs(of: household.planningSettings)
             phase = .ready(household)
             errorMessage = nil
             return true
@@ -273,6 +274,40 @@ final class HouseholdStore {
             errorMessage = (error as? PostgrestError)?.code == "42501"
                 ? String(localized: "Only planners can change food rules.")
                 : String(localized: "Couldn't save the food rule. Check your connection and try again.")
+            return false
+        }
+    }
+
+    // MARK: - Dinner jobs
+
+    /// Turns one job on or off, and shows the setting the server sends back. Returns whether it saved.
+    @discardableResult
+    func setDinnerJob(_ job: DinnerJob, isOn: Bool) async -> Bool {
+        await saveDinnerJobs { [client] id in try await client.setDinnerJob(id, job, isOn) }
+    }
+
+    /// Puts someone in the rotation or leaves them out. Returns whether it saved.
+    @discardableResult
+    func setDinnerJobPerson(_ memberID: UUID, isIn: Bool) async -> Bool {
+        await saveDinnerJobs { [client] id in try await client.setDinnerJobPerson(id, memberID, isIn) }
+    }
+
+    private func saveDinnerJobs(_ write: @Sendable (UUID) async throws -> DinnerJobSettings) async -> Bool {
+        guard let id = household?.id else { return false }
+        do {
+            let saved = try await write(id)
+            loadGeneration += 1
+            guard var household else { return false }
+            var settings = household.planningSettings
+            settings.dinnerJobs = saved
+            household.settings = settings
+            phase = .ready(household)
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = (error as? PostgrestError)?.code == "42501"
+                ? String(localized: "Only planners can change dinner jobs.")
+                : String(localized: "Couldn't save that. Check your connection and try again.")
             return false
         }
     }

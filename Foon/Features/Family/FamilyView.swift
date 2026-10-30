@@ -96,6 +96,16 @@ struct FamilyView: View {
                     } footer: {
                         Text("What your household skips, and when.")
                     }
+
+                    Section {
+                        NavigationLink {
+                            DinnerJobsView()
+                        } label: {
+                            LabeledContent("Dinner jobs", value: dinnerJobsSummary)
+                        }
+                    } footer: {
+                        Text("Optional helper jobs that rotate among whoever's home.")
+                    }
                 }
 
                 // Family order, not a ranking: credit, not a leaderboard.
@@ -206,6 +216,15 @@ struct FamilyView: View {
         guard let settings = store.household?.planningSettings else { return String(localized: "None") }
         let today = settings.today()
         return settings.awayDates(endingOnOrAfter: today).first?.summary(today: today) ?? String(localized: "None")
+    }
+
+    private var dinnerJobsSummary: String {
+        let count = store.household?.planningSettings.dinnerJobs.jobs.count ?? 0
+        switch count {
+        case 0: return String(localized: "Off", comment: "Family: the household doesn't use dinner jobs")
+        case 1: return String(localized: "1 job", comment: "Family: how many dinner jobs the household uses")
+        default: return String(localized: "\(count) jobs", comment: "Family: how many dinner jobs the household uses")
+        }
     }
 
     private var foodRulesSummary: String {

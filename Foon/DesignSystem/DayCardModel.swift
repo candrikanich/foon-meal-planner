@@ -31,6 +31,31 @@ struct DayCardModel: Identifiable, Equatable, Sendable {
         case doubled(String)
     }
 
+    struct Cook: Equatable, Sendable {
+        enum Tense: Equatable, Sendable {
+            case willCook, cooked
+        }
+
+        let memberID: UUID
+        let firstName: String
+        let avatar: String?
+        let isYou: Bool
+        let tense: Tense
+
+        init(member: Member, isYou: Bool, tense: Tense) {
+            memberID = member.id
+            firstName = member.firstName
+            avatar = member.avatar
+            self.isYou = isYou
+            self.tense = tense
+        }
+    }
+
+    struct JobLine: Equatable, Hashable, Sendable {
+        let title: String
+        let firstName: String
+    }
+
     let date: CalendarDay
     var effort: NightEffort
     var slot: Slot
@@ -41,6 +66,10 @@ struct DayCardModel: Identifiable, Equatable, Sendable {
     var servingNotes: [String] = []
     /// On a leftovers night that knows its dish: "From Monday's Chili".
     var leftoversNote: String? = nil
+    /// Who's cooking, by what someone promised, or who did, by what was logged.
+    var cook: Cook? = nil
+    /// Dinner jobs for this night, when the household uses them.
+    var jobs: [JobLine] = []
 
     var id: CalendarDay { date }
 }
@@ -128,6 +157,20 @@ enum DayCardText {
         }
     }
 
+    /// A claim is a promise, so it's about tonight; a log says what happened.
+    static func cookLabel(_ cook: DayCardModel.Cook) -> String {
+        switch (cook.tense, cook.isYou) {
+        case (.willCook, true): String(localized: "You're cooking")
+        case (.willCook, false): String(localized: "\(cook.firstName) is cooking")
+        case (.cooked, true): String(localized: "You cooked")
+        case (.cooked, false): String(localized: "\(cook.firstName) cooked")
+        }
+    }
+
+    static func jobLabel(_ job: DayCardModel.JobLine) -> String {
+        String(localized: "\(job.title): \(job.firstName)", comment: "A dinner job and whose turn it is")
+    }
+
     /// One sentence VoiceOver reads for the whole card.
     static func accessibilitySummary(_ card: DayCardModel, today: CalendarDay, calendar: Calendar = .current) -> String {
         var parts = ["\(dayLabel(for: card.date, today: today, calendar: calendar)), \(dateLabel(for: card.date, calendar: calendar))"]
@@ -145,6 +188,8 @@ enum DayCardText {
         if !away.isEmpty { parts.append(String(localized: "Away: \(away.joined(separator: ", "))")) }
         parts.append(contentsOf: card.badges.map(badgeLabel))
         parts.append(contentsOf: card.servingNotes)
+        if let cook = card.cook { parts.append(cookLabel(cook)) }
+        parts.append(contentsOf: card.jobs.map(jobLabel))
         if card.isLocked { parts.append(String(localized: "Locked")) }
         return parts.joined(separator: ". ") + "."
     }

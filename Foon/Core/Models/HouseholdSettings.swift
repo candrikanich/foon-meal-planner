@@ -40,6 +40,9 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
     /// What the household skips, and when. Read here, but written only through `set_food_rule`, which merges on the server,
     /// so it isn't encoded: a stale copy saved with other settings can't undo another planner's rule.
     var foodRules: [FoodRule] = []
+    /// Which dinner jobs the household uses, and who's left out. Read here, but written only through `set_dinner_job` and
+    /// `set_dinner_job_person`, so it isn't encoded: a stale copy saved with other settings can't undo a planner's choice.
+    var dinnerJobs = DinnerJobSettings()
 
     /// Onboarding's presets (docs/spec.md → Notifications): how much Foon nudges.
     enum NotificationPreset: String, Codable, CaseIterable, Sendable {
@@ -100,6 +103,13 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         return merged
     }
 
+    /// These settings, with the dinner jobs from `other`, which is what's known from the server.
+    func withDinnerJobs(of other: HouseholdSettings) -> HouseholdSettings {
+        var merged = self
+        merged.dinnerJobs = other.dinnerJobs
+        return merged
+    }
+
     init() {}
 
     private enum CodingKeys: String, CodingKey {
@@ -120,6 +130,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         case missingEquipment = "missing_equipment"
         case showsStartCooking = "start_cooking_nudge"
         case foodRules = "food_rules"
+        case dinnerJobs = "dinner_jobs"
     }
 
     /// One bad entry shouldn't cost the rest.
@@ -178,6 +189,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         showsStartCooking = (try? container.decodeIfPresent(Bool.self, forKey: .showsStartCooking)).flatMap { $0 } ?? true
         foodRules = ((try? container.decodeIfPresent([FoodRule.Lenient].self, forKey: .foodRules)) ?? nil)?
             .compactMap(\.rule) ?? []
+        dinnerJobs = ((try? container.decodeIfPresent(DinnerJobSettings.self, forKey: .dinnerJobs)) ?? nil) ?? DinnerJobSettings()
     }
 
     /// "HH:mm", or nil for anything else.

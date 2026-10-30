@@ -17,9 +17,17 @@ struct DayCard: View {
         var hasNightActions: Bool { toggleLock != nil || shuffle != nil || swap != nil || open != nil }
     }
 
+    /// "I'll cook Thursday": for anyone, so it's separate from what planners can do.
+    struct ClaimOffer {
+        let title: String
+        var isDisabled = false
+        let claim: () -> Void
+    }
+
     let model: DayCardModel
     var today = CalendarDay(Date())
     var actions: Actions?
+    var offer: ClaimOffer? = nil
 
     private var isTonight: Bool { model.date == today }
 
@@ -29,6 +37,8 @@ struct DayCard: View {
             mealSlot
             if !model.badges.isEmpty { badges }
             if !model.attendance.isEmpty { attendance }
+            if let cook = model.cook { cookRow(cook) } else if let offer { claimButton(offer) }
+            if !model.jobs.isEmpty { jobs }
             if let actions, actions.hasNightActions { actionRow(actions) }
         }
         .padding(16)
@@ -38,7 +48,7 @@ struct DayCard: View {
                 .strokeBorder(isTonight ? Palette.paprika : .clear, lineWidth: 2)
         }
         .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
-        .accessibilityElement(children: actions == nil ? .ignore : .contain)
+        .accessibilityElement(children: actions == nil && offer == nil ? .ignore : .contain)
         .accessibilityLabel(DayCardText.accessibilitySummary(model, today: today))
     }
 
@@ -203,6 +213,36 @@ struct DayCard: View {
         }
     }
 
+    private func cookRow(_ cook: DayCardModel.Cook) -> some View {
+        HStack(spacing: 8) {
+            MemberAvatar(member: .fixture(id: cook.memberID, firstName: cook.firstName, avatar: cook.avatar), size: 28)
+            Text(DayCardText.cookLabel(cook))
+                .font(.foonCaption)
+                .foregroundStyle(Palette.ink)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func claimButton(_ offer: ClaimOffer) -> some View {
+        Button(offer.title, systemImage: "frying.pan", action: offer.claim)
+            .buttonStyle(.bordered)
+            .tint(Palette.paprika)
+            .controlSize(.small)
+            .disabled(offer.isDisabled)
+            .accessibilityHint(String(localized: "Tells the family you're cooking this night"))
+    }
+
+    private var jobs: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(model.jobs, id: \.self) { job in
+                Label(DayCardText.jobLabel(job), systemImage: "checklist")
+                    .font(.foonCaption)
+                    .foregroundStyle(.secondary)
+                    .labelStyle(.titleAndIcon)
+            }
+        }
+    }
+
     private func actionRow(_ actions: Actions) -> some View {
         HStack(spacing: 8) {
             Spacer()
@@ -311,6 +351,29 @@ private enum DayCardPreview {
                                  attendance: DayCardPreview.family,
                                  badges: [.allergy("Contains milk (Nora)"), .request(from: "Owen")], isLocked: false),
                     actions: DayCardPreview.actions)
+        }
+        .padding()
+    }
+    .background(Palette.cream)
+}
+
+#Preview("Who's cooking, and jobs") {
+    let family = Member.sampleFamily
+    ScrollView {
+        VStack(spacing: 16) {
+            DayCard(model: .init(date: DayCardPreview.today.adding(days: 1), effort: .normal,
+                                 slot: .meal(name: "Tacos", photoURL: nil, reason: nil),
+                                 attendance: DayCardPreview.family, badges: [], isLocked: false),
+                    offer: DayCard.ClaimOffer(title: "I'll cook tomorrow") {})
+            DayCard(model: .init(date: DayCardPreview.today.adding(days: 2), effort: .normal,
+                                 slot: .meal(name: "Chili", photoURL: nil, reason: nil),
+                                 attendance: DayCardPreview.family, badges: [], isLocked: false,
+                                 cook: .init(member: family[1], isYou: false, tense: .willCook),
+                                 jobs: [.init(title: "Set the table", firstName: "Nora"),
+                                        .init(title: "Do the dishes", firstName: "Owen")]))
+            DayCard(model: .init(date: DayCardPreview.today.adding(days: 3), effort: .normal, slot: .empty,
+                                 attendance: DayCardPreview.family, badges: [], isLocked: false,
+                                 cook: .init(member: family[0], isYou: true, tense: .willCook)))
         }
         .padding()
     }
