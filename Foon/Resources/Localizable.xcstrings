@@ -1223,7 +1223,7 @@
     "Foon can't open that link. Try the recipe's web page." : {
 
     },
-    "Foon changed %@" : {
+    "Foon cleared %@" : {
 
     },
     "Foon cleared %@ for away dates" : {
@@ -1262,6 +1262,16 @@
     },
     "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime." : {
       "comment" : "Allergy consent: the one plain sentence parents agree to"
+    },
+    "Foon put %@ back to %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Foon put %1$@ back to %2$@"
+          }
+        }
+      }
     },
     "Foon put %@ back to %@ when %@'s dinner changed" : {
       "comment" : "Activity: a leftovers night going back. The night, what it holds now, the doubled night",
