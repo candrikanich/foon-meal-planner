@@ -16,6 +16,12 @@ final class DinnerStore {
     /// Logged dinners since the start of the month (or yesterday, if earlier): the cards and the cook tally.
     private(set) var logs: [DinnerLog] = []
     private(set) var thanks: [ChefThanks] = []
+    /// Open offers to cook, for nights from yesterday on.
+    private(set) var claims: [NightClaim] = []
+    /// Why the last offer didn't go through, for the card or night it was tapped on.
+    private(set) var claimMessage: String?
+    /// Bumped when the server says the family's away that night: this device hasn't heard about the dates.
+    private(set) var claimAwayRefusals = 0
     private(set) var errorMessage: String?
     /// Nights with a write in flight, so their buttons don't fire twice.
     private(set) var saving: Set<UUID> = []
@@ -39,6 +45,7 @@ final class DinnerStore {
 
     func load(settings: HouseholdSettings) async {
         calendar = DinnerPrompts.calendar(for: settings)
+        claimMessage = nil
         await reload()
     }
 
@@ -51,9 +58,10 @@ final class DinnerStore {
             async let nights = client.nights(householdID, today.adding(days: -1), today)
             async let logs = client.logs(householdID, since)
             async let thanks = client.thanks(householdID, since)
-            let loaded = try await (nights, logs, thanks)
+            async let claims = client.claims(householdID, today.adding(days: -1))
+            let loaded = try await (nights, logs, thanks, claims)
             guard generation == loadGeneration else { return }
-            (self.nights, self.logs, self.thanks) = loaded
+            (self.nights, self.logs, self.thanks, self.claims) = loaded
             errorMessage = nil
         } catch {
             guard generation == loadGeneration, !(error is CancellationError) else { return }
@@ -145,6 +153,58 @@ final class DinnerStore {
 
     func clearError() {
         errorMessage = nil
+        claimMessage = nil
+    }
+
+    // MARK: - Claims
+
+    /// "I'll cook Thursday". Returns whether it saved. A refusal reads again, so the card shows why.
+    @discardableResult
+    func claim(nightID: UUID, memberID: UUID) async -> Bool {
+        await claimWrite(nightID, refused: String(localized: "You can offer for yourself, or for someone without their own account.")) {
+            [client] in try await client.claimNight(nightID, memberID)
+        }
+    }
+
+    @discardableResult
+    func release(_ claim: NightClaim) async -> Bool {
+        await claimWrite(claim.nightID, refused: String(localized: "Only they or a planner can take that back.")) {
+            [client] in try await client.releaseClaim(claim.id)
+        }
+    }
+
+    private func claimWrite(_ nightID: UUID, refused: String, _ work: @escaping @Sendable () async throws -> Void) async -> Bool {
+        guard !saving.contains(nightID) else { return false }
+        saving.insert(nightID)
+        defer { saving.remove(nightID) }
+        do {
+            try await work()
+            claimMessage = nil
+            await reload()
+            if errorMessage != nil { errorMessage = nil }
+            return true
+        } catch {
+            let code = (error as? PostgrestError)?.code
+            claimMessage = code == "42501" ? refused
+                : code.flatMap(Self.claimRefusal) ?? String(localized: "Couldn't save that. Check your connection and try again.")
+            if code == "FD007" { claimAwayRefusals += 1 }
+            await reload()
+            return false
+        }
+    }
+
+    /// Refusals that have nothing to do with the connection get their own words.
+    private static func claimRefusal(_ code: String) -> String? {
+        switch code {
+        case "FD005": String(localized: "Someone else just said they'd cook that night.")
+        case "FD006": String(localized: "That dinner has already happened, so its cook is set on the log.")
+        case "FD007": String(localized: "The family's away that night, so nobody's cooking.")
+        case "FD008": String(localized: "They eat separately, so they aren't asked to cook.")
+        case "FD009": String(localized: "That night's a quick pick now, so there's nothing to cook.")
+        case "FD010": String(localized: "They're down as out that night. A planner can change who's home.")
+        case "P0002": String(localized: "That's changed since this phone last looked. Here's the latest.")
+        default: nil
+        }
     }
 
     /// `refused` replaces `failure` when the server turned the change down (rather than not being reached).

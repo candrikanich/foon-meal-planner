@@ -63,6 +63,9 @@
     "%@ and anything else planned for those nights come off, locked nights included, and don't come back if you change your mind." : {
 
     },
+    "%@ cooked" : {
+
+    },
     "%@ cooked the %@" : {
       "localizations" : {
         "en" : {
@@ -73,6 +76,9 @@
         }
       }
     },
+    "%@ is cooking" : {
+
+    },
     "%@ is on the list" : {
 
     },
@@ -81,6 +87,20 @@
     },
     "%@ left" : {
 
+    },
+    "%@ offered to cook, but is out this night now. Someone else can take it." : {
+
+    },
+    "%@ offered to cook, but this night is %@ now." : {
+      "comment" : "A claim on hold: their name, then the quick pick now on the night",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ offered to cook, but this night is %2$@ now."
+          }
+        }
+      }
     },
     "%@ out %@" : {
       "comment" : "Saved schedule: a name, then weekdays or how often",
@@ -114,6 +134,23 @@
       "comment" : "After-dinner card: the dish, then the question"
     },
     "%@ wasn't home" : {
+
+    },
+    "%@ will cook %@" : {
+      "comment" : "Someone offering to cook: their name, then a weekday, maybe with its date",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ will cook %2$@"
+          }
+        }
+      }
+    },
+    "%@ will cook tomorrow" : {
+
+    },
+    "%@ will cook tonight" : {
 
     },
     "%@ · %@" : {
@@ -160,7 +197,7 @@
       }
     },
     "%@: %@" : {
-      "comment" : "Tradition row: its name, then the meal",
+      "comment" : "A dinner job and whose turn it is\nTradition row: its name, then the meal",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -198,6 +235,9 @@
     },
     "%lld items are still on the list for next time." : {
 
+    },
+    "%lld jobs" : {
+      "comment" : "Family: how many dinner jobs the household uses"
     },
     "%lld me-toos" : {
 
@@ -262,6 +302,9 @@
     },
     "1 item is still on the list for next time." : {
 
+    },
+    "1 job" : {
+      "comment" : "Family: how many dinner jobs the household uses"
     },
     "1 lb ground beef, taco shells, cheese" : {
 
@@ -551,6 +594,9 @@
     "Build my week fills these in and locks them. Swapping one changes just that week." : {
 
     },
+    "Can't do it tonight? Just trade. Foon doesn't keep score." : {
+
+    },
     "Cancel" : {
 
     },
@@ -587,6 +633,9 @@
     },
     "Clear the note" : {
 
+    },
+    "Clear the table" : {
+      "comment" : "A dinner job"
     },
     "Close" : {
 
@@ -869,6 +918,9 @@
     "Dinner at" : {
 
     },
+    "Dinner jobs" : {
+
+    },
     "Dinners" : {
 
     },
@@ -882,7 +934,10 @@
 
     },
     "Dismiss: %@" : {
-      "comment" : "Request news: close the note"
+      "comment" : "Claim news: close the note\nRequest news: close the note"
+    },
+    "Do the dishes" : {
+      "comment" : "A dinner job"
     },
     "Does anyone have food allergies?" : {
 
@@ -1074,6 +1129,9 @@
 
     },
     "Foon signs out on every phone, tablet, and Mac using your account, including this one." : {
+
+    },
+    "Foon takes turns among whoever's home each night, and whoever's cooking gets the night off. Nobody checks anything off, and Foon doesn't keep score." : {
 
     },
     "Foon won't plan dinners for those nights, add them to the list, or send reminders about them. Everyone shows as out, and you'll see Away on This Week." : {
@@ -1272,10 +1330,22 @@
     "How often" : {
 
     },
+    "I can't cook after all" : {
+
+    },
     "I want..." : {
 
     },
     "I wasn't home" : {
+
+    },
+    "I'll cook %@" : {
+      "comment" : "Offer to cook: a weekday, maybe with its date"
+    },
+    "I'll cook tomorrow" : {
+
+    },
+    "I'll cook tonight" : {
 
     },
     "I'm %@'s parent or guardian, and I agree to %@ using Foon on their own device. Foon stores what our family enters about %@ (first name, avatar, allergies, and schedule), what %@ adds (requests, ratings, comments, and list items), and an age range from Apple, never a birthdate. It's shared only with this household and never used for ads. I can withdraw this at any time." : {
@@ -1745,6 +1815,9 @@
     "Notifications" : {
 
     },
+    "Off" : {
+      "comment" : "Family: the household doesn't use dinner jobs"
+    },
     "Oldest first. Planners see these in Swap, with allergy flags for whoever's home that night." : {
 
     },
@@ -1766,6 +1839,9 @@
     "Only people in this family can change its freezer." : {
 
     },
+    "Only planners can change dinner jobs." : {
+
+    },
     "Only planners can change food rules." : {
 
     },
@@ -1776,6 +1852,9 @@
 
     },
     "Only planners can hide a comment." : {
+
+    },
+    "Only they or a planner can take that back." : {
 
     },
     "Only what you'd hate to miss: time to plan, the plan's set, urgent list items, and prep reminders. No rating prompts or polls." : {
@@ -1797,6 +1876,9 @@
 
     },
     "Opens their profile to send an invite" : {
+
+    },
+    "Optional helper jobs that rotate among whoever's home." : {
 
     },
     "Optional. A side from your library brings its ingredients to the list." : {
@@ -2073,6 +2155,9 @@
     "Servings go from 1 to 50." : {
 
     },
+    "Set the table" : {
+      "comment" : "A dinner job"
+    },
     "Sets when This Week says to start cooking. If you're not sure, only quick and slow cooker dishes get an estimate." : {
 
     },
@@ -2167,6 +2252,12 @@
 
     },
     "Someone archived it." : {
+
+    },
+    "Someone else just said they'd cook that night." : {
+
+    },
+    "Someone who eats separately isn't in the rotation." : {
 
     },
     "Something else" : {
@@ -2297,6 +2388,9 @@
     "Take back your me too" : {
 
     },
+    "Take this off the night" : {
+
+    },
     "Takeout" : {
 
     },
@@ -2307,6 +2401,9 @@
 
     },
     "Tap the dinners your family already makes. You can add your own anytime." : {
+
+    },
+    "Tells the family you're cooking this night" : {
 
     },
     "Tex-Mex" : {
@@ -2349,6 +2446,9 @@
     "That dinner can't be thanked anymore." : {
 
     },
+    "That dinner has already happened, so its cook is set on the log." : {
+
+    },
     "That dish can't go on this night: it's been taken out of rotation, or it wasn't made yet." : {
 
     },
@@ -2376,6 +2476,9 @@
     "That night has already passed." : {
 
     },
+    "That night's a quick pick now, so there's nothing to cook." : {
+
+    },
     "That schedule didn't delete. Only a parent can delete one, and it may already be gone." : {
 
     },
@@ -2383,6 +2486,9 @@
 
     },
     "That's a different Apple ID from the one you use with Foon. Confirm with the Apple ID you signed in with. Nothing was deleted." : {
+
+    },
+    "That's changed since this phone last looked. Here's the latest." : {
 
     },
     "Thaw first" : {
@@ -2412,6 +2518,9 @@
     "The family's away that night, so it can't take a dinner. Change the away dates in Family to plan it." : {
 
     },
+    "The family's away that night, so nobody's cooking." : {
+
+    },
     "The family's away that night, so there's no dinner to plan. Pick another night, or send it without one." : {
 
     },
@@ -2439,10 +2548,16 @@
     "These are planned leftovers. Changing this night means the dish goes back to its regular amounts when you update the list." : {
 
     },
+    "They eat separately, so they aren't asked to cook." : {
+
+    },
     "They eat separately, so they don't rate dinners." : {
 
     },
     "They lose access right away. Their ratings and history stay." : {
+
+    },
+    "They're down as out that night. A planner can change who's home." : {
 
     },
     "They're signed out of the household on their own device now, and stay in the family on yours. If you don't consent again within 30 days, what they added themselves is erased." : {
@@ -2697,6 +2812,9 @@
     "Which dish?" : {
 
     },
+    "Which jobs" : {
+
+    },
     "Which night for the leftovers?" : {
 
     },
@@ -2709,6 +2827,9 @@
     "Who cooked?" : {
 
     },
+    "Who takes turns" : {
+
+    },
     "Who they are" : {
 
     },
@@ -2716,6 +2837,9 @@
 
     },
     "Who's at your table?" : {
+
+    },
+    "Who's cooking" : {
 
     },
     "Who's home" : {
@@ -2739,7 +2863,13 @@
     "You can do that for yourself, or for someone without their own account." : {
 
     },
+    "You can offer for yourself, or for someone without their own account." : {
+
+    },
     "You can't change this meal. Only planners can." : {
+
+    },
+    "You cooked" : {
 
     },
     "You shared %lld things with Foon" : {
@@ -2764,6 +2894,9 @@
 
     },
     "You're away those nights" : {
+
+    },
+    "You're cooking" : {
 
     },
     "Your account is deleted. This can't be undone." : {

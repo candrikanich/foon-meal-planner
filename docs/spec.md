@@ -265,7 +265,7 @@ v1 rules (#24, `Foon/Core/Planning/BuildMyWeek.swift`, a pure function of the in
 
 **Fridge cleanout.** Leftovers carry their age. The app can suggest a leftovers night when several are piling up and flag old ones: "Monday's tacos are 4 days old. Use or toss?"
 
-**Day cards.** Each night is a card holding everything: effort chip, tap-to-toggle attendance avatars, meal with reason chip, inline lock, shuffle, and swap, and badges. Cards stack like Apple Wallet with tonight on top. The same card is the This Week view and the planning view; an empty card offers Pick for me or Choose. Kids see cards read-only with vote and suggest-a-swap. No family approval step: the planner approves and the list is built.
+**Day cards.** Each night is a card holding everything: effort chip, tap-to-toggle attendance avatars, meal with reason chip, inline lock, shuffle, and swap, and badges. Cards stack like Apple Wallet with tonight on top. The same card is the This Week view and the planning view; an empty card offers Pick for me or Choose. Kids see cards read-only with vote and suggest-a-swap, and anyone can offer to cook from a card (see Claim a night). No family approval step: the planner approves and the list is built.
 
 - **Cooking start time (#55):** a card with a meal can say "Start cooking at 5:45 PM for 6:30 PM dinner," counted back from that night's dinner time (the household's if the night has none). Everyone sees it; it's a line on the card, not a notification. It doesn't show on past nights, on a night nobody's home, for a dish that would have to start the day before, or tonight once the start has passed on the household's clock: nobody can follow an instruction for this morning. Family → Kitchen turns it off for the household. A dish from the freezer has no cooking time, prep step, or equipment note on its card; it's already cooked.
 - **Cook once, eat twice (#53):** Double it and the freezer stash.
@@ -321,6 +321,29 @@ The plan is the log by default; one notification per person confirms it, rates i
   - **Rules:** thanks come from your own profile, once per dinner, never to yourself, only for a cooked dish (not a quick pick), for a dinner from the last week, and are never taken back. Once someone has said thanks, the cook and the dish on that log stay as they were.
   - **Family tab:** "Cooked this month" lists each cook's dishes and thank-yous, in family order (credit, not a leaderboard), from the month's logs in the household's time zone. Quick picks don't count.
   - **Retention:** a withdrawn kid's own thanks are erased with their other contributions.
+
+**Claim a night (#50).** Anyone can say "I'll cook Thursday" on a night's card, a planner or not, a kid or not. A claim is a promise and a log is what happened: credit only ever comes from the log.
+- **Who:** you, or (in a night's detail, passing the phone) a profile nobody has claimed. A planner can't volunteer someone with their own account. Someone who eats separately isn't offered, nor is anyone marked out that night, and the server refuses both; "Who cooked?" leaves out someone who eats separately too. To cook a night you're marked out for, ask a planner to change who's home.
+- **Which nights:** tonight or later, in the household's day, with nothing logged yet and something to cook: a dish or an empty night, not a quick pick. Past nights, away nights and quick-pick nights have no button.
+- **Two people:** a night has one cook. The second person is told someone got there first, and the card then shows who. Tapping again changes nothing.
+- **Shown:** the card shows the cook's avatar and "Ben is cooking" (or "You're cooking"). Once a dinner's logged, the card goes by the log ("Ben cooked"), and says nothing if nobody's down. A night gone by with no log says nothing.
+- **Taking it back:** whoever offered, anyone for a profile nobody has claimed, or a planner, from the night's detail, until the dinner's logged. The row stays, marked released; it's never deleted. By the claim, not the night, so a phone that's behind can't end someone's newer claim.
+- **When the night changes:** nothing keeps a claim in step with its night. It's read along with the night as it is now.
+  - Swap, Plan it, Build my week, Fill, Shuffle, the freezer, or clearing the night: the promise stands, whatever's on the night.
+  - A quick pick, including the night that becomes leftovers from Double it: on hold. The card doesn't say anyone's cooking, the night's detail says why, and it counts again if the night goes back to a dish.
+  - The person marked out: on hold the same way, and someone else can take the night, which ends the old claim.
+  - Away dates covering the night: it ends, and shortening the dates doesn't bring it back. Tonight keeps a dinner it already has inside new away dates, so its claim stands too.
+  - Removed, deleted, or now eats separately: it doesn't count.
+- **Feeding credit:** when a dish is logged (the first tap, or the overnight job), the log's cook starts as whoever's claim stands. It's a default, so "Who cooked?" starts on them and the first responder can change or clear it, and a cleared cook stays cleared. No credit for a quick pick, or anyone marked out, removed, or eating separately. "We had something else" keeps the cook for the first responder to fix, and a quick pick doesn't count as cooking. Saying "Wasn't home" takes you off as the cook, unless someone has thanked you. An overnight log nobody confirmed still gives the credit from the claim: nobody said otherwise.
+- **Planners hear about it:** in the app for now, a note at the top of This Week ("Ben will cook Thursday"), dismissed per device, for someone else's claim on a night still ahead that stands as it is. Not one you entered yourself. Taking a claim back has no note; the card just changes. **M2 car 6** adds the push, reading the same thing: rows in `night_claims` with no `released_at`, sent to the household's planners except whoever entered it, after asking `household_away_on` like every other send.
+- **Retention:** a withdrawn kid's offers they made themselves are erased, and ones a parent entered stay. Deleting an adult's account or removing a kid under retention ends their open claims; past ones stay as anonymous history. Export includes them.
+- **Older apps** don't read claims. They log dinners through the same `confirm_dinner`, so the default still lands, though their "Who cooked?" starts blank and can clear it.
+
+**Dinner jobs (#50).** Optional helper jobs: set the table, clear the table, do the dishes. Off until a planner turns one on in Family → Dinner jobs, which also says who takes turns. Everyone's in by default, including someone added later; a planner can leave someone out. Someone who eats separately is never in it.
+- **Who does what:** worked out on the device from the week, so every phone shows the same thing and nothing is stored or assigned. Through the week in order, each job goes to whoever's home that night who has done least this week, then that job least. Who starts moves on each week. People home the same nights stay within one of each other. The night's cook has the night off, nobody gets two jobs in a night, and a job with nobody left doesn't show.
+- **Which nights:** tonight or later, with something on the table: a dish, leftovers, takeout, or a freezer raid. Not eating out, fending for yourselves, an empty night, or an away night; those don't use up a turn. Changing who's home on a night can change who's up later that week.
+- **No score:** no check-off, no reminders, no tally, and nothing about who did or didn't. Can't do it tonight? Trade. It's only ever words on the card and in the night's detail.
+- **Settings:** `households.settings.dinner_jobs`, written only through `set_dinner_job` and `set_dinner_job_person`, one change at a time under a lock, so two planners can't undo each other and a whole-settings save from a stale phone or older app can't touch it.
 
 **v1 effects (#42, part 3).** A person's current verdict on a dish is their latest reaction to it:
 - **Favorite:** pinned to them; Build my week boosts it on their home nights.
@@ -480,6 +503,7 @@ iOS-only, multiplatform SwiftUI (iPhone, iPad, Mac) on Supabase, with a local ca
 | night\_attendance | plan night, member, expected, confirmed, seating (model only, see Outliers) |
 | attendance\_templates | household, name, schedules (member id to their attendance defaults) |
 | meal\_logs | plan night, meal or quick pick actually eaten, cooked by, leftovers, verified, confirmed by |
+| night\_claims | household, plan night, member, entered by, released at (at most one open per night) |
 | reactions | meal log, member, reaction, off-tonight flag, comment, comment hidden at |
 | requests | household, member, meal, name or link, note, target date (optional), status, planned night; me-toos in request\_plus\_ones |
 | list\_items | household, item, list (weekly, quick), urgency, source, checked |
@@ -500,7 +524,7 @@ Every family is different; these are all in, each optional and off or unobtrusiv
 | Side dishes | Optional side pairings per meal (salad, garlic bread) so the list is complete. A side is a library meal (its ingredients join the list) or a simple item (added itself); one level, so sides of sides aren't followed. Shown on day cards ("with salad and garlic bread") and meal detail ("Goes with"); Copy and tweak keeps them. Archived meals can be sides; retired ones can't, and a side retired later drops off. Allergy flags include sides | 1 |
 | Non-food items | Household and personal care items (paper towels, toothpaste) live on the same list, sorted after groceries in store mode, and can be keep-on-hand staples | 1 |
 | Item notes and brands | "Vanilla yogurt, not plain," "store brand": a standing note per item (80 characters), set by anyone at home and shown with the item on meals, lists, and in store mode | 1 |
-| Claim a night | Anyone taps "I'll cook Thursday"; voluntary, visible, feeds cook credit | 2 |
+| Claim a night | Anyone taps "I'll cook Thursday"; voluntary, visible, feeds cook credit. v1: see Claim a night (#50) | 2 |
 | Heading to the store | One tap tells the family to add items in the next 10 minutes | 2 |
 | Vacation or pause mode | Skip planning, notifications, and lists for away days. v1: see Away dates (#52) | 2 |
 | Season templates | Save and switch attendance patterns (baseball season, school year, summer). v1: see Saved schedules (#52) | 2 |
@@ -509,7 +533,7 @@ Every family is different; these are all in, each optional and off or unobtrusiv
 | Variety nudges | "Pasta 3 times this week", and the draw leans away from a category as it repeats; no calorie or nutrition tracking, by design | 2 |
 | Cooking start time | "Start cooking at 5:45 for 6:30 dinner," from prep time. v1: see Cooking start time (#55) | 2 |
 | Kitchen equipment | Household owns an air fryer, Instant Pot, grill; filter suggestions. v1: see Kitchen equipment (#55) | 2 |
-| Dinner jobs | Optional rotating helper tasks (set the table, dishes) | 2 |
+| Dinner jobs | Optional rotating helper tasks (set the table, dishes). v1: see Dinner jobs (#50) | 2 |
 | Change history and undo | "Dad swapped Tuesday to tacos"; undo recent changes | 2 |
 | Calendar awareness | With permission, read the family calendar on-device and pre-mark busy nights as rushed; nothing leaves the phone | 3 |
 | Picky-eater wins | "Nora tried 3 new dishes this month"; celebrates trying, not just liking | 3 |
@@ -630,7 +654,7 @@ Build everything, in order: Phase 1 (the Sunday flow) is what to sit down with y
 * [ ] Transactional email with Resend, adults only; Apple private relay domain registered
 * [ ] Household shapes: recurring away patterns, eats-separately flag, recurring food rules, two-seating data model, hide comments
 
-- [ ] Claim a night and dinner jobs
+- [x] Claim a night and dinner jobs (#50)
 - [ ] Heading to the store broadcast
 - [ ] Vacation or pause mode; season templates
 - [ ] Cook once, eat twice; freezer stash

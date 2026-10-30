@@ -158,7 +158,13 @@ struct DinnerExtrasCard: View {
     @Environment(HouseholdStore.self) private var household
     let prompt: DinnerPrompts.Prompt
     @State private var leftovers: Bool?
+    /// Starts with who offered to cook, if anyone, so a tap only corrects it.
     @State private var cook: UUID?
+
+    init(prompt: DinnerPrompts.Prompt) {
+        self.prompt = prompt
+        _cook = State(initialValue: prompt.log?.cookedByMemberID)
+    }
 
     var body: some View {
         let guess = DinnerPrompts.expectsLeftovers(prompt.night)
@@ -174,7 +180,7 @@ struct DinnerExtrasCard: View {
                 Text("Who cooked?").font(.foonCaption).foregroundStyle(.secondary)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(household.visibleMembers) { member in
+                        ForEach(household.visibleMembers.filter { !$0.eatsSeparately || $0.id == cook }) { member in
                             Button { cook = cook == member.id ? nil : member.id } label: {
                                 VStack(spacing: 4) {
                                     MemberAvatar(member: member, size: 36)

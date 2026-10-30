@@ -5,6 +5,7 @@ struct NightDetailView: View {
     @Environment(WeekStore.self) private var week
     @Environment(HouseholdStore.self) private var household
     @Environment(LibraryStore.self) private var library
+    @Environment(DinnerStore.self) private var dinnerStore
     @Environment(\.dismiss) private var dismiss
     let nightID: UUID
     let canPlan: Bool
@@ -42,6 +43,10 @@ struct NightDetailView: View {
             } header: {
                 Text(DayCardText.dateLabel(for: night.date))
             }
+
+            NightClaimSection(night: night, canPlan: canPlan)
+
+            dinnerJobs(night)
 
             cookOnceEatTwice(night)
 
@@ -101,6 +106,32 @@ struct NightDetailView: View {
         }
         .sheet(isPresented: $swapping) {
             SwapSheet(nightID: nightID)
+        }
+    }
+
+    /// Whose turn it is, when the household uses jobs.
+    @ViewBuilder
+    private func dinnerJobs(_ night: WeekNight) -> some View {
+        let settings = household.household?.planningSettings ?? HouseholdSettings()
+        let nights = week.week?.nights ?? []
+        let members = household.visibleMembers
+        let lines = DinnerJobs.lines(
+            for: night,
+            in: DinnerJobs.assign(nights: nights, settings: settings.dinnerJobs, members: members,
+                                  cooks: NightClaims.cooks(nights: nights, claims: dinnerStore.claims, logs: dinnerStore.logs,
+                                                           members: members, away: settings.awayDates, today: week.todayDay),
+                                  away: settings.awayDates, today: week.todayDay),
+            members: members, today: week.todayDay)
+        if !lines.isEmpty {
+            Section {
+                ForEach(lines, id: \.self) { line in
+                    LabeledContent(line.title, value: line.firstName)
+                }
+            } header: {
+                Text("Dinner jobs")
+            } footer: {
+                Text("Can't do it tonight? Just trade. Foon doesn't keep score.")
+            }
         }
     }
 

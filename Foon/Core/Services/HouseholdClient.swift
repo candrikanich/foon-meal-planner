@@ -34,6 +34,12 @@ struct HouseholdClient: Sendable {
     /// Sets or (nil) takes away one food's rule, in the list as it is on the server, and returns the list.
     var setFoodRule: @Sendable (_ householdID: UUID, _ avoid: FoodRule.Avoid, _ nights: FoodRule.Nights?) async throws -> [FoodRule]
         = { _, _, _ in [] }
+    /// Turns one dinner job on or off, in the setting as it is on the server, and returns the setting.
+    var setDinnerJob: @Sendable (_ householdID: UUID, _ job: DinnerJob, _ isOn: Bool) async throws -> DinnerJobSettings
+        = { _, _, _ in DinnerJobSettings() }
+    /// Puts one person in the rotation or leaves them out, the same way.
+    var setDinnerJobPerson: @Sendable (_ householdID: UUID, _ memberID: UUID, _ isIn: Bool) async throws -> DinnerJobSettings
+        = { _, _, _ in DinnerJobSettings() }
     /// Everything in the household as JSON (planners only), for the data export.
     var exportHousehold: @Sendable (_ householdID: UUID) async throws -> Data = { _ in Data("{}".utf8) }
     /// Erases the household the caller owns, photos included, for everyone; their account stays.
@@ -185,6 +191,16 @@ extension HouseholdClient {
                     targetHousehold: householdID, avoid: avoid, nights: nights
                 )).execute().value
                 return rules.compactMap(\.rule)
+            },
+            setDinnerJob: { householdID, job, isOn in
+                try await client.rpc("set_dinner_job", params: DinnerJobParams(
+                    targetHousehold: householdID, job: job.rawValue, isOn: isOn
+                )).execute().value
+            },
+            setDinnerJobPerson: { householdID, memberID, isIn in
+                try await client.rpc("set_dinner_job_person", params: DinnerJobPersonParams(
+                    targetHousehold: householdID, targetMember: memberID, isIn: isIn
+                )).execute().value
             },
             exportHousehold: { householdID in
                 try await client.rpc("export_household", params: ["target_household": householdID.uuidString])
@@ -351,6 +367,30 @@ private struct NewParentalConsent: Encodable, Sendable {
 }
 
 /// Every argument is sent, null included: PostgREST picks the function by its argument names.
+private struct DinnerJobParams: Encodable {
+    let targetHousehold: UUID
+    let job: String
+    let isOn: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case job
+        case targetHousehold = "target_household"
+        case isOn = "is_on"
+    }
+}
+
+private struct DinnerJobPersonParams: Encodable {
+    let targetHousehold: UUID
+    let targetMember: UUID
+    let isIn: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case targetHousehold = "target_household"
+        case targetMember = "target_member"
+        case isIn = "is_in"
+    }
+}
+
 private struct FoodRuleParams: Encodable {
     let targetHousehold: UUID
     let avoid: FoodRule.Avoid

@@ -155,6 +155,12 @@ struct DinnerClient: Sendable {
     var thanks: @Sendable (_ householdID: UUID, _ since: CalendarDay) async throws -> [ChefThanks] = { _, _ in [] }
     /// "Thanks, chef", from your own profile.
     var thankTheChef: @Sendable (_ logID: UUID) async throws -> Void = { _ in }
+    /// Open offers to cook, for nights on or after `since`.
+    var claims: @Sendable (_ householdID: UUID, _ since: CalendarDay) async throws -> [NightClaim] = { _, _ in [] }
+    /// "I'll cook Thursday": for yourself, or a profile nobody has claimed. If someone else has the night, the server says so.
+    var claimNight: @Sendable (_ nightID: UUID, _ memberID: UUID) async throws -> Void = { _, _ in }
+    /// Takes one offer back, by its id: a phone that's behind can't end a newer one.
+    var releaseClaim: @Sendable (_ claimID: UUID) async throws -> Void = { _ in }
 }
 
 /// One "Thanks, chef": from whom, for which dinner.
@@ -228,6 +234,23 @@ extension DinnerClient {
             },
             thankTheChef: { logID in
                 try await client.rpc("thank_the_chef", params: ["target_log": logID.uuidString]).execute()
+            },
+            claims: { householdID, since in
+                try await client.from("night_claims")
+                    .select(NightClaim.columns)
+                    .eq("household_id", value: householdID)
+                    .is("released_at", value: nil)
+                    .gte("plan_nights.date", value: since.isoString)
+                    .execute()
+                    .value
+            },
+            claimNight: { nightID, memberID in
+                try await client.rpc("claim_night", params: [
+                    "target_night": nightID.uuidString, "target_member": memberID.uuidString
+                ]).execute()
+            },
+            releaseClaim: { claimID in
+                try await client.rpc("release_claim", params: ["target_claim": claimID.uuidString]).execute()
             }
         )
     }

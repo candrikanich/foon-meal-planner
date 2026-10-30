@@ -108,6 +108,10 @@ insert into public.reactions (household_id, meal_log_id, member_id, reaction) va
 insert into public.chef_thanks (household_id, meal_log_id, from_member_id) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000003a1',
    '00000000-0000-0000-0000-0000000000a1');
+insert into public.night_claims (household_id, night_id, member_id) values
+  ('00000000-0000-0000-0000-0000000000a0',
+   (select id from public.plan_nights where household_id = '00000000-0000-0000-0000-0000000000a0' limit 1),
+   '00000000-0000-0000-0000-0000000000a2');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 
 -- Clients never call it, not even the owner: it goes through the Edge Function, which removes photos first.
