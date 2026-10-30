@@ -12,6 +12,8 @@ struct FamilyView: View {
 
     private var isOwner: Bool { store.household?.owner == store.userID }
 
+    private var canPlan: Bool { LibraryStore.canEdit(me: store.me, isOwner: isOwner) }
+
     private var accountDeletion: AccountDeletion {
         .outcome(household: store.household, me: store.me, userID: store.userID)
     }
@@ -53,6 +55,26 @@ struct FamilyView: View {
                     }
                 }
 
+
+                if canPlan || store.canManagePeople {
+                    Section {
+                        if canPlan {
+                            NavigationLink {
+                                AwayDatesView()
+                            } label: {
+                                LabeledContent("Away dates", value: awaySummary)
+                            }
+                        }
+                        // A person's usual schedule is theirs or a parent's to change.
+                        if store.canManagePeople {
+                            NavigationLink("Saved schedules") { AttendanceTemplatesView() }
+                        }
+                    } header: {
+                        Text("Trips and seasons")
+                    } footer: {
+                        Text("Pause planning while you're all away, and switch everyone's usual nights home when the season changes.")
+                    }
+                }
 
                 // Family order, not a ranking: credit, not a leaderboard.
                 let cooks = Dictionary(dinner.cookTally.map { ($0.memberID, $0) }, uniquingKeysWith: { first, _ in first })
@@ -156,6 +178,12 @@ struct FamilyView: View {
                 }
             }
         }
+    }
+
+    private var awaySummary: String {
+        guard let settings = store.household?.planningSettings else { return String(localized: "None") }
+        let today = settings.today()
+        return settings.awayDates(endingOnOrAfter: today).first?.summary(today: today) ?? String(localized: "None")
     }
 
     private func loadDinners() async {

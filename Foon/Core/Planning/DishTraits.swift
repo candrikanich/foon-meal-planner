@@ -151,9 +151,9 @@ struct VarietyNudge: Equatable, Sendable {
 
 extension WeekLayout {
     /// The whole week counts, past nights too, but a note is only worth showing while it can still change something:
-    /// a night ahead that isn't locked or an event.
+    /// a night ahead that isn't locked, an event, or inside the away dates.
     var varietyNudge: VarietyNudge? {
-        guard ahead.contains(where: { !$0.locked && $0.effort != .event }) else { return nil }
+        guard plannable.contains(where: { !$0.locked && $0.effort != .event }) else { return nil }
         return VarietyNudge.nudge(mealNames: (past + ahead).compactMap(\.mealName))
     }
 }

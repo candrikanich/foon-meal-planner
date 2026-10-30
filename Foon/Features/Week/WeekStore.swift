@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import Supabase
 
 /// This week (or next) for the planner: start it, toggle who's home, and cycle each night's effort.
 /// Changes show at once. Writes to one night go out in order; if one fails, the week reloads from the server.
@@ -15,7 +16,14 @@ final class WeekStore {
 
     let householdID: UUID
     private let client: WeekClient
-    private let today: () -> CalendarDay
+    /// Injected in tests; otherwise today is worked out from `now` in the household's time zone.
+    private let fixedToday: (() -> CalendarDay)?
+    private let now: () -> Date
+    /// The household's calendar, from the last load's settings: the server clears away nights by the same day.
+    private var calendar = Calendar.current
+    /// Bumped when the server refuses a dinner because the family is away: this device hasn't heard about the dates, so
+    /// This Week reloads the household.
+    private(set) var awayRefusals = 0
     /// A fresh seed per build or shuffle; tests pin it so drafts are predictable.
     private let seed: () -> UInt64
     /// The last write queued per night, so the next one waits for it.
@@ -30,21 +38,38 @@ final class WeekStore {
     /// Request → night for each idea the last build placed, so only those nights mark an idea planned (not a tradition,
     /// a pick that happens to be the same dish, or another idea for it). A swap on the night drops it.
     private(set) var requestNights: [UUID: UUID] = [:]
+    /// The household's away dates, as of the last load: those nights show as away and aren't planned.
+    private(set) var awayDates: [AwayDates] = []
 
-    init(householdID: UUID, client: WeekClient, today: @escaping () -> CalendarDay = { CalendarDay(Date()) },
-         seed: @escaping () -> UInt64 = { UInt64.random(in: .min ... .max) }) {
+    init(householdID: UUID, client: WeekClient, today: (() -> CalendarDay)? = nil,
+         seed: @escaping () -> UInt64 = { UInt64.random(in: .min ... .max) }, now: @escaping () -> Date = { .now }) {
         self.householdID = householdID
         self.client = client
-        self.today = today
+        self.fixedToday = today
+        self.now = now
         self.seed = seed
     }
 
     var todayDay: CalendarDay { today() }
 
+    private func today() -> CalendarDay {
+        fixedToday?() ?? CalendarDay(now(), calendar: calendar)
+    }
+
+    /// Every night left in the week showing is inside the away dates, so there's nothing to start or build.
+    var isAwayForTheRestOfTheWeek: Bool {
+        guard let start else { return false }
+        let today = today()
+        let left = (0..<7).map { start.adding(days: $0) }.filter { $0 >= today }
+        return !left.isEmpty && left.allSatisfy { day in awayDates.contains { $0.contains(day) } }
+    }
+
     func load(settings: HouseholdSettings) async {
+        calendar = settings.dayCalendar
         let thisWeek = WeekMath.start(of: today(), weekStart: settings.weekStart)
         let start = showingNextWeek ? thisWeek.adding(days: 7) : thisWeek
         if start != self.start { week = nil }
+        awayDates = settings.awayDates
         self.start = start
         isLoading = true
         defer { isLoading = false }
@@ -127,7 +152,7 @@ final class WeekStore {
     }
 
     var layout: WeekLayout? {
-        week.map { WeekLayout(nights: $0.nights, today: today()) }
+        week.map { WeekLayout(nights: $0.nights, today: today(), away: awayDates) }
     }
 
     /// Today as the store sees it (injected in tests), for labels that must agree with `layout`.
@@ -228,7 +253,7 @@ final class WeekStore {
             try await client.setNights(planID, updates)
             errorMessage = nil
         } catch {
-            errorMessage = String(localized: "Couldn't save the plan. Check your connection and try again.")
+            errorMessage = message(for: error, otherwise: String(localized: "Couldn't save the plan. Check your connection and try again."))
             await reload()
         }
     }
@@ -324,7 +349,11 @@ final class WeekStore {
     /// A night's card. Badges are worked out by the caller, who knows the meal and the family's allergies.
     static func card(for night: WeekNight, members: [Member], sides: (UUID) -> [String] = { _ in [] },
                      badges: (UUID, Set<UUID>) -> [DayCardModel.Badge] = { _, _ in [] },
-                     notes: (UUID, Set<UUID>) -> [String] = { _, _ in [] }) -> DayCardModel {
+                     notes: (UUID, Set<UUID>) -> [String] = { _, _ in [] }, isAway: Bool = false) -> DayCardModel {
+        guard !isAway else {
+            return DayCardModel(date: night.date, effort: night.effort, slot: .away, attendance: [], badges: [],
+                                isLocked: false)
+        }
         let home = Set(night.attendance.filter(\.value).keys)
         return DayCardModel(
             date: night.date,
@@ -368,7 +397,7 @@ final class WeekStore {
                 errorMessage = nil
                 return true
             } catch {
-                errorMessage = failure
+                errorMessage = message(for: error, otherwise: failure)
                 await reload()
                 return false
             }
@@ -381,6 +410,13 @@ final class WeekStore {
     private func reload() async {
         guard let start else { return }
         if let loaded = try? await client.week(householdID, start), start == self.start { week = loaded }
+    }
+
+    /// `plan_nights_refuse_away`'s refusal has nothing to do with the connection.
+    private func message(for error: any Error, otherwise: String) -> String {
+        guard (error as? PostgrestError)?.code == "22023" else { return otherwise }
+        awayRefusals += 1
+        return String(localized: "The family's away that night, so it can't take a dinner. Change the away dates in Family to plan it.")
     }
 
     private func nightIndex(_ id: UUID) -> Int? {
@@ -408,7 +444,7 @@ struct PlanningContext {
 
     func inputs(for week: Week, today: CalendarDay) -> PlanningInputs {
         PlanningInputs(
-            nights: week.nights.map(PlanningNight.init),
+            nights: week.nights.map { PlanningNight($0, isAway: $0.readsAway(in: settings.awayDates, today: today)) },
             meals: meals,
             history: history,
             settings: settings,

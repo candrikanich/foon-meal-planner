@@ -33,6 +33,18 @@ struct HouseholdClient: Sendable {
     var exportHousehold: @Sendable (_ householdID: UUID) async throws -> Data = { _ in Data("{}".utf8) }
     /// Erases the household the caller owns, photos included, for everyone; their account stays.
     var deleteHousehold: @Sendable () async throws -> Void = { }
+    /// Adds a stretch to the household's away dates as they are on the server, and returns the list; the server also
+    /// brings the weeks already started into line.
+    var addAwayDates: @Sendable (_ householdID: UUID, _ dates: AwayDates) async throws -> [AwayDates] = { _, _ in [] }
+    /// Takes those nights out of the away dates as they are on the server, and returns the list.
+    var removeAwayDates: @Sendable (_ householdID: UUID, _ dates: AwayDates) async throws -> [AwayDates] = { _, _ in [] }
+    var attendanceTemplates: @Sendable (_ householdID: UUID) async throws -> [AttendanceTemplate] = { _ in [] }
+    /// Saves everyone's usual schedule as it is on the server now, replacing a template with that name.
+    var saveAttendanceTemplate: @Sendable (_ householdID: UUID, _ name: String) async throws -> AttendanceTemplate
+        = { _, name in AttendanceTemplate(id: UUID(), name: name, schedules: [:]) }
+    /// Makes a saved schedule everyone's usual one.
+    var applyAttendanceTemplate: @Sendable (_ templateID: UUID) async throws -> Void = { _ in }
+    var deleteAttendanceTemplate: @Sendable (_ templateID: UUID) async throws -> Void = { _ in }
 }
 
 /// Why Delete household didn't go through.
@@ -174,6 +186,41 @@ extension HouseholdClient {
                 } catch {
                     throw HouseholdDeletionError.unfinished
                 }
+            },
+            addAwayDates: { householdID, dates in
+                try await client.rpc("add_away_dates", params: AwayDatesParams(
+                    targetHousehold: householdID, firstNight: dates.from, lastNight: dates.to
+                )).execute().value
+            },
+            removeAwayDates: { householdID, dates in
+                try await client.rpc("remove_away_dates", params: AwayDatesParams(
+                    targetHousehold: householdID, firstNight: dates.from, lastNight: dates.to
+                )).execute().value
+            },
+            attendanceTemplates: { householdID in
+                try await client.from("attendance_templates")
+                    .select("id, name, schedules")
+                    .eq("household_id", value: householdID)
+                    .order("name")
+                    .execute()
+                    .value
+            },
+            saveAttendanceTemplate: { householdID, name in
+                try await client.rpc("save_attendance_template", params: [
+                    "target_household": householdID.uuidString, "template_name": name
+                ]).execute().value
+            },
+            applyAttendanceTemplate: { templateID in
+                try await client.rpc("apply_attendance_template", params: ["target_template": templateID]).execute()
+            },
+            deleteAttendanceTemplate: { templateID in
+                let deleted: [DeletedTemplate] = try await client.from("attendance_templates")
+                    .delete()
+                    .eq("id", value: templateID)
+                    .select("id")
+                    .execute()
+                    .value
+                if deleted.isEmpty { throw AttendanceTemplateError.notDeleted }
             }
         )
     }
@@ -237,6 +284,22 @@ private struct SettingsParams: Encodable, Sendable {
         case targetHousehold = "target_household"
         case patch
     }
+}
+
+private struct AwayDatesParams: Encodable, Sendable {
+    let targetHousehold: UUID
+    let firstNight: CalendarDay
+    let lastNight: CalendarDay
+
+    enum CodingKeys: String, CodingKey {
+        case targetHousehold = "target_household"
+        case firstNight = "first_night"
+        case lastNight = "last_night"
+    }
+}
+
+private struct DeletedTemplate: Decodable, Sendable {
+    let id: UUID
 }
 
 private struct OpenInvite: Decodable, Sendable {

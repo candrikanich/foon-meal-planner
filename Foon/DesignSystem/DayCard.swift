@@ -51,7 +51,9 @@ struct DayCard: View {
                 .font(.foonCaption)
                 .foregroundStyle(.secondary)
             Spacer()
-            if let actions {
+            if model.slot == .away {
+                EmptyView()
+            } else if let actions {
                 Button(action: actions.cycleEffort) { effortChip }
                     .buttonStyle(.plain)
                     .accessibilityLabel(String(localized: "Effort: \(DayCardText.effortLabel(model.effort))"))
@@ -112,6 +114,14 @@ struct DayCard: View {
                     .frame(width: 56, height: 56)
                     .overlay(Image(systemName: pick.systemImage).font(.title2).foregroundStyle(Palette.paprika))
                 Text(DayCardText.quickPickLabel(pick)).font(.foonTitle).foregroundStyle(Palette.ink)
+            }
+        case .away:
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Palette.herb.opacity(0.14))
+                    .frame(width: 56, height: 56)
+                    .overlay(Image(systemName: "airplane").font(.title2).foregroundStyle(Palette.herb))
+                Text("Away").font(.foonTitle).foregroundStyle(.secondary)
             }
         }
     }

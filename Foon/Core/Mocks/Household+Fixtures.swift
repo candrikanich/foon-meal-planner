@@ -41,6 +41,19 @@ extension Member {
     ]
 }
 
+extension AttendanceTemplate {
+    /// A school year with the kids out some nights, and a summer with everyone home.
+    static func samples(for members: [Member]) -> [AttendanceTemplate] {
+        let kids = members.filter { $0.ageGroup == .kid }.map { ($0.id, AttendanceDefaults(usuallyAway: [1, 3])) }
+        return [
+            AttendanceTemplate(id: UUID(), name: "School year", schedules: Dictionary(uniqueKeysWithValues: kids)),
+            AttendanceTemplate(id: UUID(), name: "Summer", schedules: Dictionary(uniqueKeysWithValues: members.map {
+                ($0.id, AttendanceDefaults())
+            }))
+        ]
+    }
+}
+
 extension HouseholdClient {
     /// Serves a fixed household and family; writes echo back what was sent.
     static func preview(household: Household? = .sample, members: [Member] = Member.sampleFamily) -> HouseholdClient {
@@ -60,7 +73,9 @@ extension HouseholdClient {
             invitedMemberIDs: { _ in [] },
             parentalConsentMemberIDs: { _ in [] },
             recordParentalConsent: { _, _ in },
-            revokeParentalConsent: { _ in }
+            revokeParentalConsent: { _ in },
+            addAwayDates: { _, new in [new] },
+            attendanceTemplates: { _ in AttendanceTemplate.samples(for: members) }
         )
     }
 }

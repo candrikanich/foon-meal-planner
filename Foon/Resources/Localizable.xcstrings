@@ -54,6 +54,9 @@
     "%@ You can change any of this later, for each person." : {
 
     },
+    "%@ and anything else planned for those nights come off, locked nights included, and don't come back if you change your mind." : {
+
+    },
     "%@ cooked the %@" : {
       "localizations" : {
         "en" : {
@@ -73,8 +76,30 @@
     "%@ left" : {
 
     },
+    "%@ out %@" : {
+      "comment" : "Saved schedule: a name, then weekdays",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ out %2$@"
+          }
+        }
+      }
+    },
     "%@ signs out right away and can rejoin only with your consent and a new invite." : {
 
+    },
+    "%@ to %@" : {
+      "comment" : "Away dates: two short dates",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ to %2$@"
+          }
+        }
+      }
     },
     "%@ tonight?" : {
       "comment" : "After-dinner card: the dish, then the question"
@@ -160,6 +185,9 @@
     "%lld nights still open" : {
 
     },
+    "%lld nights." : {
+
+    },
     "%lld of %lld" : {
       "localizations" : {
         "en" : {
@@ -207,6 +235,9 @@
 
     },
     "1 night still open" : {
+
+    },
+    "1 night." : {
 
     },
     "1 request waiting" : {
@@ -279,6 +310,9 @@
 
     },
     "Add an item" : {
+
+    },
+    "Add away dates" : {
 
     },
     "Add everyone who eats with you, kids too. They can join on their own phones later." : {
@@ -359,6 +393,9 @@
     "An idea" : {
 
     },
+    "Anything planned for those nights comes off, locked nights included, and doesn't come back if you change your mind." : {
+
+    },
     "Approve · %lld items" : {
 
     },
@@ -392,8 +429,17 @@
     "Away" : {
 
     },
+    "Away %@. Foon won't plan dinners for those nights or add them to the list." : {
+
+    },
+    "Away dates" : {
+
+    },
     "Away until %@" : {
       "comment" : "Member status: a short date such as Nov 4"
+    },
+    "Away, no dinner to plan" : {
+
     },
     "Away: %@" : {
 
@@ -489,6 +535,9 @@
     "Close" : {
 
     },
+    "Coming up" : {
+
+    },
     "Confirm with Apple to delete. Foon also stops using Sign in with Apple for your account." : {
 
     },
@@ -548,6 +597,9 @@
     "Couldn't create your household. Check your connection and try again." : {
 
     },
+    "Couldn't delete the schedule. Check your connection and try again." : {
+
+    },
     "Couldn't delete your account, and nothing was deleted. Check your connection and try again." : {
 
     },
@@ -581,6 +633,9 @@
     "Couldn't load your library. Check your connection and try again." : {
 
     },
+    "Couldn't load your saved schedules. Check your connection and try again." : {
+
+    },
     "Couldn't load your traditions. Pull to refresh, then try again." : {
 
     },
@@ -608,6 +663,9 @@
     "Couldn't save the allergies. Check your connection and try again." : {
 
     },
+    "Couldn't save the away dates. Check your connection and try again." : {
+
+    },
     "Couldn't save the meal. Check your connection and try again." : {
 
     },
@@ -615,6 +673,9 @@
 
     },
     "Couldn't save the plan. Check your connection and try again." : {
+
+    },
+    "Couldn't save the schedule. Check your connection and try again." : {
 
     },
     "Couldn't save the settings. Check your connection and try again." : {
@@ -644,6 +705,9 @@
     "Couldn't swap the night. Check your connection and try again." : {
 
     },
+    "Couldn't switch schedules. Pull to refresh, then try again." : {
+
+    },
     "Couldn't upload the photo. Check your connection and try again." : {
 
     },
@@ -657,6 +721,15 @@
 
     },
     "Dairy and eggs" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Delete %@" : {
+
+    },
+    "Delete %@?" : {
 
     },
     "Delete household" : {
@@ -770,7 +843,16 @@
     "Everyone at the table rates on this phone" : {
 
     },
+    "Everyone home every night" : {
+
+    },
     "Everyone's here. You can invite people later from Family." : {
+
+    },
+    "Everyone's usual nights home change to this schedule." : {
+
+    },
+    "Everyone's usual nights home change to this schedule. Today's isn't saved, so save it first if you'll want it back." : {
 
     },
     "Everything's in the cart" : {
@@ -821,6 +903,9 @@
     "First names need 1 to 30 characters." : {
 
     },
+    "First night away" : {
+
+    },
     "Foon" : {
 
     },
@@ -846,6 +931,9 @@
 
     },
     "Foon signs out on every phone, tablet, and Mac using your account, including this one." : {
+
+    },
+    "Foon won't plan dinners for those nights, add them to the list, or send reminders about them. Everyone shows as out, and you'll see Away on This Week." : {
 
     },
     "For a night" : {
@@ -1011,6 +1099,9 @@
     "In the cart" : {
 
     },
+    "In use" : {
+
+    },
     "In your library" : {
 
     },
@@ -1078,6 +1169,9 @@
 
     },
     "Kid" : {
+
+    },
+    "Last night away" : {
 
     },
     "Later" : {
@@ -1159,6 +1253,12 @@
     "Makes leftovers for tomorrow" : {
       "comment" : "Reason chip: a big-batch meal"
     },
+    "Mark %@ as away?" : {
+
+    },
+    "Mark as away" : {
+
+    },
     "Marks it in the cart" : {
 
     },
@@ -1205,6 +1305,9 @@
 
     },
     "Name it" : {
+
+    },
+    "Name this schedule" : {
 
     },
     "Names can be up to %lld characters." : {
@@ -1345,6 +1448,9 @@
     "Nothing planned yet" : {
 
     },
+    "Nothing saved yet. Set up everyone's usual nights for this season, then save them here." : {
+
+    },
     "Nothing to add from that text." : {
 
     },
@@ -1352,6 +1458,9 @@
 
     },
     "Nothing to buy. Approve the week or add an item." : {
+
+    },
+    "Nothing to plan or shop for. Enjoy it." : {
 
     },
     "Notifications" : {
@@ -1428,6 +1537,9 @@
     },
     "Pasta" : {
       "comment" : "Dish category in a variety note: Pasta 3 times this week"
+    },
+    "Pause planning while you're all away, and switch everyone's usual nights home when the season changes." : {
+
     },
     "People write their own notes; parents can write anyone's." : {
 
@@ -1525,6 +1637,9 @@
     "Remove" : {
 
     },
+    "Remove %@" : {
+
+    },
     "Remove %@?" : {
 
     },
@@ -1532,6 +1647,12 @@
 
     },
     "Remove this tradition" : {
+
+    },
+    "Replace %@?" : {
+
+    },
+    "Replace it" : {
 
     },
     "Replace with yours" : {
@@ -1570,6 +1691,15 @@
     "Save to library" : {
 
     },
+    "Save today's schedule" : {
+
+    },
+    "Saved schedules" : {
+
+    },
+    "Saves everyone's usual nights home as they are now. Using a name again replaces that one." : {
+
+    },
     "Saving" : {
 
     },
@@ -1585,6 +1715,12 @@
           }
         }
       }
+    },
+    "Schedule names need 1 to 40 characters." : {
+
+    },
+    "School year" : {
+
     },
     "Search dinners" : {
 
@@ -1773,7 +1909,22 @@
     "Swap this night" : {
 
     },
+    "Switch schedules" : {
+
+    },
+    "Switch to %@?" : {
+
+    },
+    "Switch to another week on This Week, or change the away dates in Family." : {
+
+    },
     "Switch to next week on This Week to plan it there." : {
+
+    },
+    "Switches everyone to this schedule" : {
+
+    },
+    "Switching changes the usual nights for weeks you start from now on. Weeks already started stay as they are." : {
 
     },
     "Taco %@" : {
@@ -1858,6 +2009,9 @@
     "That night has already passed." : {
 
     },
+    "That schedule didn't delete. Only a parent can delete one, and it may already be gone." : {
+
+    },
     "That was too long to keep it all, so some may be missing. Allergy flags only see what's here." : {
 
     },
@@ -1885,10 +2039,19 @@
     "The family likes it" : {
       "comment" : "Reason chip"
     },
+    "The family's away that night, so it can't take a dinner. Change the away dates in Family to plan it." : {
+
+    },
+    "The family's away that night, so there's no dinner to plan. Pick another night, or send it without one." : {
+
+    },
     "The night stays locked, so Rebuild keeps it." : {
 
     },
     "The recipe steps are too long." : {
+
+    },
+    "The shopping list keeps what's already on it until someone taps Update the list on This Week." : {
 
     },
     "The week starts on your shopping day." : {
@@ -1904,6 +2067,9 @@
 
     },
     "This Week" : {
+
+    },
+    "This can't be undone. Everyone's usual nights stay as they are." : {
 
     },
     "This code is shown only now. Inviting again replaces it." : {
@@ -1939,6 +2105,9 @@
     "This week" : {
 
     },
+    "Those dates didn't work. The last night has to be on or after the first, up to a year later, and not already over." : {
+
+    },
     "Time to check on %@." : {
       "comment" : "Cook mode timer alert body: the dish's name"
     },
@@ -1949,6 +2118,9 @@
 
     },
     "Tired of it" : {
+
+    },
+    "Today's schedule takes its place, and what it held is gone." : {
 
     },
     "Toggles whether they're home this night" : {
@@ -1963,6 +2135,9 @@
     "Tonight" : {
 
     },
+    "Tonight's dinner stays, in case you've eaten it. Swap it off if you won't be home." : {
+
+    },
     "Too many tries. Wait 15 minutes and try again." : {
 
     },
@@ -1973,6 +2148,9 @@
 
     },
     "Tried" : {
+
+    },
+    "Trips and seasons" : {
 
     },
     "Try again" : {
@@ -2117,6 +2295,15 @@
 
     },
     "You're already in a household. Foon supports one household per person for now." : {
+
+    },
+    "You're away for the rest of this week" : {
+
+    },
+    "You're away next week" : {
+
+    },
+    "You're away those nights" : {
 
     },
     "Your account is deleted. This can't be undone." : {

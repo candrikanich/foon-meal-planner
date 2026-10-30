@@ -33,8 +33,13 @@ struct IWantSheet: View {
         return typed.isEmpty ? inRotation : inRotation.filter { $0.name.localizedStandardContains(typed) }
     }
 
+    /// A dated request lands on its night in Build my week, and an away night gets no dinner.
+    private var nightIsAway: Bool {
+        hasNight && household.household?.planningSettings.isAway(on: CalendarDay(night)) == true
+    }
+
     private var request: NewRequest? {
-        guard let from = from ?? household.me?.id else { return nil }
+        guard !nightIsAway, let from = from ?? household.me?.id else { return nil }
         return NewRequest.build(kind: kind, from: from, mealID: mealID, title: title, link: link, note: note,
                                 date: hasNight ? CalendarDay(night) : nil)
     }
@@ -91,6 +96,10 @@ struct IWantSheet: View {
                     if hasNight {
                         // From the same "today" the rest of This Week uses.
                         DatePicker("Night", selection: $night, in: week.todayDay.date()..., displayedComponents: .date)
+                    }
+                } footer: {
+                    if nightIsAway {
+                        Text("The family's away that night, so there's no dinner to plan. Pick another night, or send it without one.")
                     }
                 }
                 if askers.count > 1 {

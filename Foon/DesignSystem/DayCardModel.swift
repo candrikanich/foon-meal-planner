@@ -7,6 +7,8 @@ struct DayCardModel: Identifiable, Equatable, Sendable {
         case empty
         case meal(name: String, photoURL: URL?, reason: String?, sides: [String] = [])
         case quickPick(QuickPick)
+        /// The household's away dates cover this night: nothing to plan.
+        case away
     }
 
     struct Attendee: Equatable, Identifiable, Sendable {
@@ -71,8 +73,10 @@ enum DayCardText {
         return day.date(in: calendar).formatted(Date.FormatStyle(calendar: calendar).weekday(.wide))
     }
 
-    static func dateLabel(for day: CalendarDay, calendar: Calendar = .current) -> String {
-        day.date(in: calendar).formatted(Date.FormatStyle(calendar: calendar).month(.abbreviated).day())
+    /// "Dec 20", with the year if `today` is given and in a different one.
+    static func dateLabel(for day: CalendarDay, calendar: Calendar = .current, relativeTo today: CalendarDay? = nil) -> String {
+        let style = Date.FormatStyle(calendar: calendar).month(.abbreviated).day()
+        return day.date(in: calendar).formatted(today.map { $0.year != day.year } == true ? style.year() : style)
     }
 
     static func effortLabel(_ effort: NightEffort) -> String {
@@ -125,8 +129,9 @@ enum DayCardText {
         case .meal(let name, _, let reason, let sides):
             parts.append([name, reason, sidesLabel(sides)].compactMap { $0 }.joined(separator: ", "))
         case .quickPick(let pick): parts.append(quickPickLabel(pick))
+        case .away: parts.append(String(localized: "Away, no dinner to plan"))
         }
-        parts.append(effortLabel(card.effort))
+        if card.slot != .away { parts.append(effortLabel(card.effort)) }
         let home = card.attendance.filter(\.isHome).map(\.firstName)
         let away = card.attendance.filter { !$0.isHome }.map(\.firstName)
         if !home.isEmpty { parts.append(String(localized: "Home: \(home.joined(separator: ", "))")) }

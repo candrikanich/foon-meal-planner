@@ -361,7 +361,15 @@ extension HouseholdClient {
         setAllergies: @escaping @Sendable (UUID, [Allergen], [String]) async throws -> Void = { _, _, _ in },
         updateSettings: @escaping @Sendable (UUID, HouseholdSettings) async throws -> Void = { _, _ in },
         exportHousehold: @escaping @Sendable (UUID) async throws -> Data = { _ in Data("{}".utf8) },
-        deleteHousehold: @escaping @Sendable () async throws -> Void = { }
+        deleteHousehold: @escaping @Sendable () async throws -> Void = { },
+        addAwayDates: @escaping @Sendable (UUID, AwayDates) async throws -> [AwayDates] = { _, _ in [] },
+        removeAwayDates: @escaping @Sendable (UUID, AwayDates) async throws -> [AwayDates] = { _, _ in [] },
+        attendanceTemplates: @escaping @Sendable (UUID) async throws -> [AttendanceTemplate] = { _ in [] },
+        saveAttendanceTemplate: @escaping @Sendable (UUID, String) async throws -> AttendanceTemplate = { _, _ in
+            throw URLError(.unknown)
+        },
+        applyAttendanceTemplate: @escaping @Sendable (UUID) async throws -> Void = { _ in },
+        deleteAttendanceTemplate: @escaping @Sendable (UUID) async throws -> Void = { _ in }
     ) -> HouseholdClient {
         HouseholdClient(
             myHousehold: myHousehold,
@@ -379,7 +387,13 @@ extension HouseholdClient {
             setAllergies: setAllergies,
             updateSettings: updateSettings,
             exportHousehold: exportHousehold,
-            deleteHousehold: deleteHousehold
+            deleteHousehold: deleteHousehold,
+            addAwayDates: addAwayDates,
+            removeAwayDates: removeAwayDates,
+            attendanceTemplates: attendanceTemplates,
+            saveAttendanceTemplate: saveAttendanceTemplate,
+            applyAttendanceTemplate: applyAttendanceTemplate,
+            deleteAttendanceTemplate: deleteAttendanceTemplate
         )
     }
 }

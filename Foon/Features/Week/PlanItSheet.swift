@@ -8,25 +8,27 @@ enum PlanIt {
         case failed(String)
         /// The week This Week shows hasn't been started.
         case noWeek
+        /// It hasn't been started, and the family's away for what's left of it: nothing to start.
+        case away
         /// Every night from tonight on already has this meal, or the week is over.
         case noNightsLeft
         case nights([WeekNight])
     }
 
     static func state(layout: WeekLayout?, mealID: UUID, isLoading: Bool, hasLoaded: Bool,
-                      loadError: String?, includingPlanned: Bool = false) -> State {
+                      loadError: String?, includingPlanned: Bool = false, awayForTheRest: Bool = false) -> State {
         if let layout {
             let choices = choices(in: layout, for: mealID, includingPlanned: includingPlanned)
             return choices.isEmpty ? .noNightsLeft : .nights(choices)
         }
-        if hasLoaded { return .noWeek }
+        if hasLoaded { return awayForTheRest ? .away : .noWeek }
         if !isLoading, let loadError { return .failed(loadError) }
         return .loading
     }
 
-    /// Nights from tonight on, minus any already set to this meal.
+    /// Nights that can be planned from tonight on, minus any already set to this meal.
     static func choices(in layout: WeekLayout, for mealID: UUID, includingPlanned: Bool = false) -> [WeekNight] {
-        includingPlanned ? layout.ahead : layout.ahead.filter { $0.mealID != mealID }
+        includingPlanned ? layout.plannable : layout.plannable.filter { $0.mealID != mealID }
     }
 
     /// What a night holds now, so picking it says what gets replaced.
@@ -54,7 +56,8 @@ struct PlanItSheet: View {
 
     private var state: PlanIt.State {
         PlanIt.state(layout: week.layout, mealID: meal.id, isLoading: week.isLoading, hasLoaded: week.hasLoaded,
-                     loadError: week.errorMessage, includingPlanned: onPlanned != nil)
+                     loadError: week.errorMessage, includingPlanned: onPlanned != nil,
+                     awayForTheRest: week.isAwayForTheRestOfTheWeek)
     }
 
     private var whichWeek: String {
@@ -79,6 +82,9 @@ struct PlanItSheet: View {
                     goToThisWeek(title: week.showingNextWeek ? String(localized: "Next week isn't started")
                                                             : String(localized: "No week yet"),
                                  detail: String(localized: "Start the week on This Week, then plan \(meal.name) into it."))
+                case .away:
+                    goToThisWeek(title: String(localized: "You're away those nights"),
+                                 detail: String(localized: "Switch to another week on This Week, or change the away dates in Family."))
                 case .noNightsLeft:
                     goToThisWeek(title: String(localized: "No nights left to plan"),
                                  detail: String(localized: "Switch to next week on This Week to plan it there."))
