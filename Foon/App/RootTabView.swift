@@ -7,6 +7,11 @@ struct RootTabView: View {
     @State private var week: WeekStore
     @State private var dinner: DinnerStore
     @State private var ideas: IdeasStore
+    @Environment(\.scenePhase) private var scenePhase
+    /// What the Share Sheet extension saved, the one being handled, and any put off with Not now until the next launch.
+    @State private var waitingShares: [SharedItem] = []
+    @State private var shared: SharedItem?
+    @State private var postponedShares: Set<UUID> = []
 
     init(householdID: UUID, libraryClient: LibraryClient, weekClient: WeekClient, dinnerClient: DinnerClient,
          ideasClient: IdeasClient) {
@@ -21,6 +26,7 @@ struct RootTabView: View {
             ForEach(AppTab.allCases) { tab in
                 Tab(tab.title, systemImage: tab.systemImage, value: tab) {
                     screen(for: tab)
+                        .safeAreaInset(edge: .top, spacing: 0) { sharedBanner }
                 }
             }
         }
@@ -29,11 +35,56 @@ struct RootTabView: View {
         .environment(dinner)
         .environment(ideas)
         .environment(\.showTab) { selection = $0 }
+        .sheet(item: $shared) { item in
+            SharedItemSheet(item: item) { outcome in finishShared(item, outcome) }
+                .environment(household)
+                .environment(library)
+                .environment(ideas)
+        }
+        .task { refreshShared() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { refreshShared() }
+        }
         #if os(iOS)
         .fullScreenCover(isPresented: onboarding) { onboardingFlow }
         #else
         .sheet(isPresented: onboarding) { onboardingFlow.frame(minWidth: 520, minHeight: 640) }
         #endif
+    }
+
+    /// A banner rather than a sheet of its own: the app may be open on store mode, cook mode, or any other sheet, and a
+    /// share shouldn't interrupt them (or fail to appear over them).
+    @ViewBuilder
+    private var sharedBanner: some View {
+        if let next = waitingShares.first, !household.needsOnboarding {
+            Button { shared = next } label: {
+                Label(waitingShares.count == 1 ? String(localized: "You shared something with Foon")
+                                               : String(localized: "You shared \(waitingShares.count) things with Foon"),
+                      systemImage: "square.and.arrow.down")
+                    .font(.foonBody)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.vertical, 10)
+                    .background(Palette.cardSurface)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens it")
+        }
+    }
+
+    private func refreshShared() {
+        waitingShares = (SharedInbox.shared?.pending() ?? []).filter { !postponedShares.contains($0.id) }
+    }
+
+    private func finishShared(_ item: SharedItem, _ outcome: SharedItemSheet.Outcome) {
+        switch outcome {
+        case .postponed: postponedShares.insert(item.id)
+        case .done(let tab):
+            SharedInbox.shared?.remove(item.id)
+            if let tab { selection = tab }
+        }
+        shared = nil
+        refreshShared()
     }
 
     /// The owner's first-run setup, over the app until it's done; it ends on This Week.

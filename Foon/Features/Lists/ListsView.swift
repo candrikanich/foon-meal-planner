@@ -158,34 +158,11 @@ struct ListsView: View {
         guard let sync, !names.isEmpty, let householdID = household.household?.id else { return }
         newItem = ""
         errorMessage = nil
-        let known = Dictionary(items.map { ($0.name.lowercased(), $0.id) }, uniquingKeysWith: { first, _ in first })
-        var failed: [String] = []
-        var offline = false
-        var created = false
-        for name in names {
-            var itemID = known[name.lowercased()]
-            if itemID == nil {
-                do {
-                    itemID = try await itemClient.ensure(householdID, name, ItemCategory.guess(for: name) ?? .other)
-                    created = true
-                } catch {
-                    if OfflineReplay.classify(error) == .offline { offline = true }
-                }
-            }
-            guard let itemID else {
-                failed.append(name)
-                continue
-            }
-            await sync.addToList(itemID: itemID, list: .quick, urgency: forTonight ? .tonight : .whenever)
-        }
-        // A new item's name and aisle come with the next pull; fetch it now rather than show "Item".
-        if created { await sync.pull() }
-        if !failed.isEmpty {
-            newItem = failed.joined(separator: ", ")
-            let list = failed.formatted(.list(type: .and))
-            errorMessage = offline
-                ? String(localized: "Couldn't add \(list). New items need a connection; try again.")
-                : String(localized: "Couldn't add \(list). Try again.")
+        let result = await QuickListAdder.add(names, urgency: forTonight ? .tonight : .whenever, items: items,
+                                              householdID: householdID, itemClient: itemClient, sync: sync)
+        if let message = result.message {
+            newItem = result.failed.joined(separator: ", ")
+            errorMessage = message
         } else {
             forTonight = false
         }
@@ -229,4 +206,44 @@ struct ListEntryRow: View {
         .environment(HouseholdStore.preview())
         .environment(\.itemClient, .preview)
         .modelContainer(try! SyncService.inMemoryContainer())
+}
+
+/// Puts named items on the quick list, from the list screen or the share sheet.
+enum QuickListAdder {
+    struct Result {
+        var failed: [String] = []
+        var message: String?
+    }
+
+    @MainActor
+    static func add(_ names: [String], urgency: ListUrgency = .whenever, items: [CachedItem], householdID: UUID,
+                    itemClient: ItemClient, sync: SyncService) async -> Result {
+        let known = Dictionary(items.map { ($0.name.lowercased(), $0.id) }, uniquingKeysWith: { first, _ in first })
+        var failed: [String] = []
+        var offline = false
+        var created = false
+        for name in names {
+            var itemID = known[name.lowercased()]
+            if itemID == nil {
+                do {
+                    itemID = try await itemClient.ensure(householdID, name, ItemCategory.guess(for: name) ?? .other)
+                    created = true
+                } catch {
+                    if OfflineReplay.classify(error) == .offline { offline = true }
+                }
+            }
+            guard let itemID else {
+                failed.append(name)
+                continue
+            }
+            await sync.addToList(itemID: itemID, list: .quick, urgency: urgency)
+        }
+        // A new item's name and aisle come with the next pull; fetch it now rather than show "Item".
+        if created { await sync.pull() }
+        guard !failed.isEmpty else { return Result() }
+        let list = failed.formatted(.list(type: .and))
+        return Result(failed: failed, message: offline
+            ? String(localized: "Couldn't add \(list). New items need a connection; try again.")
+            : String(localized: "Couldn't add \(list). Try again."))
+    }
 }

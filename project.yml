@@ -39,6 +39,8 @@ targets:
         excludes: ["**/.gitkeep"]
     dependencies:
       - package: Supabase
+      - target: FoonShare
+        destinationFilters: [iOS]
     configFiles:
       Debug: Config/Local.xcconfig
       Staging: Config/Staging.xcconfig
@@ -47,6 +49,7 @@ targets:
       path: Foon/App/Foon.entitlements
       properties:
         com.apple.developer.applesignin: [Default]
+        com.apple.security.application-groups: [group.com.andrikanich.foon]
     info:
       path: Foon/App/Info.plist
       properties:
@@ -61,6 +64,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon
         PRODUCT_NAME: Foon
+        # The App Group only serves the share extension, which is iOS only.
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Foon/App/FoonMac.entitlements
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Foon
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -79,6 +84,36 @@ targets:
         ENABLE_APP_SANDBOX: YES
         ENABLE_OUTGOING_NETWORK_CONNECTIONS: YES
         ENABLE_HARDENED_RUNTIME: YES
+
+  FoonShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: FoonShare
+      - path: Foon/Core/Share/SharedItem.swift
+    entitlements:
+      path: FoonShare/FoonShare.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.andrikanich.foon]
+    info:
+      path: FoonShare/Info.plist
+      properties:
+        CFBundleDisplayName: Foon
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon.share
+        GENERATE_INFOPLIST_FILE: YES
+        SKIP_INSTALL: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+        ENABLE_PREVIEWS: YES
 
   FoonTests:
     type: bundle.unit-test

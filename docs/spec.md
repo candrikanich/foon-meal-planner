@@ -100,6 +100,12 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 4. **From a photo, screenshot, or PDF:** text recognition, then ingredient parsing (AI on capable devices).
 
 **Share Sheet extension (v1).** One share target for everything: recipe links and videos go to the library or idea inbox, screenshots to recipe capture, PDFs to import, plain text ("milk, eggs, bread") to the quick shopping list. Social posts (Instagram, TikTok, Facebook) fall back in order: parse the caption, then a screenshot of the ingredients, then save as an idea with title and link.
+- v1 links and text (#39, part 1). The extension only saves: no network and no sign-in, because extensions get little memory and time and everything that can fail belongs in the app. It writes the item to a folder shared with the app (the App Group `group.com.andrikanich.foon`), says "Saved. Open Foon to finish.", and closes. Text with one web link in it ("Great chili https://...") counts as that link, titled by the rest. When Foon is open, past onboarding, a banner at the top of each tab says something's waiting; a banner rather than a sheet of its own, so it never interrupts store mode or cook mode. Tapping it opens each item, oldest first:
+  - **Recipe link:** Add to our meals (planners; Link import, read at once) or Save as an idea, with an editable title.
+  - **Social post** (Instagram, TikTok, Facebook, YouTube, Pinterest, Threads, X): Save as an idea with its title and link. Caption parsing comes in part 2.
+  - **Text:** the items, ready to remove any, then Add to the quick list (the same rules as the Lists screen; known items work offline, new ones need a connection).
+  - **Not now** brings it back the next time Foon launches, and **Discard** drops it. Signing out clears what's waiting on the device, and another account signing in never sees it. Something shared while signed out waits for whoever signs in next, and what's waiting survives deleting a household (it's still that person's). `SharedInbox.claim` holds the rule. At most 50 can wait; a full inbox says so in the share sheet.
+  - Only web links are accepted, so a file or another app's link can't come through. iPhone and iPad only: the Mac has no share extension yet.
 
 **Quantities.** Recipes scale once, at import, to household size. Short-handed nights don't rescale; they predict leftovers instead. Per-night scaling of weight-based items (meat, produce) is a later option. Household size updates automatically with away status.
 
