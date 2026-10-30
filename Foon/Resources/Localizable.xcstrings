@@ -83,7 +83,7 @@
 
     },
     "%@ out %@" : {
-      "comment" : "Saved schedule: a name, then weekdays",
+      "comment" : "Saved schedule: a name, then weekdays or how often",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -92,6 +92,9 @@
           }
         }
       }
+    },
+    "%@ sat out for a food rule" : {
+      "comment" : "Reason chip: the night's tradition looks to break a food rule"
     },
     "%@ signs out right away and can rejoin only with your consent and a new invite." : {
 
@@ -224,6 +227,9 @@
     "%lld requests waiting" : {
 
     },
+    "%lld rules" : {
+      "comment" : "Family: how many food rules the household has"
+    },
     "%lld steps" : {
 
     },
@@ -271,6 +277,9 @@
     },
     "1 request waiting" : {
 
+    },
+    "1 rule" : {
+      "comment" : "Family: how many food rules the household has"
     },
     "1 step" : {
 
@@ -479,6 +488,9 @@
     "Away dates" : {
 
     },
+    "Away on a repeating schedule" : {
+
+    },
     "Away until %@" : {
       "comment" : "Member status: a short date such as Nov 4"
     },
@@ -582,6 +594,9 @@
     "Coming up" : {
 
     },
+    "Comments" : {
+
+    },
     "Confirm with Apple to delete. Foon also stops using Sign in with Apple for your account." : {
 
     },
@@ -627,6 +642,9 @@
 
     },
     "Couldn't archive that meal. Check your connection and try again." : {
+
+    },
+    "Couldn't change that comment. Check your connection and try again." : {
 
     },
     "Couldn't change that. Check your connection and try again." : {
@@ -732,6 +750,9 @@
 
     },
     "Couldn't save the away dates. Check your connection and try again." : {
+
+    },
+    "Couldn't save the food rule. Check your connection and try again." : {
 
     },
     "Couldn't save the meal. Check your connection and try again." : {
@@ -896,6 +917,9 @@
     "Eat out" : {
 
     },
+    "Eats separately" : {
+
+    },
     "Edit" : {
 
     },
@@ -919,6 +943,21 @@
     },
     "Event" : {
 
+    },
+    "Every %lld weeks" : {
+      "comment" : "How often someone's away"
+    },
+    "Every %lld weeks, Friday to Sunday" : {
+      "comment" : "How often someone's away"
+    },
+    "Every night" : {
+      "comment" : "Food rule: which nights it applies"
+    },
+    "Every other week" : {
+      "comment" : "How often someone's away"
+    },
+    "Every other weekend" : {
+      "comment" : "How often someone's away"
     },
     "Everyone at the table rates on this phone" : {
 
@@ -989,6 +1028,12 @@
     "First night away" : {
 
     },
+    "Fish doesn't count as meat here. Foon won't plan a dish on those nights if its name or ingredients look like they break the rule. Swap lists what it held back, so you can pick one anyway, and anything the family asks for still lands with a note on the card." : {
+
+    },
+    "Food rules" : {
+
+    },
     "Foon" : {
 
     },
@@ -1004,6 +1049,9 @@
     "Foon flags dishes that contain them, and you plan as usual." : {
 
     },
+    "Foon goes by names and ingredients, so it can be wrong either way. Tap one to plan it anyway." : {
+
+    },
     "Foon holds back dishes that usually use kitchen equipment you don't have, unless few others fit. Search your meals to plan one anyway." : {
 
     },
@@ -1012,6 +1060,9 @@
     },
     "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime." : {
       "comment" : "Allergy consent: the one plain sentence parents agree to"
+    },
+    "Foon reads dish names and ingredients, so it can miss what they don't say, and it can't promise a dish is free of anything. Kosher and halal depend on how food is made and prepared, so Foon can't check them." : {
+
     },
     "Foon reminds you then. Lots of families plan Sunday morning, before shopping." : {
 
@@ -1025,7 +1076,13 @@
     "For a night" : {
 
     },
+    "For babies and toddlers. They aren't asked to rate dinners, and their ratings and me-toos don't count. They still count as home, so allergy flags and serving notes cover them." : {
+
+    },
     "For next time" : {
+
+    },
+    "For shared custody and the like: every other week, or every other weekend." : {
 
     },
     "For the quick list" : {
@@ -1042,6 +1099,15 @@
     },
     "Freezer stash" : {
 
+    },
+    "Friday to Sunday" : {
+
+    },
+    "Fridays" : {
+      "comment" : "Food rule: which nights it applies"
+    },
+    "Fridays in Lent" : {
+      "comment" : "Food rule: which nights it applies"
     },
     "From" : {
 
@@ -1167,6 +1233,18 @@
     "Haven't had it since yesterday" : {
       "comment" : "Reason chip: last made yesterday"
     },
+    "Held back by your food rules" : {
+
+    },
+    "Hidden from the family" : {
+
+    },
+    "Hide" : {
+
+    },
+    "Hide %@'s comment" : {
+
+    },
     "Home" : {
 
     },
@@ -1183,6 +1261,9 @@
 
     },
     "How %@ likes it" : {
+
+    },
+    "How often" : {
 
     },
     "I want..." : {
@@ -1352,6 +1433,33 @@
     "Looking for a recipe…" : {
 
     },
+    "Looks like it has meat" : {
+      "comment" : "Food rule badge"
+    },
+    "Looks like it has meat: Fridays" : {
+      "comment" : "Food rule badge"
+    },
+    "Looks like it has meat: Fridays in Lent" : {
+      "comment" : "Food rule badge"
+    },
+    "Looks like it has pork" : {
+      "comment" : "Food rule badge"
+    },
+    "Looks like it has pork: Fridays" : {
+      "comment" : "Food rule badge"
+    },
+    "Looks like it has pork: Fridays in Lent" : {
+      "comment" : "Food rule badge"
+    },
+    "Looks like it has shellfish" : {
+      "comment" : "Food rule badge"
+    },
+    "Looks like it has shellfish: Fridays" : {
+      "comment" : "Food rule badge"
+    },
+    "Looks like it has shellfish: Fridays in Lent" : {
+      "comment" : "Food rule badge"
+    },
     "Low" : {
 
     },
@@ -1427,6 +1535,9 @@
     "Meals tagged quick take under 30 minutes." : {
 
     },
+    "Meat" : {
+      "comment" : "Food rule: what the household skips. Fish doesn't count"
+    },
     "Meat and seafood" : {
 
     },
@@ -1470,6 +1581,9 @@
 
     },
     "Next" : {
+
+    },
+    "Next night out: %@. Each new week starts from this." : {
 
     },
     "Next week" : {
@@ -1535,6 +1649,9 @@
     "No recipe card on that page, so Foon kept the title and link. Add ingredients when you can." : {
 
     },
+    "No rule" : {
+
+    },
     "No suggestions fit this night. Search your meals instead." : {
 
     },
@@ -1545,7 +1662,7 @@
       "comment" : "Reason chip: everyone is out that night"
     },
     "None" : {
-
+      "comment" : "Family: the household has no food rules"
     },
     "None of your meals contain anything your family avoids." : {
 
@@ -1643,10 +1760,16 @@
     "Only people in this family can change its freezer." : {
 
     },
+    "Only planners can change food rules." : {
+
+    },
     "Only planners can change the plan." : {
 
     },
     "Only planners can do that with someone else's idea." : {
+
+    },
+    "Only planners can hide a comment." : {
 
     },
     "Only what you'd hate to miss: time to plan, the plan's set, urgent list items, and prep reminders. No rating prompts or polls." : {
@@ -1748,11 +1871,17 @@
     "Planning" : {
 
     },
+    "Plans it anyway" : {
+
+    },
     "Plans it for this night" : {
 
     },
     "Popular" : {
 
+    },
+    "Pork" : {
+      "comment" : "Food rule: what the household skips"
     },
     "Prep ahead" : {
 
@@ -1824,6 +1953,9 @@
 
     },
     "Remove this tradition" : {
+
+    },
+    "Repeating time away" : {
 
     },
     "Replace %@?" : {
@@ -1947,7 +2079,16 @@
     "Shared with Foon" : {
 
     },
+    "Shellfish" : {
+      "comment" : "Food rule: what the household skips"
+    },
     "Shop" : {
+
+    },
+    "Show" : {
+
+    },
+    "Show %@'s comment" : {
 
     },
     "Show more" : {
@@ -2005,6 +2146,9 @@
 
     },
     "Someday" : {
+
+    },
+    "Someone" : {
 
     },
     "Someone already changed that one. Here's what's in the freezer now." : {
@@ -2280,10 +2424,16 @@
     "The week starts on your shopping day." : {
 
     },
+    "The whole week" : {
+
+    },
     "Their ratings and cooking history stay." : {
 
     },
     "These are planned leftovers. Changing this night means the dish goes back to its regular amounts when you update the list." : {
+
+    },
+    "They eat separately, so they don't rate dinners." : {
 
     },
     "They lose access right away. Their ratings and history stay." : {
@@ -2387,6 +2537,9 @@
     },
     "Tradition" : {
       "comment" : "Reason chip: a standing weekday tradition"
+    },
+    "Tradition sat out for a food rule" : {
+      "comment" : "Reason chip: the night's tradition looks to break a food rule"
     },
     "Traditions" : {
 
@@ -2517,10 +2670,19 @@
     "What is it? (optional)" : {
 
     },
+    "What this can't do" : {
+
+    },
     "What you have" : {
 
     },
     "What you have to cook with, and when to start." : {
+
+    },
+    "What you skip" : {
+
+    },
+    "What your household skips, and when." : {
 
     },
     "When do you plan the week?" : {
@@ -2530,6 +2692,9 @@
 
     },
     "Which night for the leftovers?" : {
+
+    },
+    "Which nights" : {
 
     },
     "Which of these does your family make?" : {

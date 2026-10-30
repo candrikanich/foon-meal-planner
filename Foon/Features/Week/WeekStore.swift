@@ -509,7 +509,8 @@ final class WeekStore {
                                  meal: dish, library: library, allergies: allergies, home: home, settings: settings,
                                  start: StartCooking.nudge(for: dish, on: night, settings: settings, today: today,
                                                            minuteNow: minuteNow),
-                                 alreadyCooked: night.mealID == nil || night.stashItemID != nil)
+                                 alreadyCooked: night.mealID == nil || night.stashItemID != nil,
+                                 ruleDay: night.date >= today ? night.date : nil)
                          },
                          notes: notes, isAway: isAway, leftoversDish: dish?.id,
                          leftoversNote: source.flatMap { DoubleIt.leftoversNote(from: $0) })

@@ -77,7 +77,7 @@ struct DishTraits: Equatable, Sendable {
         }
     }
 
-    private struct Keywords: Sendable {
+    struct Keywords: Sendable {
         let phrases: [[Word]]
         /// Names that look like a match but aren't: a "chili dog" isn't a bowl of chili.
         let lookalikes: [[Word]]

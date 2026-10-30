@@ -32,7 +32,8 @@ struct Reaction: Equatable, Sendable, Decodable {
     let memberID: UUID
     let kind: ReactionKind
     let offTonight: Bool
-    let comment: String?
+    /// Not read from the server any more: comments are shown from `meal_comments`, which leaves hidden ones out.
+    var comment: String? = nil
     let createdAt: Date
 
     private enum CodingKeys: String, CodingKey {
@@ -179,7 +180,7 @@ extension DinnerClient {
                         id, night_id, meal_id, quick_pick, cooked_by_member_id, leftovers, verified, \
                         confirmed_by_member_id, \
                         plan_nights!inner(date), meals(name), \
-                        reactions(member_id, reaction, off_tonight, comment, created_at)
+                        reactions(member_id, reaction, off_tonight, created_at)
                         """)
                     .eq("household_id", value: householdID)
                     .gte("plan_nights.date", value: since.isoString)

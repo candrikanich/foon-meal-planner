@@ -26,7 +26,7 @@ struct DinnerPromptsSection: View {
             // Re-checked every minute, so the card appears an hour after dinner with the app left open.
             TimelineView(.everyMinute) { context in
                 VStack(spacing: 12) {
-                    ForEach(dinner.prompts(me: me.id, settings: settings, at: context.date)) { prompt in
+                    ForEach(DinnerPrompts.rates(me) ? dinner.prompts(me: me.id, settings: settings, at: context.date) : []) { prompt in
                         DinnerCard(prompt: prompt, me: me, open: { sheet = $0 })
                     }
                     ForEach(dinner.extras(me: me.id, settings: settings, at: context.date)) { prompt in
@@ -267,7 +267,7 @@ struct PassThePhoneSheet: View {
 
     private var home: [Member] {
         guard let night else { return [] }
-        return household.visibleMembers.filter { night.attendance[$0.id] == true }
+        return household.visibleMembers.filter { night.attendance[$0.id] == true && DinnerPrompts.rates($0) }
     }
 
     var body: some View {

@@ -31,6 +31,9 @@ struct HouseholdClient: Sendable {
     var updateSettings: @Sendable (_ householdID: UUID, _ settings: HouseholdSettings) async throws -> Void = { _, _ in }
     /// Saves only the kitchen's keys, so a stale copy of anything else can't go with them.
     var updateKitchen: @Sendable (_ householdID: UUID, _ kitchen: HouseholdSettings.Kitchen) async throws -> Void = { _, _ in }
+    /// Sets or (nil) takes away one food's rule, in the list as it is on the server, and returns the list.
+    var setFoodRule: @Sendable (_ householdID: UUID, _ avoid: FoodRule.Avoid, _ nights: FoodRule.Nights?) async throws -> [FoodRule]
+        = { _, _, _ in [] }
     /// Everything in the household as JSON (planners only), for the data export.
     var exportHousehold: @Sendable (_ householdID: UUID) async throws -> Data = { _ in Data("{}".utf8) }
     /// Erases the household the caller owns, photos included, for everyone; their account stays.
@@ -176,6 +179,12 @@ extension HouseholdClient {
                 try await client.rpc("update_household_settings", params: KitchenParams(
                     targetHousehold: householdID, patch: kitchen
                 )).execute()
+            },
+            setFoodRule: { householdID, avoid, nights in
+                let rules: [FoodRule.Lenient] = try await client.rpc("set_food_rule", params: FoodRuleParams(
+                    targetHousehold: householdID, avoid: avoid, nights: nights
+                )).execute().value
+                return rules.compactMap(\.rule)
             },
             exportHousehold: { householdID in
                 try await client.rpc("export_household", params: ["target_household": householdID.uuidString])
@@ -338,5 +347,25 @@ private struct NewParentalConsent: Encodable, Sendable {
         case householdID = "household_id"
         case memberID = "member_id"
         case textVersion = "text_version"
+    }
+}
+
+/// Every argument is sent, null included: PostgREST picks the function by its argument names.
+private struct FoodRuleParams: Encodable {
+    let targetHousehold: UUID
+    let avoid: FoodRule.Avoid
+    let nights: FoodRule.Nights?
+
+    enum CodingKeys: String, CodingKey {
+        case avoid
+        case targetHousehold = "target_household"
+        case nights = "on_nights"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(targetHousehold, forKey: .targetHousehold)
+        try container.encode(avoid, forKey: .avoid)
+        try container.encode(nights, forKey: .nights)
     }
 }

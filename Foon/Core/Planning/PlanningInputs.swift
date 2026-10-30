@@ -183,6 +183,8 @@ enum PlanReason: Equatable, Hashable, Sendable {
     case leftoversNight
     case takeoutOnBusiestNight
     case tradition(name: String?)
+    /// A food rule looked to rule tonight's tradition out, so the night has something else.
+    case traditionSatOut(name: String?)
     /// Everyone's out: no dinner to plan, so nothing lands on the list.
     case nobodyHome
     case nothingFits
@@ -214,6 +216,10 @@ enum PlanReason: Equatable, Hashable, Sendable {
         case .takeoutOnBusiestNight: String(localized: "Takeout on the busiest night", comment: "Reason chip")
         case .tradition(let name?): name
         case .tradition(nil): String(localized: "Tradition", comment: "Reason chip: a standing weekday tradition")
+        case .traditionSatOut(let name?):
+            String(localized: "\(name) sat out for a food rule", comment: "Reason chip: the night's tradition looks to break a food rule")
+        case .traditionSatOut(nil):
+            String(localized: "Tradition sat out for a food rule", comment: "Reason chip: the night's tradition looks to break a food rule")
         case .nobodyHome: String(localized: "Nobody's home", comment: "Reason chip: everyone is out that night")
         case .nothingFits: String(localized: "Nothing fits tonight", comment: "Reason chip: no dish passed the filters")
         }

@@ -152,6 +152,8 @@ struct DayCard: View {
                 Chip(text: DayCardText.badgeLabel(badge), systemImage: "timer", tint: .secondary)
             case .equipment:
                 Chip(text: DayCardText.badgeLabel(badge), systemImage: "frying.pan", tint: Palette.paprika)
+            case .foodRule:
+                Chip(text: DayCardText.badgeLabel(badge), systemImage: "fork.knife", tint: Palette.paprika)
             case .startCooking:
                 Chip(text: DayCardText.badgeLabel(badge), systemImage: "flame", tint: .secondary)
             case .doubled:

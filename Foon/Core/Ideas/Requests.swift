@@ -294,12 +294,12 @@ enum RequestBoard {
     }
 
     /// Someday requests for a library dish that enough of the family wants (active members: someone away all week could
-    /// never be home for it, so they don't count, and neither do removed ones): Build my week finds
-    /// them a night everyone who wants them is home. Not in a week a planner said "not this week" to. Most wanted
+    /// never be home for it, so they don't count, and neither do removed ones, or anyone who eats separately: this is a
+    /// vote, and they don't get one): Build my week finds them a night everyone who wants them is home. Not in a week a planner said "not this week" to. Most wanted
     /// first, then the oldest.
     static func wanted(_ requests: [DinnerRequest], weekStart: CalendarDay, today: CalendarDay,
                        members: [Member]) -> [WantedRequest] {
-        let family = Set(members.filter { $0.status == .active }.map(\.id))
+        let family = Set(members.filter { $0.status == .active && !$0.eatsSeparately }.map(\.id))
         let threshold = wantedThreshold(familySize: family.count)
         return requests
             .compactMap { request -> (request: DinnerRequest, wanted: WantedRequest)? in
