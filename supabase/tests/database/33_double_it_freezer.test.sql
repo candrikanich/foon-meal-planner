@@ -2,7 +2,7 @@
 -- device saw; every other way a night changes (Swap, Build, an older app, away dates) unwinds it through a trigger. The
 -- stash can only be written through functions; anyone in the family adds to it and uses it up, only planners plan from it.
 begin;
-select plan(105);
+select plan(124);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -486,6 +486,142 @@ select is((select list_stale from public.plans where id = '00000000-0000-0000-00
   'a week never approved has no list to be behind');
 select throws_ok($$ update public.plans set list_stale = false where id = '00000000-0000-0000-0000-0000000003a1' $$,
   '42501', null, 'and nobody writes it directly');
+
+-- The plan can move after a correction, and confirming writes the log's columns even when nothing changes ------
+reset role;
+insert into public.plans (id, household_id, week_start) values
+  ('00000000-0000-0000-0000-0000000003a5', '00000000-0000-0000-0000-0000000000a0', public.household_today('00000000-0000-0000-0000-0000000000a0') - 2),
+  ('00000000-0000-0000-0000-0000000003a6', '00000000-0000-0000-0000-0000000000a0', public.household_today('00000000-0000-0000-0000-0000000000a0') - 9),
+  ('00000000-0000-0000-0000-0000000003a7', '00000000-0000-0000-0000-0000000000a0', public.household_today('00000000-0000-0000-0000-0000000000a0'));
+-- ...6a2 is tonight, ...6a3 tomorrow; ...6b0 to ...6b6 run up to three days ago; ...6c0 is tonight, ...6c1 tomorrow.
+insert into public.plan_nights (id, household_id, plan_id, date)
+select ('00000000-0000-0000-0000-0000000006a' || d)::uuid, '00000000-0000-0000-0000-0000000000a0',
+       '00000000-0000-0000-0000-0000000003a5', public.household_today('00000000-0000-0000-0000-0000000000a0') - 2 + d
+from generate_series(0, 6) d;
+insert into public.plan_nights (id, household_id, plan_id, date)
+select ('00000000-0000-0000-0000-0000000006b' || d)::uuid, '00000000-0000-0000-0000-0000000000a0',
+       '00000000-0000-0000-0000-0000000003a6', public.household_today('00000000-0000-0000-0000-0000000000a0') - 9 + d
+from generate_series(0, 6) d;
+insert into public.plan_nights (id, household_id, plan_id, date)
+select ('00000000-0000-0000-0000-0000000006c' || d)::uuid, '00000000-0000-0000-0000-0000000000a0',
+       '00000000-0000-0000-0000-0000000003a7', public.household_today('00000000-0000-0000-0000-0000000000a0') + d
+from generate_series(0, 6) d;
+insert into public.freezer_stash (id, household_id, meal_id, made_on)
+select ('00000000-0000-0000-0000-0000000007a' || d)::uuid, '00000000-0000-0000-0000-0000000000a0',
+       case when d = 4 then '00000000-0000-0000-0000-0000000002a2'::uuid else '00000000-0000-0000-0000-0000000002a1'::uuid end, '2020-01-01'
+from generate_series(0, 9) d;
+
+-- (a) Chili from the freezer corrected to takeout, then the planner swaps the night to takeout too.
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.use_freezer_item('00000000-0000-0000-0000-0000000006b6', '00000000-0000-0000-0000-0000000007a0', 'From the freezer');
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select public.confirm_dinner('00000000-0000-0000-0000-0000000006b6');
+update public.meal_logs set meal_id = null, quick_pick = 'takeout' where night_id = '00000000-0000-0000-0000-0000000006b6';
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+update public.plan_nights set meal_id = null, quick_pick = 'takeout', reason = null where id = '00000000-0000-0000-0000-0000000006b6';
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select lives_ok($$ select public.confirm_dinner('00000000-0000-0000-0000-0000000006b6') $$,
+  'confirming after the plan moved to what was eaten still works');
+select is((select state from public.freezer_stash where id = '00000000-0000-0000-0000-0000000007a0'), 'in',
+  'and the dinner stays in the freezer');
+select lives_ok($$ update public.meal_logs set meal_id = '00000000-0000-0000-0000-0000000002a2', quick_pick = null
+                   where night_id = '00000000-0000-0000-0000-0000000006b6' $$, 'and We had something else still works');
+
+-- (b) Chili corrected to tacos, the planner swaps to tacos, someone rates it.
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.use_freezer_item('00000000-0000-0000-0000-0000000006a0', '00000000-0000-0000-0000-0000000007a1', 'From the freezer');
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select public.confirm_dinner('00000000-0000-0000-0000-0000000006a0');
+update public.meal_logs set meal_id = '00000000-0000-0000-0000-0000000002a2', quick_pick = null where night_id = '00000000-0000-0000-0000-0000000006a0';
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+update public.plan_nights set meal_id = '00000000-0000-0000-0000-0000000002a2', reason = null where id = '00000000-0000-0000-0000-0000000006a0';
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select public.react_to_dinner('00000000-0000-0000-0000-0000000006a0', '00000000-0000-0000-0000-0000000000a2', 'good');
+select results_eq($$ select state from public.freezer_stash where id = '00000000-0000-0000-0000-0000000007a1' $$,
+  $$ values ('in') $$, 'a rating doesn''t take the chili out of the freezer');
+select is((select stash_item_id from public.plan_nights where id = '00000000-0000-0000-0000-0000000006a0'), null,
+  'or put it on a tacos night');
+select lives_ok($$ select public.set_freezer_item('00000000-0000-0000-0000-0000000007a1', 'used') $$, 'and it can still be used up');
+
+-- (c) Item I corrected away, the planner plans item J there, and the log is corrected to J's dish.
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.use_freezer_item('00000000-0000-0000-0000-0000000006a1', '00000000-0000-0000-0000-0000000007a2', 'From the freezer');
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select public.confirm_dinner('00000000-0000-0000-0000-0000000006a1');
+update public.meal_logs set meal_id = null, quick_pick = 'takeout' where night_id = '00000000-0000-0000-0000-0000000006a1';
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.use_freezer_item('00000000-0000-0000-0000-0000000006a1', '00000000-0000-0000-0000-0000000007a4', 'From the freezer');
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+update public.meal_logs set meal_id = '00000000-0000-0000-0000-0000000002a2', quick_pick = null where night_id = '00000000-0000-0000-0000-0000000006a1';
+select is((select state from public.freezer_stash where id = '00000000-0000-0000-0000-0000000007a2'), 'in',
+  'the item corrected away stays in the freezer');
+select is((select stash_item_id from public.plan_nights where id = '00000000-0000-0000-0000-0000000006a1'),
+  '00000000-0000-0000-0000-0000000007a4'::uuid, 'and the night keeps the one it has');
+
+-- The same, when the second item is the same dish, so the plan's dish never moved.
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.use_freezer_item('00000000-0000-0000-0000-0000000006b4', '00000000-0000-0000-0000-0000000007a3', 'From the freezer');
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select public.confirm_dinner('00000000-0000-0000-0000-0000000006b4');
+update public.meal_logs set meal_id = null, quick_pick = 'takeout' where night_id = '00000000-0000-0000-0000-0000000006b4';
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.use_freezer_item('00000000-0000-0000-0000-0000000006b4', '00000000-0000-0000-0000-0000000007a5', 'From the freezer');
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+update public.meal_logs set meal_id = '00000000-0000-0000-0000-0000000002a1', quick_pick = null where night_id = '00000000-0000-0000-0000-0000000006b4';
+select results_eq($$ select id, state from public.freezer_stash
+                     where id in ('00000000-0000-0000-0000-0000000007a3', '00000000-0000-0000-0000-0000000007a5') order by id $$,
+  $$ values ('00000000-0000-0000-0000-0000000007a3'::uuid, 'in'), ('00000000-0000-0000-0000-0000000007a5'::uuid, 'used') $$,
+  'one dish, one dinner: the night keeps the second item and the first stays in the freezer');
+
+-- A pair doubled over a corrected log: a rating confirms, and that changes nothing.
+reset role;
+update public.plan_nights set meal_id = '00000000-0000-0000-0000-0000000002a1' where id = '00000000-0000-0000-0000-0000000006a2';
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select public.confirm_dinner('00000000-0000-0000-0000-0000000006a2');
+update public.meal_logs set meal_id = '00000000-0000-0000-0000-0000000002a2', quick_pick = null where night_id = '00000000-0000-0000-0000-0000000006a2';
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.double_it('00000000-0000-0000-0000-0000000006a2', '00000000-0000-0000-0000-0000000006a3',
+  '00000000-0000-0000-0000-0000000002a1', null, null);
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select public.react_to_dinner('00000000-0000-0000-0000-0000000006a2', '00000000-0000-0000-0000-0000000000a2', 'good');
+select is((select leftovers_from from public.plan_nights where id = '00000000-0000-0000-0000-0000000006a3'),
+  '00000000-0000-0000-0000-0000000006a2'::uuid, 'a rating leaves a pair doubled since the correction');
+
+-- An unverified log follows the plan: a plan write can't fail on the night's own freezer rule.
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.use_freezer_item('00000000-0000-0000-0000-0000000006b5', '00000000-0000-0000-0000-0000000007a6', 'From the freezer');
+reset role;
+insert into public.meal_logs (household_id, night_id, meal_id, verified) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000006b5', '00000000-0000-0000-0000-0000000002a1', false);
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+update public.meal_logs set meal_id = '00000000-0000-0000-0000-0000000002a2' where night_id = '00000000-0000-0000-0000-0000000006b5';
+select lives_ok($$ update public.plan_nights set meal_id = null, quick_pick = 'takeout' where id = '00000000-0000-0000-0000-0000000006b5' $$,
+  'a plan write over a corrected, unverified log goes through');
+select results_eq($$ select quick_pick::text, returned_stash_item_id from public.meal_logs where night_id = '00000000-0000-0000-0000-0000000006b5' $$,
+  $$ values ('takeout', null::uuid) $$, 'the log follows, and forgets the item');
+select lives_ok($$ select public.confirm_dinner('00000000-0000-0000-0000-0000000006b5') $$, 'and it can still be confirmed');
+select is((select state from public.freezer_stash where id = '00000000-0000-0000-0000-0000000007a6'), 'in',
+  'with the dinner still in the freezer');
+
+-- Whether the list is behind: only for dinners still to come.
+select public.approve_plan('00000000-0000-0000-0000-0000000003a7', '[]'::jsonb);
+select public.use_freezer_item('00000000-0000-0000-0000-0000000006c0', '00000000-0000-0000-0000-0000000007a7', 'From the freezer');
+select is((select list_stale from public.plans where id = '00000000-0000-0000-0000-0000000003a7'), true,
+  'a freezer pick for tonight, not yet eaten, puts the list behind');
+select public.approve_plan('00000000-0000-0000-0000-0000000003a7', '[]'::jsonb);
+select public.confirm_dinner('00000000-0000-0000-0000-0000000006c0');
+update public.meal_logs set meal_id = null, quick_pick = 'takeout' where night_id = '00000000-0000-0000-0000-0000000006c0';
+select is((select state from public.freezer_stash where id = '00000000-0000-0000-0000-0000000007a7'), 'in', 'correcting it puts the dinner back');
+select is((select list_stale from public.plans where id = '00000000-0000-0000-0000-0000000003a7'), false,
+  'but tonight''s dinner is over, so there''s nothing more to buy for it');
+select public.approve_plan('00000000-0000-0000-0000-0000000003a6', '[]'::jsonb);
+select public.use_freezer_item('00000000-0000-0000-0000-0000000006b3', '00000000-0000-0000-0000-0000000007a8', 'From the freezer');
+select is((select list_stale from public.plans where id = '00000000-0000-0000-0000-0000000003a6'), false,
+  'and a past night never does');
+select public.approve_plan('00000000-0000-0000-0000-0000000003a7', '[]'::jsonb);
+select public.use_freezer_item('00000000-0000-0000-0000-0000000006c1', '00000000-0000-0000-0000-0000000007a9', 'From the freezer');
+select is((select list_stale from public.plans where id = '00000000-0000-0000-0000-0000000003a7'), true,
+  'a night still to come does');
 
 -- A new household table has row-level security.
 reset role;

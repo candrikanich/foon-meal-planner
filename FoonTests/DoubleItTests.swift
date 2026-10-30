@@ -42,7 +42,8 @@ struct DoubleItListTests {
         #expect(lines.first { $0.itemID == salsa }?.quantity == "get double")
     }
 
-    @Test(arguments: ["1 to 2 lb", "2 lb 8 oz", "1/2 cup + 2 tbsp", "1 or 2 cloves"])
+    @Test(arguments: ["1 to 2 lb", "2 lb 8 oz", "1/2 cup + 2 tbsp", "1 or 2 cloves", "3 cloves (2 if large)", "1 (15 oz can",
+                      "2 cups (packed", "1 (2 if small) can"])
     func anAmountThatIsntOneSimpleNumberIsLeftToThePerson(amount: String) {
         let meal = dish("Stew", [(beef, "beef", amount)])
         let lines = WeeklyList.build(nights: [WeeklyList.Night(mealID: meal.id, home: [], doubled: true)], library: [meal])
@@ -53,6 +54,12 @@ struct DoubleItListTests {
         let meal = dish("Stew", [(beans, "beans", "1 (15 oz) can")])
         let lines = WeeklyList.build(nights: [WeeklyList.Night(mealID: meal.id, home: [], doubled: true)], library: [meal])
         #expect(lines[0].quantity == "2 (15 oz) can (doubled)")
+    }
+
+    @Test(arguments: [("2 cups (packed)", "4 cups (packed)"), ("1 (14.5-ounce) can", "2 (14.5-ounce) can"),
+                      ("1 (15 oz.) can", "2 (15 oz.) can"), ("1 (400g) tin", "2 (400g) tin")])
+    func aBracketWithoutANumberOrARealPackageSizeStillScales(amount: String, doubled: String) {
+        #expect(QuantityScaler.scaledIfSimple(amount, by: 2) == doubled)
     }
 
     @Test func onlyTheDoubledNightsShareOfASharedItemScales() {
@@ -117,6 +124,14 @@ struct DoubleItListTests {
         let allergies = [MemberAllergies(memberID: nora, firstName: "Nora", allergens: [.milk])]
         let lines = WeeklyList.build(nights: nights, library: [chili], allergies: allergies)
         #expect(lines.first { $0.itemID == salsa }?.note == "Get dairy-free (Nora)")
+    }
+
+    @Test func tonightLeavesTheListOnceItsDinnerIsLogged() {
+        let tonight = night(0, meal: chili)
+        let tomorrow = night(1, meal: tacos)
+        let layout = WeekLayout(nights: [tonight, tomorrow], today: sunday)
+        #expect(DoubleIt.listNights(layout).map(\.mealID) == [chili.id, tacos.id])
+        #expect(DoubleIt.listNights(layout, logged: [tonight.id]).map(\.mealID) == [tacos.id])
     }
 
     @Test func aNightWithNoLeftoversNightIsNotDoubled() {
@@ -444,6 +459,140 @@ struct DoubleItStoreTests {
         #expect(store.listNeedsUpdating, "the server's flag, so a cold start or the other phone sees it too")
     }
 
+    @Test func aFreezerPickOnAPastNightDoesntSayTheListIsBehind() async {
+        let past = night(-1)
+        let saved = week([past], approved: true)
+        let store = await store(.fake(week: { _, _ in saved }))
+        let frozen = FreezerItem(id: UUID(), mealID: chili.id, mealName: "Chili", madeOn: sunday.adding(days: -30), state: .in)
+        #expect(await store.swap(nightID: past.id, to: .freezer(frozen, reason: "x")))
+        #expect(!store.listNeedsUpdating)
+    }
+
+    @Test func aFailedReadStopsTheListBeingWritten() async {
+        let monday = night(1, meal: chili)
+        let saved = week([monday], approved: true)
+        let loaded = Mutex(false)
+        let approved = Mutex(0)
+        let store = await store(.fake(
+            week: { _, _ in
+                guard loaded.withLock({ $0 }) else { return saved }
+                throw URLError(.notConnectedToInternet)
+            },
+            approve: { _, _ in approved.withLock { $0 += 1 } }
+        ))
+        loaded.withLock { $0 = true }
+        #expect(await !store.approveLatest { _ in [] })
+        #expect(approved.withLock { $0 } == 0, "an old copy of the week isn't what the list is written from")
+        #expect(store.errorMessage?.contains("wasn't updated") == true)
+    }
+
+    @Test func aReadAbandonedForBusyTapsDoesntCountAsARead() async {
+        let monday = night(1, meal: chili)
+        let saved = week([monday], approved: true)
+        let current = Mutex<WeekStore?>(nil)
+        let approved = Mutex(0)
+        let store = await store(.fake(
+            week: { _, _ in
+                if let busy = current.withLock({ $0 }) { await busy.toggleAttendance(nightID: monday.id, memberID: nora) }
+                return saved
+            },
+            approve: { _, _ in approved.withLock { $0 += 1 } }
+        ))
+        current.withLock { $0 = store }
+        #expect(await !store.refresh())
+        #expect(await !store.approveLatest { _ in [] })
+        #expect(approved.withLock { $0 } == 0)
+    }
+
+    @Test func theListIsBuiltFromTheWeekJustRead() async throws {
+        let monday = night(1, meal: chili)
+        let tuesday = night(2, pick: .leftovers, leftoversFrom: monday.id)
+        let before = week([monday, night(2)], approved: true)
+        let after = Week(planID: before.planID, start: sunday, approvedAt: before.approvedAt, nights: [monday, tuesday])
+        let loaded = Mutex(false)
+        let store = await store(.fake(week: { _, _ in loaded.withLock { $0 } ? after : before }))
+        loaded.withLock { $0 = true }
+        let seen = Mutex(false)
+        #expect(await store.approveLatest { layout in
+            seen.withLock { $0 = DoubleIt.listNights(layout).contains(where: \.doubled) }
+            return []
+        })
+        #expect(seen.withLock { $0 }, "another planner's doubling counts")
+    }
+
+    @Test func aTapStartedWhileWaitingIsAlsoWaitedForBeforeReading() async throws {
+        let monday = night(1, meal: chili, locked: true)
+        let tuesday = night(2, pick: .leftovers, locked: true, leftoversFrom: monday.id)
+        let wednesday = night(3)
+        let saved = week([monday, tuesday, wednesday])
+        let reads = Mutex(0)
+        let (parked, parkedSignal) = AsyncStream.makeStream(of: Void.self)
+        let (firstGate, releaseFirst) = AsyncStream.makeStream(of: Void.self)
+        let (secondGate, releaseSecond) = AsyncStream.makeStream(of: Void.self)
+        let (swapWrote, swapWroteSignal) = AsyncStream.makeStream(of: Void.self)
+        let store = await store(.fake(
+            week: { _, _ in
+                reads.withLock { $0 += 1 }
+                return saved
+            },
+            setExpected: { nightID, _, _ in
+                parkedSignal.yield()
+                for await _ in nightID == monday.id ? firstGate : secondGate {}
+            },
+            setNight: { _, _ in swapWroteSignal.yield() }
+        ))
+        var signals = parked.makeAsyncIterator()
+        let first = Task { await store.toggleAttendance(nightID: monday.id, memberID: nora) }
+        _ = await signals.next()
+        let swap = Task { await store.swap(nightID: tuesday.id, to: .quickPick(.takeout)) }
+        for await _ in swapWrote { break }
+        for _ in 0..<50 { await Task.yield() }
+        let second = Task { await store.toggleAttendance(nightID: wednesday.id, memberID: nora) }
+        _ = await signals.next()
+        let before = reads.withLock { $0 }
+        releaseFirst.finish()
+        await first.value
+        for _ in 0..<50 { await Task.yield() }
+        #expect(reads.withLock { $0 } == before, "no read alongside the second tap")
+        releaseSecond.finish()
+        await second.value
+        #expect(await swap.value)
+        #expect(reads.withLock { $0 } == before + 1)
+    }
+
+    @Test func aReadStartedBeforeABuildSavedIsntShownOverIt() async throws {
+        let open = night(1)
+        let before = week([open])
+        let drafted = Mutex(false)
+        let reads = Mutex(0)
+        let (parked, parkedSignal) = AsyncStream.makeStream(of: Void.self)
+        let (gate, release) = AsyncStream.makeStream(of: Void.self)
+        let meal = LibraryMeal.fixture(name: "Soup")
+        let store = WeekStore(householdID: Household.sample.id, client: .fake(
+            week: { _, _ in
+                let read = reads.withLock { $0 += 1; return $0 }
+                if read == 2 {
+                    parkedSignal.yield()
+                    for await _ in gate {}
+                    return before
+                }
+                guard drafted.withLock({ $0 }) else { return before }
+                var after = before
+                after.nights[0].mealID = meal.id
+                after.nights[0].mealName = "Soup"
+                return after
+            },
+            setNights: { _, _ in drafted.withLock { $0 = true } }
+        ), today: { sunday }, seed: { 3 })
+        await store.load(settings: HouseholdSettings())
+        let slow = Task { await store.refresh() }
+        for await _ in parked { break }
+        await store.fillRemaining { PlanningContext(meals: [meal], history: [], settings: HouseholdSettings(), members: []) }
+        release.finish()
+        #expect(await slow.value)
+        #expect(store.week?.nights[0].mealID == meal.id, "the old read isn't put over the saved draft")
+    }
+
     /// A reload after a linked write must not overwrite a tap still on its way to the server.
     @Test func aReloadAfterALinkedWriteWaitsForAnAttendanceTapInFlight() async throws {
         let monday = night(1, meal: chili, locked: true)
@@ -548,9 +697,9 @@ struct DoubleItPlanningTests {
             setNight: { _, _ in swapped.withLock { $0 = true } }
         ), today: { sunday })
         await store.load(settings: HouseholdSettings())
-        #expect(store.layout.map(DoubleIt.listNights)?.contains { $0.doubled } == true)
+        #expect(store.layout.map { DoubleIt.listNights($0) }?.contains { $0.doubled } == true)
         #expect(await store.swap(nightID: tuesday.id, to: .quickPick(.takeout)))
-        #expect(store.layout.map(DoubleIt.listNights)?.contains { $0.doubled } == false)
+        #expect(store.layout.map { DoubleIt.listNights($0) }?.contains { $0.doubled } == false)
         #expect(store.week?.nights[1].id == monday.id)
     }
 }

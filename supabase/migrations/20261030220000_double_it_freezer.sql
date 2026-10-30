@@ -135,6 +135,7 @@ as $$
 begin
   if new.meal_id is distinct from old.meal_id then
     perform public.unwind_leftovers_night(l.id) from public.plan_nights l where l.leftovers_from = new.id;
+    update public.meal_logs set returned_stash_item_id = null where night_id = new.id and returned_stash_item_id is not null;
   end if;
   if old.stash_item_id is not null and new.stash_item_id is distinct from old.stash_item_id then
     update public.freezer_stash set state = 'in', state_changed_at = now() where id = old.stash_item_id and state = 'used';
@@ -148,10 +149,13 @@ revoke execute on function public.plan_nights_follow_links() from public, anon, 
 create trigger plan_nights_follow_links after update of meal_id, quick_pick on public.plan_nights
   for each row execute function public.plan_nights_follow_links();
 
--- We had something else writes only the log, and any member can make it, so the night follows here. A dish that wasn't
--- eaten left no leftovers, and a freezer dinner that wasn't eaten is still in the freezer. The plan itself keeps saying
--- what was planned, as it does for any corrected night. Correcting back takes the item out again if nothing else has it;
--- the leftovers night stays as it is, because someone may have planned it by then.
+-- We had something else writes only the log, and any member can make it, so the night follows here, as a matter of
+-- product policy: anyone who can correct a dinner releases its leftovers night and freezer item, since those leftovers
+-- don't exist. The plan itself keeps saying what was planned, as it does for any corrected night.
+-- Correcting back takes the item out again only if the night still holds that dish and nothing else has the item. The
+-- leftovers night stays as it is, because someone may have planned it by then. returned_stash_item_id is that memory, and
+-- it ends when the plan's dish changes (plan_nights_follow_links): a log can agree with a plan because the plan moved.
+-- confirm_dinner names these columns on every confirm and rating, so an unchanged pair is no correction.
 alter table public.meal_logs
   add column returned_stash_item_id uuid,
   add constraint meal_logs_returned_item_fkey foreign key (returned_stash_item_id, household_id)
@@ -164,15 +168,20 @@ as $$
 declare
   night public.plan_nights;
 begin
+  if tg_op = 'UPDATE' and (new.meal_id, new.quick_pick) is not distinct from (old.meal_id, old.quick_pick) then
+    return null;
+  end if;
   select * into night from public.plan_nights where id = new.night_id for update;
 
   if (new.meal_id, new.quick_pick) is not distinct from (night.meal_id, night.quick_pick) then
     if new.returned_stash_item_id is not null then
-      update public.freezer_stash s set state = 'used', state_changed_at = now()
-      where s.id = new.returned_stash_item_id and s.state = 'in'
-        and not exists (select 1 from public.plan_nights n where n.stash_item_id = s.id);
-      if found and night.stash_item_id is null then
-        update public.plan_nights set stash_item_id = new.returned_stash_item_id where id = night.id;
+      if night.stash_item_id is null then
+        update public.freezer_stash s set state = 'used', state_changed_at = now()
+        where s.id = new.returned_stash_item_id and s.state = 'in' and s.meal_id = night.meal_id
+          and not exists (select 1 from public.plan_nights n where n.stash_item_id = s.id);
+        if found then
+          update public.plan_nights set stash_item_id = new.returned_stash_item_id where id = night.id;
+        end if;
       end if;
       update public.meal_logs set returned_stash_item_id = null where id = new.id;
     end if;
@@ -196,13 +205,20 @@ create trigger meal_logs_follow_what_was_eaten after insert or update of meal_id
 
 -- Whether an approved week's list is behind its doubled and freezer nights, on the plan so every phone sees it. The links
 -- are what the app builds the list from. A BEFORE trigger can end a link, so this asks of the row, not the columns written.
+-- Only for dinners still to come: a past night isn't on the list, and tonight leaves it once it's logged.
 alter table public.plans add column list_stale boolean not null default false;
 
 create function public.plan_nights_mark_list_stale()
 returns trigger
 language plpgsql security definer set search_path = ''
 as $$
+declare
+  today date := public.household_today(new.household_id);
 begin
+  if new.date < today
+     or (new.date = today and exists (select 1 from public.meal_logs l where l.night_id = new.id)) then
+    return null;
+  end if;
   update public.plans set list_stale = true where id = new.plan_id and approved_at is not null and not list_stale;
   return null;
 end;

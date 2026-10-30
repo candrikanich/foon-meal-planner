@@ -225,7 +225,7 @@ struct WeekView: View {
         let staples = cachedItems.filter(\.keepOnHand).compactMap { item in
             item.stockState.map { WeeklyList.Staple(itemID: item.id, name: item.name, state: $0) }
         }
-        return WeeklyList.build(nights: DoubleIt.listNights(layout), library: library.meals, stock: stock, staples: staples,
+        return WeeklyList.build(nights: DoubleIt.listNights(layout, logged: Set(dinner.logs.map(\.nightID))), library: library.meals, stock: stock, staples: staples,
                                 allergies: library.allergies)
     }
 
@@ -233,7 +233,7 @@ struct WeekView: View {
         let lines = weeklyList(layout)
         let approved = week.week?.approvedAt != nil
         return VStack(spacing: 6) {
-            Button { Task { await approve(lines) } } label: {
+            Button { Task { await approve() } } label: {
                 Label(approved ? approveText(lines.count, update: true) : approveText(lines.count, update: false),
                       systemImage: approved ? "arrow.triangle.2.circlepath" : "checkmark.seal")
                     .frame(maxWidth: .infinity)
@@ -252,13 +252,11 @@ struct WeekView: View {
 
     /// Builds from the week as it is now: another planner may have doubled or swapped a night since this phone last looked,
     /// and these lines replace the week's own.
-    private func approve(_ lines: [WeeklyList.Line]) async {
+    private func approve() async {
         isApproving = true
         defer { isApproving = false }
-        await week.refresh()
-        let latest = week.layout.map(weeklyList) ?? lines
         // Pull right away so the cart badge and Lists show the new list without waiting for Realtime.
-        if await week.approve(latest) { await sync?.pull() }
+        if await week.approveLatest(weeklyList) { await sync?.pull() }
     }
 
     private func approveText(_ count: Int, update: Bool) -> String {

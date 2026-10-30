@@ -12,18 +12,29 @@ enum QuantityScaler {
     }
 
     /// For a shopping amount, where a wrong number means the wrong thing bought: only one amount and what it counts, with
-    /// a package size in brackets allowed ("1 (15 oz) can"). Anything else with a number in it ("1 to 2 lb", "2 lb 8 oz",
-    /// "1/2 cup + 2 tbsp") returns nil, because scaling the start alone would state something false.
+    /// a real package size in brackets right after it allowed ("1 (15 oz) can"). Anything else with a number in it ("1 to
+    /// 2 lb", "2 lb 8 oz", "3 cloves (2 if large)"), or a bracket left open, returns nil, because scaling the start alone
+    /// would state something false.
     static func scaledIfSimple(_ quantity: String, by factor: Double) -> String? {
         let chars = Array(quantity)
         guard let (scaled, end) = leading(chars, by: factor) else { return nil }
+        let rest = String(chars[end...])
+        guard isPlainWords(rest) else { return nil }
+        return scaled + rest
+    }
+
+    private static func isPlainWords(_ rest: String) -> Bool {
+        let packageSize = /^\s*\(\s*\d+(\.\d+)?[\s-]*(oz|ounces?|fl oz|g|grams?|kg|ml|l|liters?|litres?|lbs?|pounds?)\.?\s*\)/
+            .ignoresCase()
+        let words = rest.prefixMatch(of: packageSize).map { rest[$0.range.upperBound...] } ?? rest[...]
+        guard !words.contains(where: \.isNumber) else { return false }
         var depth = 0
-        for character in chars[end...] {
+        for character in words {
             if character == "(" { depth += 1 }
-            if character == ")" { depth = max(depth - 1, 0) }
-            if depth == 0, character.isNumber { return nil }
+            if character == ")" { depth -= 1 }
+            if depth < 0 { return false }
         }
-        return scaled + String(chars[end...])
+        return depth == 0
     }
 
     /// The scaled amount at the start, and where it ends.

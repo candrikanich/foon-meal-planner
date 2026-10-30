@@ -5,9 +5,10 @@ import Foundation
 /// and the list is rebuilt from that each time, so a scale can't compound and undoing it can't leave a stale amount.
 enum DoubleIt {
     /// The nights the weekly list is built from, each saying whether it's doubled or already in the freezer. A doubled
-    /// dish is also eaten on its leftovers night, so whoever's home then counts for its allergy notes.
-    static func listNights(_ layout: WeekLayout) -> [WeeklyList.Night] {
-        layout.plannable.map { night in
+    /// dish is also eaten on its leftovers night, so whoever's home then counts for its allergy notes. Tonight leaves once
+    /// its dinner is logged (`logged`): it's over, and what was eaten may not be what was planned.
+    static func listNights(_ layout: WeekLayout, logged: Set<UUID> = []) -> [WeeklyList.Night] {
+        layout.plannable.filter { !logged.contains($0.id) }.map { night in
             let later = leftoversNight(of: night, in: layout.ahead)
             return WeeklyList.Night(mealID: night.mealID, home: home(night).union(later.map(home) ?? []),
                                     doubled: later != nil, fromFreezer: night.stashItemID != nil)

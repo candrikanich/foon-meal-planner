@@ -252,6 +252,8 @@ final class WeekStore {
             week?.nights[index].reason = update.reason
             week?.nights[index].locked = update.locked == true
         }
+        writesStarted += 1
+        defer { writesStarted += 1 }
         do {
             try await client.setNights(planID, updates)
             errorMessage = nil
@@ -306,6 +308,7 @@ final class WeekStore {
         let saved = update
         let write = freezerWrite
         let linked = isLinked(nightID)
+        let date = week?.nights[index].date ?? today()
         if lock { unfillableNights.remove(nightID) }
         week?.nights[index].mealID = update.mealID
         week?.nights[index].mealName = mealName
@@ -323,7 +326,7 @@ final class WeekStore {
                 try await client.setNight(saved, lock)
             }
         }
-        if succeeded, linked || write != nil { noteListChanged() }
+        if succeeded, linked || (write != nil && date >= today()) { noteListChanged() }
         // The server just moved the night at the other end of a link; show what it did.
         if succeeded, linked { await settleThenReload() }
         return succeeded
@@ -392,8 +395,20 @@ final class WeekStore {
     }
 
     /// Reads the week again before something is built from it, so a list isn't written from what another planner changed.
-    func refresh() async {
+    @discardableResult
+    func refresh() async -> Bool {
         await settleThenReload()
+    }
+
+    /// Writes the list from the week as it is now. Without a fresh read it stops: these lines replace the week's own, and
+    /// an old copy would quietly undo another planner's doubling.
+    @discardableResult
+    func approveLatest(_ build: (WeekLayout) -> [WeeklyList.Line]) async -> Bool {
+        guard await refresh(), let layout else {
+            errorMessage = String(localized: "Couldn't read the latest week, so the list wasn't updated. Check your connection and try again.")
+            return false
+        }
+        return await approve(build(layout))
     }
 
     // MARK: - Approve
@@ -540,21 +555,22 @@ final class WeekStore {
         return true
     }
 
-    /// A read after a write that went through: other taps may be on their way, so it waits for them, and reads again if
-    /// another starts while it's reading. A few goes, then it leaves the screen as it is rather than undo a tap. Returns
-    /// whether it read.
+    /// A read after a write that went through: other taps may be on their way, so it waits for them, and goes again if
+    /// another starts while it's waiting or reading. A few goes, then it leaves the screen as it is rather than undo a tap.
+    /// Returns whether the screen now shows a fresh read.
     @discardableResult
     private func settleThenReload() async -> Bool {
         guard let start else { return false }
         for _ in 0..<3 {
-            for write in Array(lastWrite.values) { await write.value }
             let started = writesStarted
+            for write in Array(lastWrite.values) { await write.value }
+            guard started == writesStarted else { continue }
             guard let loaded = try? await client.week(householdID, start) else { return false }
             guard started == writesStarted else { continue }
             if start == self.start { week = loaded }
             return true
         }
-        return true
+        return false
     }
 
     /// Refusals that have nothing to do with the connection get their own words.

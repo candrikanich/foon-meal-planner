@@ -713,6 +713,9 @@
     "Couldn't read that page. Check your connection and try again." : {
 
     },
+    "Couldn't read the latest week, so the list wasn't updated. Check your connection and try again." : {
+
+    },
     "Couldn't record your consent. Check your connection and try again." : {
 
     },
