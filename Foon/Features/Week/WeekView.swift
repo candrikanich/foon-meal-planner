@@ -428,7 +428,8 @@ struct WeekView: View {
         guard let meal = library.meal(mealID) else { return [] }
         return NightBadges.badges(meal: meal, library: library.meals, allergies: library.allergies, home: home,
                                   settings: settings,
-                                  start: StartCooking.nudge(for: meal, on: night, settings: settings, today: week.todayDay))
+                                  start: StartCooking.nudge(for: meal, on: night, settings: settings, today: week.todayDay,
+                                                            minuteNow: settings.minuteOfDay()))
     }
 
     private func openNightsText(_ count: Int) -> String {

@@ -225,7 +225,25 @@ final class HouseholdStore {
         do {
             try await client.updateSettings(household.id, settings)
             loadGeneration += 1
-            household.settings = settings
+            household.settings = settings.withKitchen(of: household.planningSettings)
+            phase = .ready(household)
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = String(localized: "Couldn't save the settings. Check your connection and try again.")
+            return false
+        }
+    }
+
+    /// Saves what the kitchen has and the nudge's switch, and nothing else. Returns whether it saved.
+    @discardableResult
+    func updateKitchen(_ settings: HouseholdSettings) async -> Bool {
+        guard let id = household?.id else { return false }
+        do {
+            try await client.updateKitchen(id, settings.kitchen)
+            loadGeneration += 1
+            guard var household else { return false }
+            household.settings = household.planningSettings.withKitchen(of: settings)
             phase = .ready(household)
             errorMessage = nil
             return true

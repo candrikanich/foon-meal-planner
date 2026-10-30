@@ -43,7 +43,7 @@ struct MealEditorView: View {
                         }
                     }
                 } footer: {
-                    Text("Sets when This Week says to start cooking. Foon estimates if you're not sure.")
+                    Text("Sets when This Week says to start cooking. If you're not sure, only quick and slow cooker dishes get an estimate.")
                 }
 
                 Section("Tags") {

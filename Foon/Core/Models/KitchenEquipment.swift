@@ -17,19 +17,20 @@ enum KitchenEquipment: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    /// On a card or swap suggestion, for a dish the household doesn't have this for.
-    var needsText: String {
+    /// On a card or swap suggestion, for a dish the household doesn't have this for. "Usually": plenty of these dishes
+    /// can be made another way (chili on the stove, hot dogs in a pan), so it never says a family can't make one.
+    var usuallyUsesText: String {
         switch self {
-        case .grill: String(localized: "Needs a grill", comment: "Day card badge: the household has no grill")
-        case .slowCooker: String(localized: "Needs a slow cooker", comment: "Day card badge: the household has none")
-        case .airFryer: String(localized: "Needs an air fryer", comment: "Day card badge: the household has none")
-        case .instantPot: String(localized: "Needs an Instant Pot", comment: "Day card badge: the household has none")
+        case .grill: String(localized: "Usually uses a grill", comment: "Day card badge: the household has no grill")
+        case .slowCooker: String(localized: "Usually uses a slow cooker", comment: "Day card badge: the household has none")
+        case .airFryer: String(localized: "Usually uses an air fryer", comment: "Day card badge: the household has none")
+        case .instantPot: String(localized: "Usually uses an Instant Pot", comment: "Day card badge: the household has none")
         }
     }
 }
 
 extension HouseholdSettings {
-    /// What this dish needs that the household doesn't have, in the list's order.
+    /// What this dish usually uses that the household doesn't have, in the list's order.
     func missingEquipment(for meal: LibraryMeal) -> [KitchenEquipment] {
         guard !missingEquipment.isEmpty else { return [] }
         let needs = DishTraits(name: meal.name, tags: meal.tags).equipment

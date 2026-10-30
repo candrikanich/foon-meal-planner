@@ -29,6 +29,8 @@ struct HouseholdClient: Sendable {
         = { _, _, _ in }
     /// Merges these settings into the household's, keeping keys this version doesn't know.
     var updateSettings: @Sendable (_ householdID: UUID, _ settings: HouseholdSettings) async throws -> Void = { _, _ in }
+    /// Saves only the kitchen's keys, so a stale copy of anything else can't go with them.
+    var updateKitchen: @Sendable (_ householdID: UUID, _ kitchen: HouseholdSettings.Kitchen) async throws -> Void = { _, _ in }
     /// Everything in the household as JSON (planners only), for the data export.
     var exportHousehold: @Sendable (_ householdID: UUID) async throws -> Data = { _ in Data("{}".utf8) }
     /// Erases the household the caller owns, photos included, for everyone; their account stays.
@@ -170,6 +172,11 @@ extension HouseholdClient {
                     targetHousehold: householdID, patch: settings
                 )).execute()
             },
+            updateKitchen: { householdID, kitchen in
+                try await client.rpc("update_household_settings", params: KitchenParams(
+                    targetHousehold: householdID, patch: kitchen
+                )).execute()
+            },
             exportHousehold: { householdID in
                 try await client.rpc("export_household", params: ["target_household": householdID.uuidString])
                     .execute()
@@ -279,6 +286,16 @@ private struct SetAllergiesParams: Encodable, Sendable {
 private struct SettingsParams: Encodable, Sendable {
     let targetHousehold: UUID
     let patch: HouseholdSettings
+
+    enum CodingKeys: String, CodingKey {
+        case targetHousehold = "target_household"
+        case patch
+    }
+}
+
+private struct KitchenParams: Encodable, Sendable {
+    let targetHousehold: UUID
+    let patch: HouseholdSettings.Kitchen
 
     enum CodingKeys: String, CodingKey {
         case targetHousehold = "target_household"

@@ -1,6 +1,6 @@
 -- Start-cooking nudge (#55). A dish can say how long it takes, in minutes before dinner; nothing else stored here does
--- (prep_steps.lead_hours is for things started ahead). The app estimates from tags without one. The list of equipment a
--- household doesn't have is households.settings.missing_equipment, which needs no schema.
+-- (prep_steps.lead_hours is for things started ahead). Without one, the app estimates only for quick and slow cooker
+-- dishes. The list of equipment a household doesn't have is households.settings.missing_equipment, which needs no schema.
 alter table public.meals
   add column cook_minutes smallint check (cook_minutes between 1 and 1440);
 

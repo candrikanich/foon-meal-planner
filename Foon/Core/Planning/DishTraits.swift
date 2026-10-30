@@ -44,7 +44,7 @@ struct DishTraits: Equatable, Sendable {
     let categories: Set<DishCategory>
     /// Served cold or close to it: Build my week's summer lean, alongside grill-tagged dishes.
     let isCold: Bool
-    /// What it takes to make it: a tag, or a name that says so. Meals have no tag for an air fryer or an Instant Pot, and
+    /// What it usually takes to make it: a tag, or a name that says so. Meals have no tag for an air fryer or an Instant Pot, and
     /// a new tag would break reading the library on apps already installed (`MealTag` decoding is strict).
     let equipment: Set<KitchenEquipment>
     private let tags: [MealTag]
@@ -100,10 +100,12 @@ struct DishTraits: Equatable, Sendable {
     private static let servedCool = Keywords(["salad", "ceviche", "poke", "hoagie", "italian sub", "wrap", "blt"])
 
     private static let equipmentNames: [KitchenEquipment: Keywords] = [
-        .grill: Keywords(["grilled", "on the grill"], except: ["grilled cheese"]),
-        .slowCooker: Keywords(["slow cooker", "slow cooked", "crock pot", "crockpot"]),
-        .airFryer: Keywords(["air fryer", "airfryer", "air fried", "air fry"]),
-        .instantPot: Keywords(["instant pot", "instapot", "pressure cooker"]),
+        .grill: Keywords(["grilled", "on the grill", "from the grill", "mixed grill"],
+                         except: ["grilled cheese", "grilled ham and cheese", "grilled pb and j", "grilled pbj",
+                                  "pan grilled"]),
+        .slowCooker: Keywords(["slow cooker", "slowcooker", "slow cook", "slow cooked", "crock pot", "crockpot"]),
+        .airFryer: Keywords(["air fryer", "airfryer", "air fried", "airfried", "air fry"]),
+        .instantPot: Keywords(["instant pot", "instantpot", "instapot", "pressure cooker"]),
     ]
 
     private static let keywords: [DishCategory: Keywords] = [

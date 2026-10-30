@@ -23,7 +23,7 @@ struct KitchenView: View {
             } header: {
                 Text("What you have")
             } footer: {
-                Text("Turn off what you don't have, and Foon stops suggesting dishes that need it. They stay in your library, and anything the family asks for still lands.")
+                Text("Turn off what you don't have, and Foon won't plan dishes that usually use it on its own. They stay in your library, you can still pick one in Swap, and anything the family asks for still lands.")
             }
 
             Section {
@@ -36,7 +36,7 @@ struct KitchenView: View {
                     }
                 ))
             } footer: {
-                Text("This Week counts back from dinner time. Set a dish's time to cook in its editor; without one, Foon estimates.")
+                Text("This Week counts back from dinner time. Set a dish's time to cook in its editor; without one, only quick and slow cooker dishes get an estimate.")
             }
 
             if let message = store.errorMessage {
@@ -52,7 +52,7 @@ struct KitchenView: View {
     private func save(_ changed: HouseholdSettings) {
         isSaving = true
         Task {
-            await store.updateSettings(changed)
+            await store.updateKitchen(changed)
             isSaving = false
         }
     }

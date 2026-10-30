@@ -71,9 +71,9 @@ select throws_ok($$ select public.save_meal('00000000-0000-0000-0000-0000000002a
 -- The equipment list -----------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select lives_ok($$ select public.update_household_settings('00000000-0000-0000-0000-0000000000a0',
-  '{"missing_equipment": ["grill"], "start_cooking_nudge": false}') $$, 'a planner saves the list');
+  '{"missing_equipment": ["grill", "wood_oven"], "start_cooking_nudge": false}') $$, 'a planner saves the list');
 select is((select settings -> 'missing_equipment' from public.households
-           where id = '00000000-0000-0000-0000-0000000000a0'), '["grill"]'::jsonb, 'it''s saved');
+           where id = '00000000-0000-0000-0000-0000000000a0'), '["grill", "wood_oven"]'::jsonb, 'it''s saved');
 select is((select settings ->> 'dinner_time' from public.households where id = '00000000-0000-0000-0000-0000000000a0'),
   '17:30', 'the other settings stay');
 
@@ -81,7 +81,7 @@ select is((select settings ->> 'dinner_time' from public.households where id = '
 select lives_ok($$ select public.update_household_settings('00000000-0000-0000-0000-0000000000a0',
   '{"takeout_nights": 1}') $$, 'a save from an older build');
 select is((select settings -> 'missing_equipment' from public.households
-           where id = '00000000-0000-0000-0000-0000000000a0'), '["grill"]'::jsonb, 'leaves the list alone');
+           where id = '00000000-0000-0000-0000-0000000000a0'), '["grill", "wood_oven"]'::jsonb, 'leaves the list alone');
 
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 select throws_ok($$ select public.update_household_settings('00000000-0000-0000-0000-0000000000a0',

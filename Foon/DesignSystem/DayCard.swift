@@ -278,7 +278,7 @@ private enum DayCardPreview {
                                  slot: .meal(name: "Pot roast", photoURL: nil, reason: "Haven't had it in 7 weeks",
                                              sides: ["mashed potatoes", "green beans"]),
                                  attendance: DayCardPreview.family,
-                                 badges: [.equipment("Needs a grill"),
+                                 badges: [.equipment("Usually uses a grill"),
                                           .startCooking("Start cooking at 5:00 PM for 6:00 PM dinner"),
                                           .prep("Thaw tonight")],
                                  isLocked: true,

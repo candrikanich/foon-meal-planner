@@ -933,14 +933,14 @@
     "Foon flags dishes that contain them, and you plan as usual." : {
 
     },
+    "Foon holds back dishes that usually use kitchen equipment you don't have, unless few others fit. Search your meals to plan one anyway." : {
+
+    },
     "Foon is building the week. Try again in a moment." : {
 
     },
     "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime." : {
       "comment" : "Allergy consent: the one plain sentence parents agree to"
-    },
-    "Foon leaves out dishes that need kitchen equipment you don't have, unless little else fits. Search your meals to plan one anyway." : {
-
     },
     "Foon reminds you then. Lots of families plan Sunday morning, before shopping." : {
 
@@ -1336,18 +1336,6 @@
     },
     "Names can be up to %lld characters." : {
 
-    },
-    "Needs a grill" : {
-      "comment" : "Day card badge: the household has no grill"
-    },
-    "Needs a slow cooker" : {
-      "comment" : "Day card badge: the household has none"
-    },
-    "Needs an Instant Pot" : {
-      "comment" : "Day card badge: the household has none"
-    },
-    "Needs an air fryer" : {
-      "comment" : "Day card badge: the household has none"
     },
     "Needs grill" : {
 
@@ -1797,7 +1785,7 @@
     "Servings go from 1 to 50." : {
 
     },
-    "Sets when This Week says to start cooking. Foon estimates if you're not sure." : {
+    "Sets when This Week says to start cooking. If you're not sure, only quick and slow cooker dishes get an estimate." : {
 
     },
     "Setting up the sample family…" : {
@@ -2136,7 +2124,7 @@
     "This Week" : {
 
     },
-    "This Week counts back from dinner time. Set a dish's time to cook in its editor; without one, Foon estimates." : {
+    "This Week counts back from dinner time. Set a dish's time to cook in its editor; without one, only quick and slow cooker dishes get an estimate." : {
 
     },
     "This can't be undone. Everyone's usual nights stay as they are." : {
@@ -2235,7 +2223,7 @@
     "Trying" : {
 
     },
-    "Turn off what you don't have, and Foon stops suggesting dishes that need it. They stay in your library, and anything the family asks for still lands." : {
+    "Turn off what you don't have, and Foon won't plan dishes that usually use it on its own. They stay in your library, you can still pick one in Swap, and anything the family asks for still lands." : {
 
     },
     "Type %@ to confirm" : {
@@ -2270,6 +2258,18 @@
     },
     "Usually home for dinner" : {
 
+    },
+    "Usually uses a grill" : {
+      "comment" : "Day card badge: the household has no grill"
+    },
+    "Usually uses a slow cooker" : {
+      "comment" : "Day card badge: the household has none"
+    },
+    "Usually uses an Instant Pot" : {
+      "comment" : "Day card badge: the household has none"
+    },
+    "Usually uses an air fryer" : {
+      "comment" : "Day card badge: the household has none"
     },
     "Vanilla, not plain" : {
 

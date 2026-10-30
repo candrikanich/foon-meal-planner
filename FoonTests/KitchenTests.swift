@@ -1,9 +1,10 @@
 import Foundation
+import Synchronization
 import Testing
 @testable import Foon
 
-/// Kitchen equipment (#55): dishes that need what the household doesn't have drop out of suggestions, never out of
-/// what the family asked for, and never at the cost of an empty night.
+/// Kitchen equipment (#55): dishes that usually use what the household doesn't have drop out of what Foon picks on its
+/// own, never out of what the family asked for, and they stay within reach in Swap and Search.
 struct KitchenEquipmentTests {
     private let sunday = CalendarDay(year: 2026, month: 4, day: 5)
     private let nora = UUID()
@@ -27,29 +28,34 @@ struct KitchenEquipmentTests {
         (0..<count).map { .fixture(name: "Dish \($0)") }
     }
 
-    // MARK: What a dish needs
+    // MARK: What a dish usually uses
 
     @Test(arguments: [
         ("Air fryer wings", KitchenEquipment.airFryer), ("Air-fried wings", .airFryer), ("Airfryer fries", .airFryer),
-        ("Instant Pot chili", .instantPot), ("Instapot beans", .instantPot), ("Pressure cooker beans", .instantPot),
+        ("Airfried wings", .airFryer),
+        ("Instant Pot chili", .instantPot), ("InstantPot ribs", .instantPot), ("Instapot beans", .instantPot),
+        ("Pressure cooker beans", .instantPot),
         ("Crock pot roast", .slowCooker), ("Crockpot chili", .slowCooker), ("Slow cooker ribs", .slowCooker),
-        ("Grilled salmon", .grill), ("Chicken on the grill", .grill),
+        ("Slowcooker ribs", .slowCooker), ("Slow Cook pork", .slowCooker), ("Slow-cooked pork", .slowCooker),
+        ("Grilled salmon", .grill), ("Chicken on the grill", .grill), ("Steak from the grill", .grill),
+        ("Mixed grill", .grill),
     ] as [(String, KitchenEquipment)])
-    func theNameSaysWhatADishNeeds(name: String, needs: KitchenEquipment) {
-        #expect(DishTraits(name: name).equipment == [needs])
+    func theNameSaysWhatADishUses(name: String, uses: KitchenEquipment) {
+        #expect(DishTraits(name: name).equipment == [uses])
     }
 
-    @Test(arguments: ["Grilled cheese", "Instant ramen", "Pot roast", "Air Force lasagna", "Tacos"])
-    func otherNamesNeedNothing(name: String) {
+    @Test(arguments: ["Grilled cheese", "Grilled ham and cheese", "Grilled PB&J", "Grilled PB and J",
+                      "Pan-grilled chicken", "Instant ramen", "Pot roast", "Air Force lasagna", "Tacos"])
+    func otherNamesUseNothing(name: String) {
         #expect(DishTraits(name: name).equipment.isEmpty)
     }
 
-    @Test func tagsSayWhatADishNeeds() {
+    @Test func tagsSayWhatADishUses() {
         #expect(DishTraits(name: "Carne asada", tags: [.grill]).equipment == [.grill])
         #expect(DishTraits(name: "Chili", tags: [.slowCooker, .leftovers]).equipment == [.slowCooker])
     }
 
-    @Test func missingEquipmentNamesOnlyWhatThisDishNeeds() {
+    @Test func missingEquipmentNamesOnlyWhatThisDishUses() {
         let settings = settings(missing: [.grill, .airFryer])
         #expect(settings.missingEquipment(for: .fixture(name: "Burgers", tags: [.grill])) == [.grill])
         #expect(settings.missingEquipment(for: .fixture(name: "Chili", tags: [.slowCooker])).isEmpty)
@@ -65,7 +71,7 @@ struct KitchenEquipmentTests {
         })
     }
 
-    @Test func aDishNeedingWhatTheyDontHaveIsLeftOut() {
+    @Test func aDishUsingWhatTheyDontHaveIsLeftOut() {
         let grilled = LibraryMeal.fixture(name: "Burgers", tags: [.grill])
         let inputs = PlanningInputs(nights: nights(), meals: plainDishes() + [grilled], settings: noGrill)
         for seed in seeds {
@@ -83,30 +89,45 @@ struct KitchenEquipmentTests {
         })
     }
 
-    @Test func itNeverEmptiesANightThatADishCouldFill() {
+    @Test func aNightOnlyThoseDishesCouldFillSaysNothingFits() {
         let grilled = (0..<7).map { LibraryMeal.fixture(name: "Grill night \($0)", tags: [.grill]) }
         let inputs = PlanningInputs(nights: nights(), meals: grilled, settings: noGrill)
-        let draft = BuildMyWeek.draft(inputs, seed: 1)
-        #expect(draft.allSatisfy { $0.pick?.mealID != nil })
-        #expect(!draft.contains { $0.reason == .nothingFits })
+        for seed in seeds {
+            let draft = BuildMyWeek.draft(inputs, seed: seed)
+            #expect(draft.allSatisfy { $0.pick == nil && $0.reason == .nothingFits })
+        }
     }
 
-    @Test func aLastResortOnlyFillsWhatOtherDishesCouldnt() {
+    @Test func otherDishesFillWhatTheyCanAndTheRestSaysNothingFits() {
         let grilled = (0..<3).map { LibraryMeal.fixture(name: "Grill night \($0)", tags: [.grill]) }
         let plain = plainDishes(4)
         let inputs = PlanningInputs(nights: nights(), meals: plain + grilled, settings: noGrill)
         for seed in seeds {
-            let picked = Set(BuildMyWeek.draft(inputs, seed: seed).compactMap(\.pick?.mealID))
-            #expect(Set(plain.map(\.id)).isSubset(of: picked))
+            let draft = BuildMyWeek.draft(inputs, seed: seed)
+            #expect(Set(draft.compactMap(\.pick?.mealID)) == Set(plain.map(\.id)))
+            #expect(draft.filter { $0.reason == .nothingFits }.count == 3)
         }
     }
 
-    @Test func otherFiltersStillHoldForALastResort() {
+    @Test func aTrialDishFillsANightButADishTheyCantMakeDoesnt() {
+        let trial = LibraryMeal.fixture(name: "Something new", status: .trial)
+        let trialGrill = LibraryMeal.fixture(name: "New burgers", tags: [.grill], status: .trial)
         let grilled = LibraryMeal.fixture(name: "Burgers", tags: [.grill])
-        var rushed = nights(count: 1)
-        rushed[0].effort = .rushed
-        let inputs = PlanningInputs(nights: rushed, meals: [grilled], settings: noGrill)
-        #expect(BuildMyWeek.draft(inputs, seed: 1)[0].reason == .nothingFits)
+        let inputs = PlanningInputs(nights: nights(count: 2), meals: [trial, trialGrill, grilled], settings: noGrill)
+        for seed in seeds {
+            let draft = BuildMyWeek.draft(inputs, seed: seed)
+            #expect(draft.compactMap(\.pick?.mealID) == [trial.id])
+            #expect(draft[1].reason == .nothingFits)
+        }
+    }
+
+    @Test func theSameSeedGivesTheSameWeekWithEquipmentSet() {
+        let library = plainDishes(5) + [.fixture(name: "Burgers", tags: [.grill]), .fixture(name: "Chili", tags: [.slowCooker])]
+        let inputs = PlanningInputs(nights: nights(), meals: library, settings: noGrill)
+        let shuffled = PlanningInputs(nights: inputs.nights.reversed(), meals: library.reversed(), settings: noGrill)
+        for seed in seeds {
+            #expect(BuildMyWeek.draft(inputs, seed: seed) == BuildMyWeek.draft(shuffled, seed: seed))
+        }
     }
 
     @Test func aRequestStillLands() {
@@ -166,6 +187,24 @@ struct KitchenEquipmentTests {
         #expect(BuildMyWeek.shuffle(night: week[0].id, inputs: inputs, seed: 1) == nil)
     }
 
+    @Test func shuffleMovesOffADishTheyCantMake() {
+        let current = LibraryMeal.fixture(name: "Burgers", tags: [.grill])
+        let plain = LibraryMeal.fixture(name: "Plain")
+        var week = nights(count: 1)
+        week[0].mealID = current.id
+        let inputs = PlanningInputs(nights: week, meals: [current, plain], settings: noGrill)
+        #expect(BuildMyWeek.shuffle(night: week[0].id, inputs: inputs, seed: 1)?.pick == .meal(plain.id))
+    }
+
+    @Test func shuffleStillChangesADishTheyCantMakeWhenOnlyOthersLikeItAreLeft() {
+        let current = LibraryMeal.fixture(name: "Burgers", tags: [.grill])
+        let other = LibraryMeal.fixture(name: "Steak", tags: [.grill])
+        var week = nights(count: 1)
+        week[0].mealID = current.id
+        let inputs = PlanningInputs(nights: week, meals: [current, other], settings: noGrill)
+        #expect(BuildMyWeek.shuffle(night: week[0].id, inputs: inputs, seed: 1)?.pick == .meal(other.id))
+    }
+
     @Test func pickForMeTakesItOnAnEmptyNightWhenNothingElseFits() {
         let grilled = LibraryMeal.fixture(name: "Burgers", tags: [.grill])
         let week = nights(count: 1)
@@ -215,19 +254,69 @@ struct KitchenEquipmentTests {
 
     // MARK: Badges
 
-    @Test func aDishTheyCantMakeSaysSo() {
-        let grilled = LibraryMeal.fixture(name: "Burgers", tags: [.grill])
-        #expect(NightBadges.badges(meal: grilled, library: [grilled], allergies: [], home: [], settings: noGrill)
-            == [.equipment("Needs a grill")])
-        #expect(NightBadges.badges(meal: grilled, library: [grilled], allergies: [], home: [], settings: settings())
-            .isEmpty)
+    @Test(arguments: [
+        (KitchenEquipment.grill, MealTag.grill, "Usually uses a grill"),
+        (.slowCooker, .slowCooker, "Usually uses a slow cooker"),
+    ] as [(KitchenEquipment, MealTag, String)])
+    func aDishTheyMayNotBeAbleToMakeSaysSoHonestly(equipment: KitchenEquipment, tag: MealTag, text: String) {
+        let meal = LibraryMeal.fixture(name: "Dish", tags: [tag])
+        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [],
+                                   settings: settings(missing: [equipment])) == [.equipment(text)])
+        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], settings: settings()).isEmpty)
+    }
+
+    @Test func theOtherEquipmentReadsTheSameWay() {
+        #expect(KitchenEquipment.airFryer.usuallyUsesText == "Usually uses an air fryer")
+        #expect(KitchenEquipment.instantPot.usuallyUsesText == "Usually uses an Instant Pot")
+    }
+}
+
+/// Fill runs through the store, which locks what's already planned before drafting.
+@MainActor
+struct KitchenFillTests {
+    private let sunday = CalendarDay(year: 2026, month: 11, day: 1)
+    private let ann = Member.fixture(firstName: "Ann", guardian: true, role: .planner)
+
+    @Test func fillingRemainingNightsLeavesThoseDishesOutAndKeepsOnePlannedOnPurpose() async {
+        var settings = HouseholdSettings()
+        settings.newDishesPerWeek = 0
+        settings.leftoverNights = 0
+        settings.missingEquipment = [.grill]
+        let steak = LibraryMeal.fixture(name: "Steak", tags: [.grill])
+        let burgers = LibraryMeal.fixture(name: "Burgers", tags: [.grill])
+        let plain = LibraryMeal.fixture(name: "Plain")
+        var week = Week(planID: UUID(), start: sunday, approvedAt: nil, nights: (0..<3).map {
+            WeekNight(id: UUID(), date: sunday.adding(days: $0), effort: .normal, dinnerTime: nil, mealID: nil,
+                      mealName: nil, quickPick: nil, locked: false, attendance: [ann.id: true])
+        })
+        week.nights[0].mealID = steak.id
+        week.nights[0].mealName = steak.name
+        let existing = week
+        let sent = Mutex<[NightUpdate]>([])
+        let store = WeekStore(householdID: Household.sample.id, client: .fake(
+            week: { _, _ in existing }, setNights: { _, updates in sent.withLock { $0 = updates } }
+        ), today: { [sunday] in sunday })
+        await store.load(settings: settings)
+        let context = PlanningContext(meals: [steak, burgers, plain], history: [], settings: settings, members: [ann])
+        await store.fillRemaining { context }
+        #expect(store.week?.nights[0].mealID == steak.id)
+        #expect(store.week?.nights.compactMap(\.mealID).sorted { $0.uuidString < $1.uuidString }
+            == [steak.id, plain.id].sorted { $0.uuidString < $1.uuidString })
+        #expect(!sent.withLock { $0 }.contains { $0.nightID == existing.nights[0].id })
     }
 }
 
 /// How `households.settings` carries the equipment list and the nudge's switch.
+@MainActor
 struct KitchenSettingsTests {
+    private let me = UUID()
+
     private func decode(_ json: String) throws -> HouseholdSettings {
         try JSONDecoder().decode(HouseholdSettings.self, from: Data(json.utf8))
+    }
+
+    private func sentJSON(_ kitchen: HouseholdSettings.Kitchen) throws -> [String: Any] {
+        try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(kitchen)) as? [String: Any])
     }
 
     @Test func aHouseholdThatSaidNothingHasEverything() throws {
@@ -236,28 +325,97 @@ struct KitchenSettingsTests {
         #expect(settings.showsStartCooking)
     }
 
-    @Test func savedValuesRoundTrip() throws {
+    @Test func kitchenValuesRoundTrip() throws {
         var settings = HouseholdSettings()
         settings.missingEquipment = [.grill, .instantPot]
         settings.showsStartCooking = false
-        let back = try JSONDecoder().decode(HouseholdSettings.self, from: JSONEncoder().encode(settings))
+        let back = try JSONDecoder().decode(HouseholdSettings.self, from: JSONEncoder().encode(settings.kitchen))
         #expect(back.missingEquipment == [.grill, .instantPot])
         #expect(!back.showsStartCooking)
     }
 
     @Test func turningEverythingBackOnIsSent() throws {
         // The server merges keys, so leaving this out would keep the old list.
-        let data = try JSONEncoder().encode(HouseholdSettings())
-        let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
-        #expect((json["missing_equipment"] as? [String]) == [])
+        #expect((try sentJSON(HouseholdSettings().kitchen)["missing_equipment"] as? [String]) == [])
     }
 
-    @Test func aValueFromANewerAppIsIgnored() throws {
-        #expect(try decode(#"{"missing_equipment": ["grill", "wood_oven"]}"#).missingEquipment == [.grill])
+    @Test func aKitchenSaveSendsOnlyItsOwnKeys() throws {
+        #expect(Set(try sentJSON(HouseholdSettings().kitchen).keys) == ["missing_equipment", "start_cooking_nudge"])
+    }
+
+    /// Settings saves merge whatever they send. A stale copy changing dinner time mustn't undo another planner's list.
+    @Test func otherSettingsSavesLeaveTheKitchenAlone() throws {
+        var settings = HouseholdSettings()
+        settings.missingEquipment = [.grill]
+        settings.showsStartCooking = false
+        let encoded = try JSONEncoder().encode(settings)
+        let keys = try #require(try JSONSerialization.jsonObject(with: encoded) as? [String: Any]).keys
+        #expect(!keys.contains("missing_equipment"))
+        #expect(!keys.contains("start_cooking_nudge"))
+        #expect(keys.contains("dinner_time"))
+    }
+
+    @Test func aValueFromANewerAppIsIgnoredHereButSurvivesAKitchenSave() throws {
+        var settings = try decode(#"{"missing_equipment": ["grill", "wood_oven"]}"#)
+        #expect(settings.missingEquipment == [.grill])
+        #expect((try sentJSON(settings.kitchen)["missing_equipment"] as? [String]) == ["grill", "wood_oven"])
+        settings.missingEquipment.remove(.grill)
+        #expect((try sentJSON(settings.kitchen)["missing_equipment"] as? [String]) == ["wood_oven"])
     }
 
     @Test func aBadListCountsAsNothing() throws {
         #expect(try decode(#"{"missing_equipment": "grill"}"#).missingEquipment.isEmpty)
+    }
+
+    @Test func theStoreSendsOnlyTheKitchenAndKeepsTheRestOfWhatItHas() async {
+        let me = me
+        var saved = HouseholdSettings()
+        saved.dinnerTime = "17:30"
+        let household = Household(id: UUID(), name: "The Smiths", emoji: nil, owner: me, settings: saved)
+        let wholeSaves = Mutex(0)
+        let kitchens = Mutex<[HouseholdSettings.Kitchen]>([])
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: { household },
+            updateSettings: { _, _ in wholeSaves.withLock { $0 += 1 } },
+            updateKitchen: { _, kitchen in kitchens.withLock { $0.append(kitchen) } }
+        ), deviceTimeZone: { "America/Chicago" })
+        await store.load()
+        let before = wholeSaves.withLock { $0 }
+        var stale = HouseholdSettings()
+        stale.missingEquipment = [.grill]
+        #expect(await store.updateKitchen(stale))
+        #expect(wholeSaves.withLock { $0 } == before)
+        #expect(kitchens.withLock { $0 } == [stale.kitchen])
+        #expect(store.household?.planningSettings.missingEquipment == [.grill])
+        #expect(store.household?.planningSettings.dinnerTime == "17:30", "only the kitchen changes on this device")
+    }
+
+    @Test func aFailedKitchenSaveLeavesTheToggleAndSaysSo() async {
+        let me = me
+        let household = Household(id: UUID(), name: "The Smiths", emoji: nil, owner: me)
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: { household }, updateKitchen: { _, _ in throw URLError(.notConnectedToInternet) }
+        ))
+        await store.load()
+        var changed = HouseholdSettings()
+        changed.missingEquipment = [.grill]
+        #expect(await !store.updateKitchen(changed))
+        #expect(store.household?.planningSettings.missingEquipment.isEmpty == true)
+        #expect(store.errorMessage != nil)
+    }
+
+    @Test func aStaleSettingsSaveKeepsTheKitchenOnThisDevice() async {
+        let me = me
+        var saved = HouseholdSettings()
+        saved.missingEquipment = [.grill]
+        let household = Household(id: UUID(), name: "The Smiths", emoji: nil, owner: me, settings: saved)
+        let store = HouseholdStore(userID: me, client: .fake(myHousehold: { household }))
+        await store.load()
+        var stale = HouseholdSettings()
+        stale.dinnerTime = "19:00"
+        #expect(await store.updateSettings(stale))
+        #expect(store.household?.planningSettings.dinnerTime == "19:00")
+        #expect(store.household?.planningSettings.missingEquipment == [.grill])
     }
 }
 
@@ -265,41 +423,64 @@ struct KitchenSettingsTests {
 struct StartCookingTests {
     private let today = CalendarDay(year: 2026, month: 11, day: 3)
     private let enUS = Locale(identifier: "en_US")
+    private let nora = UUID()
+    /// 8:00 in the morning: before any start in these tests unless one says otherwise.
+    private let morning = 8 * 60
 
-    private func night(_ day: CalendarDay? = nil, time: String? = "18:30:00") -> WeekNight {
+    private func night(_ day: CalendarDay? = nil, time: String? = "18:30:00", attendance: [UUID: Bool] = [:]) -> WeekNight {
         WeekNight(id: UUID(), date: day ?? today, effort: .normal, dinnerTime: time, mealID: UUID(), mealName: "Dish",
-                  quickPick: nil, locked: false, attendance: [:])
+                  quickPick: nil, locked: false, attendance: attendance)
     }
 
     /// The system's time format puts a narrow space before PM.
-    private func text(_ nudge: StartCooking?) -> String? {
-        nudge?.text(locale: enUS).replacingOccurrences(of: "\u{202F}", with: " ")
+    private func text(_ nudge: StartCooking?, locale: Locale? = nil) -> String? {
+        nudge?.text(locale: locale ?? enUS).replacingOccurrences(of: "\u{202F}", with: " ")
     }
 
-    private func nudge(_ meal: LibraryMeal, _ night: WeekNight? = nil, settings: HouseholdSettings = HouseholdSettings())
-        -> StartCooking? {
-        StartCooking.nudge(for: meal, on: night ?? self.night(), settings: settings, today: today)
+    private func nudge(_ meal: LibraryMeal, _ night: WeekNight? = nil, settings: HouseholdSettings = HouseholdSettings(),
+                       at minute: Int? = nil) -> StartCooking? {
+        StartCooking.nudge(for: meal, on: night ?? self.night(), settings: settings, today: today,
+                           minuteNow: minute ?? morning)
     }
+
+    private func timed(_ minutes: Int, name: String = "Lasagna", tags: [MealTag] = [],
+                       prepSteps: [PrepStep] = []) -> LibraryMeal {
+        var meal = LibraryMeal.fixture(name: name, tags: tags, prepSteps: prepSteps)
+        meal.cookMinutes = minutes
+        return meal
+    }
+
+    private var chili: LibraryMeal {
+        .fixture(name: "Chili", tags: [.slowCooker], prepSteps: [PrepStep(step: "Start the slow cooker", leadHours: 8)])
+    }
+
+    // MARK: Where the time comes from
 
     @Test func aDishsOwnTimeSaysAt() {
-        var meal = LibraryMeal.fixture(name: "Lasagna")
-        meal.cookMinutes = 45
-        #expect(text(nudge(meal)) == "Start cooking at 5:45 PM for 6:30 PM dinner")
+        #expect(text(nudge(timed(45))) == "Start cooking at 5:45 PM for 6:30 PM dinner")
     }
 
     @Test func aDishsOwnTimeBeatsItsTags() {
-        var meal = LibraryMeal.fixture(name: "Quick lasagna", tags: [.quick])
-        meal.cookMinutes = 45
-        #expect(nudge(meal)?.cookMinutes == 45)
+        #expect(nudge(timed(45, tags: [.quick]))?.cookMinutes == 45)
     }
 
     @Test(arguments: [
-        ([MealTag.quick], 30), ([.slowCooker], 480), ([.slowCooker, .quick], 480), ([.leftovers], 60), ([], 60),
+        ([MealTag.quick], 30), ([.slowCooker], 480), ([.slowCooker, .quick], 480),
     ] as [([MealTag], Int)])
-    func withoutOneTagsGiveAnEstimate(tags: [MealTag], minutes: Int) {
+    func quickAndSlowCookerDishesGetAnEstimate(tags: [MealTag], minutes: Int) {
         let nudge = nudge(.fixture(name: "Dish", tags: tags))
         #expect(nudge?.cookMinutes == minutes)
         #expect(nudge?.isEstimate == true)
+    }
+
+    @Test(arguments: ["Crockpot chili", "Slow cooker ribs", "Slow-cooked pork"])
+    func aNameSayingSlowCookerCounts(name: String) {
+        #expect(nudge(.fixture(name: name))?.cookMinutes == 480)
+    }
+
+    @Test(arguments: [[MealTag.leftovers], [.grill], [.thawFirst], []] as [[MealTag]])
+    func everythingElseGetsNoNudgeUntilSomeoneSetsATime(tags: [MealTag]) {
+        #expect(nudge(.fixture(name: "Lasagna", tags: tags)) == nil)
     }
 
     @Test func anEstimateSaysAround() {
@@ -314,25 +495,77 @@ struct StartCookingTests {
     }
 
     @Test func aTimeThatWontReadGetsNoNudge() {
-        #expect(nudge(.fixture(name: "Tacos"), night(time: "soon")) == nil)
+        #expect(nudge(timed(30), night(time: "soon")) == nil)
     }
 
-    @Test func aStartBeforeMidnightGetsNoNudge() {
-        var meal = LibraryMeal.fixture(name: "Smoked brisket")
-        meal.cookMinutes = 20 * 60
-        #expect(nudge(meal) == nil)
+    @Test func aTwentyFourHourLocaleReadsThatWay() {
+        #expect(text(nudge(timed(45)), locale: Locale(identifier: "en_GB")) == "Start cooking at 17:45 for 18:30 dinner")
+    }
+
+    // MARK: The midnight boundary
+
+    @Test func aStartAtMidnightStillShows() {
+        let nudge = nudge(timed(30), night(time: "00:30"), at: 0)
+        #expect(nudge?.startMinute == 0)
+        #expect(text(nudge) == "Start cooking at 12:00 AM for 12:30 AM dinner")
+    }
+
+    @Test func aStartTheDayBeforeGetsNoNudge() {
+        #expect(nudge(timed(31), night(time: "00:30"), at: 0) == nil)
+        #expect(nudge(timed(20 * 60)) == nil)
+    }
+
+    // MARK: Whether it can still be followed
+
+    @Test func tonightsStartThatHasPassedIsHidden() {
+        #expect(nudge(chili, at: 15 * 60) == nil, "at 3pm nobody can start at 10:30 AM")
+    }
+
+    @Test func tonightsStartShowsUpToTheMinute() {
+        #expect(nudge(timed(30), at: 18 * 60) != nil)
+        #expect(nudge(timed(30), at: 18 * 60 + 1) == nil)
+    }
+
+    @Test func afterDinnerItsHidden() {
+        #expect(nudge(timed(30), at: 20 * 60) == nil)
+    }
+
+    @Test func anotherNightDoesntCareWhatTimeItIsNow() {
+        #expect(nudge(chili, night(today.adding(days: 1)), at: 23 * 60) != nil)
+    }
+
+    @Test func aPassedStartLetsThePrepChipComeBack() {
+        let badges = NightBadges.badges(meal: chili, library: [chili], allergies: [], home: [],
+                                        start: nudge(chili, at: 15 * 60))
+        #expect(badges == [.prep("Start the slow cooker · 8 hours ahead")])
+    }
+
+    @Test func theCurrentMinuteIsTheHouseholds() {
+        var settings = HouseholdSettings()
+        settings.timeZone = "America/Chicago"
+        // 2026-11-03 20:15 UTC is 2:15 PM in Chicago, whatever this device's zone.
+        let now = Date(timeIntervalSince1970: 1_793_736_900)
+        #expect(settings.minuteOfDay(now: now) == 14 * 60 + 15)
+    }
+
+    @Test func nobodyHomeGetsNone() {
+        #expect(nudge(timed(30), night(attendance: [nora: false])) == nil)
+        #expect(nudge(timed(30), night(attendance: [nora: true])) != nil)
+        #expect(nudge(timed(30), night(attendance: [:])) != nil, "no rows yet isn't nobody home")
     }
 
     @Test func aHouseholdCanTurnItOff() {
         var settings = HouseholdSettings()
         settings.showsStartCooking = false
-        #expect(nudge(.fixture(name: "Tacos"), settings: settings) == nil)
+        #expect(nudge(timed(30), settings: settings) == nil)
     }
 
     @Test func pastNightsGetNone() {
-        #expect(nudge(.fixture(name: "Tacos"), night(today.adding(days: -1))) == nil)
-        #expect(nudge(.fixture(name: "Tacos"), night(today.adding(days: 1))) != nil)
+        #expect(nudge(timed(30), night(today.adding(days: -1))) == nil)
+        #expect(nudge(timed(30), night(today.adding(days: 1))) != nil)
     }
+
+    // MARK: Badges
 
     @Test func itJoinsTheNightsBadges() {
         let meal = LibraryMeal.fixture(name: "Tacos", tags: [.quick])
@@ -341,14 +574,28 @@ struct StartCookingTests {
             == [.startCooking(nudge?.text() ?? "")])
     }
 
-    @Test func aPrepStepSayingTheSameThingGivesWay() {
-        let chili = LibraryMeal.fixture(name: "Chili", tags: [.slowCooker],
-                                        prepSteps: [PrepStep(step: "Start the slow cooker", leadHours: 8)])
+    @Test func theSlowCookerStepGivesWay() {
         let nudge = nudge(chili)
         #expect(NightBadges.badges(meal: chili, library: [chili], allergies: [], home: [], start: nudge)
             == [.startCooking(nudge?.text() ?? "")])
         #expect(NightBadges.badges(meal: chili, library: [chili], allergies: [], home: [])
             == [.prep("Start the slow cooker · 8 hours ahead")])
+    }
+
+    @Test func aDishsOwnTimeWinsOverADifferentSlowCookerStep() {
+        let meal = timed(6 * 60, name: "Chili", tags: [.slowCooker],
+                         prepSteps: [PrepStep(step: "Start the slow cooker", leadHours: 8)])
+        let nudge = nudge(meal)
+        #expect(nudge?.cookMinutes == 360)
+        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], start: nudge)
+            == [.startCooking(nudge?.text() ?? "")])
+    }
+
+    @Test func aMarinateWithTheSameLeadStillShows() {
+        let meal = timed(60, name: "Kebabs", prepSteps: [PrepStep(step: "Marinate the chicken", leadHours: 1)])
+        let nudge = nudge(meal)
+        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], start: nudge)
+            == [.startCooking(nudge?.text() ?? ""), .prep("Marinate the chicken · 1 hour ahead")])
     }
 
     @Test func aThawStepStillShows() {
@@ -363,18 +610,16 @@ struct StartCookingTests {
     @Test func theCardReadsItToVoiceOver() {
         let card = DayCardModel(date: today, effort: .normal, slot: .empty, attendance: [],
                                 badges: [.startCooking("Start cooking at 5:45 PM for 6:30 PM dinner"),
-                                         .equipment("Needs a grill")], isLocked: false)
+                                         .equipment("Usually uses a grill")], isLocked: false)
         let summary = DayCardText.accessibilitySummary(card, today: today)
         #expect(summary.contains("Start cooking at 5:45 PM for 6:30 PM dinner"))
-        #expect(summary.contains("Needs a grill"))
+        #expect(summary.contains("Usually uses a grill"))
     }
 
     // MARK: The dish's time
 
     @Test func theDraftKeepsTheTime() throws {
-        var meal = LibraryMeal.fixture(name: "Lasagna")
-        meal.cookMinutes = 90
-        var draft = MealDraft(meal)
+        var draft = MealDraft(timed(90))
         #expect(try draft.validated().cookMinutes == 90)
         draft.cookMinutes = nil
         #expect(try draft.validated().cookMinutes == nil)

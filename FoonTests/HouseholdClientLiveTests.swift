@@ -341,9 +341,10 @@ struct HouseholdClientLiveTests {
         settings.dinnerTime = "17:30"
         settings.planningDay = 6
         settings.onboarded = false
+        try await households.updateSettings(household.id, settings)
         settings.missingEquipment = [.grill, .airFryer]
         settings.showsStartCooking = false
-        try await households.updateSettings(household.id, settings)
+        try await households.updateKitchen(household.id, settings.kitchen)
         let saved = try #require(try await households.myHousehold()?.planningSettings)
         #expect(saved.dinnerTime == "17:30")
         #expect(saved.planningDay == 6)
@@ -351,8 +352,14 @@ struct HouseholdClientLiveTests {
         #expect(saved.missingEquipment == [.grill, .airFryer])
         #expect(!saved.showsStartCooking)
 
+        var stale = HouseholdSettings()
+        stale.dinnerTime = "19:00"
+        try await households.updateSettings(household.id, stale)
+        #expect(try await households.myHousehold()?.planningSettings.missingEquipment == [.grill, .airFryer],
+                "a stale save of the other settings keeps the kitchen")
+
         settings.missingEquipment = []
-        try await households.updateSettings(household.id, settings)
+        try await households.updateKitchen(household.id, settings.kitchen)
         #expect(try await households.myHousehold()?.planningSettings.missingEquipment.isEmpty == true,
                 "turning everything back on reaches the database")
     }

@@ -30,9 +30,12 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
     /// saved with other settings can't undo them (the server ignores the key anyway, for older apps' sake).
     var awayDates: [AwayDates] = []
     /// What the kitchen doesn't have. It lists what's missing rather than what's owned, so a household that hasn't said,
-    /// and equipment added to the list later, keep every dish.
+    /// and equipment added to the list later, keep every dish. Like the away dates this isn't encoded with the other
+    /// settings, so a stale copy saved with them can't undo another planner's choice: only `kitchen` writes it.
     var missingEquipment: Set<KitchenEquipment> = []
-    /// Whether cards say when to start cooking.
+    /// Listed by a newer app. This one can't use them, but its own saves keep them.
+    var otherMissingEquipment: [String] = []
+    /// Whether cards say when to start cooking. Saved with `kitchen`, like the list.
     var showsStartCooking = true
 
     /// Onboarding's presets (docs/spec.md → Notifications): how much Foon nudges.
@@ -58,6 +61,33 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
                 String(localized: "Everything: idea digests, tonight polls, \"heading to the store,\" the weekly recap, and follow-up reminders.")
             }
         }
+    }
+
+    /// What Family → Kitchen saves: its own keys and nothing else. Always includes the list, since the server merges
+    /// keys and leaving out an empty one would keep the old one.
+    struct Kitchen: Encodable, Equatable, Sendable {
+        let missingEquipment: [String]
+        let showsStartCooking: Bool
+
+        private enum CodingKeys: String, CodingKey {
+            case missingEquipment = "missing_equipment"
+            case showsStartCooking = "start_cooking_nudge"
+        }
+    }
+
+    var kitchen: Kitchen {
+        Kitchen(missingEquipment: KitchenEquipment.allCases.filter(missingEquipment.contains).map(\.rawValue)
+                    + otherMissingEquipment,
+                showsStartCooking: showsStartCooking)
+    }
+
+    /// These settings, with the kitchen's values from `other`.
+    func withKitchen(of other: HouseholdSettings) -> HouseholdSettings {
+        var merged = self
+        merged.missingEquipment = other.missingEquipment
+        merged.otherMissingEquipment = other.otherMissingEquipment
+        merged.showsStartCooking = other.showsStartCooking
+        return merged
     }
 
     init() {}
@@ -105,9 +135,6 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         try container.encode(samplePending, forKey: .samplePending)
         try container.encode(isSample, forKey: .isSample)
         try container.encodeIfPresent(timeZone, forKey: .timeZone)
-        // Always sent: the server merges keys, so leaving an empty list out would keep the old one.
-        try container.encode(KitchenEquipment.allCases.filter(missingEquipment.contains), forKey: .missingEquipment)
-        try container.encode(showsStartCooking, forKey: .showsStartCooking)
     }
 
     init(from decoder: Decoder) throws {
@@ -136,6 +163,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
             .compactMap(\.dates) ?? []
         let missing = ((try? container.decodeIfPresent([String].self, forKey: .missingEquipment)) ?? nil) ?? []
         missingEquipment = Set(missing.compactMap(KitchenEquipment.init(rawValue:)))
+        otherMissingEquipment = missing.filter { KitchenEquipment(rawValue: $0) == nil }
         showsStartCooking = (try? container.decodeIfPresent(Bool.self, forKey: .showsStartCooking)).flatMap { $0 } ?? true
     }
 
