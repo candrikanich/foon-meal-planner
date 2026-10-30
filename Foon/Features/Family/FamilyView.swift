@@ -56,14 +56,19 @@ struct FamilyView: View {
                 }
 
 
-                if canPlan {
+                if canPlan || store.canManagePeople {
                     Section {
-                        NavigationLink {
-                            AwayDatesView()
-                        } label: {
-                            LabeledContent("Away dates", value: awaySummary)
+                        if canPlan {
+                            NavigationLink {
+                                AwayDatesView()
+                            } label: {
+                                LabeledContent("Away dates", value: awaySummary)
+                            }
                         }
-                        NavigationLink("Saved schedules") { AttendanceTemplatesView() }
+                        // A person's usual schedule is theirs or a parent's to change.
+                        if store.canManagePeople {
+                            NavigationLink("Saved schedules") { AttendanceTemplatesView() }
+                        }
                     } header: {
                         Text("Trips and seasons")
                     } footer: {
@@ -176,8 +181,9 @@ struct FamilyView: View {
     }
 
     private var awaySummary: String {
-        store.household?.planningSettings.awayDates(endingOnOrAfter: CalendarDay(Date.now)).first?.summary
-            ?? String(localized: "None")
+        guard let settings = store.household?.planningSettings else { return String(localized: "None") }
+        let today = settings.today()
+        return settings.awayDates(endingOnOrAfter: today).first?.summary(today: today) ?? String(localized: "None")
     }
 
     private func loadDinners() async {

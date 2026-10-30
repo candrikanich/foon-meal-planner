@@ -460,8 +460,11 @@ struct HouseholdClientLiveTests {
         #expect(week.nights[2].attendance[ann.id] == true)
 
         let tuesday = AwayDates(from: sunday.adding(days: 2), to: sunday.adding(days: 3))
-        try await households.setAwayDates(household.id, [tuesday])
+        #expect(try await households.addAwayDates(household.id, tuesday) == [tuesday])
         #expect(try await households.myHousehold()?.planningSettings.awayDates == [tuesday])
+        await #expect(throws: (any Error).self, "a swap onto an away night is refused") {
+            try await weeks.setNight(NightUpdate(nightID: week.nights[2].id, quickPick: .takeout), true)
+        }
         let during = try #require(try await weeks.week(household.id, sunday))
         #expect(during.nights[2].attendance[ann.id] == false)
         #expect(during.nights[4].attendance[ann.id] == true)
@@ -472,7 +475,11 @@ struct HouseholdClientLiveTests {
         #expect(try await households.myHousehold()?.planningSettings.awayDates == [tuesday],
                 "saving settings doesn't touch them")
 
-        try await households.setAwayDates(household.id, [])
+        let christmas = AwayDates(from: sunday.adding(days: 50), to: sunday.adding(days: 52))
+        #expect(try await households.addAwayDates(household.id, christmas) == [tuesday, christmas],
+                "a device that didn't know about the first keeps it")
+        #expect(try await households.removeAwayDates(household.id, christmas) == [tuesday])
+        #expect(try await households.removeAwayDates(household.id, tuesday) == [])
         let after = try #require(try await weeks.week(household.id, sunday))
         #expect(after.nights[2].attendance[ann.id] == true)
     }

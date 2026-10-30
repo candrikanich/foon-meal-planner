@@ -362,7 +362,8 @@ extension HouseholdClient {
         updateSettings: @escaping @Sendable (UUID, HouseholdSettings) async throws -> Void = { _, _ in },
         exportHousehold: @escaping @Sendable (UUID) async throws -> Data = { _ in Data("{}".utf8) },
         deleteHousehold: @escaping @Sendable () async throws -> Void = { },
-        setAwayDates: @escaping @Sendable (UUID, [AwayDates]) async throws -> Void = { _, _ in },
+        addAwayDates: @escaping @Sendable (UUID, AwayDates) async throws -> [AwayDates] = { _, _ in [] },
+        removeAwayDates: @escaping @Sendable (UUID, AwayDates) async throws -> [AwayDates] = { _, _ in [] },
         attendanceTemplates: @escaping @Sendable (UUID) async throws -> [AttendanceTemplate] = { _ in [] },
         saveAttendanceTemplate: @escaping @Sendable (UUID, String) async throws -> AttendanceTemplate = { _, _ in
             throw URLError(.unknown)
@@ -387,7 +388,8 @@ extension HouseholdClient {
             updateSettings: updateSettings,
             exportHousehold: exportHousehold,
             deleteHousehold: deleteHousehold,
-            setAwayDates: setAwayDates,
+            addAwayDates: addAwayDates,
+            removeAwayDates: removeAwayDates,
             attendanceTemplates: attendanceTemplates,
             saveAttendanceTemplate: saveAttendanceTemplate,
             applyAttendanceTemplate: applyAttendanceTemplate,

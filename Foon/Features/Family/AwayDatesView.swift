@@ -3,13 +3,17 @@ import SwiftUI
 /// Vacation mode (docs/spec.md → Away dates): mark when the whole household is away. Planners only.
 struct AwayDatesView: View {
     @Environment(HouseholdStore.self) private var store
+    /// For naming what comes off the week showing; the wording covers other weeks.
+    @Environment(WeekStore.self) private var week: WeekStore?
     @State private var first = Date.now
     @State private var last = Date.now
     @State private var confirmingAdd = false
     @State private var isSaving = false
 
-    private var dates: [AwayDates] { store.household?.planningSettings.awayDates(endingOnOrAfter: today) ?? [] }
-    private var today: CalendarDay { CalendarDay(Date.now) }
+    private var settings: HouseholdSettings { store.household?.planningSettings ?? HouseholdSettings() }
+    private var dates: [AwayDates] { settings.awayDates(endingOnOrAfter: today) }
+    /// The household's day, which is what the server clears nights by, wherever this device is.
+    private var today: CalendarDay { settings.today() }
 
     private var chosen: AwayDates {
         let (from, to) = (CalendarDay(first), CalendarDay(last))
@@ -22,7 +26,7 @@ struct AwayDatesView: View {
                 Section("Coming up") {
                     ForEach(dates) { stretch in
                         HStack {
-                            Text(stretch.summary)
+                            Text(stretch.summary(today: today))
                             Spacer()
                             Button("Remove", systemImage: "xmark.circle") {
                                 Task { await save { await store.removeAwayDates(stretch) } }
@@ -31,15 +35,14 @@ struct AwayDatesView: View {
                             .buttonStyle(.borderless)
                             .tint(.secondary)
                             .disabled(isSaving)
-                            .accessibilityLabel(String(localized: "Remove \(stretch.summary)"))
+                            .accessibilityLabel(String(localized: "Remove \(stretch.summary(today: today))"))
                         }
                     }
                 }
             }
 
             Section {
-                DatePicker("First night away", selection: $first, in: Calendar.current.startOfDay(for: .now)...,
-                           displayedComponents: .date)
+                DatePicker("First night away", selection: $first, in: today.date()..., displayedComponents: .date)
                 DatePicker("Last night away", selection: $last, in: lastNightRange, displayedComponents: .date)
                 Button("Add away dates", systemImage: "airplane") { confirmingAdd = true }
                     .tint(Palette.paprika)
@@ -54,22 +57,25 @@ struct AwayDatesView: View {
         }
         .navigationTitle("Away dates")
         .onChange(of: first) { _, first in
-            if last < first { last = first }
+            last = AwayDates.clampedLast(CalendarDay(last), first: CalendarDay(first)).date()
         }
-        .onAppear { store.clearError() }
-        .confirmationDialog("Mark \(chosen.summary) as away?", isPresented: $confirmingAdd, titleVisibility: .visible) {
+        .onAppear {
+            store.clearError()
+            first = today.date()
+            last = first
+        }
+        .confirmationDialog("Mark \(chosen.summary(today: today)) as away?", isPresented: $confirmingAdd, titleVisibility: .visible) {
             Button("Mark as away") {
                 let chosen = chosen
-                Task { await save { await store.addAwayDates(chosen, today: today) } }
+                Task { await save { await store.addAwayDates(chosen) } }
             }
         } message: {
-            Text("Anything already planned for those nights comes off, including locked nights, and stays off if you change your mind.")
+            Text(chosen.confirmation(today: today, week: week?.week?.nights ?? []))
         }
     }
 
-    /// The server takes a year at most per stretch.
     private var lastNightRange: ClosedRange<Date> {
-        first...(Calendar.current.date(byAdding: .day, value: 366, to: first) ?? first)
+        first...CalendarDay(first).adding(days: AwayDates.longestSpanDays).date()
     }
 
     private func save(_ work: () async -> Bool) async {

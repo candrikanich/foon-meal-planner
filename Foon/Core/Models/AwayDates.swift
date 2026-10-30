@@ -30,28 +30,51 @@ struct AwayDates: Codable, Hashable, Identifiable, Sendable {
         from <= day && day <= to
     }
 
-    /// "Dec 20 to Dec 27", or just "Dec 20".
-    var summary: String {
-        let first = DayCardText.dateLabel(for: from)
+    /// "Dec 20 to Dec 27", or just "Dec 20"; a date outside this year shows its year.
+    func summary(today: CalendarDay) -> String {
+        let first = DayCardText.dateLabel(for: from, relativeTo: today)
         guard from != to else { return first }
-        return String(localized: "\(first) to \(DayCardText.dateLabel(for: to))", comment: "Away dates: two short dates")
+        let last = DayCardText.dateLabel(for: to, relativeTo: today)
+        return String(localized: "\(first) to \(last)", comment: "Away dates: two short dates")
     }
 
-    /// The list with a new stretch in it: stretches that overlap or run on from each other become one, ones already
-    /// over are dropped, and the rest are in date order.
-    static func adding(_ new: AwayDates, to existing: [AwayDates], today: CalendarDay) -> [AwayDates] {
-        (existing + [new]).sorted { $0.from < $1.from }.reduce(into: [AwayDates]()) { merged, next in
-            if let last = merged.last, next.from <= last.to.adding(days: 1) {
-                merged[merged.count - 1] = AwayDates(from: last.from, to: max(last.to, next.to))
-            } else {
-                merged.append(next)
-            }
-        }
-        .filter { $0.to >= today }
+    /// The most the server takes from a first night to a last.
+    static let longestSpanDays = 366
+
+    /// The last night to offer once the first has moved: never before it, or further than the server takes.
+    static func clampedLast(_ last: CalendarDay, first: CalendarDay) -> CalendarDay {
+        max(first, min(last, first.adding(days: longestSpanDays)))
+    }
+
+    /// What marking these nights does: how many there are, what comes off them, and that tonight's dinner stays.
+    /// `week` is whichever week is loaded; others are covered by the general wording.
+    func confirmation(today: CalendarDay, week: [WeekNight]) -> String {
+        let count = to.days(since: from) + 1
+        let nights = count == 1 ? String(localized: "1 night.") : String(localized: "\(count) nights.")
+        let coming = week.filter { contains($0.date) && $0.date > today && $0.isPlanned }.map(PlanIt.currentPick)
+        let off = coming.isEmpty
+            ? String(localized: "Anything planned for those nights comes off, locked nights included, and doesn't come back if you change your mind.")
+            : String(localized: "\(coming.formatted(.list(type: .and))) and anything else planned for those nights come off, locked nights included, and don't come back if you change your mind.")
+        let tonight = contains(today)
+            ? [String(localized: "Tonight's dinner stays, in case you've eaten it. Swap it off if you won't be home.")] : []
+        return ([nights, off] + tonight).joined(separator: " ")
+    }
+}
+
+extension WeekNight {
+    /// Inside the away dates, and not a dinner that already happened or is happening tonight: marking dates at 9pm
+    /// doesn't erase what was eaten, so that night still reads as itself.
+    func readsAway(in dates: [AwayDates], today: CalendarDay) -> Bool {
+        dates.contains { $0.contains(date) } && !(date <= today && isPlanned)
     }
 }
 
 extension HouseholdSettings {
+    /// Today in the household's time zone, which is what the server goes by too.
+    func today(now: Date = .now) -> CalendarDay {
+        CalendarDay(now, calendar: DinnerPrompts.calendar(for: self))
+    }
+
     func isAway(on day: CalendarDay) -> Bool {
         awayDates.contains { $0.contains(day) }
     }
@@ -65,9 +88,5 @@ extension HouseholdSettings {
     func awayDates(inWeekOf start: CalendarDay) -> [AwayDates] {
         let end = start.adding(days: 6)
         return awayDates.filter { $0.from <= end && $0.to >= start }
-    }
-
-    func isAwayAllWeek(of start: CalendarDay) -> Bool {
-        (0..<7).allSatisfy { isAway(on: start.adding(days: $0)) }
     }
 }

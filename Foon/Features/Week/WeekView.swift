@@ -71,7 +71,13 @@ struct WeekView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             // Back in the foreground, possibly on a new day or a new week.
-            if phase == .active { Task { await load() } }
+            // The household too: another planner may have changed the away dates, and it otherwise only reloads at launch.
+            if phase == .active {
+                Task {
+                    await household.load()
+                    await load()
+                }
+            }
         }
         .onChange(of: household.members) { _, members in
             if canPlan { Task { await week.fillInMissing(members: members) } }
@@ -116,8 +122,9 @@ struct WeekView: View {
         if !settings.awayDates(inWeekOf: weekStart).isEmpty { awayNote }
         if let layout = week.layout {
             planned(layout)
-        } else if settings.isAwayAllWeek(of: weekStart) {
-            ContentUnavailableView("You're away this week", systemImage: "airplane",
+        } else if week.isAwayForTheRestOfTheWeek {
+            ContentUnavailableView(week.showingNextWeek ? "You're away next week" : "You're away for the rest of this week",
+                                   systemImage: "airplane",
                                    description: Text("Nothing to plan or shop for. Enjoy it."))
                 .frame(minHeight: 240)
         } else if !week.hasLoaded && week.isLoading {
@@ -129,7 +136,7 @@ struct WeekView: View {
 
     /// Everyone sees why those nights are empty; planners change the dates in Family.
     private var awayNote: some View {
-        let dates = settings.awayDates(inWeekOf: weekStart).map(\.summary).joined(separator: ", ")
+        let dates = settings.awayDates(inWeekOf: weekStart).map { $0.summary(today: week.todayDay) }.joined(separator: ", ")
         return Label {
             Text("Away \(dates). Foon won't plan dinners or build a list for those nights.")
         } icon: {
@@ -175,7 +182,7 @@ struct WeekView: View {
         ForEach(layout.ahead) { night in
             card(night)
         }
-        if canPlan, layout.plannable.contains(where: \.isPlanned) {
+        if canPlan, layout.offersApprove(approved: week.week?.approvedAt != nil) {
             approveSection(layout)
         }
         if !layout.past.isEmpty {
@@ -192,7 +199,7 @@ struct WeekView: View {
     }
 
     private func card(_ night: WeekNight) -> some View {
-        let isAway = settings.isAway(on: night.date)
+        let isAway = night.readsAway(in: settings.awayDates, today: week.todayDay)
         let model = WeekStore.card(for: night, members: household.visibleMembers, sides: sideNames, badges: badges,
                                    notes: { meal, home in
                                        ServingNotes.lines(library.servingNotes, mealID: meal, home: home,
@@ -397,12 +404,12 @@ struct WeekView: View {
 
     private func build() async {
         await week.buildWeek { await planningContext() }
-        await ideas.sync(with: week.week, today: week.todayDay, requestNights: week.requestNights)
+        await ideas.sync(with: week.week, today: week.todayDay, requestNights: week.requestNights, away: week.awayDates)
     }
 
     private func fillRemaining() async {
         await week.fillRemaining { await planningContext() }
-        await ideas.sync(with: week.week, today: week.todayDay, requestNights: week.requestNights)
+        await ideas.sync(with: week.week, today: week.todayDay, requestNights: week.requestNights, away: week.awayDates)
     }
 
     private func shuffle(_ nightID: UUID) async {

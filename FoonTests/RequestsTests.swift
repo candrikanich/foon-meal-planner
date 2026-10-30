@@ -326,6 +326,9 @@ struct WantedRequestTests {
         #expect(RequestBoard.landed([newer, request], nights: [tuesday, friday], today: today,
                                     requestNights: [request.id: friday.id]).map(\.requestID) == [request.id],
                 "Ben asking for tacos later doesn't take Nora's night")
+        #expect(RequestBoard.landed([newer], nights: [tuesday, friday], today: today, requestNights: [newer.id: tuesday.id],
+                                    away: [AwayDates(from: tuesday.date, to: tuesday.date)]).isEmpty,
+                "a dish left on an away night doesn't count as landing the idea")
         #expect(RequestBoard.landed([request], nights: [tuesday, friday], today: today).isEmpty,
                 "Taco Tuesday holding the same dish isn't the request landing")
     }

@@ -15,7 +15,11 @@ final class WeekStore {
 
     let householdID: UUID
     private let client: WeekClient
-    private let today: () -> CalendarDay
+    /// Injected in tests; otherwise today is worked out from `now` in the household's time zone.
+    private let fixedToday: (() -> CalendarDay)?
+    private let now: () -> Date
+    /// The household's calendar, from the last load's settings: the server clears away nights by the same day.
+    private var calendar = DinnerPrompts.calendar(for: HouseholdSettings())
     /// A fresh seed per build or shuffle; tests pin it so drafts are predictable.
     private let seed: () -> UInt64
     /// The last write queued per night, so the next one waits for it.
@@ -33,17 +37,31 @@ final class WeekStore {
     /// The household's away dates, as of the last load: those nights show as away and aren't planned.
     private(set) var awayDates: [AwayDates] = []
 
-    init(householdID: UUID, client: WeekClient, today: @escaping () -> CalendarDay = { CalendarDay(Date()) },
-         seed: @escaping () -> UInt64 = { UInt64.random(in: .min ... .max) }) {
+    init(householdID: UUID, client: WeekClient, today: (() -> CalendarDay)? = nil,
+         seed: @escaping () -> UInt64 = { UInt64.random(in: .min ... .max) }, now: @escaping () -> Date = { .now }) {
         self.householdID = householdID
         self.client = client
-        self.today = today
+        self.fixedToday = today
+        self.now = now
         self.seed = seed
     }
 
     var todayDay: CalendarDay { today() }
 
+    private func today() -> CalendarDay {
+        fixedToday?() ?? CalendarDay(now(), calendar: calendar)
+    }
+
+    /// Every night left in the week showing is inside the away dates, so there's nothing to start or build.
+    var isAwayForTheRestOfTheWeek: Bool {
+        guard let start else { return false }
+        let today = today()
+        let left = (0..<7).map { start.adding(days: $0) }.filter { $0 >= today }
+        return !left.isEmpty && left.allSatisfy { day in awayDates.contains { $0.contains(day) } }
+    }
+
     func load(settings: HouseholdSettings) async {
+        calendar = DinnerPrompts.calendar(for: settings)
         let thisWeek = WeekMath.start(of: today(), weekStart: settings.weekStart)
         let start = showingNextWeek ? thisWeek.adding(days: 7) : thisWeek
         if start != self.start { week = nil }
@@ -415,7 +433,7 @@ struct PlanningContext {
 
     func inputs(for week: Week, today: CalendarDay) -> PlanningInputs {
         PlanningInputs(
-            nights: week.nights.map { PlanningNight($0, isAway: settings.isAway(on: $0.date)) },
+            nights: week.nights.map { PlanningNight($0, isAway: $0.readsAway(in: settings.awayDates, today: today)) },
             meals: meals,
             history: history,
             settings: settings,

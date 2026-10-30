@@ -318,7 +318,7 @@ enum RequestBoard {
     /// any other (someday, or a date gone by), only on the night Build my week landed that very request
     /// (`requestNights`, request → night), never just a night that happens to hold the same dish.
     static func landed(_ requests: [DinnerRequest], nights: [WeekNight], today: CalendarDay,
-                       requestNights: [UUID: UUID] = [:]) -> [(requestID: UUID, nightID: UUID)] {
+                       requestNights: [UUID: UUID] = [:], away: [AwayDates] = []) -> [(requestID: UUID, nightID: UUID)] {
         var taken = Set<UUID>()
         return requests.compactMap { request in
             guard request.status == .open, let mealID = request.mealID else { return nil }
@@ -327,7 +327,7 @@ enum RequestBoard {
             } else {
                 requestNights[request.id].flatMap { id in nights.first { $0.id == id && $0.mealID == mealID } }
             }
-            guard let night, !taken.contains(night.id) else { return nil }
+            guard let night, !taken.contains(night.id), !away.contains(where: { $0.contains(night.date) }) else { return nil }
             taken.insert(night.id)
             return (request.id, night.id)
         }

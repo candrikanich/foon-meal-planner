@@ -25,8 +25,9 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
     /// The household's time zone (an IANA name), so the server knows when "last night" was. Set when the household
     /// is created; the server falls back to America/New_York without it.
     var timeZone: String?
-    /// When the whole household is away. Read here, but written only through `set_away_dates`, which also brings the
-    /// weeks already started into line; so they aren't encoded, and a stale copy saved with other settings can't undo them.
+    /// When the whole household is away. Read here, but written only through `add_away_dates` and `remove_away_dates`,
+    /// which merge on the server and bring the weeks already started into line. So they aren't encoded: a stale copy
+    /// saved with other settings can't undo them (the server ignores the key anyway, for older apps' sake).
     var awayDates: [AwayDates] = []
 
     /// Onboarding's presets (docs/spec.md → Notifications): how much Foon nudges.

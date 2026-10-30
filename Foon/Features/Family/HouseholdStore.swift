@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import Supabase
 
 @Observable @MainActor
 final class HouseholdStore {
@@ -191,21 +192,21 @@ final class HouseholdStore {
     // MARK: - Away dates and saved schedules
 
     /// Adds a stretch to the household's away dates. Returns whether it saved.
-    func addAwayDates(_ new: AwayDates, today: CalendarDay) async -> Bool {
-        guard let household else { return false }
-        return await saveAwayDates(AwayDates.adding(new, to: household.planningSettings.awayDates, today: today))
+    func addAwayDates(_ new: AwayDates) async -> Bool {
+        await saveAwayDates { [client] householdID in try await client.addAwayDates(householdID, new) }
     }
 
     /// Ends a stretch: its nights from today on go back to usual schedules. Returns whether it saved.
     func removeAwayDates(_ dates: AwayDates) async -> Bool {
-        guard let household else { return false }
-        return await saveAwayDates(household.planningSettings.awayDates.filter { $0 != dates })
+        await saveAwayDates { [client] householdID in try await client.removeAwayDates(householdID, dates) }
     }
 
-    private func saveAwayDates(_ dates: [AwayDates]) async -> Bool {
-        guard var household else { return false }
+    /// Shows the list the server sends back, which includes what other planners have changed since this device loaded.
+    private func saveAwayDates(_ write: @Sendable (UUID) async throws -> [AwayDates]) async -> Bool {
+        guard let id = household?.id else { return false }
         do {
-            try await client.setAwayDates(household.id, dates)
+            let dates = try await write(id)
+            guard var household else { return false }
             var settings = household.planningSettings
             settings.awayDates = dates
             household.settings = settings
@@ -213,7 +214,9 @@ final class HouseholdStore {
             errorMessage = nil
             return true
         } catch {
-            errorMessage = String(localized: "Couldn't save the away dates. Check your connection and try again.")
+            errorMessage = (error as? PostgrestError)?.code == "22023"
+                ? String(localized: "Those dates didn't work. The last night has to be on or after the first, up to a year later, and not already over.")
+                : String(localized: "Couldn't save the away dates. Check your connection and try again.")
             return false
         }
     }

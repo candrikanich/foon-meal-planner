@@ -73,8 +73,10 @@ enum DayCardText {
         return day.date(in: calendar).formatted(Date.FormatStyle(calendar: calendar).weekday(.wide))
     }
 
-    static func dateLabel(for day: CalendarDay, calendar: Calendar = .current) -> String {
-        day.date(in: calendar).formatted(Date.FormatStyle(calendar: calendar).month(.abbreviated).day())
+    /// "Dec 20", with the year if `today` is given and in a different one.
+    static func dateLabel(for day: CalendarDay, calendar: Calendar = .current, relativeTo today: CalendarDay? = nil) -> String {
+        let style = Date.FormatStyle(calendar: calendar).month(.abbreviated).day()
+        return day.date(in: calendar).formatted(today.map { $0.year != day.year } == true ? style.year() : style)
     }
 
     static func effortLabel(_ effort: NightEffort) -> String {

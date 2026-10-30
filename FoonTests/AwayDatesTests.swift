@@ -1,4 +1,5 @@
 import Foundation
+import Supabase
 import Synchronization
 import Testing
 @testable import Foon
@@ -39,23 +40,12 @@ struct AwayDatesTests {
         #expect(try decode("{}").awayDates.isEmpty)
     }
 
-    /// Settings saves merge whatever they send. A stale copy of the dates mustn't undo another device's change, so only
-    /// set_away_dates writes them.
+    /// Settings saves merge whatever they send. A stale copy of the dates mustn't undo another device's change, so only    /// add_away_dates and remove_away_dates write them.
     @Test func savingSettingsNeverSendsAwayDates() throws {
         let encoded = try JSONEncoder().encode(settings(away: [stretch(2, 3)]))
         let keys = try #require(try JSONSerialization.jsonObject(with: encoded) as? [String: Any]).keys
         #expect(!keys.contains("away_dates"))
         #expect(keys.contains("dinner_time"))
-    }
-
-    @Test func addingMergesWhatTouchesAndDropsWhatsOver() {
-        let today = sunday.adding(days: 5)
-        let existing = [stretch(0, 1), stretch(6, 8), stretch(20, 21)]
-        #expect(AwayDates.adding(stretch(9, 10), to: existing, today: today) == [stretch(6, 10), stretch(20, 21)],
-                "the night after one is the same trip; one already over is gone")
-        #expect(AwayDates.adding(stretch(7, 22), to: existing, today: today) == [stretch(6, 22)])
-        #expect(AwayDates.adding(stretch(12, 13), to: existing, today: today)
-                == [stretch(6, 8), stretch(12, 13), stretch(20, 21)], "in date order")
     }
 
     @Test func aStretchThatsOverIsNoLongerShown() {
@@ -65,16 +55,59 @@ struct AwayDatesTests {
     }
 
     @Test func aStretchReadsPlainly() {
-        #expect(stretch(2, 3).summary == "Nov 3 to Nov 4")
-        #expect(stretch(2, 2).summary == "Nov 3")
+        #expect(stretch(2, 3).summary(today: sunday) == "Nov 3 to Nov 4")
+        #expect(stretch(2, 2).summary(today: sunday) == "Nov 3")
+    }
+
+    /// "Dec 20 to Dec 20" reads fine for a year-long typo; the year gives it away.
+    @Test func aStretchInAnotherYearSaysSo() {
+        let typo = AwayDates(from: sunday, to: CalendarDay(year: 2027, month: 11, day: 1))
+        #expect(typo.summary(today: sunday) == "Nov 1 to Nov 1, 2027")
+        let later = AwayDates(from: CalendarDay(year: 2027, month: 1, day: 2), to: CalendarDay(year: 2027, month: 1, day: 3))
+        #expect(later.summary(today: sunday) == "Jan 2, 2027 to Jan 3, 2027")
+    }
+
+    @Test func theConfirmationCountsTheNightsAndSaysWhatComesOff() {
+        let night = { (offset: Int, name: String?, pick: QuickPick?) in
+            WeekNight(id: UUID(), date: sunday.adding(days: offset), effort: .normal, dinnerTime: nil,
+                      mealID: name == nil ? nil : UUID(), mealName: name, quickPick: pick, locked: false, attendance: [:])
+        }
+        let week = [night(1, "Soup", nil), night(2, "Tacos", nil), night(3, nil, .takeout), night(4, nil, nil), night(5, "Chili", nil)]
+        let message = stretch(2, 4).confirmation(today: sunday, week: week)
+        #expect(message.contains("3 nights"))
+        #expect(message.contains("Tacos"))
+        #expect(message.contains("Takeout"))
+        #expect(!message.contains("Soup"))
+        #expect(!message.contains("Chili"))
+        #expect(!message.contains("Tonight"))
+        #expect(stretch(2, 2).confirmation(today: sunday, week: []).contains("1 night"))
+
+        let fromTonight = stretch(0, 1).confirmation(today: sunday, week: [night(0, "Stew", nil), night(1, "Soup", nil)])
+        #expect(fromTonight.contains("Tonight"), "tonight's dinner stays")
+        #expect(!fromTonight.contains("Stew"), "so it isn't listed as coming off")
+        #expect(fromTonight.contains("Soup"))
+    }
+
+    @Test func theLastNightFollowsTheFirst() {
+        #expect(AwayDates.clampedLast(sunday, first: sunday.adding(days: 3)) == sunday.adding(days: 3), "never before it")
+        #expect(AwayDates.clampedLast(sunday.adding(days: 500), first: sunday) == sunday.adding(days: 366),
+                "or more than the year the server takes")
+        #expect(AwayDates.clampedLast(sunday.adding(days: 5), first: sunday) == sunday.adding(days: 5))
+    }
+
+    /// The server goes by the household's day, so a planner travelling mustn't see a different one.
+    @Test func todayIsTheHouseholdsDay() {
+        var household = HouseholdSettings()
+        let lateInLA = Date(timeIntervalSince1970: 1_793_500_000) // 2026-11-01 03:06 UTC
+        household.timeZone = "America/Los_Angeles"
+        #expect(household.today(now: lateInLA) == CalendarDay(year: 2026, month: 10, day: 31))
+        household.timeZone = "Pacific/Auckland"
+        #expect(household.today(now: lateInLA) == CalendarDay(year: 2026, month: 11, day: 1))
     }
 
     @Test func aWeekKnowsWhichDatesTouchIt() {
         let away = settings(away: [stretch(-2, 0), stretch(6, 7), stretch(9, 10)])
         #expect(away.awayDates(inWeekOf: sunday) == [stretch(-2, 0), stretch(6, 7)])
-        #expect(!away.isAwayAllWeek(of: sunday))
-        #expect(settings(away: [stretch(-1, 6)]).isAwayAllWeek(of: sunday))
-        #expect(!settings(away: [stretch(0, 5)]).isAwayAllWeek(of: sunday))
     }
 }
 
@@ -96,6 +129,29 @@ struct AwayWeekTests {
         #expect(layout.plannable.map(\.date) == [0, 1, 4, 5, 6].map { sunday.adding(days: $0) })
         #expect(layout.emptyNights.map(\.date) == [1, 4, 5, 6].map { sunday.adding(days: $0) })
         #expect(layout.progress == .partlyPlanned)
+    }
+
+    /// Marking dates at 9pm keeps tonight's dinner, and a past night's dinner is history: neither reads as Away.
+    @Test func aDinnerAlreadyOnTonightOrEarlierIsNotAway() {
+        let layout = WeekLayout(nights: nights(planned: [0, 1, 2]), today: sunday.adding(days: 1), away: [stretch(0, 3)])
+        let week = nights(planned: [0, 1, 2])
+        let dates = [stretch(0, 3)], today = sunday.adding(days: 1)
+        #expect(!week[0].readsAway(in: dates, today: today), "past, with a dinner")
+        #expect(!week[1].readsAway(in: dates, today: today), "tonight, with a dinner")
+        #expect(week[2].readsAway(in: dates, today: today), "a dinner on a later night is still away")
+        #expect(nights()[0].readsAway(in: dates, today: today), "a past night with nothing on it is away")
+        #expect(nights()[1].readsAway(in: dates, today: today), "and so is tonight with nothing on it")
+        #expect(layout.plannable.map(\.date) == [1, 4, 5, 6].map { sunday.adding(days: $0) })
+    }
+
+    /// A week that was approved and then marked away still needs a way to update its list.
+    @Test func anApprovedWeekWithAwayNightsStillOffersTheListUpdate() {
+        let allAway = WeekLayout(nights: nights(), today: sunday, away: [stretch(0, 6)])
+        #expect(allAway.offersApprove(approved: true))
+        #expect(!allAway.offersApprove(approved: false), "nothing to approve")
+        let partly = WeekLayout(nights: nights(planned: [5]), today: sunday, away: [stretch(0, 3)])
+        #expect(partly.offersApprove(approved: false))
+        #expect(!WeekLayout(nights: nights(), today: sunday).offersApprove(approved: true), "nothing to do with no away nights")
     }
 
     @Test func aWeekPlannedExceptItsAwayNightsIsPlanned() {
@@ -160,6 +216,50 @@ struct AwayWeekTests {
         await store.load(settings: HouseholdSettings())
         #expect(store.layout?.plannable.count == 7, "ending the dates opens the nights again")
     }
+
+    @Test(arguments: [
+        (0, [stretch(0, 6)], true),
+        (3, [stretch(3, 6)], true),
+        (3, [stretch(4, 6)], false),
+        (0, [stretch(3, 6)], false),
+        (0, [AwayDates](), false)
+    ])
+    func awayForTheRestOfTheWeekCountsFromToday(today: Int, away: [AwayDates], expected: Bool) async {
+        let store = WeekStore(householdID: Household.sample.id, client: .fake(week: { _, _ in nil }),
+                              today: { sunday.adding(days: today) })
+        await store.load(settings: settings(away: away))
+        #expect(store.isAwayForTheRestOfTheWeek == expected)
+    }
+
+    /// The server clears nights by the household's day; This Week has to agree with it for a planner travelling.
+    @Test func theStoreGoesByTheHouseholdsDay() async {
+        let lateInLA = Date(timeIntervalSince1970: 1_793_500_000) // 2026-11-01 03:06 UTC
+        let store = WeekStore(householdID: Household.sample.id, client: .fake(week: { _, _ in nil }), now: { lateInLA })
+        var household = HouseholdSettings()
+        household.timeZone = "America/Los_Angeles"
+        await store.load(settings: household)
+        #expect(store.todayDay == CalendarDay(year: 2026, month: 10, day: 31))
+        household.timeZone = "Pacific/Auckland"
+        await store.load(settings: household)
+        #expect(store.todayDay == CalendarDay(year: 2026, month: 11, day: 1))
+    }
+
+    @Test func planItNeverOffersAnAwayNight() {
+        let tacos = UUID()
+        let layout = WeekLayout(nights: nights(), today: sunday, away: [stretch(2, 3)])
+        #expect(PlanIt.choices(in: layout, for: tacos).map(\.date) == [0, 1, 4, 5, 6].map { sunday.adding(days: $0) })
+        #expect(PlanIt.choices(in: layout, for: tacos, includingPlanned: true).count == 5,
+                "not from Ideas either")
+        let allAway = WeekLayout(nights: nights(), today: sunday, away: [stretch(0, 6)])
+        #expect(PlanIt.state(layout: allAway, mealID: tacos, isLoading: false, hasLoaded: true, loadError: nil)
+                == .noNightsLeft)
+    }
+
+    @Test func planItDoesntSayStartTheWeekWhenTheFamilyIsAway() {
+        #expect(PlanIt.state(layout: nil, mealID: UUID(), isLoading: false, hasLoaded: true, loadError: nil,
+                             awayForTheRest: true) == .away)
+        #expect(PlanIt.state(layout: nil, mealID: UUID(), isLoading: false, hasLoaded: true, loadError: nil) == .noWeek)
+    }
 }
 
 /// Saving, switching, and the away dates in the household store (#52).
@@ -168,40 +268,70 @@ struct HouseholdAwayAndTemplateTests {
     private let me = UUID()
     private let household = Household(id: UUID(), name: "The Smiths", emoji: nil, owner: nil)
 
-    @Test func savingAwayDatesUpdatesTheHouseholdAtOnce() async {
+    /// The server's list wins: it holds what other planners added since this device last loaded.
+    @Test func savingAwayDatesShowsTheServersList() async {
         let household = household
-        let sent = Mutex<[AwayDates]>([])
+        let fromAnotherPlanner = stretch(10, 11)
         let store = HouseholdStore(userID: me, client: .fake(
             myHousehold: { household },
-            setAwayDates: { _, dates in sent.withLock { $0 = dates } }
+            addAwayDates: { _, new in [new, fromAnotherPlanner] },
+            removeAwayDates: { _, removed in
+                #expect(removed == stretch(2, 3))
+                return [fromAnotherPlanner]
+            }
         ))
         await store.load()
-        #expect(await store.addAwayDates(stretch(2, 3), today: sunday))
-        #expect(sent.withLock { $0 } == [stretch(2, 3)])
-        #expect(store.household?.planningSettings.awayDates == [stretch(2, 3)])
+        #expect(await store.addAwayDates(stretch(2, 3)))
+        #expect(store.household?.planningSettings.awayDates == [stretch(2, 3), fromAnotherPlanner])
 
         #expect(await store.removeAwayDates(stretch(2, 3)))
-        #expect(sent.withLock { $0 }.isEmpty)
+        #expect(store.household?.planningSettings.awayDates == [fromAnotherPlanner])
+    }
+
+    @Test func aHouseholdReloadPicksUpAnotherPlannersDates() async {
+        let dates = Mutex<[AwayDates]>([])
+        let id = household.id
+        let store = HouseholdStore(userID: me, client: .fake(myHousehold: {
+            var settings = HouseholdSettings()
+            settings.awayDates = dates.withLock { $0 }
+            return Household(id: id, name: "The Smiths", emoji: nil, owner: nil, settings: settings)
+        }))
+        await store.load()
         #expect(store.household?.planningSettings.awayDates == [])
+        dates.withLock { $0 = [stretch(2, 3)] }
+        await store.load()
+        #expect(store.household?.planningSettings.awayDates == [stretch(2, 3)])
+    }
+
+    @Test func refusedDatesSayWhatsWrongNotCheckYourConnection() async {
+        let household = household
+        let store = HouseholdStore(userID: me, client: .fake(
+            myHousehold: { household },
+            addAwayDates: { _, _ in throw PostgrestError(code: "22023", message: "refused") }
+        ))
+        await store.load()
+        #expect(await !store.addAwayDates(stretch(2, 3)))
+        #expect(store.errorMessage?.contains("connection") == false)
+        #expect(store.errorMessage?.contains("year") == true)
     }
 
     @Test func aRefusedSaveKeepsTheDatesAndSaysSo() async {
         let household = household
         let store = HouseholdStore(userID: me, client: .fake(
             myHousehold: { household },
-            setAwayDates: { _, _ in throw URLError(.notConnectedToInternet) }
+            addAwayDates: { _, _ in throw URLError(.notConnectedToInternet) }
         ))
         await store.load()
-        #expect(await !store.addAwayDates(stretch(2, 3), today: sunday))
+        #expect(await !store.addAwayDates(stretch(2, 3)))
         #expect(store.household?.planningSettings.awayDates == [])
-        #expect(store.errorMessage != nil)
+        #expect(store.errorMessage?.contains("connection") == true)
     }
 
     @Test func aSettingsSaveAfterwardKeepsTheDatesOnThisDevice() async {
         let household = household
-        let store = HouseholdStore(userID: me, client: .fake(myHousehold: { household }))
+        let store = HouseholdStore(userID: me, client: .fake(myHousehold: { household }, addAwayDates: { _, new in [new] }))
         await store.load()
-        #expect(await store.addAwayDates(stretch(2, 3), today: sunday))
+        #expect(await store.addAwayDates(stretch(2, 3)))
         var changed = store.household?.planningSettings ?? HouseholdSettings()
         changed.takeoutNights = 3
         #expect(await store.updateSettings(changed))
@@ -295,6 +425,12 @@ struct AttendanceTemplateTests {
         #expect(template.id == id)
         #expect(template.name == "Summer")
         #expect(template.schedules == [owen.id: AttendanceDefaults(usuallyAway: [1, 2]), nora.id: AttendanceDefaults()])
+    }
+
+    @Test func aSameNamedScheduleIsFoundWhateverTheCapitals() {
+        let summer = AttendanceTemplate(id: UUID(), name: "Summer", schedules: [:])
+        #expect(AttendanceTemplate.existing(named: "  SUMMER ", in: [summer]) == summer)
+        #expect(AttendanceTemplate.existing(named: "Winter", in: [summer]) == nil)
     }
 
     @Test func inUseMeansSwitchingWouldChangeNothing() {

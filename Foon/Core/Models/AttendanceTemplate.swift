@@ -29,6 +29,12 @@ struct AttendanceTemplate: Decodable, Equatable, Identifiable, Sendable {
         return (1...40).contains(name.unicodeScalars.count) ? name : nil
     }
 
+    /// The saved schedule a name would replace, whatever the capitals (the database's rule).
+    static func existing(named raw: String, in templates: [AttendanceTemplate]) -> AttendanceTemplate? {
+        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return templates.first { $0.name.lowercased() == name }
+    }
+
     /// Switching to it would change nothing. Someone added since it was saved keeps their own schedule either way.
     func isInUse(by members: [Member]) -> Bool {
         let covered = members.filter { $0.status != .removed && schedules[$0.id] != nil }
