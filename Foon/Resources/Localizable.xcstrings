@@ -57,8 +57,22 @@
         }
       }
     },
-    "%@ You can change any of this later, for each person." : {
+    "%@ Foon couldn't check your plan, so the week start can't change right now." : {
+      "comment" : "Rhythm: the first sentence is about dinner time"
+    },
+    "%@ Nothing is sent yet: notifications are still on the way. You can change this anytime in Family." : {
 
+    },
+    "%@ The week start can change once your plan ends on %@, before you start another week." : {
+      "comment" : "Rhythm: the first sentence is about dinner time, then a date such as Sat, Oct 31",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ The week start can change once your plan ends on %2$@, before you start another week."
+          }
+        }
+      }
     },
     "%@ and anything else planned for those nights come off, locked nights included, and don't come back if you change your mind." : {
 
@@ -282,6 +296,9 @@
         }
       }
     },
+    "%@'s allergies" : {
+
+    },
     "%@'s favorite" : {
       "comment" : "Reason chip: a member's favorite"
     },
@@ -452,6 +469,9 @@
     "1 thing missing" : {
       "comment" : "Family: kitchen equipment the household lacks"
     },
+    "A copy of this week's plan and your lists, so they work offline. It's erased when you sign out or your household is gone." : {
+
+    },
     "A demo family with dinners and a planned week, to look around first." : {
 
     },
@@ -460,6 +480,9 @@
     },
     "A family favorite" : {
       "comment" : "Reason chip"
+    },
+    "A kid removed from the family becomes \"Former member\" after 12 months, and their ratings stay as anonymous history." : {
+
     },
     "A last name or a nickname. Everyone you invite will see it." : {
 
@@ -473,7 +496,16 @@
     "A meal from your library, or something simple like salad or garlic bread" : {
 
     },
+    "A new dinner time starts with the next week you start." : {
+
+    },
     "A note (optional)" : {
+
+    },
+    "A parent keeps these up to date. Foon flags dishes, and you still check labels." : {
+
+    },
+    "A plain summary, not the privacy policy. Export and delete are back on Family, under Your data." : {
 
     },
     "A removed meal" : {
@@ -510,6 +542,9 @@
 
     },
     "Add all to list" : {
+
+    },
+    "Add allergies" : {
 
     },
     "Add an ingredient" : {
@@ -594,6 +629,9 @@
 
     },
     "Allergies" : {
+
+    },
+    "Allergies a parent adds, and each person's usual schedule." : {
 
     },
     "Allergy flags" : {
@@ -707,6 +745,9 @@
     "Build my week" : {
 
     },
+    "Build my week aims for these the next time it runs. Dinners already planned stay as they are." : {
+
+    },
     "Build my week and shuffles leave locked nights as they are." : {
 
     },
@@ -722,7 +763,13 @@
     "Cancel" : {
 
     },
+    "Change allergies" : {
+
+    },
     "Changes the night's effort" : {
+
+    },
+    "Changing your mind" : {
 
     },
     "Check for %@ (%@)" : {
@@ -863,6 +910,12 @@
     "Couldn't find it last trip" : {
 
     },
+    "Couldn't load %@'s allergies. Check your connection and try again." : {
+
+    },
+    "Couldn't load allergies and favorites. Check your connection and try again." : {
+
+    },
     "Couldn't load last night's dinner. Check your connection and try again." : {
 
     },
@@ -989,6 +1042,9 @@
     "Dairy and eggs" : {
 
     },
+    "Days before a repeat: %lld" : {
+
+    },
     "Delete" : {
 
     },
@@ -1023,6 +1079,9 @@
 
     },
     "Deleting the household didn't finish. Check your connection and try again." : {
+
+    },
+    "Deleting the household erases it for everyone, right away." : {
 
     },
     "Deleting your account can't be undone." : {
@@ -1081,6 +1140,12 @@
     },
     "Due for a turn" : {
       "comment" : "Reason chip: a regular in the rotation"
+    },
+    "Each new week starts from this. Everyone sets their own, and a parent can change it." : {
+
+    },
+    "Each new week starts from this. Tap Edit to change it." : {
+
     },
     "Each new week starts from this. Tap a day they're usually out, like a work or practice night." : {
 
@@ -1145,6 +1210,12 @@
     "Everyone home every night" : {
 
     },
+    "Everyone in the family sees these. Foon flags dishes, and you still check labels." : {
+
+    },
+    "Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, ratings and comments, and who cooked." : {
+
+    },
     "Everyone's here. You can invite people later from Family." : {
 
     },
@@ -1178,6 +1249,9 @@
     "Family favorites" : {
 
     },
+    "Family role" : {
+
+    },
     "Favorite" : {
 
     },
@@ -1203,6 +1277,9 @@
 
     },
     "First names need 1 to 30 characters." : {
+
+    },
+    "First names, avatars, and who's a kid, a parent, or a planner." : {
 
     },
     "First night away" : {
@@ -1242,10 +1319,16 @@
     "Foon couldn't find any text in that. If it's a locked PDF, remove the password and share it again." : {
 
     },
+    "Foon doesn't ask for birthdays, phone numbers, or your location." : {
+
+    },
     "Foon drafts the week from your library and who's home each night. You can change any night." : {
 
     },
     "Foon flags dishes that contain them, and you plan as usual." : {
+
+    },
+    "Foon flags dishes with these. It's a helper, not a guarantee: still check labels." : {
 
     },
     "Foon goes by names and ingredients, so it can be wrong either way. Tap one to plan it anyway, or search your meals for the rest." : {
@@ -1285,9 +1368,6 @@
       }
     },
     "Foon reads dish names and ingredients, so it can miss what they don't say, and it can't promise a dish is free of anything. Kosher and halal depend on how food is made and prepared, so Foon can't check them." : {
-
-    },
-    "Foon reminds you then. Lots of families plan Sunday morning, before shopping." : {
 
     },
     "Foon signs out on every phone, tablet, and Mac using your account, including this one." : {
@@ -1480,6 +1560,9 @@
     "Home" : {
 
     },
+    "Home every night" : {
+      "comment" : "A member's usual schedule"
+    },
     "Home: %@" : {
 
     },
@@ -1496,6 +1579,9 @@
 
     },
     "How often" : {
+
+    },
+    "How they like it served" : {
 
     },
     "I can't cook after all" : {
@@ -1629,6 +1715,9 @@
     "Leave it empty" : {
 
     },
+    "Leftover nights a week: %lld" : {
+
+    },
     "Leftovers" : {
 
     },
@@ -1703,6 +1792,9 @@
     },
     "Looks like it has shellfish: Fridays in Lent" : {
       "comment" : "Food rule badge"
+    },
+    "Lots of families plan Sunday morning, before shopping. Foon will remind you then once reminders arrive." : {
+
     },
     "Low" : {
 
@@ -1818,6 +1910,9 @@
     "New dish" : {
 
     },
+    "New dishes a week: %lld" : {
+
+    },
     "New dishes you're trying out show up here." : {
 
     },
@@ -1825,6 +1920,9 @@
 
     },
     "Next" : {
+
+    },
+    "Next night out: %@" : {
 
     },
     "Next night out: %@. Each new week starts from this." : {
@@ -1870,6 +1968,9 @@
 
     },
     "No later night this week can take the leftovers." : {
+
+    },
+    "No longer in the family" : {
 
     },
     "No matches" : {
@@ -1983,6 +2084,9 @@
     "Nothing to plan or shop for. Enjoy it." : {
 
     },
+    "Nothing yet. Favorites show up here after dinners get rated." : {
+
+    },
     "Notifications" : {
 
     },
@@ -2007,6 +2111,12 @@
     "One step per line" : {
 
     },
+    "Only a parent can change that." : {
+
+    },
+    "Only parents can change allergies." : {
+
+    },
     "Only people in this family can change its freezer." : {
 
     },
@@ -2014,6 +2124,9 @@
 
     },
     "Only planners can change food rules." : {
+
+    },
+    "Only planners can change the household's rhythm." : {
 
     },
     "Only planners can change the plan." : {
@@ -2064,8 +2177,17 @@
     "Other (like kiwi)" : {
 
     },
+    "Other households can't see any of it." : {
+
+    },
     "Out" : {
 
+    },
+    "Out %@" : {
+      "comment" : "A member's usual schedule: short weekday names"
+    },
+    "Out every night" : {
+      "comment" : "A member's usual schedule"
     },
     "Pantry" : {
 
@@ -2074,6 +2196,12 @@
 
     },
     "Parental consent" : {
+
+    },
+    "Parents can change or remove someone's allergies on their profile." : {
+
+    },
+    "Parents manage people and change allergies. Planners build the week and can export the household. Only the owner can delete it." : {
 
     },
     "Parents manage the family, allergies, and privacy choices. Planners build the week and manage meals." : {
@@ -2092,6 +2220,9 @@
 
     },
     "Personal care" : {
+
+    },
+    "Photos and PDFs you share to Foon. They're read here and then deleted, and only the text you keep is saved." : {
 
     },
     "Pick a night from today on to plan it." : {
@@ -2115,6 +2246,9 @@
     "Plan activity" : {
 
     },
+    "Plan activity is deleted after eight weeks." : {
+
+    },
     "Plan it" : {
 
     },
@@ -2131,6 +2265,9 @@
 
     },
     "Planning" : {
+
+    },
+    "Planning mix" : {
 
     },
     "Plans it anyway" : {
@@ -2262,6 +2399,12 @@
 
     },
     "Return date" : {
+
+    },
+    "Rhythm" : {
+
+    },
+    "Rhythm and planning mix" : {
 
     },
     "Rushed" : {
@@ -2597,6 +2740,9 @@
     "Takeout" : {
 
     },
+    "Takeout nights a week: %lld" : {
+
+    },
     "Takeout on the busiest night" : {
       "comment" : "Reason chip"
     },
@@ -2610,6 +2756,9 @@
 
     },
     "Tap the dinners your family already makes. You can add your own anytime." : {
+
+    },
+    "Taste" : {
 
     },
     "Tells the family you're cooking this night" : {
@@ -2715,6 +2864,9 @@
     "The Smiths" : {
 
     },
+    "The app has no ads and no tracking, and allergies are never sent anywhere for AI." : {
+
+    },
     "The card goes away and you're marked away for that night." : {
 
     },
@@ -2752,6 +2904,9 @@
 
     },
     "The shopping list keeps what's already on it until someone taps Update the list on This Week." : {
+
+    },
+    "The week start can't change while a plan is running. Nothing was saved." : {
 
     },
     "The week starts on your shopping day." : {
@@ -2952,6 +3107,9 @@
     "Uses what's on hand" : {
       "comment" : "Reason chip: ingredients in stock"
     },
+    "Usual schedule" : {
+
+    },
     "Usually home for dinner" : {
 
     },
@@ -3003,6 +3161,9 @@
     "What" : {
 
     },
+    "What Foon keeps" : {
+
+    },
     "What did you have?" : {
 
     },
@@ -3015,7 +3176,16 @@
     "What is it? (optional)" : {
 
     },
+    "What leaves this device" : {
+
+    },
+    "What stays on this device" : {
+
+    },
     "What this can't do" : {
+
+    },
+    "What you add goes to Foon's servers, so your family sees it too. Meal photos lose their location and camera details first." : {
 
     },
     "What you have" : {
@@ -3036,6 +3206,12 @@
     "When someone changes the plan, it shows here." : {
 
     },
+    "When you import a recipe from a link, Foon's server opens that page to read it." : {
+
+    },
+    "When you plan, when the week starts, dinner time, and what goes in a week." : {
+
+    },
     "Which dish?" : {
 
     },
@@ -3051,10 +3227,16 @@
     "Which of these does your family make?" : {
 
     },
+    "Who agreed and when, if a parent agrees to keep allergies or to invite a kid." : {
+
+    },
     "Who changed what on the plan, so two planners don't confuse each other." : {
 
     },
     "Who cooked?" : {
+
+    },
+    "Who sees what" : {
 
     },
     "Who takes turns" : {
@@ -3082,6 +3264,9 @@
 
     },
     "Withdraw consent for %@?" : {
+
+    },
+    "Would rather skip" : {
 
     },
     "Yes, someone does" : {
@@ -3129,6 +3314,9 @@
     "You're cooking" : {
 
     },
+    "Your Apple sign-in: an account ID and an email, which can be Apple's private relay address." : {
+
+    },
     "Your account is deleted. This can't be undone." : {
 
     },
@@ -3145,6 +3333,9 @@
 
     },
     "Your household is ready. Pull to refresh to see your family." : {
+
+    },
+    "Your household's time zone, so Foon knows when last night's dinner was." : {
 
     },
     "Your idea is on for tomorrow: %@" : {
@@ -3174,6 +3365,9 @@
 
     },
     "Your meals" : {
+
+    },
+    "Your meals and meal photos, plans, lists, ideas, ratings, comments, serving notes, and who cooked." : {
 
     },
     "Your planner hasn't planned this week yet. Tell them what you'd like." : {
