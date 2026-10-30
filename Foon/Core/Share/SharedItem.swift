@@ -7,7 +7,18 @@ struct SharedItem: Codable, Identifiable, Equatable, Sendable {
     enum Kind: Codable, Equatable, Sendable {
         case link(URL, title: String?)
         case text(String)
+        /// A photo or PDF, saved beside the item: read on this device, then deleted (never uploaded).
+        case file(FileType)
     }
+
+    enum FileType: String, Codable, CaseIterable, Sendable {
+        case image, pdf
+
+        var fileExtension: String { self == .image ? "jpg" : "pdf" }
+    }
+
+    /// What the extension will keep: past this, it asks for something smaller instead of filling the disk.
+    static let fileSizeLimit = 25_000_000
 
     static let textLimit = 5000
     /// The server's limits for an idea's title and link.
@@ -71,7 +82,7 @@ extension SharedItem.Kind {
 struct SharedInbox: Sendable {
     struct Full: Error {}
 
-    /// Plenty for shares between app opens; a share that can't fit says so instead of filling the disk.
+    /// Plenty for shares between app opens; past this, a share says so.
     static let limit = 50
     static let appGroup = "group.com.andrikanich.foon"
 
@@ -87,21 +98,58 @@ struct SharedInbox: Sendable {
         #endif
     }
 
-    func add(_ item: SharedItem) throws {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    /// The file goes first, so an item never points at nothing.
+    func add(_ item: SharedItem, fileData: Data? = nil) throws {
+        try prepareDirectory()
         guard files().count < Self.limit else { throw Full() }
-        try JSONEncoder().encode(item).write(to: file(item.id), options: .atomic)
+        if let fileData, let url = fileURL(for: item) { try fileData.write(to: url, options: .atomic) }
+        do {
+            try JSONEncoder().encode(item).write(to: file(item.id), options: .atomic)
+        } catch {
+            if let url = fileURL(for: item) { try? FileManager.default.removeItem(at: url) }
+            throw error
+        }
     }
 
-    /// Oldest first. A file that isn't an item is removed, so it can't block the rest.
+    /// Waiting photos and PDFs stay on this device, out of iCloud and computer backups.
+    private func prepareDirectory() throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        var url = directory
+        try url.setResourceValues(values)
+    }
+
+    /// Where a photo or PDF item's file is; nil for links and text.
+    func fileURL(for item: SharedItem) -> URL? {
+        guard case .file(let type) = item.kind else { return nil }
+        return directory.appending(path: "\(item.id.uuidString).\(type.fileExtension)")
+    }
+
+    /// Oldest first. A file that isn't an item is removed, with its photo, so it can't block the rest.
     func pending() -> [SharedItem] {
-        files().compactMap { url in
+        let items = files().compactMap { url -> SharedItem? in
             guard let data = try? Data(contentsOf: url) else { return nil }
             if let item = try? JSONDecoder().decode(SharedItem.self, from: data) { return item }
+            for type in SharedItem.FileType.allCases {
+                try? FileManager.default.removeItem(at: url.deletingPathExtension().appendingPathExtension(type.fileExtension))
+            }
             try? FileManager.default.removeItem(at: url)
             return nil
         }
-        .sorted { $0.createdAt < $1.createdAt }
+        sweepOrphans(keeping: Set(files().map { $0.deletingPathExtension().lastPathComponent }))
+        return items.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    /// A photo or PDF with no item: the extension stopped between the two writes, or its item was corrupt. Only old
+    /// ones, since a new one may be an add in progress.
+    private func sweepOrphans(keeping ids: Set<String>) {
+        let urls = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        for url in urls where SharedItem.FileType.allCases.map(\.fileExtension).contains(url.pathExtension) {
+            guard !ids.contains(url.deletingPathExtension().lastPathComponent) else { continue }
+            let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            if (modified ?? .now) < Date.now.addingTimeInterval(-600) { try? FileManager.default.removeItem(at: url) }
+        }
     }
 
     /// Someone signed in. Items from before they signed in are theirs (they shared them, then opened Foon); items from
@@ -113,8 +161,9 @@ struct SharedInbox: Sendable {
         try? Data(userID.uuidString.utf8).write(to: owner, options: .atomic)
     }
 
-    func remove(_ id: UUID) {
-        try? FileManager.default.removeItem(at: file(id))
+    func remove(_ item: SharedItem) {
+        if let url = fileURL(for: item) { try? FileManager.default.removeItem(at: url) }
+        try? FileManager.default.removeItem(at: file(item.id))
     }
 
     func clear() {

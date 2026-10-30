@@ -1,3 +1,5 @@
+import CoreGraphics
+import CoreText
 import Foundation
 import Testing
 @testable import Foon
@@ -84,7 +86,7 @@ struct SharedInboxTests {
         try inbox.add(second)
         try inbox.add(first)
         #expect(inbox.pending() == [first, second])
-        inbox.remove(first.id)
+        inbox.remove(first)
         #expect(inbox.pending() == [second])
     }
 
@@ -93,6 +95,48 @@ struct SharedInboxTests {
         let item = SharedItem(kind: .link(URL(string: "https://a.example/x")!, title: "Chili"))
         try inbox.add(item)
         #expect(inbox.pending().first?.kind == item.kind)
+    }
+
+    @Test func aPhotoWaitsBesideItsItemAndGoesWithIt() throws {
+        let inbox = inbox()
+        let item = SharedItem(kind: .file(.image))
+        try inbox.add(item, fileData: Data("jpeg".utf8))
+        #expect(inbox.pending() == [item], "the photo isn't an item of its own")
+        let url = try #require(inbox.fileURL(for: item))
+        #expect(url.pathExtension == "jpg")
+        #expect(FileManager.default.fileExists(atPath: url.path()))
+        inbox.remove(item)
+        #expect(!FileManager.default.fileExists(atPath: url.path()), "deleted once it's handled")
+        #expect(inbox.fileURL(for: SharedItem(kind: .text("milk"))) == nil)
+    }
+
+    @Test func aFileWithNoItemIsSweptOnceItsOld() throws {
+        let inbox = inbox()
+        try inbox.add(SharedItem(kind: .text("milk")))
+        let orphan = inbox.directory.appending(path: "\(UUID().uuidString).jpg")
+        try Data("jpeg".utf8).write(to: orphan)
+        _ = inbox.pending()
+        #expect(FileManager.default.fileExists(atPath: orphan.path()), "it might be an add in progress")
+        try FileManager.default.setAttributes([.modificationDate: Date.now.addingTimeInterval(-3600)], ofItemAtPath: orphan.path())
+        _ = inbox.pending()
+        #expect(!FileManager.default.fileExists(atPath: orphan.path()))
+    }
+
+    @Test func aCorruptItemsFileGoesWithIt() throws {
+        let inbox = inbox()
+        try inbox.add(SharedItem(kind: .text("milk")))
+        let id = UUID().uuidString
+        let photo = inbox.directory.appending(path: "\(id).jpg")
+        try Data("jpeg".utf8).write(to: photo)
+        try Data("not json".utf8).write(to: inbox.directory.appending(path: "\(id).json"))
+        _ = inbox.pending()
+        #expect(!FileManager.default.fileExists(atPath: photo.path()))
+    }
+
+    @Test func whatsWaitingStaysOutOfBackups() throws {
+        let inbox = inbox()
+        try inbox.add(SharedItem(kind: .text("milk")))
+        #expect(try inbox.directory.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
     }
 
     @Test func whatYouSharedBeforeSigningInIsYours() throws {
@@ -168,7 +212,254 @@ struct ShareRouterTests {
         #expect(ShareRouter.route(.text("milk, eggs, Milk")) == .shoppingList(["milk", "eggs"]))
     }
 
+    @Test func photosAndPDFsAreRead() {
+        #expect(ShareRouter.route(.file(.image)) == .capture(.image))
+        #expect(ShareRouter.route(.file(.pdf)) == .capture(.pdf))
+    }
+
     @Test func textWithNothingToBuyIsAnEmptyList() {
         #expect(ShareRouter.route(.text(" , ,")) == .shoppingList([]))
+    }
+}
+
+struct RecipeTextParserTests {
+    private func names(_ lines: [String]) -> [String] { RecipeTextParser.parse(lines).ingredients.map(\.name) }
+
+    @Test func aRecipeWithHeaders() {
+        let capture = RecipeTextParser.parse([
+            "Grandma's Chili", "Serves 6", "Ingredients", "1 lb ground beef", "2 cans beans", "salt",
+            "Directions", "1. Brown the beef in a large pot over", "medium heat.", "2. Add the beans.", "Simmer for 30 minutes."
+        ])
+        #expect(capture.name == "Grandma's Chili")
+        #expect(capture.servings == 6)
+        #expect(capture.ingredients.map(\.name) == ["ground beef", "beans", "salt"])
+        #expect(capture.steps == ["Brown the beef in a large pot over medium heat.", "Add the beans.", "Simmer for 30 minutes."])
+    }
+
+    @Test func noHeadersStillFindsTheParts() {
+        let capture = RecipeTextParser.parse([
+            "Quick Tacos", "1 lb ground beef", "- taco shells",
+            "Cook the beef until browned, then spoon it into the shells and top with cheese."
+        ])
+        #expect(capture.name == "Quick Tacos")
+        #expect(capture.ingredients.map(\.name) == ["ground beef", "taco shells"])
+        #expect(capture.steps.count == 1)
+    }
+
+    // Allergy flags read ingredients only: an ingredient misfiled as a step is never flagged.
+    @Test func aLongIngredientDoesntPushTheRestIntoSteps() {
+        let long = "1 can (15 ounces) low-sodium kidney beans, drained, rinsed well, and patted dry with a towel"
+        let capture = RecipeTextParser.parse(["Ingredients", "1 lb beef", long, "2 tbsp peanut butter", "salt",
+                                              "Directions", "1. Brown it."])
+        #expect(capture.ingredients.count == 4)
+        #expect(capture.ingredients.map(\.name).contains("peanut butter"))
+        #expect(capture.steps == ["Brown it."])
+    }
+
+    @Test func aBlogIntroDoesntHideTheIngredients() {
+        let capture = RecipeTextParser.parse([
+            "Our Favorite Chili",
+            "We have been making this chili every winter since the kids were small, and it never lasts long.",
+            "1 lb beef", "2 tbsp peanut butter"
+        ])
+        #expect(capture.name == "Our Favorite Chili")
+        #expect(capture.ingredients.map(\.name) == ["beef", "peanut butter"])
+        #expect(capture.steps.isEmpty)
+    }
+
+    @Test func twoColumnsInterleavedKeepTheIngredients() {
+        let capture = RecipeTextParser.parse([
+            "Ingredients", "Directions", "1 lb beef", "1. Brown the beef well.", "2 tbsp peanut butter", "2. Stir it in."
+        ])
+        #expect(capture.ingredients.map(\.name) == ["beef", "peanut butter"])
+        #expect(capture.steps == ["Brown the beef well.", "Stir it in."])
+    }
+
+    @Test func numberedIngredients() {
+        #expect(names(["Ingredients", "1. 2 cups flour", "2. peanut butter"]) == ["flour", "peanut butter"])
+    }
+
+    @Test func aWrappedStepStartingWithANumberStaysInTheStep() {
+        let capture = RecipeTextParser.parse(["Directions", "1. Simmer the pot for", "30 minutes, then serve."])
+        #expect(capture.ingredients.isEmpty)
+        #expect(capture.steps == ["Simmer the pot for 30 minutes, then serve."])
+    }
+
+    @Test func aPlainShoppingListIsAllItems() {
+        #expect(names(["milk", "eggs", "bread"]) == ["milk", "eggs", "bread"])
+        #expect(RecipeTextParser.parse(["milk", "eggs", "bread"]).name == nil)
+        #expect(names(["Groceries", "milk", "eggs", "2 loaves bread"]) == ["milk", "eggs", "bread"])
+        #expect(names(["Ingredients:", "milk", "eggs", "2 loaves bread"]) == ["milk", "eggs", "bread"])
+    }
+
+    @Test func aLooseItemAfterTheFirstIngredientIsKept() {
+        #expect(names(["Tacos", "1 lb beef", "taco shells", "peanut sauce"]) == ["beef", "taco shells", "peanut sauce"])
+    }
+
+    @Test func aScreenshotsChromeIsDropped() {
+        let capture = RecipeTextParser.parse([
+            "9:41", "5G", "allrecipes.com", "Grandma's Chili", "4.8 stars (120)", "Prep time: 10 min", "Ingredients",
+            "1 lb beef", "Advertisement", "Page 3", "3", "www.foo.com/chili", "salt"
+        ])
+        #expect(capture.name == "Grandma's Chili")
+        #expect(capture.ingredients.map(\.name) == ["beef", "salt"])
+    }
+
+    @Test func aTitleCanStartWithANumber() {
+        let capture = RecipeTextParser.parse(["30 Minute Chili", "Ingredients", "1 lb beef"])
+        #expect(capture.name == "30 Minute Chili")
+        #expect(capture.ingredients.map(\.name) == ["beef"])
+    }
+
+    @Test func subHeadersAndOtherHeaderWordings() {
+        #expect(names(["Ingredients (serves 4)", "For the sauce:", "milk", "For the noodles", "flour"]) == ["milk", "flour"])
+        #expect(names(["What you'll need", "milk"]) == ["milk"])
+    }
+
+    @Test func aSubHeaderWithTheIngredientOnItsLineKeepsIt() {
+        let found = names(["Ingredients", "For the sauce: 2 tbsp peanut butter", "salt"])
+        #expect(found.count == 2)
+        #expect(found[0].contains("peanut butter"), "allergy flags need to see it")
+    }
+
+    @Test func shortLinesBetweenTheNameAndTheIngredientsAreKept() {
+        let capture = RecipeTextParser.parse(["Chili", "peanut butter", "1 lb beef", "Directions", "1. Stir."])
+        #expect(capture.name == "Chili")
+        #expect(capture.ingredients.map(\.name) == ["peanut butter", "beef"])
+    }
+
+    @Test func enormousTextIsBounded() {
+        let lines = Array(repeating: String(repeating: "x", count: 100_000), count: 100_000)
+        let capture = RecipeTextParser.parse(["Directions", "1. Stir"] + lines)
+        #expect(capture.steps.joined().count <= RecipeTextParser.textLimit)
+        let draft = RecipeTextParser.Capture(ingredients: Array(repeating: ParsedIngredient(name: "x", quantity: nil), count: 500))
+        #expect(draft.draft(householdSize: 4).lines.count == RecipeTextParser.ingredientLimit)
+        #expect(draft.isTruncated, "the review screen says some were left out")
+    }
+
+    @Test func notesAndNutritionEndTheRecipe() {
+        let capture = RecipeTextParser.parse(["Directions", "1. Stir.", "Notes", "Freezes well.", "Nutrition Facts",
+                                              "300 calories"])
+        #expect(capture.steps == ["Stir."], "Foon never keeps nutrition")
+    }
+
+    @Test func stepLabels() {
+        #expect(RecipeTextParser.parse(["Step 1", "Brown the beef", "Step 2", "Add beans"]).steps
+            == ["Brown the beef", "Add beans"])
+        #expect(RecipeTextParser.parse(["Step 1: Brown the beef.", "Step 2: Add beans."]).steps
+            == ["Brown the beef.", "Add beans."])
+    }
+
+    @Test func nothingReadIsEmpty() {
+        #expect(RecipeTextParser.parse([]).isEmpty)
+        #expect(RecipeTextParser.parse(["  "]).isEmpty)
+    }
+
+    @Test func theDraftScalesToTheFamilyLikeALinkDoes() {
+        let capture = RecipeTextParser.parse(["Chili", "Serves 2", "Ingredients", "1 lb beef, ground", "Steps", "1. Brown it."])
+        let draft = capture.draft(householdSize: 4)
+        #expect(draft.name == "Chili")
+        #expect(draft.servings == 4)
+        #expect(draft.lines.map(\.name) == ["beef, ground"], "like link import: only long names are shortened")
+        #expect(draft.lines.map(\.quantity) == ["2 lb"])
+        #expect(draft.stepsText == "Brown it.")
+    }
+
+    @Test func theDraftStaysWithinWhatCanBeSaved() throws {
+        var capture = RecipeTextParser.Capture(name: String(repeating: "x", count: 200))
+        capture.steps = [String(repeating: "y", count: 30_000)]
+        let draft = capture.draft(householdSize: 4)
+        #expect(throws: Never.self) { _ = try draft.validated() }
+    }
+}
+
+/// The real thing: Apple's recognizer and PDFKit, on files made here.
+struct TextRecognizerTests {
+    private func pdf(_ text: String?) throws -> URL {
+        let url = URL.temporaryDirectory.appending(path: "recipe-\(UUID().uuidString).pdf")
+        var box = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let context = try #require(CGContext(url as CFURL, mediaBox: &box, nil))
+        context.beginPDFPage(nil)
+        if let text { Self.draw(text, in: context, at: CGPoint(x: 72, y: 600)) }
+        context.endPDFPage()
+        context.closePDF()
+        return url
+    }
+
+    private static func draw(_ text: String, in context: CGContext, at point: CGPoint) {
+        let attributes: [NSAttributedString.Key: Any] = [.font: CTFontCreateWithName("Helvetica" as CFString, 36, nil)]
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes))
+        context.textPosition = point
+        CTLineDraw(line, context)
+    }
+
+    /// A scan: the page holds a picture of the text, not text.
+    private func scannedPDF(_ text: String, footer: String? = nil) throws -> URL {
+        let picture = try #require(Self.picture(of: text))
+        let url = URL.temporaryDirectory.appending(path: "scan-\(UUID().uuidString).pdf")
+        var box = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let context = try #require(CGContext(url as CFURL, mediaBox: &box, nil))
+        context.beginPDFPage(nil)
+        context.draw(picture, in: CGRect(x: 40, y: 400, width: 500, height: 125))
+        if let footer {
+            let attributes: [NSAttributedString.Key: Any] = [.font: CTFontCreateWithName("Helvetica" as CFString, 8, nil)]
+            let line = CTLineCreateWithAttributedString(NSAttributedString(string: footer, attributes: attributes))
+            context.textPosition = CGPoint(x: 40, y: 40)
+            CTLineDraw(line, context)
+        }
+        context.endPDFPage()
+        context.closePDF()
+        return url
+    }
+
+    private static func picture(of text: String) -> CGImage? {
+        guard let context = CGContext(data: nil, width: 800, height: 200, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 800, height: 200))
+        context.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+        draw(text, in: context, at: CGPoint(x: 40, y: 80))
+        return context.makeImage()
+    }
+
+    @Test func aScannedPDFIsReadLikeAPhoto() async throws {
+        let url = try scannedPDF("2 cups flour")
+        #expect(await TextRecognizer.lines(in: url, type: .pdf).joined().lowercased().contains("flour"))
+    }
+
+    @Test func aScannersWatermarkDoesntHideTheScan() async throws {
+        let url = try scannedPDF("2 cups flour", footer: "Scanned by CamScanner")
+        #expect(await TextRecognizer.lines(in: url, type: .pdf).joined().lowercased().contains("flour"))
+    }
+
+    @Test func aHugePageIsRenderedAtABoundedSize() {
+        #expect(TextRecognizer.renderScale(for: CGSize(width: 612, height: 792)) == 2)
+        let scale = TextRecognizer.renderScale(for: CGSize(width: 7200, height: 14400))
+        #expect(14400 * scale <= TextRecognizer.renderLimit)
+        #expect(TextRecognizer.renderScale(for: .zero) == 2)
+    }
+
+    @Test func aPageWithNonsenseGeometryDoesntCrash() {
+        #expect(TextRecognizer.renderSize(for: CGSize(width: CGFloat.infinity, height: 100)) == nil)
+        #expect(TextRecognizer.renderSize(for: CGSize(width: CGFloat.nan, height: 100)) == nil)
+        #expect(TextRecognizer.renderSize(for: .zero) == nil)
+        #expect(TextRecognizer.renderSize(for: CGSize(width: 612, height: 792))?.width == 1224)
+    }
+
+    @Test func aPDFsOwnTextIsRead() async throws {
+        let url = try pdf("2 cups flour")
+        #expect(await TextRecognizer.lines(in: url, type: .pdf).joined().contains("2 cups flour"))
+    }
+
+    @Test func aPhotoIsRead() async throws {
+        let image = try #require(Self.picture(of: "2 cups flour"))
+        #expect(await TextRecognizer.lines(in: image).joined().lowercased().contains("flour"))
+    }
+
+    @Test func somethingUnreadableIsEmpty() async throws {
+        let url = URL.temporaryDirectory.appending(path: "nope-\(UUID().uuidString).jpg")
+        try Data("not an image".utf8).write(to: url)
+        #expect(await TextRecognizer.lines(in: url, type: .image).isEmpty)
     }
 }

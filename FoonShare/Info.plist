@@ -25,12 +25,7 @@
 		<key>NSExtensionAttributes</key>
 		<dict>
 			<key>NSExtensionActivationRule</key>
-			<dict>
-				<key>NSExtensionActivationSupportsText</key>
-				<true/>
-				<key>NSExtensionActivationSupportsWebURLWithMaxCount</key>
-				<integer>1</integer>
-			</dict>
+			<string>SUBQUERY(extensionItems, $item, SUBQUERY($item.attachments, $file, ANY $file.registeredTypeIdentifiers UTI-CONFORMS-TO "public.url" OR ANY $file.registeredTypeIdentifiers UTI-CONFORMS-TO "public.plain-text" OR ANY $file.registeredTypeIdentifiers UTI-CONFORMS-TO "public.image" OR ANY $file.registeredTypeIdentifiers UTI-CONFORMS-TO "com.adobe.pdf").@count &gt;= 1).@count &gt;= 1</string>
 		</dict>
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.share-services</string>
