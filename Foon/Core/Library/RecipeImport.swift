@@ -14,6 +14,8 @@ struct RecipeImport: Decodable, Equatable, Sendable {
 
     let recipe: Recipe?
     let title: String?
+    /// The page's description, a social post's caption: there may be a recipe in it.
+    var caption: String? = nil
     /// Where the page ended up, after redirects.
     let url: URL
 
@@ -55,7 +57,8 @@ struct RecipeImport: Decodable, Equatable, Sendable {
 
     /// Trims whole characters until it fits the limit as `MealDraft` counts it, so an emoji is never cut in half.
     static func clamped(_ text: String, to limit: Int) -> String {
-        var text = text
+        // Cut near the limit first, so a huge text doesn't take a pass per character.
+        var text = String(String.UnicodeScalarView(text.unicodeScalars.prefix(limit + 64)))
         while MealDraft.length(text) > limit { text.removeLast() }
         return text
     }

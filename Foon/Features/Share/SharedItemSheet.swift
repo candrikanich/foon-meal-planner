@@ -29,6 +29,7 @@ struct SharedItemSheet: View {
     /// A photo or PDF as read, to check and correct: nil until it's been read.
     @State private var readDraft: MealDraft?
     @State private var readTruncated = false
+    @State private var isReadingCaption = false
 
     private var route: ShareRouter.Route { ShareRouter.route(item.kind) }
 
@@ -41,7 +42,13 @@ struct SharedItemSheet: View {
             Form {
                 switch route {
                 case .recipeLink(let url, _): link(url, canImport: canAddToLibrary)
-                case .socialLink(let url, _): link(url, canImport: false)
+                case .socialLink(let url, _):
+                    link(url, canImport: false)
+                    if isReadingCaption {
+                        Section { ProgressView("Looking for a recipe…") }
+                    } else if readDraft != nil {
+                        readSection
+                    }
                 case .shoppingList: shoppingList
                 case .capture: readSection
                 }
@@ -63,7 +70,11 @@ struct SharedItemSheet: View {
             .interactiveDismissDisabled()
             .onAppear(perform: start)
             .task {
-                if case .capture(let type) = route { await read(type) }
+                switch route {
+                case .capture(let type): await read(type)
+                case .socialLink(let url, _): await readCaption(url)
+                default: break
+                }
             }
             .sheet(isPresented: $importing) {
                 if case .recipeLink(let url, _) = route {
@@ -89,12 +100,40 @@ struct SharedItemSheet: View {
         }
         let size = max(household.visibleMembers.count, 1)
         // Off the main actor, so a long file can't freeze Discard and Not now.
-        let (draft, truncated) = await Task.detached {
-            let capture = RecipeTextParser.parse(await TextRecognizer.lines(in: url, type: type))
+        let reading = Task.detached {
+            let lines = await TextRecognizer.lines(in: url, type: type)
+            try Task.checkCancellation()
+            let capture = RecipeTextParser.parse(lines)
             return (capture.draft(householdSize: size), capture.isTruncated)
-        }.value
+        }
+        // Discard or Not now ends this view's task: the reading stops with it.
+        guard let (draft, truncated) = await withTaskCancellationHandler(
+            operation: { try? await reading.value }, onCancel: { reading.cancel() }
+        ) else { return }
         readTruncated = truncated
         readDraft = draft
+    }
+
+    /// Planners only, since it's the same read as adding a link. Sites often turn apps away, and then this was just an
+    /// idea all along, so a failure says nothing.
+    private func readCaption(_ url: URL) async {
+        guard canAddToLibrary else { return }
+        isReadingCaption = true
+        defer { isReadingCaption = false }
+        let imported = await library.importRecipe(url.absoluteString)
+        library.clearError()
+        guard let imported else { return }
+        let size = max(household.visibleMembers.count, 1)
+        var draft: MealDraft?
+        if imported.hasRecipe {
+            draft = imported.draft(householdSize: size)
+        } else if let capture = imported.caption.flatMap(RecipeTextParser.parseCaption) {
+            readTruncated = capture.isTruncated
+            draft = capture.draft(householdSize: size)
+            if capture.name == nil { draft?.name = RecipeImport.clamped(title.isEmpty ? imported.title ?? "" : title, to: 80) }
+            draft?.link = url.absoluteString
+        }
+        if let draft { readDraft = draft }
     }
 
     /// Photos read imperfectly, and allergy flags read these ingredients: everything's here to fix before it's saved.
@@ -156,8 +195,11 @@ struct SharedItemSheet: View {
                 }
                 .disabled(isWorking || sync == nil)
             }
-            Button("Save as an idea", systemImage: "lightbulb") { Task { await saveNamedIdea(draft.name) } }
-                .disabled(isWorking || household.me == nil || !hasName)
+            // A social post already offers this above, with its link.
+            if case .capture = route {
+                Button("Save as an idea", systemImage: "lightbulb") { Task { await saveNamedIdea(draft.name) } }
+                    .disabled(isWorking || household.me == nil || !hasName)
+            }
         }
     }
 

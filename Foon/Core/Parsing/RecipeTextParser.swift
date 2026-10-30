@@ -25,7 +25,7 @@ enum RecipeTextParser {
                 return MealDraft.Line(quantity: RecipeImport.clamped(quantity, to: 60),
                                       name: RecipeImport.ingredientName($0.name))
             }
-            draft.stepsText = String(steps.prefix(50).joined(separator: "\n").prefix(stepsLimit))
+            draft.stepsText = RecipeImport.clamped(steps.prefix(50).joined(separator: "\n"), to: stepsLimit)
             return draft
         }
     }
@@ -38,6 +38,31 @@ enum RecipeTextParser {
 
     private enum Section { case start, ingredients, steps, end }
 
+    /// A social post's caption, if it holds a recipe: at least two ingredients, or it's better saved as an idea with its
+    /// link. A caption often runs together ("Ingredients: 1 lb beef, 2 cups rice Directions: ..."), so its headers are
+    /// put on their own lines, and items after an Ingredients header are split at commas.
+    static func parseCaption(_ caption: String) -> Capture? {
+        let spaced = caption.replacing(/(?i)\b(ingredients?|directions?|instructions?|method)\s*:/) { "\n\($0.1):\n" }
+        var lines: [String] = []
+        var inIngredients = false
+        var sawIngredientsHeader = false
+        for line in spaced.split(whereSeparator: \.isNewline).map(String.init) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if isIngredientsHeader(trimmed) {
+                inIngredients = true
+                sawIngredientsHeader = true
+            } else if isStepsHeader(trimmed) {
+                inIngredients = false
+            }
+            guard !trimmed.hasPrefix("#") else { continue }
+            lines += inIngredients ? trimmed.split(separator: ",").map(String.init) : [trimmed]
+        }
+        let capture = parse(lines)
+        // "Tag someone who loves tacos / Link in bio" would pass for a shopping list: a caption needs a header or amounts.
+        let looksLikeARecipe = sawIngredientsHeader || capture.ingredients.count { $0.quantity != nil } >= 2
+        return looksLikeARecipe && capture.ingredients.count >= 2 ? capture : nil
+    }
+
     static func parse(_ lines: [String]) -> Capture {
         var capture = Capture()
         var section = Section.start
@@ -48,9 +73,11 @@ enum RecipeTextParser {
         var budget = textLimit
         for raw in lines.prefix(lineLimit) {
             if section == .end { break }
-            let line = String(raw.prefix(lineLimit)).trimmingCharacters(in: .whitespacesAndNewlines)
+            // Counted in scalars, like `MealDraft.length`: a character can hold any number of them.
+            let line = String(String.UnicodeScalarView(raw.unicodeScalars.prefix(lineLimit)))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty else { continue }
-            budget -= line.count
+            budget -= line.unicodeScalars.count
             if budget < 0 { break }
             if let servings = servings(in: line) {
                 capture.servings = capture.servings ?? servings

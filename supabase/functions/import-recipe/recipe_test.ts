@@ -65,8 +65,8 @@ Deno.test("instructions as one string become one step per line", () => {
 Deno.test("no recipe data falls back to the page title", () => {
   const html = `<html><head><meta property="og:title" content="Grandma&#39;s Pot Roast | Blog">` +
     `<title>Ignored</title><script type="application/ld+json">{not json</script></head></html>`;
-  assertEquals(parsePage(html), { recipe: null, title: "Grandma's Pot Roast | Blog" });
-  assertEquals(parsePage("<title> Just a page </title>"), { recipe: null, title: "Just a page" });
+  assertEquals(parsePage(html), { recipe: null, title: "Grandma's Pot Roast | Blog", caption: null });
+  assertEquals(parsePage("<title> Just a page </title>"), { recipe: null, title: "Just a page", caption: null });
 });
 
 Deno.test("a broken block doesn't hide a good one", () => {
@@ -148,4 +148,16 @@ Deno.test("recipes nested in mainEntity and sections within sections", () => {
     },
   }));
   assertEquals(parsed.recipe?.steps, ["Layer."]);
+});
+
+Deno.test("a caption keeps its line breaks, and decodes", () => {
+  const html = `<meta property="og:description" content="Chili &amp; rice\n\n1 lb beef\r\n  2 cups   rice">`;
+  assertEquals(parsePage(html).caption, "Chili & rice\n1 lb beef\n2 cups rice");
+});
+
+Deno.test("the plain description is the fallback, and a caption is bounded", () => {
+  assertEquals(parsePage(`<meta name="description" content='Say "hi"'>`).caption, 'Say "hi"');
+  assertEquals(parsePage("<title>x</title>").caption, null);
+  const long = `<meta property="og:description" content="${"x".repeat(2900)}">`;
+  assertEquals(parsePage(long).caption?.length, 2000);
 });

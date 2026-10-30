@@ -11,6 +11,8 @@ enum TextRecognizer {
     static let pageLimit = 10
     /// A page's size says nothing about its file size: a tiny PDF can declare a huge page. Same as a shared photo.
     static let renderLimit = 2400.0
+    /// More than any recipe; the parser reads no further.
+    private static let lineLimit = 2000
     /// Less than this of a page's own text is a scanner's watermark or a page number, so the page is read as a picture.
     private static let ownTextMinimum = 40
 
@@ -23,7 +25,7 @@ enum TextRecognizer {
         case .pdf:
             guard let document = PDFDocument(url: url) else { return [] }
             var lines: [String] = []
-            for index in 0..<min(document.pageCount, pageLimit) where !Task.isCancelled {
+            for index in 0..<min(document.pageCount, pageLimit) where !Task.isCancelled && lines.count < lineLimit {
                 guard let page = document.page(at: index) else { continue }
                 let text = page.string ?? ""
                 let own = text.split(whereSeparator: \.isNewline).map(String.init)
