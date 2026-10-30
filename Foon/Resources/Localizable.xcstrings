@@ -253,6 +253,9 @@
     "Add all to list" : {
 
     },
+    "Add an ingredient" : {
+
+    },
     "Add an item" : {
 
     },
@@ -799,6 +802,9 @@
     "Foon can't open that link. Try the recipe's web page." : {
 
     },
+    "Foon couldn't find any text in that. If it's a locked PDF, remove the password and share it again." : {
+
+    },
     "Foon drafts the week from your library and who's home each night. You can change any night." : {
 
     },
@@ -1332,6 +1338,9 @@
     "One step at a time, with timers" : {
 
     },
+    "One step per line" : {
+
+    },
     "Only planners can do that with someone else's idea." : {
 
     },
@@ -1447,6 +1456,9 @@
 
     },
     "Rate the food, not the cook. Changes are fine for a day." : {
+
+    },
+    "Read on this device, so check it over. Foon deletes the file when you're done here." : {
 
     },
     "Read recipe" : {

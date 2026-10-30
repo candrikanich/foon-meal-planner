@@ -10,7 +10,7 @@
     "Done" : {
 
     },
-    "Foon can use links and text for now." : {
+    "Foon can use a link, some text, a photo, or a PDF." : {
 
     },
     "Foon has a lot waiting. Open Foon, then share this again." : {
@@ -20,6 +20,9 @@
 
     },
     "Saving to Foon…" : {
+
+    },
+    "That PDF is too big for Foon. Try a smaller one." : {
 
     }
   },

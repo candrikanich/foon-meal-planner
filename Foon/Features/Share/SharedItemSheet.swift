@@ -26,6 +26,8 @@ struct SharedItemSheet: View {
     @State private var importing = false
     @State private var isWorking = false
     @State private var errorMessage: String?
+    /// A photo or PDF as read, to check and correct: nil until it's been read.
+    @State private var readDraft: MealDraft?
 
     private var route: ShareRouter.Route { ShareRouter.route(item.kind) }
 
@@ -40,6 +42,7 @@ struct SharedItemSheet: View {
                 case .recipeLink(let url, _): link(url, canImport: canAddToLibrary)
                 case .socialLink(let url, _): link(url, canImport: false)
                 case .shoppingList: shoppingList
+                case .capture: readSection
                 }
                 Section {
                     Button("Discard", role: .destructive) { finish(.done(nil)) }.disabled(isWorking)
@@ -58,6 +61,9 @@ struct SharedItemSheet: View {
             }
             .interactiveDismissDisabled()
             .onAppear(perform: start)
+            .task {
+                if case .capture(let type) = route { await read(type) }
+            }
             .sheet(isPresented: $importing) {
                 if case .recipeLink(let url, _) = route {
                     LinkImportView(sharedLink: url) { _ in finish(.done(.library)) }
@@ -70,7 +76,98 @@ struct SharedItemSheet: View {
         switch route {
         case .recipeLink(_, let shared), .socialLink(_, let shared): title = shared ?? ""
         case .shoppingList(let parsed): names = parsed
+        case .capture: break
         }
+    }
+
+    /// Runs on this device; the file is deleted with the item once it's handled (docs/spec.md → Share Sheet extension).
+    private func read(_ type: SharedItem.FileType) async {
+        guard let url = SharedInbox.shared?.fileURL(for: item) else {
+            readDraft = MealDraft(newNamed: "")
+            return
+        }
+        let lines = await TextRecognizer.lines(in: url, type: type)
+        readDraft = RecipeTextParser.parse(lines).draft(householdSize: max(household.visibleMembers.count, 1))
+    }
+
+    /// Photos read imperfectly, and allergy flags read these ingredients: everything's here to fix before it's saved.
+    @ViewBuilder
+    private var readSection: some View {
+        if let draft = Binding($readDraft) {
+            if draft.wrappedValue.name.isEmpty, draft.wrappedValue.lines.isEmpty, draft.wrappedValue.stepsText.isEmpty {
+                Section {
+                    Text("Foon couldn't find any text in that. If it's a locked PDF, remove the password and share it again.")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Section {
+                    TextField("Meal name", text: draft.name)
+                } footer: {
+                    Text("Read on this device, so check it over. Foon deletes the file when you're done here.")
+                }
+                Section("Ingredients") {
+                    ForEach(draft.lines) { $line in
+                        HStack {
+                            TextField("Amount", text: $line.quantity).frame(maxWidth: 90)
+                            TextField("Ingredient", text: $line.name)
+                        }
+                    }
+                    .onDelete { draft.wrappedValue.lines.remove(atOffsets: $0) }
+                    Button("Add an ingredient", systemImage: "plus") {
+                        draft.wrappedValue.lines.append(MealDraft.Line(quantity: "", name: ""))
+                    }
+                }
+                Section("Steps") {
+                    TextField("One step per line", text: draft.stepsText, axis: .vertical).lineLimit(3...12)
+                }
+                readActions(draft.wrappedValue)
+            }
+        } else {
+            Section { ProgressView("Reading…") }
+        }
+    }
+
+    @ViewBuilder
+    private func readActions(_ draft: MealDraft) -> some View {
+        let hasName = !draft.name.trimmingCharacters(in: .whitespaces).isEmpty
+        let items = ShareRouter.unique(draft.lines.map { $0.name.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+        Section {
+            if canAddToLibrary {
+                Button("Add to our meals", systemImage: "book") { Task { await addMeal(draft) } }
+                    .disabled(isWorking || !hasName)
+            }
+            if !items.isEmpty {
+                Button("Add to the quick list", systemImage: "cart.badge.plus") {
+                    names = items
+                    Task { await addToList() }
+                }
+                .disabled(isWorking || sync == nil)
+            }
+            Button("Save as an idea", systemImage: "lightbulb") { Task { await saveNamedIdea(draft.name) } }
+                .disabled(isWorking || household.me == nil || !hasName)
+        }
+    }
+
+    private func addMeal(_ draft: MealDraft) async {
+        isWorking = true
+        defer { isWorking = false }
+        library.clearError()
+        if await library.create(draft) != nil {
+            finish(.done(.library))
+        } else {
+            errorMessage = library.errorMessage
+            library.clearError()
+        }
+    }
+
+    private func saveNamedIdea(_ name: String) async {
+        guard let me = household.me,
+              let request = NewRequest.build(kind: .name, from: me.id, mealID: nil, title: name, link: "", note: "",
+                                             date: nil) else {
+            errorMessage = String(localized: "Names can be up to \(NewRequest.titleLimit) characters.")
+            return
+        }
+        await send(request)
     }
 
     @ViewBuilder
@@ -112,6 +209,10 @@ struct SharedItemSheet: View {
             errorMessage = String(localized: "Names can be up to \(NewRequest.titleLimit) characters.")
             return
         }
+        await send(request)
+    }
+
+    private func send(_ request: NewRequest) async {
         isWorking = true
         defer { isWorking = false }
         errorMessage = nil
@@ -143,6 +244,16 @@ struct SharedItemSheet: View {
 #Preview("A link") {
     let household = HouseholdStore.preview()
     SharedItemSheet(item: SharedItem(kind: .link(URL(string: "https://recipes.example/chili")!, title: "Best chili"))) { _ in }
+        .environment(household)
+        .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
+        .environment(IdeasStore(householdID: Household.sample.id, client: .preview()))
+        .modelContainer(try! SyncService.inMemoryContainer())
+        .task { await household.load() }
+}
+
+#Preview("A photo that can't be read") {
+    let household = HouseholdStore.preview()
+    SharedItemSheet(item: SharedItem(kind: .file(.image))) { _ in }
         .environment(household)
         .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .environment(IdeasStore(householdID: Household.sample.id, client: .preview()))

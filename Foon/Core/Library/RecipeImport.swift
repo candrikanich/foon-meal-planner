@@ -47,14 +47,14 @@ struct RecipeImport: Decodable, Equatable, Sendable {
     }
 
     /// Recipe lines run long ("kidney beans, drained and rinsed"); the item is what comes before the first comma.
-    private static func ingredientName(_ name: String) -> String {
+    static func ingredientName(_ name: String) -> String {
         guard MealDraft.length(name) > 60 else { return name }
         let head = name.split(separator: ",", maxSplits: 1).first.map(String.init) ?? name
         return clamped(head.trimmingCharacters(in: .whitespaces), to: 60)
     }
 
     /// Trims whole characters until it fits the limit as `MealDraft` counts it, so an emoji is never cut in half.
-    private static func clamped(_ text: String, to limit: Int) -> String {
+    static func clamped(_ text: String, to limit: Int) -> String {
         var text = text
         while MealDraft.length(text) > limit { text.removeLast() }
         return text

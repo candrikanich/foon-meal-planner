@@ -9,6 +9,8 @@ enum ShareRouter {
         case socialLink(URL, title: String?)
         /// "milk, eggs, bread": for the quick list.
         case shoppingList([String])
+        /// A photo or PDF: read on this device, then a recipe or a list.
+        case capture(SharedItem.FileType)
     }
 
     private static let socialDomains = ["instagram.com", "instagr.am", "tiktok.com", "facebook.com", "fb.watch", "fb.com",
@@ -21,6 +23,8 @@ enum ShareRouter {
             isSocial(url) ? .socialLink(url, title: title) : .recipeLink(url, title: title)
         case .text(let text):
             .shoppingList(unique(IngredientParser.parse(text).map(\.name)))
+        case .file(let type):
+            .capture(type)
         }
     }
 
@@ -32,7 +36,7 @@ enum ShareRouter {
             || host.split(separator: ".").contains("pinterest")
     }
 
-    private static func unique(_ names: [String]) -> [String] {
+    static func unique(_ names: [String]) -> [String] {
         var seen = Set<String>()
         return names.filter { seen.insert($0.lowercased()).inserted }
     }

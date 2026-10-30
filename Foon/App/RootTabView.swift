@@ -80,7 +80,7 @@ struct RootTabView: View {
         switch outcome {
         case .postponed: postponedShares.insert(item.id)
         case .done(let tab):
-            SharedInbox.shared?.remove(item.id)
+            SharedInbox.shared?.remove(item)
             if let tab { selection = tab }
         }
         shared = nil
