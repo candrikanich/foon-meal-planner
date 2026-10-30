@@ -41,9 +41,13 @@ enum TextRecognizer {
     }
 
     static func lines(in image: CGImage) async -> [String] {
-        let request = RecognizeTextRequest()
-        let observations = (try? await request.perform(on: image)) ?? []
-        return observations.compactMap { $0.topCandidates(1).first?.string }
+        // The first request can fail while the model loads, which isn't the same as a picture with no text: once more.
+        for _ in 0..<2 where !Task.isCancelled {
+            if let observations = try? await RecognizeTextRequest().perform(on: image) {
+                return observations.compactMap { $0.topCandidates(1).first?.string }
+            }
+        }
+        return []
     }
 
     /// Nil for a page size that can't be drawn: a PDF can declare anything, and converting infinity to Int crashes.

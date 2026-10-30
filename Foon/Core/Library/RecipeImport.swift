@@ -16,6 +16,8 @@ struct RecipeImport: Decodable, Equatable, Sendable {
     let title: String?
     /// The page's description, a social post's caption: there may be a recipe in it.
     var caption: String? = nil
+    /// The caption was too long to keep whole: something in it may be missing.
+    var captionTruncated: Bool? = nil
     /// Where the page ended up, after redirects.
     let url: URL
 

@@ -408,6 +408,7 @@ struct RecipeTextParserTests {
 }
 
 /// The real thing: Apple's recognizer and PDFKit, on files made here.
+@Suite(.serialized)
 struct TextRecognizerTests {
     private func pdf(_ text: String?) throws -> URL {
         let url = URL.temporaryDirectory.appending(path: "recipe-\(UUID().uuidString).pdf")

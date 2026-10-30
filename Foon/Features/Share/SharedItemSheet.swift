@@ -128,7 +128,7 @@ struct SharedItemSheet: View {
         if imported.hasRecipe {
             draft = imported.draft(householdSize: size)
         } else if let capture = imported.caption.flatMap(RecipeTextParser.parseCaption) {
-            readTruncated = capture.isTruncated
+            readTruncated = capture.isTruncated || imported.captionTruncated == true
             draft = capture.draft(householdSize: size)
             if capture.name == nil { draft?.name = RecipeImport.clamped(title.isEmpty ? imported.title ?? "" : title, to: 80) }
             draft?.link = url.absoluteString
@@ -166,7 +166,7 @@ struct SharedItemSheet: View {
                     Text("Ingredients")
                 } footer: {
                     if readTruncated {
-                        Text("That was more than a meal can hold, so some were left out. Allergy flags only see what's here.")
+                        Text("That was too long to keep it all, so some may be missing. Allergy flags only see what's here.")
                     }
                 }
                 Section("Steps") {

@@ -65,8 +65,8 @@ Deno.test("instructions as one string become one step per line", () => {
 Deno.test("no recipe data falls back to the page title", () => {
   const html = `<html><head><meta property="og:title" content="Grandma&#39;s Pot Roast | Blog">` +
     `<title>Ignored</title><script type="application/ld+json">{not json</script></head></html>`;
-  assertEquals(parsePage(html), { recipe: null, title: "Grandma's Pot Roast | Blog", caption: null });
-  assertEquals(parsePage("<title> Just a page </title>"), { recipe: null, title: "Just a page", caption: null });
+  assertEquals(parsePage(html), { recipe: null, title: "Grandma's Pot Roast | Blog", caption: null, captionTruncated: false });
+  assertEquals(parsePage("<title> Just a page </title>"), { recipe: null, title: "Just a page", caption: null, captionTruncated: false });
 });
 
 Deno.test("a broken block doesn't hide a good one", () => {
@@ -158,6 +158,20 @@ Deno.test("a caption keeps its line breaks, and decodes", () => {
 Deno.test("the plain description is the fallback, and a caption is bounded", () => {
   assertEquals(parsePage(`<meta name="description" content='Say "hi"'>`).caption, 'Say "hi"');
   assertEquals(parsePage("<title>x</title>").caption, null);
-  const long = `<meta property="og:description" content="${"x".repeat(2900)}">`;
-  assertEquals(parsePage(long).caption?.length, 2000);
+  const whole = parsePage(`<meta property="og:description" content="${"x".repeat(2200)}">`);
+  assertEquals(whole.caption?.length, 2200, "Instagram's longest arrives whole");
+  assertEquals(whole.captionTruncated, false);
+});
+
+Deno.test("a caption too long to keep says so, and never ends on half a line", () => {
+  const lines = Array.from({ length: 200 }, (_, i) => `${i} cups peanut butter`).join("\n");
+  const page = parsePage(`<meta property="og:description" content="${lines}">`);
+  assertEquals(page.captionTruncated, true);
+  assertEquals(page.caption?.endsWith("peanut butter"), true);
+  assertEquals((page.caption?.length ?? 0) <= 3000, true);
+});
+
+Deno.test("a caption too long even to read is no caption, so it stays an idea", () => {
+  const page = parsePage(`<meta property="og:description" content="${"x".repeat(9000)}">`);
+  assertEquals(page.caption, null);
 });
