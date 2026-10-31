@@ -120,7 +120,7 @@ enum RecipeTextParser {
     }
 
     private static func isOnlyServings(_ text: String) -> Bool {
-        text.wholeMatch(of: /(?i)(?:serves|servings?|yield|makes)\s*:?\s*\d{1,2}(?:\s*(?:people|servings?))?/) != nil
+        text.wholeMatch(of: /(?i)(?:serves|servings?|yield|makes)\s*:?\s*\d{1,2}(?:\s*(?:-|–|to)\s*\d{1,2})?(?:\s+(?:\w+\s+)?(?:people|servings?|portions?))?\.?/) != nil
     }
 
     /// "4 boneless, skinless chicken breasts" or "3 cloves garlic, finely minced".
@@ -256,16 +256,15 @@ enum RecipeTextParser {
     /// No header yet: an amount or bullet is an ingredient, and a numbered or long line is a step only once there's
     /// something to cook. A long line before that is a blog's intro.
     private static func start(_ line: String, _ section: inout Section, _ capture: inout Capture, _ loose: inout [String]) {
+        // "Makes 12 muffins" above the list isn't the dish's name.
+        if capture.ingredients.isEmpty, line.prefixMatch(of: /(?i)makes\s+\d/) != nil { return }
         if startsAStep(line) {
             section = .steps
             step(line, &capture)
         } else if isAmountLed(line) {
             add(line, to: &capture)
         } else if line.count > longLine {
-            // "To make the pancakes, whisk together:" introduces a list. As a step, it would swallow the eggs and milk below it.
-            if line.hasSuffix(":") {
-                if !capture.ingredients.isEmpty { add(line, to: &capture) }
-            } else if !capture.ingredients.isEmpty {
+            if !capture.ingredients.isEmpty {
                 section = .steps
                 step(line, &capture)
             }

@@ -859,7 +859,7 @@ struct CookbookSpreadTests {
         let names = capture.ingredients.map(\.name)
         for item in ["egg", "butter, melted", "milk", "flour"] { #expect(names.contains(item), "\(item)") }
         #expect(!capture.steps.contains { $0.contains("1 egg") })
-        #expect(capture.steps.contains { $0.hasPrefix("Spoon") })
+        #expect(capture.steps.contains { $0.contains("griddle") && $0.contains("Spoon") })
     }
 
     @Test func howManyItMakesIsntHowManyItServes() {
@@ -868,7 +868,8 @@ struct CookbookSpreadTests {
         #expect(capture.draft(householdSize: 4).lines.contains { $0.name == "flour" && $0.quantity == "4 cups" })
     }
 
-    @Test(arguments: [("Makes 4", 4), ("Makes 6 servings", 6), ("Makes: 8 people", 8), ("Serves 4 to 6", 4), ("Yield: 12", 12)])
+    @Test(arguments: [("Makes 4", 4), ("Makes 6 servings", 6), ("Makes: 8 people", 8), ("Serves 4 to 6", 4), ("Yield: 12", 12),
+                      ("Makes 4 to 6 servings", 4), ("Makes 4-6 servings", 4), ("Makes 4 servings.", 4), ("Makes 8 large servings", 8)])
     func aRealServingsLineStillCounts(line: String, count: Int) {
         #expect(RecipeTextParser.parse(["Dish", line, "1 lb beef", "2 cups rice"]).servings == count)
     }
@@ -890,6 +891,21 @@ struct CookbookSpreadTests {
     func aTimeOrHeatStaysInTheStep(line: String) {
         let capture = RecipeTextParser.parse(["Directions", "1. Simmer the pot for", line])
         #expect(capture.ingredients.isEmpty)
+    }
+
+    @Test func aLongLabelKeepsItsStepsWhole() {
+        let capture = RecipeTextParser.parse(["Pancakes", "1 cup flour", "2 eggs",
+            "Preheat the griddle and in a large bowl combine all of these ingredients with:", "1 cup milk",
+            "Heat the griddle over medium heat, then pour in a little batter.",
+            "Flip when bubbles appear, then cook until golden and serve warm."])
+        #expect(capture.ingredients.map(\.name) == ["flour", "eggs", "milk"])
+        #expect(capture.steps.joined().contains("then pour in a little batter"))
+        #expect(capture.steps.joined().contains("then cook until golden and serve warm"))
+    }
+
+    @Test func howManyItMakesAboveTheListIsntTheName() {
+        let capture = RecipeTextParser.parse(["Makes 12 muffins", "Muffins", "1 cup flour", "2 eggs"])
+        #expect(capture.name == "Muffins")
     }
 
     @Test func aFinishedStepDoesntTurnALineIntoAnIngredient() {
