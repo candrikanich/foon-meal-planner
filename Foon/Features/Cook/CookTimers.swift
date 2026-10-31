@@ -94,24 +94,38 @@ final class CookTimers {
 
 /// Shows a cook-mode alert or a reminder even while Foon is in front (otherwise a timer that ends with cook mode on screen is
 /// silent), and takes answers to reminders. Set as the notification center's delegate when the app starts.
+///
+/// These are the completion-handler forms on purpose. The async forms finish on a background thread, which is reported to crash
+/// with "Call must be made on main thread", and tapping a notification crashed on a device while this used them. Swift 6 won't
+/// let the async forms be main-actor isolated, because the notification types aren't Sendable.
 final class CookAlertPresenter: NSObject, UNUserNotificationCenterDelegate, Sendable {
     static let shared = CookAlertPresenter()
 
     static let foregroundOptions: UNNotificationPresentationOptions = [.banner, .sound, .list]
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification)
-        async -> UNNotificationPresentationOptions {
-        Self.foregroundOptions
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler(Self.foregroundOptions)
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        let request = response.notification.request
+        let (id, action) = (request.identifier, response.actionIdentifier)
+        let (title, body) = (request.content.title, request.content.body)
+        let payload = ReminderPayload(userInfo: request.content.userInfo)
+        nonisolated(unsafe) let finished = completionHandler
+        Task { @MainActor in
+            await Self.answer(id: id, action: action, payload: payload, title: title, body: body)
+            finished()
+        }
     }
 
     /// Can run with the app in the background and none of its screens up. So it does what can't wait (cancels a follow-up,
     /// schedules a snooze), saves the answer for `ReminderStore`, and leaves the rest for the next re-plan.
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        let request = response.notification.request
-        let (title, body) = (request.content.title, request.content.body)
-        let payload = ReminderPayload(userInfo: request.content.userInfo)
-        guard let outcome = ReminderResponse.outcome(id: request.identifier, action: response.actionIdentifier,
-                                                     payload: payload, now: .now) else { return }
+    @MainActor
+    private static func answer(id: String, action: String, payload: ReminderPayload?, title: String, body: String) async {
+        guard let outcome = ReminderResponse.outcome(id: id, action: action, payload: payload, now: .now) else { return }
         ReminderCenter.system.remove(outcome.cancels)
         if outcome.schedulesAgain, let until = outcome.answer.snoozedUntil, let payload {
             // Only prep reminders have the action.
@@ -122,8 +136,6 @@ final class CookAlertPresenter: NSObject, UNUserNotificationCenterDelegate, Send
             )
         }
         ReminderDevice().add(outcome.answer)
-        if let route = outcome.route {
-            await MainActor.run { ReminderRouter.shared.go(to: route) }
-        }
+        if let route = outcome.route { ReminderRouter.shared.go(to: route) }
     }
 }
