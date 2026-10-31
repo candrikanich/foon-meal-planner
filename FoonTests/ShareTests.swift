@@ -230,7 +230,8 @@ struct ShareRouterTests {
         #expect(ShareRouter.siteLabel(URL(string: link)!) == label)
     }
 
-    @Test(arguments: ["https://pinterest.evil.example/pin/1", "https://www.pinterest.evil.com/pin/1", "https://notpinterest.com/pin/1"])
+    @Test(arguments: ["https://pinterest.evil.example/pin/1", "https://www.pinterest.evil.com/pin/1", "https://notpinterest.com/pin/1",
+                      "https://pinterest.xy/pin/1", "https://pinterest.com.xy/pin/1", "https://pinterest.co.xy/pin/1"])
     func aLookalikePinterestIsntPinterest(link: String) {
         let url = URL(string: link)!
         #expect(ShareRouter.route(.link(url, title: nil)) == .recipeLink(url, title: nil))

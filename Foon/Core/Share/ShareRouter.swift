@@ -18,6 +18,11 @@ enum ShareRouter {
                                       "fb.me": "Facebook", "youtube.com": "YouTube", "youtu.be": "YouTube",
                                       "pin.it": "Pinterest", "threads.net": "Threads", "threads.com": "Threads",
                                       "x.com": "X", "twitter.com": "X"]
+    /// Pinterest has a domain per country. One missing here is only treated as an ordinary link, showing its address.
+    private static let pinterestDomains = ["pinterest.com", "pinterest.co.uk", "pinterest.ca", "pinterest.com.au", "pinterest.de",
+                                           "pinterest.fr", "pinterest.es", "pinterest.it", "pinterest.pt", "pinterest.ie",
+                                           "pinterest.nz", "pinterest.at", "pinterest.ch", "pinterest.se", "pinterest.dk",
+                                           "pinterest.jp", "pinterest.co.kr", "pinterest.com.mx", "pinterest.cl", "pinterest.ph"]
 
     static func route(_ kind: SharedItem.Kind) -> Route {
         switch kind {
@@ -84,8 +89,7 @@ enum ShareRouter {
     /// The domain or a subdomain of it; "notinstagram.com" doesn't count.
     private static func socialSite(_ url: URL) -> String? {
         guard let host = url.host()?.lowercased() else { return nil }
-        // Pinterest has a domain per country (pinterest.co.uk), and pinterest.evil.example isn't one of them.
-        if host.wholeMatch(of: /(?:.+\.)?pinterest\.(?:com|[a-z]{2}|co\.[a-z]{2}|com\.[a-z]{2})/) != nil { return "Pinterest" }
+        if pinterestDomains.contains(where: { host == $0 || host.hasSuffix(".\($0)") }) { return "Pinterest" }
         return socialSites.first { host == $0.key || host.hasSuffix(".\($0.key)") }?.value
     }
 
