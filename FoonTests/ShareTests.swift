@@ -299,6 +299,49 @@ struct ShareRouterTests {
         #expect(ShareRouter.postTitle("Instagram", for: recipe) == "Instagram")
     }
 
+    private let captionPost = "1 like, 2 comments - cook on June 1, 2026: \"Tacos\\nIngredients:\\n1 lb beef\\n2 cups rice\\nDirections:\\nBrown it.\"."
+        .replacing("\\n", with: "\n")
+
+    @Test func anIdeaFromAReadPostKeepsTheNameOnTheScreen() throws {
+        let page = RecipeImport(recipe: nil, title: "Instagram", caption: captionPost, url: post)
+        let read = try #require(page.captionRecipe(householdSize: 4))
+        #expect(ShareRouter.ideaTitle(typed: "", read: read.draft) == "Tacos")
+        var edited = read.draft
+        edited.name = "Friday tacos"
+        #expect(ShareRouter.ideaTitle(typed: "An old name", read: edited) == "Friday tacos")
+        #expect(ShareRouter.ideaTitle(typed: "Typed", read: nil) == "Typed")
+    }
+
+    @Test func aPostsCaptionBecomesTheWholeDish() throws {
+        let page = RecipeImport(recipe: nil, title: "Instagram", caption: captionPost, url: post)
+        let read = try #require(page.captionRecipe(householdSize: 4))
+        #expect(read.draft.name == "Tacos")
+        #expect(read.draft.lines.count == 2)
+        #expect(read.draft.stepsText == "Brown it.")
+        #expect(read.draft.link == post.absoluteString)
+        #expect(!read.isTruncated)
+    }
+
+    @Test func someonesOwnNameBeatsTheCaptionsGuess() throws {
+        let page = RecipeImport(recipe: nil, title: nil, caption: captionPost, url: post)
+        #expect(page.captionRecipe(householdSize: 4, named: "Nora's tacos")?.draft.name == "Nora's tacos")
+    }
+
+    @Test func aCaptionCutShortSaysSo() throws {
+        let page = RecipeImport(recipe: nil, title: nil, caption: captionPost, captionTruncated: true, url: post)
+        #expect(page.captionRecipe(householdSize: 4)?.isTruncated == true)
+    }
+
+    @Test func onlyASocialPostsCaptionIsARecipe() {
+        let blog = RecipeImport(recipe: nil, title: "Chili", caption: captionPost, url: recipe)
+        #expect(blog.captionRecipe(householdSize: 4) == nil)
+        let noRecipe = RecipeImport(recipe: nil, title: nil, caption: "Best dinner ever!! #yum", url: post)
+        #expect(noRecipe.captionRecipe(householdSize: 4) == nil)
+        let card = RecipeImport.Recipe(name: "Card", servings: 4, ingredients: ["1 lb beef"], steps: [], imageURL: nil)
+        let carded = RecipeImport(recipe: card, title: nil, caption: captionPost, url: post)
+        #expect(carded.captionRecipe(householdSize: 4) == nil)
+    }
+
     @Test func aDishFromAPostWithNoTitleIsntNamedAfterTheAddress() {
         let page = RecipeImport(recipe: nil, title: "Instagram", url: post)
         #expect(page.draft(householdSize: 4).name == "Instagram post")

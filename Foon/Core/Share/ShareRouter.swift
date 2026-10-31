@@ -27,13 +27,19 @@ enum ShareRouter {
     static func route(_ kind: SharedItem.Kind) -> Route {
         switch kind {
         case .link(let url, let title):
-            socialSite(url) != nil ? .socialLink(url, title: title) : .recipeLink(url, title: title)
+            isSocial(url) ? .socialLink(url, title: title) : .recipeLink(url, title: title)
         case .text(let text):
             .shoppingList(unique(IngredientParser.parse(text).map(\.name)))
         case .file(let type):
             .capture(type)
         }
     }
+
+    static func isSocial(_ url: URL) -> Bool { socialSite(url) != nil }
+
+    /// What to call an idea saved from the share screen: the name on the screen once a recipe's been read, since that's the
+    /// one someone checked and it's the only one showing.
+    static func ideaTitle(typed: String, read: MealDraft?) -> String { read?.name ?? typed }
 
     /// What to call a link with no title: "Instagram post", or the site's address without its "www."
     static func siteLabel(_ url: URL) -> String {

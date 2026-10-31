@@ -661,6 +661,9 @@
     "An idea" : {
 
     },
+    "An idea keeps the name and link. To keep the ingredients and steps, add it to our meals now. Foon can try reading the post again later." : {
+
+    },
     "Anything planned for those nights comes off, locked nights included, and doesn't come back if you change your mind." : {
 
     },
@@ -1739,6 +1742,9 @@
     "Joining a family?" : {
 
     },
+    "Keep just the name and link" : {
+
+    },
     "Keep on hand" : {
 
     },
@@ -2384,6 +2390,12 @@
 
     },
     "Rate the food, not the cook. Changes are fine for a day." : {
+
+    },
+    "Read from the post's caption, so check it over. Swipe to remove anything that isn't an ingredient." : {
+
+    },
+    "Read from the post, so check it over." : {
 
     },
     "Read on this device, so check it over. Foon deletes the file when you're done here." : {
