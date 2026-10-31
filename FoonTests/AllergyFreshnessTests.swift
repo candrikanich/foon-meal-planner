@@ -241,54 +241,62 @@ struct WhenTheLibraryLoadsTests {
     }
 }
 
-/// Swap can replace This Week's running load with its own, and closing Swap cancels that one.
+/// Only the newest load's answer counts. An older read can predate a save, so it's never trusted.
 @MainActor
 struct AReplacedLoadTests {
     private let mac = LibraryMeal.fixture(name: "Mac", ingredients: ["milk"])
+    private let nora = Member.fixture(firstName: "Nora", ageGroup: .kid)
 
-    @Test func aGoodAnswerIsKeptWhenItsReplacementIsCancelled() async {
+    /// The older load read before the save and the newer one failed: what was saved stays, and it says it couldn't check.
+    @Test func anOlderReadCantUndoASavedAllergyOrHideAFailure() async {
         let mac = mac
         let (gate, release) = AsyncStream<Void>.makeStream()
         let (parked, signal) = AsyncStream<Void>.makeStream()
         let reads = Mutex(0)
         let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in
-            if reads.withLock({ $0 += 1; return $0 }) == 2 { throw CancellationError() }
+            if reads.withLock({ $0 += 1; return $0 }) > 1 { throw noRead }
             signal.yield()
             for await _ in gate { break }
+            return [mac]
+        }))
+        let nora = nora
+        let older = Task { await store.load(members: [nora]) }
+        for await _ in parked { break }
+        await store.showAllergies(AllergyChoice(allergens: [.milk]), for: nora, members: [nora])
+        release.yield()
+        release.finish()
+        await older.value
+        #expect(store.allergies.first?.allergens == [.milk], "the save stands")
+        #expect(store.lookup == .failed, "the newest load failed")
+        #expect(store.lastLoadFailed)
+    }
+
+    /// Closing Swap can cancel the load that replaced This Week's. The note is true, and one pull fixes it.
+    @Test func aCancelledReplacementSaysCouldntCheckUntilThePull() async {
+        let mac = mac
+        let (gate, release) = AsyncStream<Void>.makeStream()
+        let (parked, signal) = AsyncStream<Void>.makeStream()
+        let reads = Mutex(0)
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in
+            let read = reads.withLock { $0 += 1; return $0 }
+            if read == 2 { throw CancellationError() }
+            if read == 1 {
+                signal.yield()
+                for await _ in gate { break }
+            }
             return [mac]
         }))
         let first = Task { await store.load(members: []) }
         for await _ in parked { break }
         await store.load(members: [])
-        #expect(store.lookup == .loading, "the first load is still out, so nothing's failed yet")
         release.yield()
         release.finish()
         await first.value
+        #expect(store.lookup == .failed)
+        #expect(store.needsFullLoad(holding: [mac.id]))
+        await store.load(members: [])
         #expect(store.lookup == .loaded)
         #expect(store.meals.map(\.id) == [mac.id])
-    }
-
-    @Test func aFailureCountsWhenItsReplacementIsCancelled() async {
-        let (gate, release) = AsyncStream<Void>.makeStream()
-        let (parked, signal) = AsyncStream<Void>.makeStream()
-        let reads = Mutex(0)
-        let mac = mac
-        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in
-            let read = reads.withLock { $0 += 1; return $0 }
-            if read == 1 { return [mac] }
-            if read == 3 { throw CancellationError() }
-            signal.yield()
-            for await _ in gate { break }
-            throw noRead
-        }))
-        await store.load(members: [])
-        let second = Task { await store.load(members: []) }
-        for await _ in parked { break }
-        await store.load(members: [])
-        release.yield()
-        release.finish()
-        await second.value
-        #expect(store.lookup == .failed)
     }
 
     /// An older answer never replaces a newer one.
@@ -312,6 +320,30 @@ struct AReplacedLoadTests {
         release.finish()
         await older.value
         #expect(store.meals.map(\.id) == [newer.id])
+    }
+
+    /// An archive doesn't reload, so a load already out read the dish before it.
+    @Test func anArchiveWhileALoadIsOutStands() async {
+        let mac = mac
+        let (gate, release) = AsyncStream<Void>.makeStream()
+        let (parked, signal) = AsyncStream<Void>.makeStream()
+        let reads = Mutex(0)
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in
+            if reads.withLock({ $0 += 1; return $0 }) == 2 {
+                signal.yield()
+                for await _ in gate { break }
+            }
+            return [mac]
+        }))
+        await store.load(members: [])
+        let reload = Task { await store.load(members: []) }
+        for await _ in parked { break }
+        await store.setArchived(true, mealID: mac.id)
+        release.yield()
+        release.finish()
+        await reload.value
+        #expect(store.meal(mac.id)?.status == .archived)
+        #expect(store.lookup == .loaded, "and the store isn't left waiting")
     }
 }
 

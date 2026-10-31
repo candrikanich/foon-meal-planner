@@ -55,10 +55,8 @@ final class LibraryStore {
     private var members: [Member] = []
     /// Bumped per load, so a slower, older load never overwrites a newer one.
     private var loadGeneration = 0
-    /// The newest load whose answer was kept, and the loads still out. A load keeps `isLoading` up until it's answered or
-    /// something newer has been, so a replacement being cancelled doesn't read as failure while the first is still coming.
-    private var answeredGeneration = 0
-    private var runningLoads: Set<Int> = []
+    /// Bumped per archive or restore, which don't reload: a read already out predates them, so it stands down.
+    private var statusWrites = 0
     /// Signed photo URLs by path. Reusing one keeps `AsyncImage` on the URL cache while scrolling.
     private var photoURLs: [String: (url: URL, expires: Date)] = [:]
 
@@ -126,12 +124,9 @@ final class LibraryStore {
         self.members = members
         loadGeneration += 1
         let generation = loadGeneration
-        runningLoads.insert(generation)
+        let writes = statusWrites
         isLoading = true
-        defer {
-            runningLoads.remove(generation)
-            isLoading = runningLoads.contains { $0 > answeredGeneration }
-        }
+        defer { if generation == loadGeneration { isLoading = false } }
         do {
             async let meals = client.meals(householdID)
             async let history = client.history(householdID)
@@ -147,9 +142,8 @@ final class LibraryStore {
             let servingNotes = try await notes
             // Not worth failing the Library for: a failed read keeps what was shown.
             let loadedComments = (try? await comments) ?? self.comments
-            // An older answer is still good if nothing newer has answered: a replacement can be cancelled.
-            guard generation > answeredGeneration else { return }
-            answeredGeneration = generation
+            // Only the newest load counts: an older read can predate a save, and can't speak for a newer load that failed.
+            guard generation == loadGeneration, writes == statusWrites else { return }
             self.meals = loaded.0
             self.history = loaded.1
             self.catalog = loaded.2
@@ -163,7 +157,7 @@ final class LibraryStore {
             lastLoadFailed = false
             errorMessage = nil
         } catch {
-            guard generation > answeredGeneration, !Self.isCancellation(error) else { return }
+            guard generation == loadGeneration, !Self.isCancellation(error) else { return }
             lastLoadFailed = true
             errorMessage = String(localized: "Couldn't load your library. Check your connection and try again.")
         }
@@ -176,8 +170,7 @@ final class LibraryStore {
             try await client.setStatus(mealID, status)
             // Look again: a reload may have replaced the list while the request was out.
             if let index = meals.firstIndex(where: { $0.id == mealID }) { meals[index].status = status }
-            // A refresh that read the dishes before this stands down.
-            loadGeneration += 1
+            statusWrites += 1
             errorMessage = nil
         } catch {
             errorMessage = archived
@@ -211,6 +204,7 @@ final class LibraryStore {
         self.members = members
         guard hasLoaded else { return }
         let generation = loadGeneration
+        let writes = statusWrites
         // Someone removed on another phone goes now, even if what's read below doesn't arrive.
         let present = Set(members.filter { $0.status != .removed }.map(\.id))
         allergies = allergies.filter { present.contains($0.memberID) }
@@ -224,7 +218,7 @@ final class LibraryStore {
             let loadedAllergies = try? await allergyRows
             let loadedMeals = try? await meals
             // What allergy checks read doesn't wait on the rest: if the reactions fail, these still count.
-            guard generation == loadGeneration else { return }
+            guard generation == loadGeneration, writes == statusWrites else { return }
             if let loadedAllergies { allergies = Self.memberAllergies(loadedAllergies, members: self.members) }
             if let loadedMeals { self.meals = loadedMeals }
             let reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
