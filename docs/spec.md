@@ -204,7 +204,7 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 
 The planner taps "Build my week," gets a solid draft, and shapes it. The algorithm is plain code and works on every device; AI is an optional layer.
 
-**Household planning settings.** Planning day and time (ours: Sunday morning, before shopping), week start (the shopping day), new dishes per week, takeout nights, leftover nights, minimum days before a repeat (e.g. 10), dinner time per night.
+**Household planning settings.** Planning day and time (ours: Sunday morning, before shopping), week start (the shopping day), new dishes per week, takeout nights, leftover nights, minimum days before a repeat (e.g. 10), dinner time per night. Each night keeps its own dinner time from when its week was made. Changing the household's moves tonight and every later night, in weeks already started too (#170); past nights keep theirs, since their prompts and logs used it. Nothing sets one night's time yet.
 
 - Stored in `households.settings` (#22), every key optional with a default: `week_start` (ISO weekday, default 7 = Sunday), `dinner_time` ("18:00"), `new_dishes_per_week` (1), `takeout_nights` (0), `leftover_nights` (1), `repeat_window_days` (10). Out-of-range values fall back to the default. Planners change them after onboarding in Family → Rhythm and planning mix (see Family tab).
 

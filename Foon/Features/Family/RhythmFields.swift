@@ -24,7 +24,7 @@ struct RhythmFields: View {
             DatePicker("Dinner at", selection: time(\.dinnerTime), displayedComponents: .hourAndMinute)
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
-                Text("The week starts on your shopping day.")
+                Text("The week starts on your shopping day. Changing dinner time moves tonight and every night after it.")
                 if let weekNote { Text(weekNote) }
             }
         }

@@ -73,7 +73,8 @@ struct WeekView: View {
             }
         }
         .task(id: LoadKey(householdID: household.household?.id, next: week.showingNextWeek,
-                          weekStart: settings.weekStart, today: week.todayDay, away: settings.awayDates)) {
+                          weekStart: settings.weekStart, today: week.todayDay, away: settings.awayDates,
+                          dinnerTime: settings.dinnerTime)) {
             await load()
         }
         .onChange(of: router?.route, initial: true) { _, route in
@@ -136,6 +137,7 @@ struct WeekView: View {
         let today: CalendarDay
         /// Changing them rewrites nights on the server, and changes what shows here.
         let away: [AwayDates]
+        let dinnerTime: String
     }
 
     /// Waits for the household, so the first load uses its real shopping day.
