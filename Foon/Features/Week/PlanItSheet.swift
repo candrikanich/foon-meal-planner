@@ -42,7 +42,7 @@ enum PlanIt {
     static func allergyCheck(for meal: LibraryMeal, on night: WeekNight, library: [LibraryMeal], allergies: [MemberAllergies],
                              lookup: LibraryLookup) -> AllergyCheck {
         NightBadges.allergyCheck(dish: library.first { $0.id == meal.id }, library: library, allergies: allergies,
-                                 home: night.home, lookup: lookup)
+                                 home: night.allergyHome(allergies), lookup: lookup)
     }
 
     /// What a night holds now, so picking it says what gets replaced.

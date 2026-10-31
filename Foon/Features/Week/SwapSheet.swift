@@ -174,7 +174,8 @@ struct SwapSheet: View {
     /// The card's rule, for this night. Not a library entry's flags: those are for the whole family, home or not.
     private func allergyCheck(_ meal: LibraryMeal) -> AllergyCheck {
         guard let night else { return AllergyCheck() }
-        return NightBadges.allergyCheck(dish: meal, library: library.meals, allergies: library.allergies, home: night.home,
+        return NightBadges.allergyCheck(dish: meal, library: library.meals, allergies: library.allergies,
+                                        home: night.allergyHome(library.allergies),
                                         lookup: library.lookup)
     }
 
@@ -266,7 +267,8 @@ struct SwapSheet: View {
             Section("From Foon's ideas") {
                 ForEach(catalogMatches) { dish in
                     let allergies = night.map {
-                        NightBadges.allergyCheck(catalog: dish, allergies: library.allergies, home: $0.home)
+                        NightBadges.allergyCheck(catalog: dish, allergies: library.allergies,
+                                                 home: $0.allergyHome(library.allergies))
                     } ?? AllergyCheck()
                     Button { Task { await chooseCatalog(dish) } } label: {
                         VStack(alignment: .leading, spacing: 4) {

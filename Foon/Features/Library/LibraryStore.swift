@@ -13,9 +13,11 @@ final class LibraryStore {
     /// The last full load failed, so what's showing may be old. `errorMessage` also carries other actions' failures.
     private(set) var lastLoadFailed = false
     /// Whether a dish missing from `meals` means anything yet. A load that ended with no answer, failed or cancelled, reads
-    /// as failed: a closed sheet can cancel the load a screen behind it was waiting on, and nothing else would decide.
+    /// as failed: a closed sheet can cancel the load a screen behind it was waiting on, and nothing else would decide. A
+    /// failed reload does too: the allergies from the last read may be out of date, so they can't rule out a warning.
     var lookup: LibraryLookup {
         if isLoading { return .loading }
+        if lastLoadFailed { return .failed }
         if hasLoaded { return .loaded }
         return loadGeneration == 0 ? .loading : .failed
     }

@@ -529,7 +529,8 @@ final class WeekStore {
         let missing = dish == nil ? night.mealID ?? DoubleIt.missingLeftoversMeal(on: night, nights: nights, library: library) : nil
         let source = nights.first { $0.id == night.leftoversFrom }
         var model = card(for: night, members: members, sides: sides,
-                         badges: { _, home in
+                         badges: { _, _ in
+                             let home = night.allergyHome(allergies)
                              guard let dish else {
                                  return NightBadges.allergyBadges(NightBadges.allergyCheck(
                                      dish: nil, library: library, allergies: allergies, home: home, lookup: lookup))

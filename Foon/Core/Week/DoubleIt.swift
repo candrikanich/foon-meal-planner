@@ -7,10 +7,10 @@ enum DoubleIt {
     /// The nights the weekly list is built from, each saying whether it's doubled or already in the freezer. A doubled
     /// dish is also eaten on its leftovers night, so whoever's home then counts for its allergy notes. Tonight leaves once
     /// its dinner is logged (`logged`): it's over, and what was eaten may not be what was planned.
-    static func listNights(_ layout: WeekLayout, logged: Set<UUID> = []) -> [WeeklyList.Night] {
+    static func listNights(_ layout: WeekLayout, logged: Set<UUID> = [], allergies: [MemberAllergies]) -> [WeeklyList.Night] {
         layout.plannable.filter { !logged.contains($0.id) }.map { night in
             let later = leftoversNight(of: night, in: layout.ahead)
-            return WeeklyList.Night(mealID: night.mealID, home: night.home.union(later?.home ?? []),
+            return WeeklyList.Night(mealID: night.mealID, home: night.allergyHome(allergies).union(later?.allergyHome(allergies) ?? []),
                                     doubled: later != nil, fromFreezer: night.stashItemID != nil)
         }
     }

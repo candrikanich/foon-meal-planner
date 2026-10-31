@@ -104,7 +104,8 @@ enum FreezerStash {
         let planned = Set(week.compactMap(\.mealID))
         let home = night.home
         let logging = night.date < today
-        let athome = allergies.filter { home.contains($0.memberID) }
+        let allergyHome = night.allergyHome(allergies)
+        let athome = allergies.filter { allergyHome.contains($0.memberID) }
         return items
             .filter { $0.state == .in && $0.madeOn <= night.date && !planned.contains($0.mealID) }
             .sorted { ($0.madeOn, $0.id.uuidString) < ($1.madeOn, $1.id.uuidString) }

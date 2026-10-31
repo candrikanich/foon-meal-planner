@@ -63,9 +63,10 @@ struct AllergyCheck: Equatable, Sendable {
 enum LibraryLookup: Equatable, Sendable {
     /// A load is running, or none has started: wait for it rather than warn.
     case loading
-    /// No load has answered, so neither the dish nor the family's allergies are known.
+    /// The last load gave no answer. The dish and the family's allergies may be unknown, or read a while ago and out of date:
+    /// what it can find keeps its last flags, and what it can't says it couldn't be checked, to everyone.
     case failed
-    /// The library and the allergies have been read.
+    /// The library and the allergies have just been read.
     case loaded
 }
 

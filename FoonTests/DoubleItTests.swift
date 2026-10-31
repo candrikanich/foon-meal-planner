@@ -111,7 +111,7 @@ struct DoubleItListTests {
         let wednesday = night(3, meal: tacos, stashItemID: UUID())
         let thursday = night(4, meal: tacos)
         let layout = WeekLayout(nights: [monday, tuesday, wednesday, thursday], today: sunday)
-        let nights = DoubleIt.listNights(layout)
+        let nights = DoubleIt.listNights(layout, allergies: [])
         #expect(nights.map(\.doubled) == [true, false, false, false])
         #expect(nights.map(\.fromFreezer) == [false, false, true, false])
     }
@@ -119,7 +119,7 @@ struct DoubleItListTests {
     @Test func someoneHomeOnlyForTheLeftoversStillGetsAnAllergyNote() throws {
         let monday = night(1, meal: chili, home: [nora: false, owen: true])
         let tuesday = night(2, pick: .leftovers, leftoversFrom: monday.id, home: [nora: true, owen: true])
-        let nights = DoubleIt.listNights(WeekLayout(nights: [monday, tuesday], today: sunday))
+        let nights = DoubleIt.listNights(WeekLayout(nights: [monday, tuesday], today: sunday), allergies: [])
         #expect(nights[0].home == [nora, owen], "the extra batch is for Tuesday's table too")
         let allergies = [MemberAllergies(memberID: nora, firstName: "Nora", allergens: [.milk])]
         let lines = WeeklyList.build(nights: nights, library: [chili], allergies: allergies)
@@ -130,13 +130,13 @@ struct DoubleItListTests {
         let tonight = night(0, meal: chili)
         let tomorrow = night(1, meal: tacos)
         let layout = WeekLayout(nights: [tonight, tomorrow], today: sunday)
-        #expect(DoubleIt.listNights(layout).map(\.mealID) == [chili.id, tacos.id])
-        #expect(DoubleIt.listNights(layout, logged: [tonight.id]).map(\.mealID) == [tacos.id])
+        #expect(DoubleIt.listNights(layout, allergies: []).map(\.mealID) == [chili.id, tacos.id])
+        #expect(DoubleIt.listNights(layout, logged: [tonight.id], allergies: []).map(\.mealID) == [tacos.id])
     }
 
     @Test func aNightWithNoLeftoversNightIsNotDoubled() {
         let layout = WeekLayout(nights: [night(1, meal: chili), night(2, meal: tacos)], today: sunday)
-        #expect(DoubleIt.listNights(layout).allSatisfy { !$0.doubled })
+        #expect(DoubleIt.listNights(layout, allergies: []).allSatisfy { !$0.doubled })
     }
 
     @Test func nightsOnlyOnTheAwayListDoNotCount() {
@@ -144,7 +144,7 @@ struct DoubleItListTests {
         let tuesday = night(2, pick: .leftovers, leftoversFrom: monday.id)
         let layout = WeekLayout(nights: [monday, tuesday], today: sunday,
                                 away: [AwayDates(from: sunday.adding(days: 1), to: sunday.adding(days: 1))])
-        #expect(DoubleIt.listNights(layout).map(\.mealID) == [nil], "Monday is away, so its dish isn't bought")
+        #expect(DoubleIt.listNights(layout, allergies: []).map(\.mealID) == [nil], "Monday is away, so its dish isn't bought")
     }
 }
 
@@ -514,7 +514,7 @@ struct DoubleItStoreTests {
         loaded.withLock { $0 = true }
         let seen = Mutex(false)
         #expect(await store.approveLatest { layout in
-            seen.withLock { $0 = DoubleIt.listNights(layout).contains(where: \.doubled) }
+            seen.withLock { $0 = DoubleIt.listNights(layout, allergies: []).contains(where: \.doubled) }
             return []
         })
         #expect(seen.withLock { $0 }, "another planner's doubling counts")
@@ -697,9 +697,9 @@ struct DoubleItPlanningTests {
             setNight: { _, _ in swapped.withLock { $0 = true } }
         ), today: { sunday })
         await store.load(settings: HouseholdSettings())
-        #expect(store.layout.map { DoubleIt.listNights($0) }?.contains { $0.doubled } == true)
+        #expect(store.layout.map { DoubleIt.listNights($0, allergies: []) }?.contains { $0.doubled } == true)
         #expect(await store.swap(nightID: tuesday.id, to: .quickPick(.takeout)))
-        #expect(store.layout.map { DoubleIt.listNights($0) }?.contains { $0.doubled } == false)
+        #expect(store.layout.map { DoubleIt.listNights($0, allergies: []) }?.contains { $0.doubled } == false)
         #expect(store.week?.nights[1].id == monday.id)
     }
 }

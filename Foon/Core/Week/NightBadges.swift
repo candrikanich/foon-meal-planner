@@ -7,9 +7,9 @@ import Foundation
 /// replaces the slow cooker's step: the two would be the same instruction, or conflict when the dish has its own time.
 enum NightBadges {
     /// What's said about a dish's allergies on a night: on its card, and in Swap and Plan it before it's chosen, so they
-    /// can't disagree. `home` is `WeekNight.home`. A dish the library can't find (`nil`) says it couldn't be checked, once
+    /// can't disagree. `home` is `WeekNight.allergyHome`. A dish the library can't find (`nil`) says it couldn't be checked, once
     /// there's an answer: nothing while a load runs, and nothing if the allergies have been read and nobody home has any.
-    /// Until they've been read, nobody knows that, so a failed load says so to everyone.
+    /// After a failed load nobody knows that, even if an older read says so, so it says so to everyone.
     static func allergyCheck(dish: LibraryMeal?, library: [LibraryMeal], allergies: [MemberAllergies], home: Set<UUID>,
                              lookup: LibraryLookup) -> AllergyCheck {
         let athome = allergies.filter { home.contains($0.memberID) }

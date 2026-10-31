@@ -261,7 +261,7 @@ struct WeekView: View {
         let staples = cachedItems.filter(\.keepOnHand).compactMap { item in
             item.stockState.map { WeeklyList.Staple(itemID: item.id, name: item.name, state: $0) }
         }
-        return WeeklyList.build(nights: DoubleIt.listNights(layout, logged: Set(dinner.logs.map(\.nightID))), library: library.meals, stock: stock, staples: staples,
+        return WeeklyList.build(nights: DoubleIt.listNights(layout, logged: Set(dinner.logs.map(\.nightID)), allergies: library.allergies), library: library.meals, stock: stock, staples: staples,
                                 allergies: library.allergies)
     }
 

@@ -105,7 +105,7 @@ struct LibraryLookupTests {
         #expect(store.lookup == .failed)
     }
 
-    @Test func aReloadWaitsAndAFailedOneKeepsWhatWasRead() async {
+    @Test func aReloadWaitsAndAFailedOneSaysSo() async {
         let load = GatedLoad(meals: [chili], laterReads: .failure(noRead), firstReadGated: false)
         await load.store.load(members: [])
         let running = Task { await load.store.load(members: []) }
@@ -113,8 +113,9 @@ struct LibraryLookupTests {
         #expect(load.store.lookup == .loading)
         load.finish()
         await running.value
-        #expect(load.store.lookup == .loaded, "the dishes and allergies it read earlier still stand")
+        #expect(load.store.lookup == .failed, "what it read earlier may be out of date")
         #expect(load.store.lastLoadFailed)
+        #expect(!load.store.meals.isEmpty, "and it's still there to read")
     }
 }
 
@@ -194,6 +195,23 @@ struct CardWithAnUnknownDishTests {
                 "a reload is running: it may be about to find it")
     }
 
+    /// The allergies it read last time say nobody home has any, but they may be old: a parent may have added one since.
+    @Test func afterAFailedReloadAMissingDishSaysSoAndAFoundOneKeepsItsFlags() async {
+        let nora = Member.fixture(firstName: "Nora")
+        let mac = mac
+        let reads = Mutex(0)
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in
+            if reads.withLock({ $0 += 1; return $0 }) > 1 { throw noRead }
+            return [mac]
+        }, allergies: { _ in [AllergyRow(memberID: nora.id, allergen: .milk, customText: nil)] }))
+        await store.load(members: [nora])
+        await store.load(members: [nora])
+        #expect(store.lastLoadFailed)
+        #expect(card(night(mealID: UUID(), home: [nora.id: false, owen: true]), store: store).badges
+                == [.allergyUnchecked(unknownNote)])
+        #expect(card(night(meal: mac, home: [nora.id: true]), store: store).badges == [.allergy("Contains milk (Nora)")])
+    }
+
     @Test func aFreezerNightSaysSo() {
         #expect(card(night(mealID: UUID(), stash: UUID(), home: [nora: true]), lookup: .failed).badges
                 == [.allergyUnchecked(unknownNote)])
@@ -264,7 +282,7 @@ struct FlagsBeforeChoosingTests {
 
     private func check(_ dish: LibraryMeal?, library: [LibraryMeal], allergies: [MemberAllergies]? = nil, on target: WeekNight,
                        lookup: LibraryLookup = .loaded) -> AllergyCheck {
-        NightBadges.allergyCheck(dish: dish, library: library, allergies: allergies ?? noraAllergies, home: target.home,
+        NightBadges.allergyCheck(dish: dish, library: library, allergies: allergies ?? noraAllergies, home: target.allergyHome(allergies ?? noraAllergies),
                                  lookup: lookup)
     }
 
@@ -277,15 +295,13 @@ struct FlagsBeforeChoosingTests {
         let library = [spaghetti, caesar]
         #expect(check(spaghetti, library: library, on: night(home: [nora.id: true, owen.id: false])).flags.count == 1)
         #expect(check(spaghetti, library: library, on: night(home: [nora.id: false, owen.id: true])) == AllergyCheck())
-        #expect(check(spaghetti, library: library, on: night(home: [owen.id: true])) == AllergyCheck(),
-                "no row for her that night: the card leaves her off too")
     }
 
     @Test func aBareDishSaysItCantBeChecked() {
         let said = check(bare, library: [bare], on: night(home: [nora.id: true]))
         #expect(said.flags.isEmpty)
         #expect(said.note?.contains("allergies can't be checked") == true)
-        #expect(check(bare, library: [bare], on: night(home: [owen.id: true])) == AllergyCheck())
+        #expect(check(bare, library: [bare], on: night(home: [nora.id: false, owen.id: true])) == AllergyCheck())
     }
 
     /// The promise: what Swap and Plan it say is what the card says once it's chosen, whoever's home.
@@ -345,6 +361,15 @@ struct FlagsBeforeChoosingTests {
         #expect(said(.failed).texts == [unknownNote], "it has the dish, but no sides and no allergies to check them against")
     }
 
+    /// A reload is running, but the library it already has knows this dish.
+    @Test func aReloadDoesntHideFlagsItCanStillRead() {
+        let library = [spaghetti, caesar]
+        let target = night(home: [nora.id: true])
+        #expect(check(spaghetti, library: library, on: target, lookup: .loading).texts == ["Contains milk (Nora)"])
+        #expect(PlanIt.allergyCheck(for: spaghetti, on: target, library: library, allergies: noraAllergies, lookup: .loading).texts
+                == ["Contains milk (Nora)"])
+    }
+
     @Test func aCatalogDishIsFlaggedForWhoeversHome() {
         let dish = CatalogDish.fixture(name: "Mac", ingredients: ["milk"])
         #expect(NightBadges.allergyCheck(catalog: dish, allergies: noraAllergies, home: [nora.id]).texts == ["Contains milk (Nora)"])
@@ -352,6 +377,67 @@ struct FlagsBeforeChoosingTests {
         let empty = CatalogDish.fixture(name: "Mystery")
         #expect(NightBadges.allergyCheck(catalog: empty, allergies: noraAllergies, home: [nora.id]).note != nil)
         #expect(NightBadges.allergyCheck(catalog: empty, allergies: noraAllergies, home: [owen.id]) == AllergyCheck())
+    }
+
+    /// Someone added after the week was made has no row on its nights until a planner's phone fills them in. Nobody's said
+    /// they're out, so their allergies count; only a row saying they're out takes them off.
+    @Test func noAttendanceRowStillCountsForAllergies() async {
+        let library = [spaghetti, caesar]
+        let noRow = night(meal: spaghetti, home: [owen.id: true])
+        let out = night(meal: spaghetti, home: [nora.id: false, owen.id: true])
+        #expect(check(spaghetti, library: library, on: noRow).texts == ["Contains milk (Nora)"])
+        #expect(check(spaghetti, library: library, on: out) == AllergyCheck())
+        #expect(PlanIt.allergyCheck(for: spaghetti, on: noRow, library: library, allergies: noraAllergies, lookup: .loaded).texts
+                == ["Contains milk (Nora)"])
+        #expect(allergyTexts(card(noRow, library: library, allergies: noraAllergies, lookup: .loaded)) == ["Contains milk (Nora)"])
+        #expect(allergyTexts(card(out, library: library, allergies: noraAllergies, lookup: .loaded)).isEmpty)
+        let empty = night(meal: spaghetti)
+        #expect(allergyTexts(card(empty, library: library, allergies: noraAllergies, lookup: .loaded)) == ["Contains milk (Nora)"],
+                "a night with no rows at all")
+    }
+
+    @Test func noRowStillCountsOnAMissingDishAndAFreezerOffer() {
+        let noRow = night(mealID: UUID(), home: [owen.id: true])
+        #expect(card(noRow, allergies: noraAllergies, lookup: .loaded).badges == [.allergyUnchecked(unknownNote)])
+        let open = night(home: [owen.id: true])
+        let item = FreezerItem(id: UUID(), mealID: spaghetti.id, mealName: spaghetti.name, madeOn: sunday, state: .in)
+        let offer = FreezerStash.offers([item], on: open, week: [open], library: [spaghetti, caesar], notForMe: [:], snoozed: [],
+                                        allergies: noraAllergies, today: sunday).first
+        #expect(offer?.flags.map(\.summary) == ["Contains milk (Nora)"])
+    }
+
+    @Test func noRowOnlyWidensAllergies() {
+        let target = night(meal: spaghetti, home: [owen.id: true])
+        #expect(target.home == [owen.id])
+        #expect(target.allergyHome(noraAllergies) == [owen.id, nora.id])
+        #expect(target.allergyHome([]) == [owen.id], "someone with no allergies isn't added")
+        let model = WeekStore.planCard(for: target, nights: [target], members: [], library: [spaghetti, caesar],
+                                       allergies: noraAllergies, settings: HouseholdSettings(), today: sunday, minuteNow: 0,
+                                       notes: { _, home in home.contains(nora.id) ? ["Nora: on the side"] : [] })
+        #expect(model.servingNotes.isEmpty, "a serving note is about who's actually at the table")
+    }
+
+    @Test func aRemovedMemberWithNoRowStaysOff() async {
+        let gone = Member.fixture(firstName: "Gone", status: .removed)
+        let dish = spaghetti, side = caesar
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in [dish, side] }, allergies: { _ in
+            [AllergyRow(memberID: gone.id, allergen: .milk, customText: nil)]
+        }))
+        await store.load(members: [gone])
+        #expect(allergyTexts(card(night(meal: dish, home: [owen.id: true]), store: store)).isEmpty)
+    }
+
+    @Test func theShoppingListCountsANoRowMemberToo() {
+        func note(_ nights: [WeekNight]) -> String? {
+            let layout = WeekLayout(nights: nights, today: sunday)
+            return WeeklyList.build(nights: DoubleIt.listNights(layout, allergies: noraAllergies), library: [spaghetti, caesar],
+                                    allergies: noraAllergies).first { $0.name == "parmesan" }?.note
+        }
+        #expect(note([night(meal: spaghetti, home: [owen.id: true])])?.contains("Nora") == true)
+        #expect(note([night(meal: spaghetti, home: [nora.id: false, owen.id: true])]) == nil)
+        let monday = night(1, meal: spaghetti, home: [nora.id: false, owen.id: true])
+        let tuesday = night(2, pick: .leftovers, leftoversFrom: monday.id, home: [owen.id: true])
+        #expect(note([monday, tuesday])?.contains("Nora") == true, "the extra batch is for Tuesday's table too")
     }
 
     /// Flag, never filter: a flagged dish stays on offer everywhere it's offered.
