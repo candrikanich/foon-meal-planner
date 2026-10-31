@@ -242,6 +242,12 @@ struct IngredientAutocompleteTests {
         #expect(IngredientAutocomplete.suggestions(for: "coli", from: items).isEmpty)
     }
 
+    @Test func aCommaInsideClosedParenthesesDoesntStartAFragment() {
+        #expect(IngredientAutocomplete.typing(in: "1 cup flour (sifted, twice) su") == "flour (sifted, twice) su")
+        #expect(IngredientAutocomplete.typing(in: "1 cup flour (sifted; twice) su") == "flour (sifted; twice) su")
+        #expect(IngredientAutocomplete.typing(in: "1 cup flour (sifted), su") == "su")
+    }
+
     @Test func removesCaseInsensitiveDuplicatesKeepingTheFirstSpelling() {
         let names = ["Milk", "milk", " MILK ", "milk chocolate", "Milk  Chocolate"]
         #expect(IngredientAutocomplete.suggestions(for: "mil", from: names) == ["Milk", "milk chocolate"])
