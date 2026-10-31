@@ -94,6 +94,8 @@ struct WeekView: View {
             }
         }
         .onChange(of: household.members) { _, members in
+            // Someone joined or left, maybe on another phone: their allergies come and go with them.
+            Task { await library.refreshReactions(members: members) }
             if canPlan { Task { await week.fillInMissing(members: members) } }
         }
     }
@@ -116,7 +118,7 @@ struct WeekView: View {
         guard household.household != nil else { return }
         // The library (allergy flags, sides, serving notes, and Build) loads alongside the week, not before it, for
         // everyone: members see the same flags and notes on the cards as planners.
-        let loadsLibrary = !library.hasLoaded
+        let loadsLibrary = library.needsFullLoad(holding: heldMeals)
         async let libraryLoad: Void = loadsLibrary ? library.load(members: household.members) : ()
         async let dinnerLoad: Void = dinner.load(settings: settings)
         async let ideasLoad: Void = ideas.load()
@@ -124,10 +126,17 @@ struct WeekView: View {
         await libraryLoad
         await dinnerLoad
         await ideasLoad
-        // A full library load just read them; otherwise last night's answers count in the next build.
-        if !loadsLibrary { await library.refreshReactions() }
+        // The week it just read can hold a dish this phone hasn't read, and a card's note promises one pull is enough.
+        if library.needsLoad(afterFullLoad: loadsLibrary, holding: heldMeals) {
+            await library.load(members: household.members)
+        } else if !loadsLibrary {
+            // A full library load just read them; otherwise last night's answers count in the next build.
+            await library.refreshReactions(members: household.members)
+        }
         if canPlan { await week.fillInMissing(members: household.members) }
     }
+
+    private var heldMeals: [UUID] { week.week?.nights.compactMap(\.mealID) ?? [] }
 
     // MARK: - Content
 
@@ -220,7 +229,7 @@ struct WeekView: View {
                                        notes: { meal, home in
                                            ServingNotes.lines(library.servingNotes, mealID: meal, home: home,
                                                               members: household.visibleMembers)
-                                       }, isAway: isAway)
+                                       }, isAway: isAway, lookup: library.lookup)
         let log = dinner.log(for: night.id)
         model.cook = isAway ? nil : NightClaims.cookLine(night: night, claims: dinner.claims, log: log,
                                                          members: household.visibleMembers, me: household.me?.id,
@@ -259,7 +268,7 @@ struct WeekView: View {
         let staples = cachedItems.filter(\.keepOnHand).compactMap { item in
             item.stockState.map { WeeklyList.Staple(itemID: item.id, name: item.name, state: $0) }
         }
-        return WeeklyList.build(nights: DoubleIt.listNights(layout, logged: Set(dinner.logs.map(\.nightID))), library: library.meals, stock: stock, staples: staples,
+        return WeeklyList.build(nights: DoubleIt.listNights(layout, logged: Set(dinner.logs.map(\.nightID)), library: library.meals, allergies: library.allergies), library: library.meals, stock: stock, staples: staples,
                                 allergies: library.allergies)
     }
 
@@ -427,7 +436,7 @@ struct WeekView: View {
     private func planningContext() async -> PlanningContext? {
         if library.hasLoaded {
             // A phone left open: another parent's allergy or last night's answers should be on the cards this builds.
-            await library.refreshReactions()
+            await library.refreshReactions(members: household.members)
         } else {
             await library.load(members: household.members)
         }

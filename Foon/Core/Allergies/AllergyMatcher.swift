@@ -50,6 +50,35 @@ struct AllergyFlag: Hashable, Sendable {
     }
 }
 
+/// What a screen says about a dish's allergies: its flags, and a note when it can't say. Empty means nothing to warn about.
+struct AllergyCheck: Equatable, Sendable {
+    var flags: [AllergyFlag] = []
+    var note: String? = nil
+
+    /// Everything said, for VoiceOver.
+    var texts: [String] { flags.map(\.summary) + [note].compactMap { $0 } }
+}
+
+/// Whether a dish missing from the library means anything yet.
+enum LibraryLookup: Equatable, Sendable {
+    /// A load is running, or none has started: wait for it rather than warn.
+    case loading
+    /// Allergies were out of date and a load is running to fix that. Until its answer is applied, nothing's changed: a dish it
+    /// can find still says they may be out of date, and one it can't waits for the answer.
+    case retrying
+    /// The last load gave no answer, or a refresh couldn't read the allergies. They may be unknown or out of date: a dish it
+    /// can find keeps its last flags and says so, and one it can't says it couldn't be checked, to everyone.
+    case failed
+    /// The last full load worked, and no refresh since has failed to read the allergies. A refresh that can't read the dishes
+    /// keeps what it had, so this means "read", not "read just now".
+    case loaded
+
+    /// A dish that isn't there may be about to be: don't warn yet.
+    var isWaiting: Bool { self == .loading || self == .retrying }
+    /// What's been read may be missing someone's allergy.
+    var isOutOfDate: Bool { self == .failed || self == .retrying }
+}
+
 /// Flags dishes against the household's allergies by keyword, never by AI. Pure and deterministic, so the
 /// library, day cards, and shopping list all agree, and flags never reorder between launches or devices.
 enum AllergyMatcher {
@@ -92,6 +121,24 @@ enum AllergyMatcher {
         let names = bareSides.formatted(.list(type: .and))
         return String(localized: "No ingredients for \(names) yet, so allergies can't be checked",
                       comment: "A note on a dish: side dishes with no ingredients")
+    }
+
+    /// A library dish's flags and note, sides included. `library` is the whole library, whatever's on screen: sides are found there.
+    static func check(meal: LibraryMeal, library: [LibraryMeal], members: [MemberAllergies]) -> AllergyCheck {
+        AllergyCheck(flags: flags(ingredients: ShoppingLines.lines(for: meal, library: library).map(\.name), members: members),
+                     note: uncheckedNote(meal: meal, library: library, members: members))
+    }
+
+    /// A starter dish not yet in the library: its own ingredients are all there is.
+    static func check(catalog dish: CatalogDish, members: [MemberAllergies]) -> AllergyCheck {
+        let isBare = dish.ingredients.isEmpty && members.contains(where: \.hasAllergies)
+        return AllergyCheck(flags: flags(ingredients: dish.ingredients, members: members),
+                            note: isBare ? String(localized: "No ingredients yet, so allergies can't be checked") : nil)
+    }
+
+    /// The allergies couldn't be read just now, so someone's may be missing from what a dish shows.
+    static var outOfDateNote: String {
+        String(localized: "Allergies may be out of date. Pull down to try again.")
     }
 
     private static let compiledKeywords = AllergenKeywords.all.map(CompiledKeywords.init)

@@ -4,19 +4,23 @@ import Foundation
 /// this week. What's doubled is never stored: a night is doubled because a leftovers night points at it (`leftoversFrom`),
 /// and the list is rebuilt from that each time, so a scale can't compound and undoing it can't leave a stale amount.
 enum DoubleIt {
-    /// The nights the weekly list is built from, each saying whether it's doubled or already in the freezer. A doubled
-    /// dish is also eaten on its leftovers night, so whoever's home then counts for its allergy notes. Tonight leaves once
+    /// The nights the weekly list is built from, each saying whether it's doubled or already in the freezer. A dish is also
+    /// eaten on its leftovers night, linked or the one Build places after a big batch, the same as that night's card, so
+    /// whoever's home then counts for its allergy notes. Only a link doubles the amounts. Tonight leaves once
     /// its dinner is logged (`logged`): it's over, and what was eaten may not be what was planned.
-    static func listNights(_ layout: WeekLayout, logged: Set<UUID> = []) -> [WeeklyList.Night] {
+    static func listNights(_ layout: WeekLayout, logged: Set<UUID> = [], library: [LibraryMeal], allergies: [MemberAllergies]) -> [WeeklyList.Night] {
         layout.plannable.filter { !logged.contains($0.id) }.map { night in
             let later = leftoversNight(of: night, in: layout.ahead)
-            return WeeklyList.Night(mealID: night.mealID, home: home(night).union(later.map(home) ?? []),
+            let eatenAgain = night.mealID.map { id in
+                layout.ahead.filter { leftoversDish(on: $0, nights: layout.ahead, library: library)?.id == id }
+            } ?? []
+            var home = night.allergyHome(allergies)
+            for leftovers in eatenAgain + (later.map { [$0] } ?? []) {
+                home.formUnion(leftovers.allergyHome(allergies))
+            }
+            return WeeklyList.Night(mealID: night.mealID, home: home,
                                     doubled: later != nil, fromFreezer: night.stashItemID != nil)
         }
-    }
-
-    private static func home(_ night: WeekNight) -> Set<UUID> {
-        Set(night.attendance.filter(\.value).keys)
     }
 
     /// What changing this night also changes, said before it happens: in Swap, and in Plan it. Shuffle isn't offered on
@@ -64,6 +68,14 @@ enum DoubleIt {
         if let source = nights.first(where: { $0.id == night.leftoversFrom }) { return meal(source.mealID) }
         let before = nights.first { night.date.days(since: $0.date) == 1 }
         return meal(before?.mealID).flatMap { $0.tags.contains(.leftovers) ? $0 : nil }
+    }
+
+    /// A dish a leftovers night may be eating that the library can't find: the night it's linked to, or the night before,
+    /// since only the library can say that one was a big batch. So its card can say it couldn't check, not nothing.
+    static func missingLeftoversMeal(on night: WeekNight, nights: [WeekNight], library: [LibraryMeal]) -> UUID? {
+        guard night.quickPick == .leftovers else { return nil }
+        let source = nights.first { $0.id == night.leftoversFrom } ?? nights.first { night.date.days(since: $0.date) == 1 }
+        return source?.mealID.flatMap { id in library.contains { $0.id == id } ? nil : id }
     }
 
     /// "From Monday's Chili". Always the weekday: "From Tonight's Chili" reads as the wrong night once it's tomorrow.

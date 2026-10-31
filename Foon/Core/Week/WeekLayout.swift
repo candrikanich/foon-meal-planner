@@ -49,4 +49,14 @@ struct WeekLayout: Equatable, Sendable {
 
 extension WeekNight {
     var isPlanned: Bool { mealID != nil || quickPick != nil }
+
+    /// Who's expected home. Allergies read `allergyHome` instead.
+    var home: Set<UUID> { Set(attendance.filter(\.value).keys) }
+
+    /// Who allergy flags count on this night: on the card, before a dish is chosen, and on the list. Everyone home, plus anyone
+    /// with allergies who has no row (added after the week was made), since nobody's said they're out. Missing a flag is the
+    /// worse mistake, so only a row saying they're out takes them off. Removed members aren't in `allergies`.
+    func allergyHome(_ allergies: [MemberAllergies]) -> Set<UUID> {
+        home.union(allergies.map(\.memberID).filter { attendance[$0] == nil })
+    }
 }

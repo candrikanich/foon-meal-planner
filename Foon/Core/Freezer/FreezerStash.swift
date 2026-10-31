@@ -102,9 +102,10 @@ enum FreezerStash {
                        today: CalendarDay, foodRules: [FoodRule] = []) -> [Offer] {
         let meals = Dictionary(library.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let planned = Set(week.compactMap(\.mealID))
-        let home = Set(night.attendance.filter(\.value).keys)
+        let home = night.home
         let logging = night.date < today
-        let athome = allergies.filter { home.contains($0.memberID) }
+        let allergyHome = night.allergyHome(allergies)
+        let athome = allergies.filter { allergyHome.contains($0.memberID) }
         return items
             .filter { $0.state == .in && $0.madeOn <= night.date && !planned.contains($0.mealID) }
             .sorted { ($0.madeOn, $0.id.uuidString) < ($1.madeOn, $1.id.uuidString) }
@@ -117,10 +118,8 @@ enum FreezerStash {
                         return nil
                     }
                 }
-                let flags = AllergyMatcher.flags(ingredients: ShoppingLines.lines(for: meal, library: library).map(\.name),
-                                                 members: athome)
-                return Offer(item: item, meal: meal, flags: flags,
-                             uncheckedNote: AllergyMatcher.uncheckedNote(meal: meal, library: library, members: athome))
+                let check = AllergyMatcher.check(meal: meal, library: library, members: athome)
+                return Offer(item: item, meal: meal, flags: check.flags, uncheckedNote: check.note)
             }
     }
 

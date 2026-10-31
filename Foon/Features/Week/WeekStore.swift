@@ -491,7 +491,7 @@ final class WeekStore {
             return DayCardModel(date: night.date, effort: night.effort, slot: .away, attendance: [], badges: [],
                                 isLocked: false)
         }
-        let home = Set(night.attendance.filter(\.value).keys)
+        let home = night.home
         return DayCardModel(
             date: night.date,
             effort: night.effort,
@@ -518,25 +518,31 @@ final class WeekStore {
     }
 
     /// The card This Week shows: the night's dish, or the one its leftovers are from, with flags for whoever's home that
-    /// night; what's doubled and where the leftovers are; nothing about cooking something already cooked.
+    /// night, or that they couldn't be checked if the library can't find it; what's doubled and where the leftovers are;
+    /// nothing about cooking something already cooked.
     static func planCard(for night: WeekNight, nights: [WeekNight], members: [Member], library: [LibraryMeal],
                          allergies: [MemberAllergies], settings: HouseholdSettings, today: CalendarDay, minuteNow: Int,
                          sides: (UUID) -> [String] = { _ in [] }, notes: (UUID, Set<UUID>) -> [String] = { _, _ in [] },
-                         isAway: Bool = false) -> DayCardModel {
+                         isAway: Bool = false, lookup: LibraryLookup) -> DayCardModel {
         let dish = night.mealID.flatMap { id in library.first { $0.id == id } }
             ?? DoubleIt.leftoversDish(on: night, nights: nights, library: library)
+        let missing = dish == nil ? night.mealID ?? DoubleIt.missingLeftoversMeal(on: night, nights: nights, library: library) : nil
         let source = nights.first { $0.id == night.leftoversFrom }
         var model = card(for: night, members: members, sides: sides,
-                         badges: { _, home in
-                             guard let dish else { return [] }
+                         badges: { _, _ in
+                             let home = night.allergyHome(allergies)
+                             guard let dish else {
+                                 return NightBadges.allergyBadges(NightBadges.allergyCheck(
+                                     dish: nil, library: library, allergies: allergies, home: home, lookup: lookup))
+                             }
                              return NightBadges.badges(
-                                 meal: dish, library: library, allergies: allergies, home: home, settings: settings,
+                                 meal: dish, library: library, allergies: allergies, home: home, lookup: lookup, settings: settings,
                                  start: StartCooking.nudge(for: dish, on: night, settings: settings, today: today,
                                                            minuteNow: minuteNow),
                                  alreadyCooked: night.mealID == nil || night.stashItemID != nil,
                                  ruleDay: night.date >= today ? night.date : nil)
                          },
-                         notes: notes, isAway: isAway, leftoversDish: dish?.id,
+                         notes: notes, isAway: isAway, leftoversDish: dish?.id ?? missing,
                          leftoversNote: source.flatMap { DoubleIt.leftoversNote(from: $0) })
         if !isAway, let later = DoubleIt.leftoversNight(of: night, in: nights) {
             model.badges.append(.doubled(DoubleIt.doubledText(leftoversOn: later, today: today)))

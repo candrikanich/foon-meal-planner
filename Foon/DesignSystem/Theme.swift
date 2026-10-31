@@ -39,15 +39,42 @@ struct Chip: View {
         Label {
             Text(text)
         } icon: {
-            if let systemImage { Image(systemName: systemImage) }
+            if let systemImage { Image(systemName: systemImage).accessibilityHidden(true) }
         }
         .labelStyle(.titleAndIcon)
         .font(.foonCaption)
         .foregroundStyle(tint)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(Capsule().fill(tint.opacity(0.14)))
+        // A capsule on one line; a long one wraps, and a capsule's ends would cut into its text.
+        .background(RoundedRectangle(cornerRadius: 14).fill(tint.opacity(0.14)))
     }
+}
+
+/// A dish's allergy flags and its note, in a row that offers the dish. A VoiceOver label on that row reads `check.texts`.
+struct AllergyChips: View {
+    let check: AllergyCheck
+
+    var body: some View {
+        ForEach(check.flags, id: \.self) { flag in
+            Chip(text: flag.summary, systemImage: "exclamationmark.triangle.fill", tint: Palette.caution)
+        }
+        if let note = check.note {
+            Chip(text: note, systemImage: "questionmark.circle", tint: Palette.caution)
+        }
+    }
+}
+
+#Preview("Allergy chips") {
+    let flag = AllergyFlag(trigger: .allergen(.treeNuts),
+                           members: ["Nora", "Owen", "Grandma Josephine"].map { AllergyFlag.Member(id: UUID(), firstName: $0) },
+                           ingredients: ["almonds"])
+    VStack(alignment: .leading, spacing: 4) {
+        AllergyChips(check: AllergyCheck(flags: [flag], note: String(localized: "No ingredients for Cornbread yet, so allergies can't be checked")))
+    }
+    .padding()
+    .frame(width: 320)
+    .dynamicTypeSize(.accessibility2)
 }
 
 #Preview("Palette") {

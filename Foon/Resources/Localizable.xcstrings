@@ -643,6 +643,9 @@
     "Allergies a parent adds, and each person's usual schedule." : {
 
     },
+    "Allergies may be out of date. Pull down to try again." : {
+
+    },
     "Allergy flags" : {
 
     },
@@ -1984,6 +1987,9 @@
     },
     "No ingredients for %@ yet, so allergies can't be checked" : {
       "comment" : "A note on a dish: side dishes with no ingredients"
+    },
+    "No ingredients for Cornbread yet, so allergies can't be checked" : {
+
     },
     "No ingredients yet, so allergies can't be checked" : {
 

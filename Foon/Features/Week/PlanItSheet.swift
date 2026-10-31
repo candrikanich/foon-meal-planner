@@ -37,6 +37,14 @@ enum PlanIt {
         FoodRuleMatcher.broken(by: meal, on: night.date, rules: settings.foodRules, library: library).map(\.looksLikeText)
     }
 
+    /// Who's home differs by night, so each night says its own. The library's copy of the dish, as its card will read it:
+    /// without a library there are no sides or allergies to check, so handing over the dish isn't enough.
+    static func allergyCheck(for meal: LibraryMeal, on night: WeekNight, library: [LibraryMeal], allergies: [MemberAllergies],
+                             lookup: LibraryLookup) -> AllergyCheck {
+        NightBadges.allergyCheck(dish: library.first { $0.id == meal.id }, library: library, allergies: allergies,
+                                 home: night.allergyHome(allergies), lookup: lookup)
+    }
+
     /// What a night holds now, so picking it says what gets replaced.
     static func currentPick(_ night: WeekNight) -> String {
         if let name = night.mealName { return name }
@@ -113,10 +121,15 @@ struct PlanItSheet: View {
         .frame(minWidth: 380, minHeight: 440)
         #endif
         .task { if !week.hasLoaded { await load() } }
+        .task { if library?.shouldStartLoad(holding: [meal.id]) == true { await loadLibrary() } }
     }
 
     private func load() async {
         await week.load(settings: household.household?.planningSettings ?? HouseholdSettings())
+    }
+
+    private func loadLibrary() async {
+        await library?.load(members: household.members)
     }
 
     private func goToThisWeek(title: String, detail: String) -> some View {
@@ -153,6 +166,8 @@ struct PlanItSheet: View {
                 }
             }
         }
+        // The note on a night that couldn't check says to pull down.
+        .refreshable { await loadLibrary() }
     }
 
     private func row(_ night: WeekNight) -> some View {
@@ -161,6 +176,9 @@ struct PlanItSheet: View {
                 Text("\(DayCardText.dayLabel(for: night.date, today: week.currentDay)) · \(DayCardText.dateLabel(for: night.date))")
                     .font(.foonHeadline)
                 Text(PlanIt.currentPick(night)).font(.foonCaption).foregroundStyle(.secondary)
+                AllergyChips(check: PlanIt.allergyCheck(for: meal, on: night, library: library?.meals ?? [],
+                                                        allergies: library?.allergies ?? [],
+                                                        lookup: library?.lookup ?? .failed))
                 if let warning = DoubleIt.changeWarning(for: night, in: week.week?.nights ?? []) {
                     Text(warning).font(.foonCaption).foregroundStyle(Palette.paprika)
                 }
