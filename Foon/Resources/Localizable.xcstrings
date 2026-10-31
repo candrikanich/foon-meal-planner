@@ -378,6 +378,9 @@
     "%lld me-toos" : {
 
     },
+    "%lld meals can't be fully checked for allergies: they or their sides have no ingredients yet." : {
+
+    },
     "%lld months ago" : {
       "comment" : "Freezer stash: how long ago"
     },
@@ -446,6 +449,9 @@
 
     },
     "1 me-too" : {
+
+    },
+    "1 meal can't be fully checked for allergies: it or a side has no ingredients yet." : {
 
     },
     "1 night still open" : {
@@ -590,6 +596,9 @@
 
     },
     "Add “%@” as a new dish" : {
+
+    },
+    "Adding the dish" : {
 
     },
     "Adds it to the freezer" : {
@@ -926,6 +935,9 @@
 
     },
     "Couldn't load the activity. Check your connection and try again." : {
+
+    },
+    "Couldn't load the dish. Try again" : {
 
     },
     "Couldn't load the freezer. Check your connection and try again." : {
@@ -2072,12 +2084,6 @@
     "Nothing fits tonight" : {
       "comment" : "Reason chip: no dish passed the filters"
     },
-    "Nothing flagged so far, but allergies can't be checked on %lld meals until they have ingredients." : {
-
-    },
-    "Nothing flagged so far, but allergies can't be checked on 1 meal until it has ingredients." : {
-
-    },
     "Nothing in the freezer yet. Cooked extra? Add it so it gets eaten." : {
 
     },
@@ -2607,6 +2613,9 @@
 
     },
     "Someone already rated this dinner, so it stays as it was." : {
+
+    },
+    "Someone already saved this idea as a dish. The one you just made is still in your library." : {
 
     },
     "Someone already thanked the cook, so the cook and the dish stay as they are." : {
