@@ -62,6 +62,8 @@ enum RecipeTextParser {
                 inSteps = !inIngredients
                 sawIngredientsHeader = sawIngredientsHeader || inIngredients
                 lines.append(plain)
+                // "Ingredients (contains peanuts, shrimp)": a note like that may be the only place an allergen is named.
+                if inIngredients, let note = plain.firstMatch(of: /\((.+)\)/)?.1 { ingredientLines.append(String(note)) }
                 continue
             }
             // Otherwise the emoji only comes off what's clearly an amount. Bared, "💡 Tip" would end the recipe, and "🥜 Makes
@@ -89,7 +91,10 @@ enum RecipeTextParser {
     private static func splitItems(_ section: [String]) -> [String] {
         section.flatMap { line -> [String] in
             let pieces = line.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-            let isOneItem = section.count > 1 && pieces.count == 2 && isAmountLed(line)
+            let lower = line.lowercased()
+            // These labels apply to everything on an ingredient, so they'd cancel an allergen on the other side of the comma.
+            let hasFreeFromLabel = ["free", "vegan", "plant"].contains { lower.contains($0) }
+            let isOneItem = section.count > 1 && pieces.count == 2 && isAmountLed(line) && !hasFreeFromLabel
                 && MealDraft.length(line) <= maxWholeLine && isDescription(first: pieces[0], second: pieces[1])
             return isOneItem ? [line] : pieces
         }
@@ -101,7 +106,7 @@ enum RecipeTextParser {
         return second.split(separator: " ").allSatisfy { descriptions.contains($0.lowercased()) }
     }
 
-    private static let leadingDescriptions: Set<String> = ["boneless", "skinless", "bone-in", "skin-on", "large", "medium", "small"]
+    private static let leadingDescriptions: Set<String> = ["boneless", "skinless", "bone-in", "skin-on"]
     private static let descriptions: Set<String> = [
         "minced", "chopped", "diced", "sliced", "beaten", "melted", "softened", "peeled", "drained", "rinsed", "divided",
         "grated", "shredded", "cubed", "crushed", "thawed", "halved", "quartered", "toasted", "sifted", "packed", "optional",
@@ -133,11 +138,12 @@ enum RecipeTextParser {
     }
 
     /// A caption asking for something rather than saying how to cook. When unsure it stays, because a wrong ingredient is a
-    /// quick delete and a dropped one is an allergy flag that never shows: a line that opens with an ask and holds no comma
-    /// or number ("Comment PEANUT: 1 cup peanut butter" stays), or one that's nothing but a pointer to the recipe.
+    /// quick delete and a dropped one is an allergy flag that never shows: a line that opens with an ask and has no number or
+    /// list punctuation ("Comment PEANUT: 1 cup peanut butter" stays), or one that's nothing but a pointer to the recipe.
     private static func isPromotion(_ line: String) -> Bool {
         if line.wholeMatch(of: recipePointer) != nil { return true }
-        return line.prefixMatch(of: ask) != nil && !line.contains(",") && !line.contains(where: \.isNumber)
+        return line.prefixMatch(of: ask) != nil && !line.contains(where: \.isNumber)
+            && !line.contains(where: { ",;:•".contains($0) }) && !line.contains(" - ")
     }
 
     private static var ask: Regex<Substring> {

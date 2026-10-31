@@ -571,9 +571,21 @@ struct RecipeTextParserTests {
         #expect(try savedNames("Dish\nIngredients:\n\(line)\n1 tsp salt").contains(item))
     }
 
-    @Test(arguments: ["4 boneless, skinless chicken breasts", "3 cloves garlic, finely minced", "2 tbsp butter, at room temperature", "2 large, ripe avocados"])
+    @Test(arguments: ["4 boneless, skinless chicken breasts", "3 cloves garlic, finely minced", "2 tbsp butter, at room temperature"])
     func aDescriptionStaysWithItsIngredient(line: String) throws {
         #expect(try savedNames("Dish\nIngredients:\n\(line)\n1 tsp salt").count == 2)
+    }
+
+    @Test(arguments: [("Dish\nIngredients (contains peanuts, shrimp)\n1 lb beef\n1 cup rice", "shrimp"),
+                      ("Dish\n👇 INGREDIENTS (contains peanuts, soy) 👇\n1 lb beef\n1 cup rice", "peanuts"),
+                      ("Dish\nIngredients (contains peanuts)\n1 lb beef\n1 cup rice", "peanuts"),
+                      ("Dish\nIngredients:\n4 gluten-free boneless, flour tortillas\n1 tsp salt", "flour tortillas"),
+                      ("Dish\nIngredients:\n4 vegan large, shrimp\n1 tsp salt", "shrimp"),
+                      ("Dish\nIngredients:\nComment PEANUT: peanut butter; shrimp; eggs\n1 lb beef\n1 cup rice", "shrimp"),
+                      ("Dish\nIngredients:\nTag a friend! peanut butter • shrimp • eggs\n1 lb beef\n1 cup rice", "shrimp"),
+                      ("Dish\nIngredients:\nComment PEANUT - peanut butter and shrimp\n1 lb beef\n1 cup rice", "shrimp")])
+    func aNoteOrListKeepsItsAllergen(caption: String, allergen: String) throws {
+        #expect(try savedNames(caption).contains { $0.localizedCaseInsensitiveContains(allergen) })
     }
 
     @Test(arguments: [("Comment PEANUT: 1 cup peanut butter, 2 eggs, 1 cup shrimp", "shrimp"), ("Full recipe in bio: peanut butter, soy sauce, eggs", "eggs"),
