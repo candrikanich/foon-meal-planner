@@ -33,6 +33,15 @@ enum ShoppingLines {
         }
     }
 
+    /// The sides that are library dishes and still served: a retired one drops off, one not in the library isn't known.
+    static func sideMeals(of meal: LibraryMeal, library: [LibraryMeal]) -> [LibraryMeal] {
+        let byID = Dictionary(library.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return meal.sides.compactMap { side in
+            guard case .meal(let id) = side, let dish = byID[id], dish.status != .retired else { return nil }
+            return dish
+        }
+    }
+
     private static func ingredients(of meal: LibraryMeal) -> [ShoppingLine] {
         meal.ingredients.map {
             ShoppingLine(itemID: $0.itemID, name: $0.name, quantity: $0.quantityText, forMeal: meal.name)

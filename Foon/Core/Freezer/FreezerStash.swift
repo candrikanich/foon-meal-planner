@@ -89,6 +89,7 @@ enum FreezerStash {
         let item: FreezerItem
         let meal: LibraryMeal
         let flags: [AllergyFlag]
+        var uncheckedNote: String? = nil
     }
 
     /// Oldest first, so nothing gets forgotten at the back. Offered: items still in the freezer, made by that night, of a
@@ -118,7 +119,8 @@ enum FreezerStash {
                 }
                 let flags = AllergyMatcher.flags(ingredients: ShoppingLines.lines(for: meal, library: library).map(\.name),
                                                  members: athome)
-                return Offer(item: item, meal: meal, flags: flags)
+                return Offer(item: item, meal: meal, flags: flags,
+                             uncheckedNote: AllergyMatcher.uncheckedNote(meal: meal, library: library, members: athome))
             }
     }
 

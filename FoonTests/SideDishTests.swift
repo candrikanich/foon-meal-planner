@@ -135,7 +135,7 @@ struct SideDishAllergyTests {
         var spaghetti = LibraryMeal.fixture(name: "Spaghetti", ingredients: ["spaghetti"])
         spaghetti.sides = [.meal(caesar.id), .item(itemID: UUID(), name: "peanut noodles")]
         let peanuts = MemberAllergies(memberID: UUID(), firstName: "Owen", allergens: [.peanuts])
-        let entry = LibraryQuery.entries(meals: [spaghetti, caesar], history: [], allergies: [nora, peanuts],
+        let entry = LibraryQuery.entries(allOf: [spaghetti, caesar], history: [], allergies: [nora, peanuts],
                                          favorites: [])[0]
         #expect(entry.flags.map(\.summary) == ["Contains milk (Nora)", "Contains peanuts (Owen)"])
     }

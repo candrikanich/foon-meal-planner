@@ -526,6 +526,51 @@ struct HouseholdClientLiveTests {
         #expect(after.first?.attendance[nora.id] == false, "Nora wasn't home, said on Ann's phone")
     }
 
+    /// Save to library (#155): a retry after a lost answer links the same dish again, and a refusal has its own words.
+    @MainActor
+    @Test func anIdeaLinksToItsDishOnceHoweverOftenItsRetried() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let household = try await HouseholdClient.live(supabase).createHousehold("Idea family", "🌮", "Ann", HouseholdSettings())
+        let ann = try #require(try await HouseholdClient.live(supabase).members(household.id).first)
+        let library = LibraryClient.live(supabase)
+        let ideas = IdeasClient.live(supabase)
+        let idea = try await ideas.make(household.id, NewRequest(from: ann.id, title: "Chili",
+                                                                 link: "https://recipes.example/chili"))
+        let saved = RecipeImport(recipe: nil, title: nil, url: URL(string: "https://recipes.example/chili")!)
+            .draft(householdSize: 4, named: "Chili")
+        let dish = try await library.create(household.id, try saved.validated())
+
+        try await ideas.update(idea, RequestUpdate(linkMealID: dish))
+        try await ideas.update(idea, RequestUpdate(linkMealID: dish))
+        #expect(try await ideas.requests(household.id).first { $0.id == idea }?.mealID == dish)
+        let meals = try await library.meals(household.id)
+        #expect(meals.count == 1)
+        #expect(meals.first?.name == "Chili")
+        #expect(meals.first?.sourceURL?.absoluteString == "https://recipes.example/chili")
+
+        do {
+            try await ideas.update(idea, RequestUpdate(linkMealID: UUID()))
+            Issue.record("a dish that isn't this family's can't be linked")
+        } catch {
+            let code = (error as? PostgrestError)?.code
+            #expect(code == "P0002", "refused by the rule, not a wiring mistake")
+            #expect(!IdeasStore.message(for: .update, code: code).contains("connection"))
+        }
+        #expect(try await ideas.requests(household.id).first { $0.id == idea }?.mealID == dish, "and it stays linked")
+
+        // A stale phone's own dish doesn't take over.
+        let second = try await library.create(household.id, try MealDraft(newNamed: "Chili again").validated())
+        do {
+            try await ideas.update(idea, RequestUpdate(linkMealID: second))
+            Issue.record("an idea with a dish keeps it")
+        } catch {
+            #expect((error as? PostgrestError)?.code == "FD014", "refused by the rule, not a wiring mistake")
+        }
+        #expect(try await ideas.requests(household.id).first { $0.id == idea }?.mealID == dish)
+    }
+
     @Test func aPlannerExportsTheHousehold() async throws {
         let supabase = Self.newSupabaseClient()
         try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",

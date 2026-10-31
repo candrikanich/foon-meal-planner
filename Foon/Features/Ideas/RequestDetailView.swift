@@ -12,8 +12,8 @@ struct RequestDetailView: View {
     let requestID: UUID
     @State private var planning: LibraryMeal?
     @State private var savingToLibrary = false
-    /// A dish already made for this idea when linking it failed: retrying links it, never makes a second one.
-    @State private var madeMealID: UUID?
+    /// The idea's link, being read in From a link.
+    @State private var readingLink: IdeaLink?
 
     private var request: DinnerRequest? { ideas.requests.first { $0.id == requestID } }
 
@@ -61,6 +61,10 @@ struct RequestDetailView: View {
                     dismiss()
                 }
             }
+            // Linked once the sheet is gone, since Plan it opens next and two sheets can't be up at once.
+            .sheet(item: $readingLink, onDismiss: { Task { await linkDishFromTheLink() } }) { link in
+                LinkImportView(sharedLink: link.url, name: link.name) { ideas.rememberDish($0, for: requestID) }
+            }
             .onAppear { ideas.clearError() }
         }
         #if os(macOS)
@@ -81,9 +85,14 @@ struct RequestDetailView: View {
                     if let mealID = request.mealID {
                         if let meal = library.meal(mealID) {
                             Button("Plan it", systemImage: "calendar.badge.plus") { planning = meal }
-                        } else {
+                        } else if library.isLoading {
                             // The library is still loading: never offer to make a dish this idea already has.
                             Label("Loading the dish...", systemImage: "hourglass").foregroundStyle(.secondary)
+                        } else {
+                            // The reload after making it failed, or it's from another phone: never a dead end.
+                            Button("Couldn't load the dish. Try again", systemImage: "arrow.clockwise") {
+                                Task { await library.load(members: household.members) }
+                            }
                         }
                     } else {
                         Button(savingToLibrary ? "Saving..." : "Save to library", systemImage: "book") {
@@ -124,24 +133,36 @@ struct RequestDetailView: View {
         }
     }
 
-    /// Makes a library dish from the idea's name (and link), points the idea at it, then goes on to Plan it.
+    /// A link is read and checked first (From a link, which keeps the name and link if it can't be). A name is made as it
+    /// is. Either way the idea points at the dish, then goes on to Plan it. A dish already made, whose link failed, is
+    /// linked rather than made again.
     private func saveToLibrary(_ request: DinnerRequest) async {
         guard !savingToLibrary else { return }
         savingToLibrary = true
         defer { savingToLibrary = false }
         library.clearError()
-        let mealID: UUID
-        if let madeMealID {
-            mealID = madeMealID
-        } else {
-            var draft = MealDraft(newNamed: request.title ?? request.link?.host() ?? String(localized: "New dish"))
-            draft.link = request.link?.absoluteString ?? ""
+        guard let latest = await ideas.latestToSave(request) else { return }
+        switch RequestBoard.librarySave(latest, made: ideas.madeDishes[requestID]) {
+        case .read(let link):
+            readingLink = link
+        case .link(let mealID):
+            await link(mealID)
+        case .make(let draft):
             guard let made = await library.create(draft) else { return }
-            madeMealID = made
-            mealID = made
+            await link(made)
         }
-        guard await ideas.update(requestID, RequestUpdate(linkMealID: mealID)) else { return }
-        madeMealID = nil
+    }
+
+    /// Cancel in From a link leaves no dish, so this does nothing.
+    private func linkDishFromTheLink() async {
+        guard !savingToLibrary, let mealID = ideas.madeDishes[requestID] else { return }
+        savingToLibrary = true
+        defer { savingToLibrary = false }
+        await link(mealID)
+    }
+
+    private func link(_ mealID: UUID) async {
+        guard await ideas.linkDish(mealID, to: requestID) else { return }
         planning = library.meal(mealID)
     }
 }

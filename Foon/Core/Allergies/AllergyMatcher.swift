@@ -13,6 +13,11 @@ struct MemberAllergies: Hashable, Sendable {
         self.allergens = allergens
         self.customTexts = customTexts
     }
+
+    /// Whether there's anything the matcher could flag: `.custom` alone, or blank text, isn't.
+    var hasAllergies: Bool {
+        allergens.contains { $0 != .custom } || customTexts.contains { !Words($0).tokens.isEmpty }
+    }
 }
 
 /// "Contains milk (Nora)": what a dish contains, who it affects, and which ingredients set it off.
@@ -73,6 +78,20 @@ enum AllergyMatcher {
             return flag(.custom(group.text), group.members, matching)
         }
         return standard + custom
+    }
+
+    /// A dish or a side with no ingredients can't set off a flag, and no flag mustn't read as safe. Only said when someone
+    /// at the table has allergies to check: a family with none recorded never hears about it.
+    static func uncheckedNote(meal: LibraryMeal, library: [LibraryMeal], members: [MemberAllergies]) -> String? {
+        guard members.contains(where: \.hasAllergies) else { return nil }
+        guard !meal.ingredients.isEmpty else {
+            return String(localized: "No ingredients yet, so allergies can't be checked")
+        }
+        let bareSides = ShoppingLines.sideMeals(of: meal, library: library).filter(\.ingredients.isEmpty).map(\.name)
+        guard !bareSides.isEmpty else { return nil }
+        let names = bareSides.formatted(.list(type: .and))
+        return String(localized: "No ingredients for \(names) yet, so allergies can't be checked",
+                      comment: "A note on a dish: side dishes with no ingredients")
     }
 
     private static let compiledKeywords = AllergenKeywords.all.map(CompiledKeywords.init)

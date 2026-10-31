@@ -10,6 +10,9 @@ final class IdeasStore {
     private(set) var errorMessage: String?
     /// Requests with a write in flight, so their buttons don't fire twice.
     private(set) var saving: Set<UUID> = []
+    /// Dishes made for ideas (idea → dish) that aren't linked yet. Here rather than on the idea's screen, so closing it
+    /// after a failed link and coming back still retries the same dish.
+    private(set) var madeDishes: [UUID: UUID] = [:]
 
     let householdID: UUID
     private let client: IdeasClient
@@ -64,6 +67,45 @@ final class IdeasStore {
         await write(requestID, .update) { [client] in try await client.update(requestID, update) }
     }
 
+    func rememberDish(_ mealID: UUID, for requestID: UUID) {
+        madeDishes[requestID] = mealID
+    }
+
+    /// The idea as it is now, before saving it as a dish. Ideas have no realtime, so another phone may have got there
+    /// first. Nil when it has a dish now, or has gone.
+    func latestToSave(_ request: DinnerRequest) async -> DinnerRequest? {
+        errorMessage = nil
+        await load()
+        guard errorMessage == nil else {
+            // Offline: go on with what's here. Saving says so if it fails, and the server refuses a second dish.
+            errorMessage = nil
+            return request
+        }
+        guard let latest = requests.first(where: { $0.id == request.id }), latest.mealID == nil else {
+            madeDishes[request.id] = nil
+            return nil
+        }
+        return latest
+    }
+
+    /// Points an idea at the dish made for it. Failing, the dish stays remembered for the retry.
+    @discardableResult
+    func linkDish(_ mealID: UUID, to requestID: UUID) async -> Bool {
+        rememberDish(mealID, for: requestID)
+        guard await update(requestID, RequestUpdate(linkMealID: mealID)) else {
+            // Another phone may have got there first: show its dish, and don't retry one that would only be refused.
+            let refusal = errorMessage
+            await load()
+            errorMessage = refusal
+            if let linked = requests.first(where: { $0.id == requestID })?.mealID, linked != mealID {
+                madeDishes[requestID] = nil
+            }
+            return false
+        }
+        madeDishes[requestID] = nil
+        return true
+    }
+
     enum Action: Sendable { case make, meToo, update }
 
     /// Each refusal in words for what was tried (the server's codes mean different things per call).
@@ -78,6 +120,9 @@ final class IdeasStore {
         case (.update, "42501"): String(localized: "Only planners can do that with someone else's idea.")
         case (.update, "22023"): String(localized: "Pick a night from today on to plan it.")
         case (.update, "23514"): String(localized: "Notes need 200 characters or fewer.")
+        case (.update, "FD014"):
+            String(localized: "Someone already saved this idea as a dish. The one you just made is still in your library.")
+        case (.update, "P0002"): String(localized: "That's not here anymore. Pull down on Ideas to refresh.")
         case (.make, _): String(localized: "Couldn't send the idea. Check your connection and try again.")
         default: String(localized: "Couldn't save that. Check your connection and try again.")
         }

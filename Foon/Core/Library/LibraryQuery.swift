@@ -42,6 +42,8 @@ struct LibraryEntry: Identifiable, Equatable, Sendable {
     /// How many people's current verdict is favorite, and how often anyone liked it: the Family favorites sort.
     var favoriteCount = 0
     var likes = 0
+    /// Said in place of a flag when there's nothing to check allergies against.
+    var uncheckedNote: String? = nil
 
     var id: UUID { meal.id }
 }
@@ -55,20 +57,23 @@ enum LibraryQuery {
         var id: String { category }
     }
 
+    /// `meals` are the dishes to show; `library` is where their sides are found. Required, so showing a filtered list
+    /// can't quietly lose the flags from its sides.
     static func entries(
-        meals: [LibraryMeal], history: [MealHistory], allergies: [MemberAllergies], favorites: Set<UUID>,
-        favoriteCounts: [UUID: Int] = [:], likes: [UUID: Int] = [:]
+        meals: [LibraryMeal], library: [LibraryMeal], history: [MealHistory], allergies: [MemberAllergies],
+        favorites: Set<UUID>, favoriteCounts: [UUID: Int] = [:], likes: [UUID: Int] = [:]
     ) -> [LibraryEntry] {
         let historyByMeal = Dictionary(history.map { ($0.mealID, $0) }, uniquingKeysWith: { first, _ in first })
         return meals.map { meal in
             LibraryEntry(
                 meal: meal,
                 history: historyByMeal[meal.id],
-                flags: AllergyMatcher.flags(ingredients: ShoppingLines.lines(for: meal, library: meals).map(\.name),
+                flags: AllergyMatcher.flags(ingredients: ShoppingLines.lines(for: meal, library: library).map(\.name),
                                             members: allergies),
                 isFavorite: favorites.contains(meal.id),
                 favoriteCount: favoriteCounts[meal.id] ?? 0,
-                likes: likes[meal.id] ?? 0
+                likes: likes[meal.id] ?? 0,
+                uncheckedNote: AllergyMatcher.uncheckedNote(meal: meal, library: library, members: allergies)
             )
         }
     }

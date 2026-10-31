@@ -378,6 +378,9 @@
     "%lld me-toos" : {
 
     },
+    "%lld meals can't be fully checked for allergies: they or their sides have no ingredients yet." : {
+
+    },
     "%lld months ago" : {
       "comment" : "Freezer stash: how long ago"
     },
@@ -446,6 +449,9 @@
 
     },
     "1 me-too" : {
+
+    },
+    "1 meal can't be fully checked for allergies: it or a side has no ingredients yet." : {
 
     },
     "1 night still open" : {
@@ -590,6 +596,9 @@
 
     },
     "Add “%@” as a new dish" : {
+
+    },
+    "Adding the dish" : {
 
     },
     "Adds it to the freezer" : {
@@ -926,6 +935,9 @@
 
     },
     "Couldn't load the activity. Check your connection and try again." : {
+
+    },
+    "Couldn't load the dish. Try again" : {
 
     },
     "Couldn't load the freezer. Check your connection and try again." : {
@@ -1323,6 +1335,9 @@
 
     },
     "Foon couldn't find any text in that. If it's a locked PDF, remove the password and share it again." : {
+
+    },
+    "Foon couldn't read that page, so it kept the name and link. Add ingredients when you can." : {
 
     },
     "Foon doesn't ask for birthdays, phone numbers, or your location." : {
@@ -1967,6 +1982,12 @@
     "No ideas yet" : {
 
     },
+    "No ingredients for %@ yet, so allergies can't be checked" : {
+      "comment" : "A note on a dish: side dishes with no ingredients"
+    },
+    "No ingredients yet, so allergies can't be checked" : {
+
+    },
     "No ingredients yet." : {
 
     },
@@ -2000,7 +2021,7 @@
     "No quick meals" : {
 
     },
-    "No recipe card on that page, so Foon kept the title and link. Add ingredients when you can." : {
+    "No recipe card on that page, so Foon kept the name and link. Add ingredients when you can." : {
 
     },
     "No rule" : {
@@ -2594,6 +2615,9 @@
     "Someone already rated this dinner, so it stays as it was." : {
 
     },
+    "Someone already saved this idea as a dish. The one you just made is still in your library." : {
+
+    },
     "Someone already thanked the cook, so the cook and the dish stay as they are." : {
 
     },
@@ -2846,6 +2870,9 @@
     "That night's a quick pick now, so there's nothing to cook." : {
 
     },
+    "That recipe has no ingredients Foon could read. Add them when you can." : {
+
+    },
     "That schedule didn't delete. Only a parent can delete one, and it may already be gone." : {
 
     },
@@ -2859,6 +2886,9 @@
 
     },
     "That's changed since this phone last looked. Here's the latest." : {
+
+    },
+    "That's not here anymore. Pull down on Ideas to refresh." : {
 
     },
     "Thaw first" : {

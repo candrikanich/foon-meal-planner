@@ -22,6 +22,8 @@ struct DayCardModel: Identifiable, Equatable, Sendable {
 
     enum Badge: Equatable, Hashable, Sendable {
         case allergy(String)
+        /// Nothing to check allergies against yet.
+        case allergyUnchecked(String)
         case tradition(String)
         case request(from: String)
         case prep(String)
@@ -151,7 +153,7 @@ enum DayCardText {
 
     static func badgeLabel(_ badge: DayCardModel.Badge) -> String {
         switch badge {
-        case .allergy(let text), .tradition(let text), .prep(let text), .equipment(let text), .foodRule(let text),
+        case .allergy(let text), .allergyUnchecked(let text), .tradition(let text), .prep(let text), .equipment(let text), .foodRule(let text),
              .startCooking(let text), .doubled(let text): text
         case .request(let name): String(localized: "\(name)'s request", comment: "Day card badge: the member who asked for this dish")
         }

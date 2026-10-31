@@ -70,6 +70,12 @@ struct LibraryView: View {
         } else if entries.isEmpty && catalogMatches.isEmpty {
             emptyState
         } else {
+            if let note = LibraryText.uncheckedFilterNote(filter: library.filter, unchecked: library.uncheckedCount) {
+                Label(note, systemImage: "questionmark.circle")
+                    .font(.foonCaption)
+                    .foregroundStyle(Palette.caution)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(entries) { entry in
                     NavigationLink(value: entry.meal.id) {
@@ -133,7 +139,8 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        let copy = LibraryText.emptyState(filter: library.filter, searching: !library.search.isEmpty)
+        let copy = LibraryText.emptyState(filter: library.filter, searching: !library.search.isEmpty,
+                                          unchecked: library.uncheckedCount)
         ContentUnavailableView {
             Label(copy.title, systemImage: copy.systemImage)
         } description: {
@@ -207,7 +214,19 @@ extension LibraryText {
         let systemImage: String
     }
 
-    static func emptyState(filter: LibraryFilter?, searching: Bool) -> EmptyState {
+    /// The Allergy flags filter lists what's flagged; this says what it can't vouch for, so the list doesn't read as
+    /// complete. Counts a dish with no ingredients, and one whose side has none.
+    static func uncheckedFilterNote(filter: LibraryFilter?, unchecked: Int) -> String? {
+        filter == .allergyFlags && unchecked > 0 ? uncheckedNote(unchecked) : nil
+    }
+
+    private static func uncheckedNote(_ count: Int) -> String {
+        count == 1
+            ? String(localized: "1 meal can't be fully checked for allergies: it or a side has no ingredients yet.")
+            : String(localized: "\(count) meals can't be fully checked for allergies: they or their sides have no ingredients yet.")
+    }
+
+    static func emptyState(filter: LibraryFilter?, searching: Bool, unchecked: Int = 0) -> EmptyState {
         if searching {
             return EmptyState(title: String(localized: "No matches"),
                               message: String(localized: "Try another meal or ingredient."),
@@ -234,6 +253,11 @@ extension LibraryText {
             return EmptyState(title: String(localized: "No backup dinners"),
                               message: String(localized: "Backup dinners are the ones you can make from the freezer or pantry."),
                               systemImage: "shippingbox")
+        case .allergyFlags where unchecked > 0:
+            // Nothing flagged isn't the same as nothing to worry about.
+            return EmptyState(title: String(localized: "No allergy flags"),
+                              message: uncheckedNote(unchecked),
+                              systemImage: "questionmark.circle")
         case .allergyFlags:
             return EmptyState(title: String(localized: "No allergy flags"),
                               message: String(localized: "None of your meals contain anything your family avoids."),
