@@ -618,6 +618,85 @@ struct RecipeTextParserTests {
         #expect(capture.ingredients.count == 2)
     }
 
+    @Test(arguments: [("Dish\nIngredients:\npeanut butter; shrimp; eggs\n1 lb beef", "shrimp"),
+                      ("Dish\nIngredients:\npeanut butter • shrimp • eggs\n1 lb beef", "shrimp"),
+                      ("Dish\nIngredients:\nComment PEANUT: peanut butter; shrimp; eggs\n1 lb beef", "shrimp"),
+                      ("Dish\nIngredients (vegan; contains shrimp)\n1 lb beef\n1 cup rice", "contains shrimp"),
+                      ("Dish\nIngredients (vegan • contains shrimp)\n1 lb beef\n1 cup rice", "contains shrimp"),
+                      ("Dish\nIngredients:\n1 cup milk (vegan, contains shrimp)\n1 lb beef", "contains shrimp")])
+    func eachSeparatorMakesItsOwnLine(caption: String, part: String) throws {
+        let names = try savedNames(caption)
+        #expect(names.contains { $0.contains(part) && !$0.contains(";") && !$0.contains("•") && !$0.contains("vegan") })
+    }
+
+    @Test(arguments: ["·", " | ", "，", "；", "、", "●", "▪", "◦", "‣"])
+    func moreListPunctuationSplitsToo(separator: String) throws {
+        let names = try savedNames("Dish\nIngredients:\nvegan butter\(separator)shrimp\n1 lb beef")
+        #expect(names.contains("shrimp"))
+    }
+
+    @Test(arguments: ["notes", "method", "tips", "nutrition info", "for the sauce", "print", "ingredients", "makes 2 cups peanut sauce", "1. peanuts", "5 stars"])
+    func aSplitPieceCantEndTheList(piece: String) throws {
+        let names = try savedNames("Dish\nIngredients:\n1 lb beef, \(piece); 2 cups rice\n3 tbsp peanut butter\n1 lb shrimp")
+        #expect(names.contains { $0.contains("peanut butter") })
+        #expect(names.contains("shrimp"))
+        #expect(names.contains("rice"))
+    }
+
+    @Test func aBareServingsPieceStillScales() throws {
+        let capture = try #require(RecipeTextParser.parseCaption("Dish\nIngredients:\n1 lb beef, serves 2\n1 cup rice"))
+        #expect(capture.servings == 2)
+    }
+
+    @Test(arguments: [
+        ("Dish\nIngredients:\n• 1 lb beef\n• 1 cup rice\n• Tips\n• 2 tbsp peanut butter", "peanut"),
+        ("Dish\nIngredients:\n• 1 lb beef\n• Notes\n• 2 tbsp peanut butter\n• 1 cup shrimp", "shrimp"),
+        ("Dish\nIngredients:\n• 1 lb beef\n• For the garnish crushed peanuts\n• 1 cup rice", "peanuts"),
+        ("Dish\nIngredients:\n• 1 lb beef\n• Makes 2 cups peanut sauce\n• 1 cup rice", "peanut"),
+        ("Dish\nIngredients:\n• 1 lb beef\n• Cook 2 cups shrimp first\n• 1 cup rice", "shrimp"),
+        ("Dish\nIngredients:\n• 1 lb beef\n• 1 cup rice\n• Method\nMix well\n• 2 tbsp peanut butter", "peanut"),
+        ("Dish\nIngredients:\n• 1. Rice\n• 2. Beef\n• 3. Creamy natural peanut butter from the store with no sugar\n• 4. Shrimp", "shrimp"),
+        ("Dish\nIngredients:\n• Step 1 peanut butter\n• 2 cups rice\n• 1 lb beef", "peanut"),
+        ("Dish\nIngredients:\n1 lb beef; Notes\n2 tbsp peanut butter\n1 cup shrimp", "shrimp"),
+        ("Dish\nIngredients:\n1 lb beef • Tips\n2 tbsp peanut butter\n1 cup shrimp", "shrimp"),
+        ("Dish\nIngredients:\n1 lb beef; cook 2 cups shrimp first\n1 cup rice", "shrimp"),
+        ("Dish\nIngredients:\n1 lb beef; for the garnish crushed peanuts\n1 cup rice", "peanuts"),
+    ])
+    func aBulletedOrSplitControlWordStaysAnIngredient(caption: String, allergen: String) throws {
+        #expect(try savedNames(caption).contains { $0.localizedCaseInsensitiveContains(allergen) })
+    }
+
+    @Test(arguments: ["3 tablespoons unsalted butter, cut into small pieces, plus more for the pan",
+                      "Kosher salt and freshly ground black pepper, to taste, plus more as needed"])
+    func cuttingOnlyHowItsPreparedDoesntWarn(line: String) {
+        #expect(!RecipeTextParser.parse(["Dish", "Ingredients:", line, "1 lb beef"]).isTruncated)
+    }
+
+    @Test(arguments: ["2 cups dairy free spread from the store near home for the pan, with butter",
+                      "2 cups a long blend of toasted grains from the store near home, with dragonfruit",
+                      "2 cups a very long blend of toasted grains from the store near our house, minced"])
+    func aCutThatMightHideSomethingWarns(line: String) {
+        #expect(RecipeTextParser.parse(["Dish", "Ingredients:", line, "1 lb beef"]).isTruncated)
+    }
+
+    @Test func aCutThatLosesAnAllergenWarns() {
+        let line = "2 cups a long blend of toasted grains from the store near home, with peanuts"
+        #expect(RecipeTextParser.parse(["Dish", "Ingredients:", line, "1 lb beef"]).isTruncated)
+    }
+
+    @Test func aNameTooLongToKeepSaysSo() throws {
+        let long = String(repeating: "mixed roasted nuts ", count: 5) + "peanuts"
+        let capture = try #require(RecipeTextParser.parseCaption("Dish\nIngredients:\n\(long)\n1 lb beef"))
+        #expect(capture.isTruncated)
+        let short = try #require(RecipeTextParser.parseCaption("Dish\nIngredients:\n1 cup rice\n1 lb beef"))
+        #expect(!short.isTruncated)
+    }
+
+    @Test(arguments: ["plant-based", "plant–based", "plant based", "gluten‑free", "eggless"])
+    func aFreeFromLabelHoweverWrittenSplitsALine(label: String) throws {
+        #expect(try savedNames("Dish\nIngredients:\n4 \(label) boneless, shrimp tacos\n1 tsp salt").contains("shrimp tacos"))
+    }
+
     @Test func eachPartOfAHeaderNoteIsItsOwnLine() throws {
         let names = try savedNames("Dish\nIngredients (vegan, contains shrimp)\n1 lb beef\n1 cup rice")
         #expect(names.contains { $0.contains("contains shrimp") && !$0.contains("vegan") })
