@@ -299,7 +299,7 @@ enum RequestBoard {
     /// planner said "not this week" to. Most wanted first, then the oldest.
     static func wanted(_ requests: [DinnerRequest], weekStart: CalendarDay, today: CalendarDay,
                        members: [Member]) -> [WantedRequest] {
-        let family = Set(members.filter { $0.status == .active && !$0.eatsSeparately }.map(\.id))
+        let family = Set(members.filter { $0.status != .removed && !$0.isAway(today: today) && !$0.eatsSeparately }.map(\.id))
         let threshold = wantedThreshold(familySize: family.count)
         return requests
             .compactMap { request -> (request: DinnerRequest, wanted: WantedRequest)? in

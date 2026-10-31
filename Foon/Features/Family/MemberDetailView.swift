@@ -36,12 +36,13 @@ struct MemberDetailView: View {
                                invited: store.invitedMemberIDs.contains(member.id), isYou: member.userID == store.userID)
             MemberScheduleSection(member: member, today: today, canEdit: store.editScope(for: member).schedule)
             if library.hasLoaded {
+                if library.lastLoadFailed { staleNotice }
                 MemberAllergySection(member: member, allergies: library.allergies.first { $0.memberID == member.id },
                                      canEdit: store.canManagePeople)
                 MemberTasteSections(member: member, profile: TasteProfile(
                     memberID: member.id, verdicts: library.reactions.verdicts, notes: library.servingNotes, meals: library.meals
                 ))
-            } else if library.errorMessage != nil {
+            } else if library.lastLoadFailed {
                 Section {
                     Text("Couldn't load allergies and favorites. Check your connection and try again.")
                     Button("Try again") { Task { await library.load(members: store.members) } }
@@ -65,6 +66,14 @@ struct MemberDetailView: View {
             }
         }
         .sheet(isPresented: $editing) { MemberEditorView(member: member) }
+    }
+
+    /// What's below is from the last time this phone could load it. Allergies may have changed since.
+    private var staleNotice: some View {
+        Section {
+            Text("Couldn't check for changes, so allergies and favorites may be out of date.")
+            Button("Try again") { Task { await library.load(members: store.members) } }
+        }
     }
 
     private var today: CalendarDay {

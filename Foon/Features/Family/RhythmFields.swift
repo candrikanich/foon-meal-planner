@@ -58,32 +58,50 @@ struct RhythmFields: View {
     }
 }
 
-/// Family → Rhythm: the household's rhythm and planning mix after onboarding. Planners only (the server's rule too). Saves
-/// only what changed since the screen opened, however old this phone's copy of the rest is.
+/// One sitting on the Rhythm screen: the settings as it opened, and the edits since. Only the difference between those two
+/// is ever saved, so a refresh underneath, bringing in another planner's change, can't turn into a change here.
+@Observable @MainActor
+final class RhythmEditModel {
+    private let store: HouseholdStore
+    private let opened: HouseholdSettings
+    var draft: HouseholdSettings
+
+    init(store: HouseholdStore) {
+        self.store = store
+        opened = store.household?.planningSettings ?? HouseholdSettings()
+        draft = opened
+    }
+
+    var changes: RhythmChanges { RhythmChanges(from: opened, to: draft) }
+
+    func save() async -> Bool {
+        await store.updateRhythm(changes)
+    }
+}
+
+/// Family → Rhythm: the household's rhythm and planning mix after onboarding. Planners only (the server's rule too).
 struct HouseholdRhythmView: View {
     @Environment(HouseholdStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    private let opened: HouseholdSettings
-    @State private var draft: HouseholdSettings
+    /// In `@State`, so it's the first one made that stays: the sheet's content is rebuilt each time the household refreshes.
+    @State private var model: RhythmEditModel
     @State private var weekStart: WeekStartCheck?
     @State private var isSaving = false
 
-    init(settings: HouseholdSettings) {
-        opened = settings
-        _draft = State(initialValue: settings)
+    init(store: HouseholdStore) {
+        _model = State(initialValue: RhythmEditModel(store: store))
     }
 
-    private var changes: RhythmChanges { RhythmChanges(from: opened, to: draft) }
-
     var body: some View {
+        @Bindable var model = model
         NavigationStack {
             Form {
-                RhythmFields(settings: $draft, weekStartIsLocked: weekStart != .free, weekNote: weekNote)
+                RhythmFields(settings: $model.draft, weekStartIsLocked: weekStart != .free, weekNote: weekNote)
                 Section {
-                    Stepper("New dishes a week: \(draft.newDishesPerWeek)", value: $draft.newDishesPerWeek, in: 0...7)
-                    Stepper("Takeout nights a week: \(draft.takeoutNights)", value: $draft.takeoutNights, in: 0...7)
-                    Stepper("Leftover nights a week: \(draft.leftoverNights)", value: $draft.leftoverNights, in: 0...7)
-                    Stepper("Days before a repeat: \(draft.repeatWindowDays)", value: $draft.repeatWindowDays, in: 0...60)
+                    Stepper("New dishes a week: \(model.draft.newDishesPerWeek)", value: $model.draft.newDishesPerWeek, in: 0...7)
+                    Stepper("Takeout nights a week: \(model.draft.takeoutNights)", value: $model.draft.takeoutNights, in: 0...7)
+                    Stepper("Leftover nights a week: \(model.draft.leftoverNights)", value: $model.draft.leftoverNights, in: 0...7)
+                    Stepper("Days before a repeat: \(model.draft.repeatWindowDays)", value: $model.draft.repeatWindowDays, in: 0...60)
                 } header: {
                     Text("Planning mix")
                 } footer: {
@@ -104,11 +122,11 @@ struct HouseholdRhythmView: View {
                     Button("Save") {
                         Task {
                             isSaving = true
-                            if await store.updateRhythm(changes) { dismiss() }
+                            if await model.save() { dismiss() }
                             isSaving = false
                         }
                     }
-                    .disabled(isSaving || changes.isEmpty)
+                    .disabled(isSaving || model.changes.isEmpty)
                 }
             }
         }
@@ -136,14 +154,14 @@ struct HouseholdRhythmView: View {
         client.latestWeekStart = { _ in CalendarDay(Date()) }
         return client
     }())
-    HouseholdRhythmView(settings: HouseholdSettings())
+    HouseholdRhythmView(store: store)
         .environment(store)
         .task { await store.load() }
 }
 
 #Preview("Rhythm, between plans") {
     let store = HouseholdStore.preview()
-    HouseholdRhythmView(settings: HouseholdSettings())
+    HouseholdRhythmView(store: store)
         .environment(store)
         .task { await store.load() }
 }

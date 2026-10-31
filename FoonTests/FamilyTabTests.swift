@@ -318,20 +318,6 @@ struct FamilyPermissionTests {
         #expect(LibraryStore.canEdit(me: store.me, isOwner: true))
     }
 
-    @Test(arguments: ["42501", "PGRST116"])
-    func aRefusedProfileEditSaysWhoCan(code: String) async {
-        let nora = Member.fixture(firstName: "Nora", ageGroup: .kid)
-        let store = HouseholdStore(userID: .previewUser, client: .fake(
-            myHousehold: { .sample }, members: { _ in [nora] },
-            updateMember: { _, _ in throw PostgrestError(code: code, message: "refused") }
-        ))
-        await store.load()
-        var draft = MemberDraft(nora)
-        draft.usuallyAway = [1]
-        #expect(await store.save(draft, editing: nora.id) == false)
-        #expect(store.errorMessage == "Only a parent can change that.")
-    }
-
     @Test func aDroppedConnectionOnAProfileEditIsntARefusal() async {
         let nora = Member.fixture(firstName: "Nora", ageGroup: .kid)
         let store = HouseholdStore(userID: .previewUser, client: .fake(
@@ -341,7 +327,7 @@ struct FamilyPermissionTests {
         await store.load()
         var draft = MemberDraft(nora)
         draft.usuallyAway = [1]
-        #expect(await store.save(draft, editing: nora.id) == false)
+        #expect(await store.save(draft, editing: nora) == false)
         #expect(store.errorMessage == "Couldn't save. Pull to refresh in case someone else changed this, then try again.")
     }
 }

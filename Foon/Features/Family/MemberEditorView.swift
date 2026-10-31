@@ -10,10 +10,14 @@ struct MemberEditorView: View {
     @State private var confirmingRemoval = false
     @State private var inviteCode: String?
     @State private var confirmingWithdrawal = false
+    /// The member as this sheet opened on them, which is what the draft started from. `member` follows the store, so a
+    /// refresh would make everyone else's changes look like edits here.
+    @State private var opened: Member?
 
     init(member: Member?) {
         self.member = member
         _draft = State(initialValue: member.map(MemberDraft.init) ?? MemberDraft())
+        _opened = State(initialValue: member)
     }
 
     private var scope: HouseholdStore.EditScope {
@@ -116,7 +120,12 @@ struct MemberEditorView: View {
                 }
             }
             .navigationTitle(member.map { String(localized: "Edit \($0.firstName)", comment: "Member editor title: first name") } ?? String(localized: "Add member"))
-            .onAppear { store.clearError() }
+            .onAppear {
+                store.clearError()
+                // Someone past their return date reads as Home everywhere. Only a person who may change status gets this,
+                // so nobody else's save carries a status they can't set.
+                if scope.planning { draft = draft.settlingReturn(today: today) }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -125,7 +134,7 @@ struct MemberEditorView: View {
                     Button(member == nil ? "Add" : "Save") {
                         Task {
                             isSaving = true
-                            if await store.save(draft, editing: member?.id) { dismiss() }
+                            if await store.save(draft, editing: opened) { dismiss() }
                             isSaving = false
                         }
                     }

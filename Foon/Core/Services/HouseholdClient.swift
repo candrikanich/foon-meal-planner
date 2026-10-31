@@ -33,6 +33,8 @@ struct HouseholdClient: Sendable {
     var updateKitchen: @Sendable (_ householdID: UUID, _ kitchen: HouseholdSettings.Kitchen) async throws -> Void = { _, _ in }
     /// Saves only what the Rhythm screen changed, so a stale copy of anything else can't go with it.
     var updateRhythm: @Sendable (_ householdID: UUID, _ changes: RhythmChanges) async throws -> Void = { _, _ in }
+    /// Saves only the time zone, for a household that doesn't have one.
+    var saveTimeZone: @Sendable (_ householdID: UUID, _ timeZone: String) async throws -> Void = { _, _ in }
     /// The day the household's latest plan starts, if it has one.
     var latestWeekStart: @Sendable (_ householdID: UUID) async throws -> CalendarDay? = { _ in nil }
     /// Sets or (nil) takes away one food's rule, in the list as it is on the server, and returns the list.
@@ -195,6 +197,11 @@ extension HouseholdClient {
                     targetHousehold: householdID, patch: changes
                 )).execute()
             },
+            saveTimeZone: { householdID, timeZone in
+                try await client.rpc("update_household_settings", params: TimeZoneParams(
+                    targetHousehold: householdID, patch: ["time_zone": timeZone]
+                )).execute()
+            },
             latestWeekStart: { householdID in
                 let plans: [StartedWeek] = try await client.from("plans")
                     .select("week_start")
@@ -350,6 +357,16 @@ private struct KitchenParams: Encodable, Sendable {
 private struct RhythmParams: Encodable, Sendable {
     let targetHousehold: UUID
     let patch: RhythmChanges
+
+    enum CodingKeys: String, CodingKey {
+        case targetHousehold = "target_household"
+        case patch
+    }
+}
+
+private struct TimeZoneParams: Encodable, Sendable {
+    let targetHousehold: UUID
+    let patch: [String: String]
 
     enum CodingKeys: String, CodingKey {
         case targetHousehold = "target_household"

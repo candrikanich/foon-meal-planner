@@ -202,9 +202,7 @@ final class HouseholdStore {
     private func saveDeviceTimeZoneIfMissing() async {
         guard let household, household.planningSettings.timeZone == nil, canExport else { return }
         let zone = deviceTimeZone()
-        var settings = household.planningSettings
-        settings.timeZone = zone
-        guard (try? await client.updateSettings(household.id, settings)) != nil,
+        guard (try? await client.saveTimeZone(household.id, zone)) != nil,
               var current = self.household, current.planningSettings.timeZone == nil else { return }
         var updated = current.planningSettings
         updated.timeZone = zone
@@ -261,8 +259,14 @@ final class HouseholdStore {
         guard let id = household?.id else { return false }
         guard !changes.isEmpty else { return true }
         if changes.weekStart != nil {
-            guard await weekStartCheck() == .free else {
+            switch await weekStartCheck() {
+            case .free:
+                break
+            case .lockedThrough:
                 errorMessage = String(localized: "The week start can't change while a plan is running. Nothing was saved.")
+                return false
+            case .unknown:
+                errorMessage = String(localized: "Foon couldn't check your plan, so nothing was saved. Check your connection and try again.")
                 return false
             }
         }
@@ -483,8 +487,10 @@ final class HouseholdStore {
         }
     }
 
-    /// Adds a member (`editing` nil) or saves changes to one. Returns whether it saved.
-    func save(_ draft: MemberDraft, editing memberID: UUID?) async -> Bool {
+    /// Adds a member (`editing` nil) or saves changes to one, given as it was when the draft started from it. Only what the
+    /// person changed since then goes out: comparing with the store's copy, which a refresh may have moved on, would send
+    /// back everything someone else just changed. Returns whether it saved.
+    func save(_ draft: MemberDraft, editing opened: Member?) async -> Bool {
         errorMessage = nil
         guard let household else { return false }
         guard let draft = draft.validated() else {
@@ -492,35 +498,37 @@ final class HouseholdStore {
             return false
         }
         do {
-            if let memberID {
-                guard let original = members.first(where: { $0.id == memberID }) else { return false }
-                let changes = draft.changes(from: original)
+            if let opened {
+                guard members.contains(where: { $0.id == opened.id }) else { return false }
+                let changes = draft.changes(from: opened)
                 guard !changes.isEmpty else { return true }
-                let saved = try await client.updateMember(memberID, changes)
-                members = members.map { $0.id == memberID ? saved : $0 }
+                let saved = try await client.updateMember(opened.id, changes)
+                loadGeneration += 1
+                members = members.map { $0.id == opened.id ? saved : $0 }
             } else {
-                members.append(try await client.addMember(household.id, draft))
+                let added = try await client.addMember(household.id, draft)
+                loadGeneration += 1
+                members.append(added)
             }
             return true
         } catch {
-            errorMessage = Self.isRefusal(error)
-                ? String(localized: "Only a parent can change that.")
-                : String(localized: "Couldn't save. Pull to refresh in case someone else changed this, then try again.")
+            // The codes can't say which rule it was, so these say only what's true of all of them. 42501: the guard on
+            // `members` (a parent's job, or the owner's profile). PGRST116: row-level security hid the row, so asking for the
+            // updated one back found none (they've been removed, or the profile has gone).
+            errorMessage = switch (error as? PostgrestError)?.code {
+            case "42501": String(localized: "That change isn't allowed. A parent, or the household's owner, can make it.")
+            case "PGRST116": String(localized: "Couldn't find that profile, or you no longer have access to it. Pull to refresh.")
+            default: String(localized: "Couldn't save. Pull to refresh in case someone else changed this, then try again.")
+            }
             return false
         }
-    }
-
-    /// The guard on `members` refuses out loud (42501). Row-level security hides a row the caller can't touch, so asking for
-    /// the updated row back finds none (PGRST116).
-    private static func isRefusal(_ error: any Error) -> Bool {
-        ["42501", "PGRST116"].contains((error as? PostgrestError)?.code)
     }
 
     /// Removal keeps the profile's history and unlinks their account.
     func remove(_ member: Member) async -> Bool {
         var draft = MemberDraft(member)
         draft.status = .removed
-        return await save(draft, editing: member.id)
+        return await save(draft, editing: member)
     }
 
     /// Parents invite profiles nobody has claimed yet.

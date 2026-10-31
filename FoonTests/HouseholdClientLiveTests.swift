@@ -385,6 +385,11 @@ struct HouseholdClientLiveTests {
         #expect(saved.repeatWindowDays == 21)
         #expect(saved.dinnerTime == "17:30", "the stale phone's save left dinner alone")
 
+        try await households.saveTimeZone(household.id, "America/Denver")
+        let zoned = try #require(try await households.myHousehold()?.planningSettings)
+        #expect(zoned.timeZone == "America/Denver")
+        #expect(zoned.dinnerTime == "17:30", "saving the time zone sends nothing else")
+
         // A week reads back as the day it starts.
         let start = WeekMath.start(of: saved.today(), weekStart: saved.weekStart)
         _ = try await WeekClient.live(supabase).create(household.id, start)
@@ -409,6 +414,22 @@ struct HouseholdClientLiveTests {
         clearing.answer = OnboardingModel.Answer()
         #expect(await clearing.save() == AllergyChoice())
         #expect(try await library.allergies(household.id).isEmpty)
+    }
+
+    @Test func editingSomeoneYouCantSeeComesBackAsPGRST116() async throws {
+        let parent = try await Self.signedUpClient()
+        let household = try await parent.createHousehold("Hidden family", nil, "Ann", HouseholdSettings())
+        let ann = try #require(try await parent.members(household.id).first)
+        let stranger = try await Self.signedUpClient()
+        var changes = MemberChanges()
+        changes.attendanceDefaults = AttendanceDefaults(usuallyAway: [1])
+
+        do {
+            _ = try await stranger.updateMember(ann.id, changes)
+            Issue.record("row-level security should have hidden the row")
+        } catch {
+            #expect((error as? PostgrestError)?.code == "PGRST116", "HouseholdStore.save tells this apart by its code")
+        }
     }
 
     @Test func dinnersAreConfirmedRatedAndCorrected() async throws {

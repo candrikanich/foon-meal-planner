@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import Supabase
 
-/// A person's allergies as a set, so "kiwi, mango" and "mango, kiwi" are the same answer.
+/// A person's allergies as a set, so "kiwi, mango" and "mango, kiwi" are the same answer, and so are "kiwi" and "Kiwi".
 struct AllergyChoice: Equatable, Sendable {
     var allergens: Set<Allergen> = []
     var custom: Set<String> = []
@@ -10,7 +10,20 @@ struct AllergyChoice: Equatable, Sendable {
     var isEmpty: Bool { allergens.isEmpty && custom.isEmpty }
 
     init(allergens: Set<Allergen> = [], custom: Set<String> = []) {
-        (self.allergens, self.custom) = (allergens, custom)
+        self.allergens = allergens
+        // Sorted first, so which spelling stays doesn't depend on the order they came in.
+        var seen = Set<String>()
+        self.custom = Set(custom.sorted().filter { seen.insert(Self.key($0)).inserted })
+    }
+
+    private static func key(_ text: String) -> String {
+        text.folding(options: .caseInsensitive, locale: nil)
+    }
+
+    private var customKeys: Set<String> { Set(custom.map(Self.key)) }
+
+    static func == (lhs: AllergyChoice, rhs: AllergyChoice) -> Bool {
+        lhs.allergens == rhs.allergens && lhs.customKeys == rhs.customKeys
     }
 
     init(_ answer: OnboardingModel.Answer) {
@@ -26,10 +39,13 @@ struct AllergyChoice: Equatable, Sendable {
     /// `current`, with what this edit added and took away. The server replaces a person's whole list, so saving the screen's
     /// copy would drop an allergy another parent added while this one was open.
     func merging(editFrom old: AllergyChoice, onto current: AllergyChoice) -> AllergyChoice {
-        AllergyChoice(allergens: current.allergens.union(allergens.subtracting(old.allergens))
-                        .subtracting(old.allergens.subtracting(allergens)),
-                      custom: current.custom.union(custom.subtracting(old.custom))
-                        .subtracting(old.custom.subtracting(custom)))
+        let removed = old.customKeys.subtracting(customKeys)
+        return AllergyChoice(
+            allergens: current.allergens.union(allergens.subtracting(old.allergens))
+                .subtracting(old.allergens.subtracting(allergens)),
+            custom: current.custom.filter { !removed.contains(Self.key($0)) }
+                .union(custom.filter { !old.customKeys.contains(Self.key($0)) })
+        )
     }
 }
 

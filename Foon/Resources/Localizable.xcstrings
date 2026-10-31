@@ -505,7 +505,7 @@
     "A parent keeps these up to date. Foon flags dishes, and you still check labels." : {
 
     },
-    "A plain summary, not the privacy policy. Export and delete are back on Family, under Your data." : {
+    "A plain summary, not the privacy policy. What you can export or delete is back on Family, under Your data." : {
 
     },
     "A removed meal" : {
@@ -877,6 +877,9 @@
     "Couldn't change who's home. Check your connection and try again." : {
 
     },
+    "Couldn't check for changes, so allergies and favorites may be out of date." : {
+
+    },
     "Couldn't check that code. Check your connection and try again." : {
 
     },
@@ -908,6 +911,9 @@
 
     },
     "Couldn't find it last trip" : {
+
+    },
+    "Couldn't find that profile, or you no longer have access to it. Pull to refresh." : {
 
     },
     "Couldn't load %@'s allergies. Check your connection and try again." : {
@@ -1081,7 +1087,7 @@
     "Deleting the household didn't finish. Check your connection and try again." : {
 
     },
-    "Deleting the household erases it for everyone, right away." : {
+    "Deleting the household removes it from Foon for everyone, right away, and the app can't bring it back." : {
 
     },
     "Deleting your account can't be undone." : {
@@ -1279,9 +1285,6 @@
     "First names need 1 to 30 characters." : {
 
     },
-    "First names, avatars, and who's a kid, a parent, or a planner." : {
-
-    },
     "First night away" : {
 
     },
@@ -1315,6 +1318,9 @@
           }
         }
       }
+    },
+    "Foon couldn't check your plan, so nothing was saved. Check your connection and try again." : {
+
     },
     "Foon couldn't find any text in that. If it's a locked PDF, remove the password and share it again." : {
 
@@ -2111,9 +2117,6 @@
     "One step per line" : {
 
     },
-    "Only a parent can change that." : {
-
-    },
     "Only parents can change allergies." : {
 
     },
@@ -2798,6 +2801,9 @@
     "Thanks, chef" : {
 
     },
+    "That change isn't allowed. A parent, or the household's owner, can make it." : {
+
+    },
     "That code didn't work. Check it and try again." : {
 
     },
@@ -3314,7 +3320,7 @@
     "You're cooking" : {
 
     },
-    "Your Apple sign-in: an account ID and an email, which can be Apple's private relay address." : {
+    "Your Apple sign-in: an account ID, an email, which can be Apple's private relay address, and your first name if Apple shares it." : {
 
     },
     "Your account is deleted. This can't be undone." : {
@@ -3333,6 +3339,9 @@
 
     },
     "Your household is ready. Pull to refresh to see your family." : {
+
+    },
+    "Your household's name and emoji, first names, avatars, and who's a kid, a parent, or a planner." : {
 
     },
     "Your household's time zone, so Foon knows when last night's dinner was." : {

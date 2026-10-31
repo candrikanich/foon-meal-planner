@@ -211,9 +211,7 @@ struct FamilyView: View {
             .sheet(isPresented: $deletingAccount) { DeleteAccountView() }
             .sheet(isPresented: $deletingHousehold) { DeleteHouseholdView() }
             .sheet(isPresented: $addingMember) { MemberEditorView(member: nil) }
-            .sheet(isPresented: $editingRhythm) {
-                HouseholdRhythmView(settings: store.household?.planningSettings ?? HouseholdSettings())
-            }
+            .sheet(isPresented: $editingRhythm) { HouseholdRhythmView(store: store) }
         }
     }
 
