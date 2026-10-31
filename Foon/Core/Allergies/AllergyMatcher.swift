@@ -66,7 +66,8 @@ enum LibraryLookup: Equatable, Sendable {
     /// The last load gave no answer. The dish and the family's allergies may be unknown, or read a while ago and out of date:
     /// what it can find keeps its last flags, and what it can't says it couldn't be checked, to everyone.
     case failed
-    /// The library and the allergies have just been read.
+    /// The last full load worked. A refresh reads the dishes and allergies again when This Week comes back, and keeps what it
+    /// had if it can't, so this means "read", not "read just now".
     case loaded
 }
 

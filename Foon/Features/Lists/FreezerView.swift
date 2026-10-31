@@ -89,14 +89,16 @@ struct FreezerView: View {
                 Button("Add", systemImage: "plus") { adding = true }
             }
         }
-        .refreshable {
-            if !library.hasLoaded { await library.load(members: household.members) }
-            await freezer.load()
-        }
+        .refreshable { await loadBoth() }
         .sheet(isPresented: $adding) { FreezerAddSheet() }
-        .task {
-            if !library.hasLoaded { await library.load(members: household.members) }
-            await freezer.load()
+        .task { await loadBoth() }
+    }
+
+    /// The freezer first, since it can hold a dish the library hasn't read, and a row's note says pulling down fixes that.
+    private func loadBoth() async {
+        await freezer.load()
+        if library.needsFullLoad(holding: freezer.items.map(\.mealID)) {
+            await library.load(members: household.members)
         }
     }
 

@@ -13,7 +13,7 @@ final class LibraryStore {
     /// The last full load failed, so what's showing may be old. `errorMessage` also carries other actions' failures.
     private(set) var lastLoadFailed = false
     /// Whether a dish missing from `meals` means anything yet. A load that ended with no answer, failed or cancelled, reads
-    /// as failed: a closed sheet can cancel the load a screen behind it was waiting on, and nothing else would decide. A
+    /// as failed: a closed sheet can cancel the load a screen behind it was waiting on, with nothing else to decide. A
     /// failed reload does too: the allergies from the last read may be out of date, so they can't rule out a warning.
     var lookup: LibraryLookup {
         if isLoading { return .loading }
@@ -21,6 +21,24 @@ final class LibraryStore {
         if hasLoaded { return .loaded }
         return loadGeneration == 0 ? .loading : .failed
     }
+    /// Whether a screen holding these dishes needs a full load rather than a refresh. A note says to pull down, and a pull has
+    /// to be able to find the dish: one another phone just planned, or anything after a load that failed.
+    func needsFullLoad(holding mealIDs: some Sequence<UUID>) -> Bool {
+        !hasLoaded || lastLoadFailed || mealIDs.contains { meal($0) == nil }
+    }
+
+    /// The same question once the screen's own data has been read, since that can bring a dish the first answer didn't know
+    /// about. A full load that ran alongside it may have read too early; one that just failed waits for the next pull.
+    func needsLoad(afterFullLoad ran: Bool, holding mealIDs: some Sequence<UUID>) -> Bool {
+        guard ran else { return needsFullLoad(holding: mealIDs) }
+        return hasLoaded && !lastLoadFailed && mealIDs.contains { meal($0) == nil }
+    }
+
+    /// For a screen that needs the library and shouldn't replace a load already running.
+    func shouldStartLoad(holding mealIDs: some Sequence<UUID>) -> Bool {
+        !isLoading && needsFullLoad(holding: mealIDs)
+    }
+
     /// Dishes being copied in, so their Add buttons don't fire twice.
     private(set) var addingDishIDs: Set<UUID> = []
     /// Meals being copied (Copy and tweak), for the same reason.
@@ -37,6 +55,10 @@ final class LibraryStore {
     private var members: [Member] = []
     /// Bumped per load, so a slower, older load never overwrites a newer one.
     private var loadGeneration = 0
+    /// The newest load whose answer was kept, and the loads still out. A load keeps `isLoading` up until it's answered or
+    /// something newer has been, so a replacement being cancelled doesn't read as failure while the first is still coming.
+    private var answeredGeneration = 0
+    private var runningLoads: Set<Int> = []
     /// Signed photo URLs by path. Reusing one keeps `AsyncImage` on the URL cache while scrolling.
     private var photoURLs: [String: (url: URL, expires: Date)] = [:]
 
@@ -104,8 +126,12 @@ final class LibraryStore {
         self.members = members
         loadGeneration += 1
         let generation = loadGeneration
+        runningLoads.insert(generation)
         isLoading = true
-        defer { if generation == loadGeneration { isLoading = false } }
+        defer {
+            runningLoads.remove(generation)
+            isLoading = runningLoads.contains { $0 > answeredGeneration }
+        }
         do {
             async let meals = client.meals(householdID)
             async let history = client.history(householdID)
@@ -121,11 +147,14 @@ final class LibraryStore {
             let servingNotes = try await notes
             // Not worth failing the Library for: a failed read keeps what was shown.
             let loadedComments = (try? await comments) ?? self.comments
-            guard generation == loadGeneration else { return }
+            // An older answer is still good if nothing newer has answered: a replacement can be cancelled.
+            guard generation > answeredGeneration else { return }
+            answeredGeneration = generation
             self.meals = loaded.0
             self.history = loaded.1
             self.catalog = loaded.2
-            allergies = Self.memberAllergies(loaded.3, members: members)
+            // `self.members`, not the argument: who's in the family may have changed while this was out.
+            allergies = Self.memberAllergies(loaded.3, members: self.members)
             self.itemNames = loaded.4
             self.reactions = reactions
             self.servingNotes = servingNotes
@@ -134,7 +163,7 @@ final class LibraryStore {
             lastLoadFailed = false
             errorMessage = nil
         } catch {
-            guard generation == loadGeneration, !Self.isCancellation(error) else { return }
+            guard generation > answeredGeneration, !Self.isCancellation(error) else { return }
             lastLoadFailed = true
             errorMessage = String(localized: "Couldn't load your library. Check your connection and try again.")
         }
@@ -147,6 +176,8 @@ final class LibraryStore {
             try await client.setStatus(mealID, status)
             // Look again: a reload may have replaced the list while the request was out.
             if let index = meals.firstIndex(where: { $0.id == mealID }) { meals[index].status = status }
+            // A refresh that read the dishes before this stands down.
+            loadGeneration += 1
             errorMessage = nil
         } catch {
             errorMessage = archived
@@ -172,30 +203,40 @@ final class LibraryStore {
     }
 
     /// Re-reads just what the family has said since (cheap), so a dislike from last night reaches Build my week, and an
-    /// allergy a parent just added reaches the flags on this phone, without a full library reload. Keeps what it had if
+    /// allergy a parent just added, someone joining or leaving, or an edit to a dish's ingredients reaches the flags on this
+    /// phone, without a full library reload. Keeps what it had if
     /// the network says no: offline never reads as no allergies. A load or save that came along meanwhile is newer, so
     /// this stands down rather than put old answers back.
-    func refreshReactions() async {
+    func refreshReactions(members: [Member]) async {
+        self.members = members
         guard hasLoaded else { return }
         let generation = loadGeneration
+        // Someone removed on another phone goes now, even if what's read below doesn't arrive.
+        let present = Set(members.filter { $0.status != .removed }.map(\.id))
+        allergies = allergies.filter { present.contains($0.memberID) }
         do {
+            async let meals = client.meals(householdID)
             async let verdicts = client.verdicts(householdID)
             async let likes = client.likes(householdID)
             async let notes = client.servingNotes(householdID)
             async let comments = client.comments(householdID)
             async let allergyRows = client.allergies(householdID)
             let loadedAllergies = try? await allergyRows
+            let loadedMeals = try? await meals
+            // What allergy checks read doesn't wait on the rest: if the reactions fail, these still count.
+            guard generation == loadGeneration else { return }
+            if let loadedAllergies { allergies = Self.memberAllergies(loadedAllergies, members: self.members) }
+            if let loadedMeals { self.meals = loadedMeals }
             let reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
             // Serving notes are family input too: a note Mom just wrote shows on Dad's cards.
             let servingNotes = try await notes
             let loadedComments = try? await comments
             guard generation == loadGeneration else { return }
-            if let loadedAllergies { allergies = Self.memberAllergies(loadedAllergies, members: members) }
             self.reactions = reactions
             self.servingNotes = servingNotes
             if let loadedComments { self.comments = loadedComments }
         } catch {
-            // Offline: last load's reactions still stand, and any allergies read above wait for the next refresh.
+            // Offline: last load's reactions still stand.
         }
     }
 

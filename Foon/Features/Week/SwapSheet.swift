@@ -1,5 +1,29 @@
 import SwiftUI
 
+/// What a Swap row says, kept out of the view so it's testable. The card's rule, for this night: not a library entry's flags,
+/// which are for the whole family, home or not. With no night (it's gone from under the sheet), nobody knows who's home, so
+/// everyone counts.
+enum SwapRow {
+    static func allergyCheck(_ meal: LibraryMeal, on night: WeekNight?, library: [LibraryMeal], allergies: [MemberAllergies],
+                             lookup: LibraryLookup) -> AllergyCheck {
+        NightBadges.allergyCheck(dish: meal, library: library, allergies: allergies, home: home(night, allergies), lookup: lookup)
+    }
+
+    static func allergyCheck(catalog dish: CatalogDish, on night: WeekNight?, allergies: [MemberAllergies]) -> AllergyCheck {
+        NightBadges.allergyCheck(catalog: dish, allergies: allergies, home: home(night, allergies))
+    }
+
+    /// For VoiceOver: the dish, its allergies, then the rest.
+    static func label(_ name: String, allergies: AllergyCheck, details: [String] = []) -> String {
+        let parts: [String] = [name] + allergies.texts + details
+        return parts.joined(separator: ", ")
+    }
+
+    private static func home(_ night: WeekNight?, _ allergies: [MemberAllergies]) -> Set<UUID> {
+        night?.allergyHome(allergies) ?? Set(allergies.map(\.memberID))
+    }
+}
+
 /// Swap a night (docs/spec.md → Swap sheet): three suggestions with reason chips, the quick picks, then a
 /// search of the library with Foon's ideas below and an inline quick add. The planner's pick locks the night.
 struct SwapSheet: View {
@@ -97,23 +121,7 @@ struct SwapSheet: View {
             }
             ForEach(suggestions, id: \.mealID) { suggestion in
                 if let meal = library.meal(suggestion.mealID) {
-                    let allergies = allergyCheck(meal)
-                    Button { Task { await choose(.meal(id: meal.id, name: meal.name)) } } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(meal.name).font(.foonHeadline).foregroundStyle(Palette.ink)
-                                AllergyChips(check: allergies)
-                                Chip(text: suggestion.reason.text, systemImage: "sparkles")
-                                ForEach(settings.missingEquipment(for: meal), id: \.self) { equipment in
-                                    Chip(text: equipment.usuallyUsesText, systemImage: "frying.pan", tint: Palette.paprika)
-                                }
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right").foregroundStyle(.tertiary)
-                        }
-                    }
-                    .accessibilityLabel(([meal.name] + allergies.texts + [suggestion.reason.text]
-                        + settings.missingEquipment(for: meal).map(\.usuallyUsesText)).joined(separator: ", "))
+                    suggestionRow(meal, reason: suggestion.reason.text)
                 }
             }
         } header: {
@@ -131,6 +139,27 @@ struct SwapSheet: View {
         }
     }
 
+    private func suggestionRow(_ meal: LibraryMeal, reason: String) -> some View {
+        let allergies = allergyCheck(meal)
+        let equipment = settings.missingEquipment(for: meal)
+        let details: [String] = [reason] + equipment.map(\.usuallyUsesText)
+        return Button { Task { await choose(.meal(id: meal.id, name: meal.name)) } } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(meal.name).font(.foonHeadline).foregroundStyle(Palette.ink)
+                    AllergyChips(check: allergies)
+                    Chip(text: reason, systemImage: "sparkles")
+                    ForEach(equipment, id: \.self) { equipment in
+                        Chip(text: equipment.usuallyUsesText, systemImage: "frying.pan", tint: Palette.paprika)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+            }
+        }
+        .accessibilityLabel(SwapRow.label(meal.name, allergies: allergies, details: details))
+    }
+
     /// Dishes a food rule held back from the suggestions, and why: a guess from the name, so the planner can still pick one.
     private var heldBack: [(meal: LibraryMeal, rules: [FoodRule])] {
         guard let night, night.date >= week.todayDay else { return [] }
@@ -146,18 +175,7 @@ struct SwapSheet: View {
         if !heldBack.isEmpty {
             Section {
                 ForEach(heldBack.prefix(Self.heldBackShown), id: \.meal.id) { entry in
-                    let allergies = allergyCheck(entry.meal)
-                    Button { Task { await choose(.meal(id: entry.meal.id, name: entry.meal.name)) } } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(entry.meal.name).font(.foonHeadline).foregroundStyle(Palette.ink)
-                            AllergyChips(check: allergies)
-                            ForEach(entry.rules, id: \.self) { rule in
-                                Chip(text: rule.looksLikeText, systemImage: "fork.knife", tint: Palette.paprika)
-                            }
-                        }
-                    }
-                    .accessibilityLabel(([entry.meal.name] + allergies.texts + entry.rules.map(\.looksLikeText)).joined(separator: ", "))
-                    .accessibilityHint("Plans it anyway")
+                    heldBackRow(entry.meal, rules: entry.rules)
                 }
             } header: {
                 Text("Held back by your food rules")
@@ -171,12 +189,24 @@ struct SwapSheet: View {
         }
     }
 
-    /// The card's rule, for this night. Not a library entry's flags: those are for the whole family, home or not.
+    private func heldBackRow(_ meal: LibraryMeal, rules: [FoodRule]) -> some View {
+        let allergies = allergyCheck(meal)
+        let details: [String] = rules.map(\.looksLikeText)
+        return Button { Task { await choose(.meal(id: meal.id, name: meal.name)) } } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(meal.name).font(.foonHeadline).foregroundStyle(Palette.ink)
+                AllergyChips(check: allergies)
+                ForEach(rules, id: \.self) { rule in
+                    Chip(text: rule.looksLikeText, systemImage: "fork.knife", tint: Palette.paprika)
+                }
+            }
+        }
+        .accessibilityLabel(SwapRow.label(meal.name, allergies: allergies, details: details))
+        .accessibilityHint("Plans it anyway")
+    }
+
     private func allergyCheck(_ meal: LibraryMeal) -> AllergyCheck {
-        guard let night else { return AllergyCheck() }
-        return NightBadges.allergyCheck(dish: meal, library: library.meals, allergies: library.allergies,
-                                        home: night.allergyHome(library.allergies),
-                                        lookup: library.lookup)
+        SwapRow.allergyCheck(meal, on: night, library: library.meals, allergies: library.allergies, lookup: library.lookup)
     }
 
     private func rulesBroken(by meal: LibraryMeal) -> [FoodRule] {
@@ -210,6 +240,7 @@ struct SwapSheet: View {
 
     private func freezerRow(_ offer: FreezerStash.Offer) -> some View {
         let made = FreezerStash.madeText(offer.item.madeOn, today: week.todayDay)
+        let allergies = AllergyCheck(flags: offer.flags, note: offer.uncheckedNote)
         return Button {
             Task {
                 await choose(.freezer(offer.item, reason: FreezerStash.reason(madeOn: offer.item.madeOn, today: week.todayDay)))
@@ -220,14 +251,13 @@ struct SwapSheet: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(offer.meal.name).font(.foonHeadline).foregroundStyle(Palette.ink)
                     Chip(text: made, systemImage: "snowflake")
-                    AllergyChips(check: AllergyCheck(flags: offer.flags, note: offer.uncheckedNote))
+                    AllergyChips(check: allergies)
                 }
                 Spacer()
                 Image(systemName: "chevron.right").foregroundStyle(.tertiary)
             }
         }
-        .accessibilityLabel(([offer.meal.name, made] + offer.flags.map(\.summary) + [offer.uncheckedNote].compactMap { $0 })
-            .joined(separator: ", "))
+        .accessibilityLabel(SwapRow.label(offer.meal.name, allergies: allergies, details: [made]))
     }
 
     private var quickPicksSection: some View {
@@ -247,52 +277,20 @@ struct SwapSheet: View {
         if !libraryMatches.isEmpty {
             Section("Your meals") {
                 ForEach(libraryMatches) { entry in
-                    let rules = rulesBroken(by: entry.meal)
-                    let allergies = allergyCheck(entry.meal)
-                    Button { Task { await choose(.meal(id: entry.meal.id, name: entry.meal.name)) } } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(entry.meal.name)
-                            AllergyChips(check: allergies)
-                            ForEach(rules, id: \.self) { rule in
-                                Chip(text: rule.looksLikeText, systemImage: "fork.knife", tint: Palette.paprika)
-                            }
-                        }
-                    }
-                    .tint(Palette.ink)
-                    .accessibilityLabel(([entry.meal.name] + allergies.texts + rules.map(\.looksLikeText)).joined(separator: ", "))
+                    libraryRow(entry.meal)
                 }
             }
         }
         if !catalogMatches.isEmpty {
             Section("From Foon's ideas") {
                 ForEach(catalogMatches) { dish in
-                    let allergies = night.map {
-                        NightBadges.allergyCheck(catalog: dish, allergies: library.allergies,
-                                                 home: $0.allergyHome(library.allergies))
-                    } ?? AllergyCheck()
-                    Button { Task { await chooseCatalog(dish) } } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Label(dish.name, systemImage: "plus.circle")
-                            AllergyChips(check: allergies)
-                        }
-                    }
-                    .tint(Palette.ink)
-                    .accessibilityLabel(([dish.name] + allergies.texts).joined(separator: ", "))
-                    .accessibilityHint("Adds it to your library and plans it")
+                    catalogRow(dish)
                 }
             }
         }
         if let archived = archivedMatch {
-            let allergies = allergyCheck(archived)
-            let restoreText = String(localized: "Restore \(archived.name) and plan it")
             Section {
-                Button { Task { await restore(archived) } } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Label(restoreText, systemImage: "arrow.uturn.backward")
-                        AllergyChips(check: allergies)
-                    }
-                }
-                .accessibilityLabel(([restoreText] + allergies.texts).joined(separator: ", "))
+                restoreRow(archived)
             } footer: {
                 Text("It's archived; this puts it back in rotation.")
             }
@@ -306,6 +304,48 @@ struct SwapSheet: View {
                 Text("Adds it to your library; you can add ingredients later.")
             }
         }
+    }
+
+    private func libraryRow(_ meal: LibraryMeal) -> some View {
+        let rules = rulesBroken(by: meal)
+        let allergies = allergyCheck(meal)
+        let details: [String] = rules.map(\.looksLikeText)
+        return Button { Task { await choose(.meal(id: meal.id, name: meal.name)) } } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(meal.name)
+                AllergyChips(check: allergies)
+                ForEach(rules, id: \.self) { rule in
+                    Chip(text: rule.looksLikeText, systemImage: "fork.knife", tint: Palette.paprika)
+                }
+            }
+        }
+        .tint(Palette.ink)
+        .accessibilityLabel(SwapRow.label(meal.name, allergies: allergies, details: details))
+    }
+
+    private func catalogRow(_ dish: CatalogDish) -> some View {
+        let allergies = SwapRow.allergyCheck(catalog: dish, on: night, allergies: library.allergies)
+        return Button { Task { await chooseCatalog(dish) } } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Label(dish.name, systemImage: "plus.circle")
+                AllergyChips(check: allergies)
+            }
+        }
+        .tint(Palette.ink)
+        .accessibilityLabel(SwapRow.label(dish.name, allergies: allergies))
+        .accessibilityHint("Adds it to your library and plans it")
+    }
+
+    private func restoreRow(_ meal: LibraryMeal) -> some View {
+        let allergies = allergyCheck(meal)
+        let text = String(localized: "Restore \(meal.name) and plan it")
+        return Button { Task { await restore(meal) } } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Label(text, systemImage: "arrow.uturn.backward")
+                AllergyChips(check: allergies)
+            }
+        }
+        .accessibilityLabel(SwapRow.label(text, allergies: allergies))
     }
 
     // MARK: - Actions

@@ -293,7 +293,7 @@ struct HiddenCommentsTests {
         client.likes = { _ in [MealLikes(mealID: spicy.mealID, likes: 3)] }
         let store = LibraryStore(householdID: Household.sample.id, client: client)
         await store.load(members: [])
-        await store.refreshReactions()
+        await store.refreshReactions(members: [])
         #expect(store.comments == [spicy])
         #expect(store.reactions.likes[spicy.mealID] == 3)
     }

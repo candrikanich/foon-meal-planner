@@ -523,7 +523,7 @@ final class WeekStore {
     static func planCard(for night: WeekNight, nights: [WeekNight], members: [Member], library: [LibraryMeal],
                          allergies: [MemberAllergies], settings: HouseholdSettings, today: CalendarDay, minuteNow: Int,
                          sides: (UUID) -> [String] = { _ in [] }, notes: (UUID, Set<UUID>) -> [String] = { _, _ in [] },
-                         isAway: Bool = false, lookup: LibraryLookup = .loaded) -> DayCardModel {
+                         isAway: Bool = false, lookup: LibraryLookup) -> DayCardModel {
         let dish = night.mealID.flatMap { id in library.first { $0.id == id } }
             ?? DoubleIt.leftoversDish(on: night, nights: nights, library: library)
         let missing = dish == nil ? night.mealID ?? DoubleIt.missingLeftoversMeal(on: night, nights: nights, library: library) : nil
@@ -548,13 +548,6 @@ final class WeekStore {
             model.badges.append(.doubled(DoubleIt.doubledText(leftoversOn: later, today: today)))
         }
         return model
-    }
-
-    /// A night holds a dish this phone hasn't read, say one another phone just planned. Leftovers point at such a night too.
-    static func holdsUnknownDish(_ nights: [WeekNight], library: [LibraryMeal]) -> Bool {
-        nights.contains { night in
-            night.mealID.map { id in !library.contains { $0.id == id } } ?? false
-        }
     }
 
     func night(_ date: CalendarDay) -> WeekNight? {

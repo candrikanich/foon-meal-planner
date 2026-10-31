@@ -75,7 +75,7 @@ struct ServingNoteRefreshTests {
         await store.load(members: [])
         #expect(store.servingNotes.isEmpty)
         written.withLock { $0 = true }
-        await store.refreshReactions()
+        await store.refreshReactions(members: [])
         #expect(store.servingNotes(for: meal.id).map(\.note) == ["plain"])
     }
 

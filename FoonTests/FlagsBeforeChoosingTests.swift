@@ -258,11 +258,6 @@ struct CardWithAnUnknownDishTests {
         #expect(card(night(mealID: UUID(), home: [nora: true]), lookup: .failed, isAway: true).badges.isEmpty)
     }
 
-    @Test func pullingDownReloadsTheLibraryWhenANightHoldsADishItDoesntHave() {
-        let new = night(mealID: UUID())
-        #expect(WeekStore.holdsUnknownDish([night(meal: mac), new], library: [mac]))
-        #expect(!WeekStore.holdsUnknownDish([night(meal: mac), night(pick: .takeout), night()], library: [mac]))
-    }
 }
 
 /// Swap and Plan it read the card's rule: a dish shows, before it's chosen, what its card would say once it is.
@@ -413,7 +408,7 @@ struct FlagsBeforeChoosingTests {
         #expect(target.allergyHome([]) == [owen.id], "someone with no allergies isn't added")
         let model = WeekStore.planCard(for: target, nights: [target], members: [], library: [spaghetti, caesar],
                                        allergies: noraAllergies, settings: HouseholdSettings(), today: sunday, minuteNow: 0,
-                                       notes: { _, home in home.contains(nora.id) ? ["Nora: on the side"] : [] })
+                                       notes: { _, home in home.contains(nora.id) ? ["Nora: on the side"] : [] }, lookup: .loaded)
         #expect(model.servingNotes.isEmpty, "a serving note is about who's actually at the table")
     }
 
@@ -430,7 +425,7 @@ struct FlagsBeforeChoosingTests {
     @Test func theShoppingListCountsANoRowMemberToo() {
         func note(_ nights: [WeekNight]) -> String? {
             let layout = WeekLayout(nights: nights, today: sunday)
-            return WeeklyList.build(nights: DoubleIt.listNights(layout, allergies: noraAllergies), library: [spaghetti, caesar],
+            return WeeklyList.build(nights: DoubleIt.listNights(layout, library: [spaghetti, caesar], allergies: noraAllergies), library: [spaghetti, caesar],
                                     allergies: noraAllergies).first { $0.name == "parmesan" }?.note
         }
         #expect(note([night(meal: spaghetti, home: [owen.id: true])])?.contains("Nora") == true)

@@ -272,7 +272,7 @@ struct UncheckedOnTheCardTests {
                       allergies: [MemberAllergies]? = nil) -> DayCardModel {
         WeekStore.planCard(for: target, nights: week ?? [target], members: [], library: library ?? [bare],
                            allergies: allergies ?? self.allergies, settings: HouseholdSettings(), today: sunday,
-                           minuteNow: 0)
+                           minuteNow: 0, lookup: .loaded)
     }
 
     private func unchecked(_ card: DayCardModel) -> [String] {

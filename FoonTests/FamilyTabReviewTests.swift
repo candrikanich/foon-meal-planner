@@ -28,7 +28,7 @@ struct OtherPhonesAllergyTests {
         #expect(store.allergies.isEmpty)
 
         // What This Week does when it comes back, with no visit to Library.
-        await store.refreshReactions()
+        await store.refreshReactions(members: [nora])
 
         #expect(store.allergies == [MemberAllergies(memberID: nora.id, firstName: "Nora", allergens: [.peanuts])])
         #expect(store.visibleEntries.first?.flags.map(\.summary) == ["Contains peanuts (Nora)"])
@@ -37,7 +37,7 @@ struct OtherPhonesAllergyTests {
                               attendance: [nora.id: true])
         let card = WeekStore.planCard(for: night, nights: [night], members: [nora], library: store.meals,
                                       allergies: store.allergies, settings: HouseholdSettings(),
-                                      today: night.date, minuteNow: 0)
+                                      today: night.date, minuteNow: 0, lookup: store.lookup)
         #expect(card.badges.contains(.allergy("Contains peanuts (Nora)")), "the card Build's dish lands on is flagged")
     }
 
@@ -47,7 +47,7 @@ struct OtherPhonesAllergyTests {
             read == 1 ? [AllergyRow(memberID: nora.id, allergen: .peanuts, customText: nil)] : []
         }
         await store.load(members: [nora])
-        await store.refreshReactions()
+        await store.refreshReactions(members: [nora])
         #expect(store.allergies.isEmpty)
     }
 
@@ -64,7 +64,7 @@ struct OtherPhonesAllergyTests {
         client.verdicts = { _ in [verdict] }
         let store = LibraryStore(householdID: Household.sample.id, client: client)
         await store.load(members: [nora])
-        await store.refreshReactions()
+        await store.refreshReactions(members: [nora])
         #expect(store.allergies.first?.allergens == [.peanuts], "offline never reads as no allergies")
         #expect(store.reactions.verdicts == [verdict])
     }
@@ -85,7 +85,7 @@ struct OtherPhonesAllergyTests {
         }))
         await store.load(members: [nora])
 
-        let older = Task { await store.refreshReactions() }
+        let older = Task { await store.refreshReactions(members: [nora]) }
         for await _ in parked { break }
         await store.showAllergies(AllergyChoice(allergens: [.eggs]), for: nora, members: [nora])
         gateSignal.yield()

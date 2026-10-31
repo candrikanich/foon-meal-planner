@@ -121,7 +121,7 @@ struct PlanItSheet: View {
         .frame(minWidth: 380, minHeight: 440)
         #endif
         .task { if !week.hasLoaded { await load() } }
-        .task { if let library, !library.hasLoaded, !library.isLoading { await loadLibrary() } }
+        .task { if library?.shouldStartLoad(holding: [meal.id]) == true { await loadLibrary() } }
     }
 
     private func load() async {

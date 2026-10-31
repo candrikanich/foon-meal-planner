@@ -476,7 +476,7 @@ struct FoodRulesPlanningTests {
         let tonight = night(friday, meal: burgers.id)
         func badges(today: CalendarDay) -> [DayCardModel.Badge] {
             WeekStore.planCard(for: tonight, nights: [tonight], members: [], library: library, allergies: [], settings: settings(),
-                               today: today, minuteNow: 0).badges
+                               today: today, minuteNow: 0, lookup: .loaded).badges
         }
         #expect(badges(today: sunday).contains(.foodRule("Looks like it has meat: Fridays in Lent")))
         #expect(!badges(today: friday.adding(days: 1)).contains(.foodRule("Looks like it has meat: Fridays in Lent")),

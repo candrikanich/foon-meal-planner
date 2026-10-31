@@ -102,11 +102,11 @@ struct RefreshReactionsTests {
             return [MealVerdict(mealID: tacos.id, memberID: UUID(), kind: .favorite, reactedOn: day)]
         }
         let store = LibraryStore(householdID: UUID(), client: client)
-        await store.refreshReactions()
+        await store.refreshReactions(members: [])
         #expect(calls.withLock { $0 } == 0, "nothing to refresh before the first load")
         await store.load(members: [])
         offline.withLock { $0 = true }
-        await store.refreshReactions()
+        await store.refreshReactions(members: [])
         #expect(store.reactions.favoriteCount(tacos.id) == 1, "offline: the last answers still stand")
     }
 }
