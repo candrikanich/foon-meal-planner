@@ -30,6 +30,8 @@ struct SharedItemSheet: View {
     @State private var readDraft: MealDraft?
     @State private var readTruncated = false
     @State private var isReadingCaption = false
+    /// The read finished with no recipe: without a word, a blank screen looks broken.
+    @State private var foundNoRecipe = false
 
     private var route: ShareRouter.Route { ShareRouter.route(item.kind) }
 
@@ -123,6 +125,7 @@ struct SharedItemSheet: View {
         let shared = title
         let imported = await library.importRecipe(url.absoluteString)
         library.clearError()
+        defer { foundNoRecipe = readDraft == nil }
         guard let imported else { return }
         // Shared with it or typed while it was reading: their words beat a guess from the page.
         let words = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -245,7 +248,9 @@ struct SharedItemSheet: View {
             Button("Save as an idea", systemImage: "lightbulb") { Task { await saveIdea(url) } }
                 .disabled(isWorking || household.me == nil)
         } footer: {
-            if readDraft == nil {
+            if foundNoRecipe {
+                Text("Foon couldn't find a recipe in this post. You can still save it as an idea with its link.")
+            } else if readDraft == nil {
                 Text("Ideas wait in the Ideas tab for a planner to plan.")
             } else {
                 Text("An idea keeps the name and link. To keep the ingredients and steps, add it to our meals now. Foon can try reading the post again later.")
