@@ -9,7 +9,7 @@ _None yet._
 ### A list being shown isn't the library to look things up in
 **Times seen:** 1
 
-**What happened (2026-10-31):** On #155, the security review found `LibraryStore.entry` passing a one-dish list to `LibraryQuery.entries`, which used the same list to find sides. So meal detail missed allergy flags from a side's ingredients, while the tile showed them. It had been that way since meal detail shipped, and my new note inherited it.
+**What happened (2026-10-31):** On #155, the security review found `LibraryStore.entry` passing a one-dish list to `LibraryQuery.entries`, which used the same list to find sides. So meal detail missed allergy flags from a side's ingredients, while the tile showed them. The bug was already on main, and my new note inherited it.
 
 **Rule (lookups):** When a function takes a list and reads related rows from it, check every caller for a filtered list. Keep what's displayed and what's looked up as separate parameters.
 
