@@ -57,21 +57,23 @@ enum LibraryQuery {
         var id: String { category }
     }
 
+    /// `meals` are the dishes to show; `library` is where their sides are found, when that's more than those.
     static func entries(
-        meals: [LibraryMeal], history: [MealHistory], allergies: [MemberAllergies], favorites: Set<UUID>,
-        favoriteCounts: [UUID: Int] = [:], likes: [UUID: Int] = [:]
+        meals: [LibraryMeal], library: [LibraryMeal]? = nil, history: [MealHistory], allergies: [MemberAllergies],
+        favorites: Set<UUID>, favoriteCounts: [UUID: Int] = [:], likes: [UUID: Int] = [:]
     ) -> [LibraryEntry] {
+        let library = library ?? meals
         let historyByMeal = Dictionary(history.map { ($0.mealID, $0) }, uniquingKeysWith: { first, _ in first })
         return meals.map { meal in
             LibraryEntry(
                 meal: meal,
                 history: historyByMeal[meal.id],
-                flags: AllergyMatcher.flags(ingredients: ShoppingLines.lines(for: meal, library: meals).map(\.name),
+                flags: AllergyMatcher.flags(ingredients: ShoppingLines.lines(for: meal, library: library).map(\.name),
                                             members: allergies),
                 isFavorite: favorites.contains(meal.id),
                 favoriteCount: favoriteCounts[meal.id] ?? 0,
                 likes: likes[meal.id] ?? 0,
-                uncheckedNote: AllergyMatcher.uncheckedNote(meal: meal, library: meals, members: allergies)
+                uncheckedNote: AllergyMatcher.uncheckedNote(meal: meal, library: library, members: allergies)
             )
         }
     }

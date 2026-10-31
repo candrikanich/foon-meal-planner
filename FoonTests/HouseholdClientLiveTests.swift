@@ -527,6 +527,7 @@ struct HouseholdClientLiveTests {
     }
 
     /// Save to library (#155): a retry after a lost answer links the same dish again, and a refusal has its own words.
+    @MainActor
     @Test func anIdeaLinksToItsDishOnceHoweverOftenItsRetried() async throws {
         let supabase = Self.newSupabaseClient()
         try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",

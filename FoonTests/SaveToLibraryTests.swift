@@ -388,3 +388,53 @@ struct UncheckedInTheFreezerTests {
         #expect(offer(meal: LibraryMeal.fixture(name: "Mac", ingredients: ["pasta"]), home: [nora: true])?.uncheckedNote == nil)
     }
 }
+
+/// Meal detail asks for one dish; its sides still have to be found in the whole library.
+@MainActor
+struct MealDetailEntryTests {
+    private let nora = Member.fixture(firstName: "Nora", ageGroup: .kid)
+
+    private func store(_ meals: [LibraryMeal]) async -> LibraryStore {
+        let milk = AllergyRow(memberID: nora.id, allergen: .milk, customText: nil)
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in meals },
+                                                                                 allergies: { _ in [milk] }))
+        await store.load(members: [nora])
+        return store
+    }
+
+    private func dish(_ name: String, ingredients: [String], side: LibraryMeal) -> LibraryMeal {
+        var meal = LibraryMeal.fixture(name: name, ingredients: ingredients)
+        meal.sides = [.meal(side.id)]
+        return meal
+    }
+
+    @Test func detailFlagsWhatsInASide() async throws {
+        let caesar = LibraryMeal.fixture(name: "Caesar", ingredients: ["milk"])
+        let spaghetti = dish("Spaghetti", ingredients: ["pasta"], side: caesar)
+        let library = await store([spaghetti, caesar])
+        let entry = try #require(library.entry(spaghetti.id))
+        #expect(entry.meal.id == spaghetti.id)
+        #expect(entry.flags.map(\.summary) == ["Contains milk (Nora)"])
+        #expect(entry.flags == library.visibleEntries.first { $0.meal.id == spaghetti.id }?.flags,
+                "the tile and the dish agree")
+    }
+
+    @Test func detailNamesABareSide() async throws {
+        let cornbread = LibraryMeal.fixture(name: "Cornbread")
+        let chili = dish("Chili", ingredients: ["beans"], side: cornbread)
+        let library = await store([chili, cornbread])
+        let note = try #require(library.entry(chili.id)?.uncheckedNote)
+        #expect(note.contains("Cornbread"))
+    }
+
+    @Test func detailStillSkipsARetiredSide() async throws {
+        let liver = LibraryMeal.fixture(name: "Liver", status: .retired, ingredients: ["milk"])
+        let bare = LibraryMeal.fixture(name: "Old side", status: .retired)
+        var chili = dish("Chili", ingredients: ["beans"], side: liver)
+        chili.sides.append(.meal(bare.id))
+        let library = await store([chili, liver, bare])
+        let entry = try #require(library.entry(chili.id))
+        #expect(entry.flags.isEmpty)
+        #expect(entry.uncheckedNote == nil)
+    }
+}
