@@ -70,6 +70,7 @@ Data used to track you: **None.**
 | User ID | Yes | App functionality | Yes |
 | Purchase history | Yes | App functionality | Yes |
 | Product interaction | Yes | Analytics | No (anonymized) |
+| Product interaction (which reminders went out and were answered: kind, night, time) | Yes | App functionality | Yes |
 | Crash and performance data | Yes | App functionality | No (scrubbed) |
 
 Not collected: precise or coarse location, contacts, browsing history, search history, financial info, sensitive info beyond allergies, calendar data (read on device only, never collected).

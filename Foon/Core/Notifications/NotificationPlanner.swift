@@ -1,0 +1,285 @@
+import Foundation
+
+/// What one person's device should have scheduled (docs/spec.md → Notifications), as a pure function of what it knows. No
+/// randomness and no clock of its own: the same inputs give the same list, and running it again changes nothing.
+///
+/// Times are the household's: a wall-clock time on its calendar (`settings.dayCalendar`, so its time zone, daylight saving
+/// included) becomes one instant, whatever zone the phone is in. It fails toward not sending: data that's old, a week that isn't
+/// approved, a night it can't read, or anything it isn't sure of means no reminder.
+enum NotificationPlanner {
+    struct Inputs: Sendable {
+        var me: Member
+        var members: [Member]
+        var settings: HouseholdSettings
+        /// Nil until this device has read the plan once.
+        var snapshot: ReminderSnapshot?
+        var history: [ReminderHistory] = []
+        var now: Date
+    }
+
+    /// Nothing is planned from a read older than this: reminders about a week that could have changed since.
+    static let maxDataAge: TimeInterval = 2 * 24 * 60 * 60
+    /// Nor does anything go out further than this after that read, since the phone has no way to take it back if the app
+    /// isn't opened. Long enough for a family that opens Foon on planning day to get the week.
+    /// It can only touch two of the household's weeks, so budgets keep the plan to 32 at most: well inside iOS's 64 pending per
+    /// app, with room for cook-mode timers. Raising a budget (#47) means checking that.
+    static let horizon: TimeInterval = 8 * 24 * 60 * 60
+    static let followUpDelay: TimeInterval = 60 * 60
+    /// How far before a quiet stretch a prep reminder moves to, so it isn't the last thing at bedtime.
+    static let quietMargin: TimeInterval = 15 * 60
+
+    static func plan(_ inputs: Inputs) -> [PlannedReminder] {
+        guard let snapshot = inputs.snapshot, inputs.settings.onboarded, inputs.me.status != .removed,
+              inputs.now.timeIntervalSince(snapshot.pulledAt) <= maxDataAge else { return [] }
+        let rules = ReminderRules(member: inputs.me, settings: inputs.settings)
+        let context = Context(inputs: inputs, snapshot: snapshot, rules: rules)
+        let due = context.candidates().compactMap(context.settled)
+        return context.withinBudget(due).sorted(by: Self.byTime)
+    }
+
+    private static func byTime(_ lhs: PlannedReminder, _ rhs: PlannedReminder) -> Bool {
+        (lhs.fireAt, lhs.id) < (rhs.fireAt, rhs.id)
+    }
+
+    /// A reminder before quiet hours, budgets, and what's been sent have had their say.
+    private struct Candidate {
+        let reminder: PlannedReminder
+        var isFollowUp = false
+    }
+
+    private struct Context {
+        let inputs: Inputs
+        let snapshot: ReminderSnapshot
+        let rules: ReminderRules
+        let calendar: Calendar
+        let today: CalendarDay
+        let history: [String: ReminderHistory]
+
+        init(inputs: Inputs, snapshot: ReminderSnapshot, rules: ReminderRules) {
+            self.inputs = inputs
+            self.snapshot = snapshot
+            self.rules = rules
+            calendar = inputs.settings.dayCalendar
+            today = inputs.settings.today(now: inputs.now)
+            history = Dictionary(inputs.history.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        }
+
+        private var me: Member { inputs.me }
+        private var settings: HouseholdSettings { inputs.settings }
+
+        func candidates() -> [Candidate] {
+            let first = timeToPlan() + prep() + afterDinner()
+            return rules.followsUp ? first + first.compactMap(followUp) : first
+        }
+
+        // MARK: - Rules
+
+        /// The next planning times, for the week each one plans: the first to start on or after that day. Not for a week
+        /// that's approved, or one the household is away for all of.
+        private func timeToPlan() -> [Candidate] {
+            guard rules.kinds.contains(.timeToPlan), me.role == .planner else { return [] }
+            let days = (0..<14).map { today.adding(days: $0, calendar: calendar) }
+                .filter { WeekMath.isoWeekday(of: $0, calendar: calendar) == settings.planningDay }
+            return days.compactMap { day -> Candidate? in
+                let thisWeek = WeekMath.start(of: day, weekStart: settings.weekStart, calendar: calendar)
+                let week = thisWeek == day ? day : thisWeek.adding(days: 7, calendar: calendar)
+                guard !me.isAway(today: day),
+                      snapshot.weeks.first(where: { $0.start == week })?.isApproved != true,
+                      !(0..<7).allSatisfy({ settings.isAway(on: week.adding(days: $0, calendar: calendar)) }),
+                      let fire = DinnerPrompts.moment(settings.planningTime, on: day, calendar: calendar) else { return nil }
+                return Candidate(reminder: PlannedReminder(
+                    id: ReminderID.timeToPlan(me: me.id, week: week), kind: .timeToPlan, nightID: nil, fireAt: fire,
+                    dinnerAt: nil, title: ReminderText.timeToPlanTitle, body: ReminderText.timeToPlanBody,
+                    route: .week(week)))
+            }
+        }
+
+        /// One per step that has a lead time, counted back from that night's dinner. A step without one has nothing to count
+        /// from, and still shows on the card.
+        private func prep() -> [Candidate] {
+            guard rules.kinds.contains(.prep) else { return [] }
+            return plannableNights().flatMap { night -> [Candidate] in
+                guard let meal = night.mealID, let dish = night.mealName, night.quickPick == nil, !night.isAlreadyCooked,
+                      remindsAboutPrep(night),
+                      let dinner = DinnerPrompts.moment(night.dinnerTime ?? settings.dinnerTime, on: night.date,
+                                                        calendar: calendar) else { return [] }
+                return night.prepSteps.enumerated().compactMap { index, step -> Candidate? in
+                    guard let lead = step.leadHours, lead > 0, let fire = counted(back: lead, from: dinner) else { return nil }
+                    let copy = ReminderText.prep(dish: dish, step: step.step, night: night.date, firing: fire,
+                                                 people: inputs.members.map(\.firstName), calendar: calendar)
+                    return Candidate(reminder: PlannedReminder(
+                        id: ReminderID.prep(me: me.id, night: night.id, meal: meal, step: index), kind: .prep,
+                        nightID: night.id, fireAt: fire, dinnerAt: dinner, title: copy.title, body: copy.body,
+                        route: .night(night.id, night.date)))
+                }
+            }
+        }
+
+        /// Whoever was expected, about an hour after dinner, for a dish: the same rule and the same time as the card on This
+        /// Week. Not for a quick pick, for someone who eats separately, or once they've rated it or someone's logged
+        /// something else, since the prompt would name the wrong dish.
+        private func afterDinner() -> [Candidate] {
+            guard rules.kinds.contains(.afterDinner), DinnerPrompts.rates(me) else { return [] }
+            return plannableNights().compactMap { night -> Candidate? in
+                guard let meal = night.mealID, let dish = night.mealName, night.quickPick == nil,
+                      night.attendance[me.id] == true, !me.isAway(today: night.date),
+                      !night.ratedBy.contains(me.id), night.loggedMealID == nil || night.loggedMealID == meal,
+                      let dinner = DinnerPrompts.moment(night.dinnerTime ?? settings.dinnerTime, on: night.date,
+                                                        calendar: calendar) else { return nil }
+                return Candidate(reminder: PlannedReminder(
+                    id: ReminderID.afterDinner(me: me.id, night: night.id, meal: meal), kind: .afterDinner,
+                    nightID: night.id, fireAt: dinner.addingTimeInterval(DinnerPrompts.delay), dinnerAt: nil,
+                    title: ReminderText.afterDinnerTitle, body: ReminderText.afterDinnerBody(dish: dish),
+                    route: .dinnerCard))
+            }
+        }
+
+        /// One more an hour later, unless they've answered, and only after a first that went or is still to go: on its own
+        /// it would be a reminder that came too late to send. Never after dinner.
+        private func followUp(_ first: Candidate) -> Candidate? {
+            let reminder = first.reminder
+            let known = history[reminder.id]
+            guard reminder.kind != .afterDinner, known?.respondedAt == nil,
+                  let moved = settled(time: reminder.fireAt, for: reminder.kind),
+                  known?.sentAt != nil || moved > inputs.now else { return nil }
+            return Candidate(reminder: PlannedReminder(
+                id: ReminderID.followUp(of: reminder.id), kind: reminder.kind, nightID: reminder.nightID,
+                fireAt: moved.addingTimeInterval(NotificationPlanner.followUpDelay), dinnerAt: reminder.dinnerAt,
+                title: reminder.title, body: reminder.body, route: reminder.route), isFollowUp: true)
+        }
+
+        /// Nights of approved weeks that aren't in the away dates. A draft can still change, so it reminds nobody. Each rule
+        /// then asks who's home, and a night gone by has no times left ahead.
+        private func plannableNights() -> [ReminderNight] {
+            snapshot.weeks.filter(\.isApproved).flatMap(\.nights).filter { !settings.isAway(on: $0.date) }
+        }
+
+        /// The docs' "planners, or whoever's home": the planners home that night, else the adults home. Only people with
+        /// their own phone count, so a planner profile nobody's signed in to doesn't leave the night without anyone. Kids who
+        /// don't plan aren't asked to thaw things.
+        private func remindsAboutPrep(_ night: ReminderNight) -> Bool {
+            let home = inputs.members.filter {
+                $0.status != .removed && $0.userID != nil && night.attendance[$0.id] == true && !$0.isAway(today: night.date)
+            }
+            let planners = home.filter { $0.role == .planner }
+            let chosen = planners.isEmpty ? home.filter { $0.ageGroup == .adult } : planners
+            return chosen.contains { $0.id == me.id }
+        }
+
+        /// Whole days on the calendar, so a 24-hour thaw starts at the same clock time across a daylight saving change.
+        private func counted(back hours: Int, from dinner: Date) -> Date? {
+            calendar.date(byAdding: .day, value: -(hours / 24), to: dinner)?
+                .addingTimeInterval(-TimeInterval(hours % 24) * 60 * 60)
+        }
+
+        // MARK: - What survives
+
+        /// The reminder as it should go now, or nil: already sent or answered, too late, or too far off to trust.
+        func settled(_ candidate: Candidate) -> Candidate? {
+            let reminder = candidate.reminder
+            let known = history[reminder.id]
+            let fire: Date
+            if let snoozed = known?.snoozedUntil, snoozed > inputs.now {
+                // They asked for this time, so it goes then, quiet or not.
+                fire = snoozed
+            } else {
+                guard known?.sentAt == nil, known?.respondedAt == nil,
+                      let moved = settled(time: reminder.fireAt, for: reminder.kind, isFollowUp: candidate.isFollowUp)
+                else { return nil }
+                fire = moved
+            }
+            guard fire > inputs.now, fire <= snapshot.pulledAt.addingTimeInterval(NotificationPlanner.horizon),
+                  reminder.dinnerAt.map({ fire < $0 }) ?? true else { return nil }
+            return Candidate(reminder: reminder.firing(at: fire), isFollowUp: candidate.isFollowUp)
+        }
+
+        /// Out of quiet hours. A prep reminder goes earlier, since later could be too late. Time to plan goes later, since
+        /// the week will still need planning. An after-dinner prompt, or a follow-up, just doesn't go: the card's still there.
+        private func settled(time: Date, for kind: ReminderKind, isFollowUp: Bool = false) -> Date? {
+            var moved = time
+            for _ in 0..<4 {
+                guard let quiet = rules.window(containing: moved, calendar: calendar) else { return moved }
+                if isFollowUp { return nil }
+                switch kind {
+                case .prep: moved = quiet.start.addingTimeInterval(-NotificationPlanner.quietMargin)
+                case .timeToPlan: moved = quiet.end
+                case .afterDinner: return nil
+                }
+            }
+            return nil
+        }
+
+        /// Most important first, then soonest, until the week's budget runs out, counting what's already gone out that week.
+        /// A snoozed reminder has already been counted.
+        func withinBudget(_ due: [Candidate]) -> [PlannedReminder] {
+            var used: [CalendarDay: Int] = [:]
+            for sent in inputs.history.compactMap(\.sentAt) { used[week(of: sent), default: 0] += 1 }
+            let ordered = due.sorted { lhs, rhs in
+                let left = (lhs.isFollowUp ? 1 : 0, lhs.reminder.kind.budgetOrder), right = (rhs.isFollowUp ? 1 : 0, rhs.reminder.kind.budgetOrder)
+                if left != right { return left < right }
+                return NotificationPlanner.byTime(lhs.reminder, rhs.reminder)
+            }
+            return ordered.compactMap { candidate in
+                let reminder = candidate.reminder
+                if history[reminder.id]?.sentAt != nil { return reminder }
+                let week = week(of: reminder.fireAt)
+                guard used[week, default: 0] < rules.weeklyBudget else { return nil }
+                used[week, default: 0] += 1
+                return reminder
+            }
+        }
+
+        private func week(of date: Date) -> CalendarDay {
+            WeekMath.start(of: CalendarDay(date, calendar: calendar), weekStart: settings.weekStart, calendar: calendar)
+        }
+    }
+}
+
+private extension PlannedReminder {
+    func firing(at date: Date) -> PlannedReminder {
+        PlannedReminder(id: id, kind: kind, nightID: nightID, fireAt: date, dinnerAt: dinnerAt, title: title, body: body,
+                        route: route)
+    }
+}
+
+/// Lock-screen words, kids' included: dish names and nothing else about anyone. Never who's out, and never allergies.
+enum ReminderText {
+    static var timeToPlanTitle: String { String(localized: "Time to plan the week", comment: "Reminder title") }
+    static var timeToPlanBody: String {
+        String(localized: "Foon can draft it in a tap, and you can change any night.", comment: "Reminder body: time to plan")
+    }
+    static var afterDinnerTitle: String { String(localized: "How was dinner?", comment: "Reminder title") }
+
+    static func afterDinnerBody(dish: String) -> String {
+        String(localized: "Tap to rate \(dish).", comment: "Reminder body: rate the dish, never the cook. The dish's name")
+    }
+
+    static func prep(dish: String, step: String, night: CalendarDay, firing: Date, people: [String],
+                     calendar: Calendar) -> (title: String, body: String) {
+        let fireDay = CalendarDay(firing, calendar: calendar)
+        let title: String
+        if fireDay == night {
+            title = String(localized: "\(dish) tonight", comment: "Prep reminder title: the dish's name")
+        } else if fireDay.adding(days: 1, calendar: calendar) == night {
+            title = String(localized: "\(dish) tomorrow", comment: "Prep reminder title: the dish's name")
+        } else {
+            let style = Date.FormatStyle(calendar: calendar, timeZone: calendar.timeZone).weekday(.wide)
+            let weekday = night.date(in: calendar).formatted(style)
+            title = String(localized: "\(dish) on \(weekday)", comment: "Prep reminder title: the dish's name, then a weekday")
+        }
+        let body = isSafeToShow(step, people: people) ? step
+            : String(localized: "Time to start prep.", comment: "Prep reminder body when the step's own words can't go on a lock screen")
+        return (title, body)
+    }
+
+    /// A prep step is whatever the family typed, and a lock screen isn't the place for "Nora's without milk, she's allergic".
+    /// So a step that mentions an allergy, or anyone by name, goes out without its words. A dish name always shows.
+    static func isSafeToShow(_ step: String, people: [String]) -> Bool {
+        let text = step.lowercased()
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !["allerg", "anaphyla", "epipen", "epi-pen", "intoleran", "celiac", "-free"].contains(where: text.contains)
+        else { return false }
+        let words = Set(text.split(whereSeparator: { !$0.isLetter }).map(String.init))
+        return !people.contains { words.contains($0.lowercased()) }
+    }
+}

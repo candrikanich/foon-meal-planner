@@ -20,6 +20,13 @@ _None yet._
 
 **Rule (test runs):** When the results have printed and the run hasn't exited, it's this. Read the results from the log, and check for a stale run sharing DerivedData. Run tests in the background with output in a log. A subprocess timeout can orphan xcodebuild.
 
+### A macOS build can stall registering the app on this volume
+**Times seen:** 1
+
+**What happened (2026-10-31):** A `scripts/test.sh` run sat for over 15 minutes after `RegisterWithLaunchServices`. A sample of `lsregister` showed it in `-[FSNode isOnTimeMachineVolume]` → `TMStructure` → `getxattr`, stuck in the kernel on `/Volumes/AlphabetSoup` with no CPU. Time Machine wasn't running. It may be the same volume trouble as the stuck `open()` above; that isn't proven.
+
+**Rule (test runs):** If the log stops at `builtin-lsregisterurl`, sample `lsregister`. If it's this, pass `SYMROOT=<a folder on the internal disk>` through `scripts/test.sh`: the app registers from there, and the catalog sync still finds its data under `build/DerivedData`.
+
 ### TextRecognizerTests can fail on a cold or contended model cache
 **Times seen:** 1
 

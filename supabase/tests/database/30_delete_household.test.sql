@@ -114,6 +114,10 @@ insert into public.night_claims (household_id, night_id, member_id) values
   ('00000000-0000-0000-0000-0000000000a0',
    (select id from public.plan_nights where household_id = '00000000-0000-0000-0000-0000000000a0' limit 1),
    '00000000-0000-0000-0000-0000000000a2');
+insert into public.notification_log (id, household_id, member_id, type, night_id, scheduled_for) values
+  ('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a1',
+   'after_dinner', (select id from public.plan_nights where household_id = '00000000-0000-0000-0000-0000000000a0' limit 1),
+   now());
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 
 -- Clients never call it, not even the owner: it goes through the Edge Function, which removes photos first.

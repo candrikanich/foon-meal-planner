@@ -9,6 +9,8 @@ struct RootTabView: View {
     @State private var ideas: IdeasStore
     @State private var freezer: FreezerStore
     @State private var activity: PlanActivityStore
+    @State private var reminders: ReminderStore
+    private let router = ReminderRouter.shared
     @Environment(\.scenePhase) private var scenePhase
     /// What the Share Sheet extension saved, the one being handled, and any put off with Not now until the next launch.
     @State private var waitingShares: [SharedItem] = []
@@ -16,13 +18,14 @@ struct RootTabView: View {
     @State private var postponedShares: Set<UUID> = []
 
     init(householdID: UUID, libraryClient: LibraryClient, weekClient: WeekClient, dinnerClient: DinnerClient,
-         ideasClient: IdeasClient, freezerClient: FreezerClient) {
+         ideasClient: IdeasClient, freezerClient: FreezerClient, notificationClient: NotificationClient = .preview) {
         _library = State(initialValue: LibraryStore(householdID: householdID, client: libraryClient))
         _week = State(initialValue: WeekStore(householdID: householdID, client: weekClient))
         _dinner = State(initialValue: DinnerStore(householdID: householdID, client: dinnerClient))
         _ideas = State(initialValue: IdeasStore(householdID: householdID, client: ideasClient))
         _freezer = State(initialValue: FreezerStore(householdID: householdID, client: freezerClient))
         _activity = State(initialValue: PlanActivityStore(householdID: householdID, client: weekClient))
+        _reminders = State(initialValue: ReminderStore(householdID: householdID, client: notificationClient))
     }
 
     var body: some View {
@@ -40,7 +43,14 @@ struct RootTabView: View {
         .environment(ideas)
         .environment(freezer)
         .environment(activity)
+        .environment(reminders)
+        .environment(router)
         .environment(\.showTab) { selection = $0 }
+        .modifier(ReminderRunner(store: reminders, week: week.week, logs: dinner.logs))
+        // This Week opens the night or the card once it's on screen, and takes the route.
+        .onChange(of: router.route, initial: true) { _, route in
+            if route != nil { selection = .week }
+        }
         .sheet(item: $shared) { item in
             SharedItemSheet(item: item) { outcome in finishShared(item, outcome) }
                 .environment(household)

@@ -56,15 +56,15 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
             }
         }
 
-        /// What each preset sends (docs/spec.md → Notification presets).
+        /// What each preset sends (docs/spec.md → Notification presets), and what's still on the way: these are promises.
         var summary: String {
             switch self {
             case .light:
-                String(localized: "Only what you'd hate to miss: time to plan, the plan's set, urgent list items, and prep reminders. No rating prompts or polls.")
+                String(localized: "Only what you'd hate to miss: time to plan and prep reminders. No rating prompts or polls. \"The plan's set\" and urgent list items are on the way.")
             case .balanced:
-                String(localized: "Light, plus a \"home tonight?\" check-in and an after-dinner rating prompt. Kids get a few a week at most.")
+                String(localized: "Light, plus an after-dinner rating prompt. Kids get a few a week at most. A \"home tonight?\" check-in is on the way.")
             case .engaged:
-                String(localized: "Everything: idea digests, tonight polls, \"heading to the store,\" the weekly recap, and follow-up reminders.")
+                String(localized: "Everything so far: Balanced, plus one follow-up on reminders. Idea digests, tonight polls, \"heading to the store,\" and the weekly recap are on the way.")
             }
         }
     }

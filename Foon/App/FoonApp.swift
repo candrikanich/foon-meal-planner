@@ -14,6 +14,7 @@ struct FoonApp: App {
     init() {
         // Cook-mode timer alerts show (with sound) even while Foon is in front.
         UNUserNotificationCenter.current().delegate = CookAlertPresenter.shared
+        ReminderCenter.registerActions()
     }
 
     // One window (Mac) or scene (iPad): each would run its own sync service against the same cache.
@@ -34,7 +35,8 @@ struct FoonApp: App {
                      weekClient: .live(SupabaseService.shared.client),
                      dinnerClient: .live(SupabaseService.shared.client),
                      ideasClient: .live(SupabaseService.shared.client),
-                     freezerClient: .live(SupabaseService.shared.client))
+                     freezerClient: .live(SupabaseService.shared.client),
+                     notificationClient: .live(SupabaseService.shared.client))
                 .environment(session)
                 .environment(\.itemClient, .live(SupabaseService.shared.client))
                 .modelContainer(Self.cache)

@@ -16,7 +16,7 @@ struct RhythmFields: View {
         } header: {
             Text("When do you plan the week?")
         } footer: {
-            Text("Lots of families plan Sunday morning, before shopping. Foon will remind you then once reminders arrive.")
+            Text("Lots of families plan Sunday morning, before shopping. Foon reminds planners then, on devices with reminders on.")
         }
         Section {
             Picker("Week starts", selection: $settings.weekStart) { weekdayOptions }
@@ -34,7 +34,7 @@ struct RhythmFields: View {
             }
             .pickerStyle(.segmented)
         } footer: {
-            Text("\(settings.notificationPreset.summary) Nothing is sent yet: notifications are still on the way. You can change this anytime in Family.")
+            Text("\(settings.notificationPreset.summary) Each person's device asks before it sends anything. You can change this anytime in Family.")
         }
     }
 

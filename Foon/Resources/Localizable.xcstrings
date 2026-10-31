@@ -57,11 +57,11 @@
         }
       }
     },
+    "%@ Each person's device asks before it sends anything. You can change this anytime in Family." : {
+
+    },
     "%@ Foon couldn't check your plan, so the week start can't change right now." : {
       "comment" : "Rhythm: the first sentence is about dinner time"
-    },
-    "%@ Nothing is sent yet: notifications are still on the way. You can change this anytime in Family." : {
-
     },
     "%@ The week start can change once your plan ends on %@, before you start another week." : {
       "comment" : "Rhythm: the first sentence is about dinner time, then a date such as Sat, Oct 31",
@@ -136,6 +136,17 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@ offered to cook, but this night is %2$@ now."
+          }
+        }
+      }
+    },
+    "%@ on %@" : {
+      "comment" : "Prep reminder title: the dish's name, then a weekday",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ on %2$@"
           }
         }
       }
@@ -231,6 +242,12 @@
           }
         }
       }
+    },
+    "%@ tomorrow" : {
+      "comment" : "Prep reminder title: the dish's name"
+    },
+    "%@ tonight" : {
+      "comment" : "Prep reminder title: the dish's name"
     },
     "%@ tonight?" : {
       "comment" : "After-dinner card: the dish, then the question"
@@ -475,7 +492,7 @@
     "1 thing missing" : {
       "comment" : "Family: kitchen equipment the household lacks"
     },
-    "A copy of this week's plan and your lists, so they work offline. It's erased when you sign out or your household is gone." : {
+    "A copy of this week's and next week's plan and your lists, so they work offline and reminders can go out. It's erased when you sign out or your household is gone." : {
 
     },
     "A demo family with dinners and a planned week, to look around first." : {
@@ -486,6 +503,9 @@
     },
     "A family favorite" : {
       "comment" : "Reason chip"
+    },
+    "A few reminders about dinner, sent from this device. Foon works the same without them." : {
+
     },
     "A kid removed from the family becomes \"Former member\" after 12 months, and their ratings stay as anonymous history." : {
 
@@ -1148,7 +1168,7 @@
 
     },
     "Done" : {
-      "comment" : "Cook mode: a timer that has finished\nCook mode: leave cook mode"
+      "comment" : "Prep reminder action"
     },
     "Double it" : {
 
@@ -1234,7 +1254,7 @@
     "Everyone in the family sees these. Foon flags dishes, and you still check labels." : {
 
     },
-    "Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, ratings and comments, and who cooked." : {
+    "Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, ratings and comments, and who cooked. Planners can see the reminder log; everyone else, only their own." : {
 
     },
     "Everyone's here. You can invite people later from Family." : {
@@ -1249,10 +1269,10 @@
     "Everything" : {
       "comment" : "Family: the household has all the kitchen equipment"
     },
-    "Everything's in the cart" : {
+    "Everything so far: Balanced, plus one follow-up on reminders. Idea digests, tonight polls, \"heading to the store,\" and the weekly recap are on the way." : {
 
     },
-    "Everything: idea digests, tonight polls, \"heading to the store,\" the weekly recap, and follow-up reminders." : {
+    "Everything's in the cart" : {
 
     },
     "Export household data" : {
@@ -1313,6 +1333,12 @@
 
     },
     "Foon" : {
+
+    },
+    "Foon can draft it in a tap, and you can change any night." : {
+      "comment" : "Reminder body: time to plan"
+    },
+    "Foon can nudge you about dinner on this device, when something needs starting or a dish needs rating. Only a few a week, and you can turn them off anytime." : {
 
     },
     "Foon can't open that link. Try the recipe's web page." : {
@@ -1608,6 +1634,9 @@
     "How they like it served" : {
 
     },
+    "How was dinner?" : {
+      "comment" : "Reminder title"
+    },
     "I can't cook after all" : {
 
     },
@@ -1757,7 +1786,7 @@
     "Light" : {
 
     },
-    "Light, plus a \"home tonight?\" check-in and an after-dinner rating prompt. Kids get a few a week at most." : {
+    "Light, plus an after-dinner rating prompt. Kids get a few a week at most. A \"home tonight?\" check-in is on the way." : {
 
     },
     "Lists" : {
@@ -1817,7 +1846,7 @@
     "Looks like it has shellfish: Fridays in Lent" : {
       "comment" : "Food rule badge"
     },
-    "Lots of families plan Sunday morning, before shopping. Foon will remind you then once reminders arrive." : {
+    "Lots of families plan Sunday morning, before shopping. Foon reminds planners then, on devices with reminders on." : {
 
     },
     "Low" : {
@@ -2171,7 +2200,7 @@
     "Only they or a planner can take that back." : {
 
     },
-    "Only what you'd hate to miss: time to plan, the plan's set, urgent list items, and prep reminders. No rating prompts or polls." : {
+    "Only what you'd hate to miss: time to plan and prep reminders. No rating prompts or polls. \"The plan's set\" and urgent list items are on the way." : {
 
     },
     "Open" : {
@@ -2276,7 +2305,7 @@
     "Plan activity" : {
 
     },
-    "Plan activity is deleted after eight weeks." : {
+    "Plan activity and the reminder log are deleted after eight weeks." : {
 
     },
     "Plan it" : {
@@ -2390,6 +2419,15 @@
 
     },
     "Recipes can have up to 50 steps." : {
+
+    },
+    "Remind me in an hour" : {
+      "comment" : "Prep reminder action"
+    },
+    "Reminders are off. Turn them on in Settings." : {
+
+    },
+    "Reminders are on for this device" : {
 
     },
     "Remove" : {
@@ -2737,6 +2775,9 @@
     "Swap %@" : {
       "comment" : "Swap sheet title: the night, e.g. Tonight or Thursday"
     },
+    "Swap dinner" : {
+      "comment" : "Prep reminder action"
+    },
     "Swap this night" : {
 
     },
@@ -2790,6 +2831,9 @@
     },
     "Tap the dinners your family already makes. You can add your own anytime." : {
 
+    },
+    "Tap to rate %@." : {
+      "comment" : "Reminder body: rate the dish, never the cook. The dish's name"
     },
     "Taste" : {
 
@@ -3038,6 +3082,12 @@
     "Time to cook" : {
 
     },
+    "Time to plan the week" : {
+      "comment" : "Reminder title"
+    },
+    "Time to start prep." : {
+      "comment" : "Prep reminder body when the step's own words can't go on a lock screen"
+    },
     "Timer done: %@" : {
       "comment" : "Cook mode timer alert title"
     },
@@ -3096,6 +3146,9 @@
 
     },
     "Turn off what you don't have, and Foon won't plan dishes that usually use it on its own. They stay in your library, you can still pick one in Swap, and anything the family asks for still lands." : {
+
+    },
+    "Turn on reminders" : {
 
     },
     "Type %@ to confirm" : {
@@ -3177,6 +3230,9 @@
 
     },
     "Want a copy first? Export saves everything as a file." : {
+
+    },
+    "Want a few reminders?" : {
 
     },
     "Want steak Friday, or crab legs someday? Ask here, and the planner sees it." : {
@@ -3267,6 +3323,9 @@
 
     },
     "Which of these does your family make?" : {
+
+    },
+    "Which reminders each person's device sent and whether they answered: the kind, the night, and the time, never the words." : {
 
     },
     "Who agreed and when, if a parent agrees to keep allergies or to invite a kid." : {

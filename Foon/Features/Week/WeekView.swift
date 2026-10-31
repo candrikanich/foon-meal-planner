@@ -14,6 +14,8 @@ struct WeekView: View {
     @Query(filter: #Predicate<CachedListItem> { $0.checkedAt == nil }) private var openListItems: [CachedListItem]
     @Query private var cachedItems: [CachedItem]
     @Environment(SyncService.self) private var sync: SyncService?
+    @Environment(ReminderStore.self) private var reminders: ReminderStore?
+    @Environment(ReminderRouter.self) private var router: ReminderRouter?
     @State private var isApproving = false
     @State private var openNight: UUID?
     @State private var swappingNight: UUID?
@@ -32,6 +34,7 @@ struct WeekView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    if reminders?.shouldAsk == true { ReminderAskCard() }
                     if !week.showingNextWeek {
                         RequestNewsSection()
                         ClaimNewsSection()
@@ -73,6 +76,9 @@ struct WeekView: View {
                           weekStart: settings.weekStart, today: week.todayDay, away: settings.awayDates)) {
             await load()
         }
+        .onChange(of: router?.route, initial: true) { _, route in
+            if let route { open(route) }
+        }
         .onChange(of: scenePhase) { _, phase in
             // Back in the foreground, possibly on a new day or a new week.
             // The household too: another planner may have changed the away dates, and it otherwise only reloads at launch.
@@ -97,6 +103,25 @@ struct WeekView: View {
             // Someone joined or left, maybe on another phone: their allergies come and go with them.
             Task { await library.refreshReactions(members: members) }
             if canPlan { Task { await week.fillInMissing(members: members) } }
+        }
+    }
+
+    /// Where a tapped notification goes. A night the week no longer has says so in its own sheet.
+    private func open(_ route: ReminderRoute) {
+        router?.clear()
+        let nextWeek = WeekMath.start(of: settings.today(), weekStart: settings.weekStart, calendar: settings.dayCalendar)
+            .adding(days: 7, calendar: settings.dayCalendar)
+        switch route {
+        case .week(let day):
+            week.showingNextWeek = day >= nextWeek
+        case .night(let night, let day):
+            week.showingNextWeek = day >= nextWeek
+            openNight = night
+        case .swap(let night, let day):
+            week.showingNextWeek = day >= nextWeek
+            if canPlan { swappingNight = night } else { openNight = night }
+        case .dinnerCard:
+            week.showingNextWeek = false
         }
     }
 

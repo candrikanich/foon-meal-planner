@@ -12,11 +12,12 @@ struct PrivacySummaryView: View {
                 Text("Your household's time zone, so Foon knows when last night's dinner was.")
                 Text("Your Apple sign-in: an account ID, an email, which can be Apple's private relay address, and your first name if Apple shares it.")
                 Text("Who agreed and when, if a parent agrees to keep allergies or to invite a kid.")
+                Text("Which reminders each person's device sent and whether they answered: the kind, the night, and the time, never the words.")
                 Text("Foon doesn't ask for birthdays, phone numbers, or your location.")
             }
 
             Section("What stays on this device") {
-                Text("A copy of this week's plan and your lists, so they work offline. It's erased when you sign out or your household is gone.")
+                Text("A copy of this week's and next week's plan and your lists, so they work offline and reminders can go out. It's erased when you sign out or your household is gone.")
                 Text("Photos and PDFs you share to Foon. They're read here and then deleted, and only the text you keep is saved.")
             }
 
@@ -27,7 +28,7 @@ struct PrivacySummaryView: View {
             }
 
             Section("Who sees what") {
-                Text("Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, ratings and comments, and who cooked.")
+                Text("Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, ratings and comments, and who cooked. Planners can see the reminder log; everyone else, only their own.")
                 Text("Other households can't see any of it.")
                 Text("Parents manage people and change allergies. Planners build the week and can export the household. Only the owner can delete it.")
             }
@@ -35,7 +36,7 @@ struct PrivacySummaryView: View {
             Section {
                 Text("Parents can change or remove someone's allergies on their profile.")
                 Text("Deleting the household removes it from Foon for everyone, right away, and the app can't bring it back.")
-                Text("Plan activity is deleted after eight weeks.")
+                Text("Plan activity and the reminder log are deleted after eight weeks.")
                 Text("A kid removed from the family becomes \"Former member\" after 12 months, and their ratings stay as anonymous history.")
             } header: {
                 Text("Changing your mind")
