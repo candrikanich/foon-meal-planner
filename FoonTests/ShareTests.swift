@@ -607,7 +607,8 @@ struct RecipeTextParserTests {
         #expect(names.contains { $0.contains(part) && !$0.contains(",") })
     }
 
-    @Test(arguments: ["Ingredients (makes 2 cups peanut sauce)", "Ingredients (serves 4 contains peanuts)"])
+    @Test(arguments: ["Ingredients (makes 2 cups peanut sauce)", "Ingredients (serves 4 contains peanuts)",
+                      "Ingredients (makes 8 peanut servings)", "Ingredients (serves 4 peanut portions)"])
     func aNoteThatOpensLikeServingsKeepsItsAllergen(header: String) throws {
         #expect(try savedNames("Dish\n\(header)\n1 lb beef\n1 cup rice").contains { $0.contains("peanut") })
     }
@@ -906,6 +907,21 @@ struct CookbookSpreadTests {
     @Test func howManyItMakesAboveTheListIsntTheName() {
         let capture = RecipeTextParser.parse(["Makes 12 muffins", "Muffins", "1 cup flour", "2 eggs"])
         #expect(capture.name == "Muffins")
+    }
+
+    @Test func aFirstLineNamingAnAllergenStaysAnIngredient() {
+        let capture = RecipeTextParser.parse(["Noodles", "Makes 2 cups peanut sauce", "1 lb noodles", "2 eggs"])
+        #expect(capture.name == "Noodles")
+        #expect(capture.ingredients.contains { $0.name.contains("peanut") })
+    }
+
+    @Test func aListWithNoAmountsAfterALabelIsIngredients() {
+        let capture = RecipeTextParser.parse(["Dish", "1 cup flour", "2 cups rice",
+            "Preheat the griddle and in a large bowl combine all of these ingredients with:", "eggs", "milk",
+            "Heat the griddle over medium heat, then pour in a little batter and cook it through."])
+        #expect(capture.ingredients.map(\.name).contains("eggs"))
+        #expect(capture.ingredients.map(\.name).contains("milk"))
+        #expect(capture.steps.joined().contains("pour in a little batter"))
     }
 
     @Test func aFinishedStepDoesntTurnALineIntoAnIngredient() {
