@@ -1325,6 +1325,9 @@
     "Foon couldn't find any text in that. If it's a locked PDF, remove the password and share it again." : {
 
     },
+    "Foon couldn't read that page, so it kept the name and link. Add ingredients when you can." : {
+
+    },
     "Foon doesn't ask for birthdays, phone numbers, or your location." : {
 
     },
@@ -1967,6 +1970,12 @@
     "No ideas yet" : {
 
     },
+    "No ingredients for %@ yet, so allergies can't be checked" : {
+      "comment" : "A note on a dish: side dishes with no ingredients"
+    },
+    "No ingredients yet, so allergies can't be checked" : {
+
+    },
     "No ingredients yet." : {
 
     },
@@ -2000,7 +2009,7 @@
     "No quick meals" : {
 
     },
-    "No recipe card on that page, so Foon kept the title and link. Add ingredients when you can." : {
+    "No recipe card on that page, so Foon kept the name and link. Add ingredients when you can." : {
 
     },
     "No rule" : {
@@ -2062,6 +2071,12 @@
     },
     "Nothing fits tonight" : {
       "comment" : "Reason chip: no dish passed the filters"
+    },
+    "Nothing flagged so far, but allergies can't be checked on %lld meals until they have ingredients." : {
+
+    },
+    "Nothing flagged so far, but allergies can't be checked on 1 meal until it has ingredients." : {
+
     },
     "Nothing in the freezer yet. Cooked extra? Add it so it gets eaten." : {
 
@@ -2846,6 +2861,9 @@
     "That night's a quick pick now, so there's nothing to cook." : {
 
     },
+    "That recipe has no ingredients Foon could read. Add them when you can." : {
+
+    },
     "That schedule didn't delete. Only a parent can delete one, and it may already be gone." : {
 
     },
@@ -2859,6 +2877,9 @@
 
     },
     "That's changed since this phone last looked. Here's the latest." : {
+
+    },
+    "That's not here anymore. Pull down on Ideas to refresh." : {
 
     },
     "Thaw first" : {

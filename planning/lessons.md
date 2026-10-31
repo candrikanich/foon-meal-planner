@@ -6,6 +6,20 @@ _None yet._
 
 ## Patterns
 
+### A list being shown isn't the library to look things up in
+**Times seen:** 1
+
+**What happened (2026-10-31):** On #155, the security review found `LibraryStore.entry` passing a one-dish list to `LibraryQuery.entries`, which used the same list to find sides. So meal detail missed allergy flags from a side's ingredients, while the tile showed them. It had been that way since meal detail shipped, and my new note inherited it.
+
+**Rule (lookups):** When a function takes a list and reads related rows from it, check every caller for a filtered list. Keep what's displayed and what's looked up as separate parameters.
+
+### A failing test run may not exit; don't wait for xcodebuild
+**Times seen:** 1
+
+**What happened (2026-10-30):** With any test failing, `scripts/test.sh` printed "Test run with ... failed" and then xcodebuild and the test host stayed up, past 45 minutes. A passing run exits normally. The cause isn't known.
+
+**Rule (test runs):** Run tests as a background task with output in a log. Watch for the `Test run with` line, read the result, then stop the task. A subprocess timeout can orphan xcodebuild.
+
 ### TextRecognizerTests can fail on a cold or contended model cache
 **Times seen:** 1
 
