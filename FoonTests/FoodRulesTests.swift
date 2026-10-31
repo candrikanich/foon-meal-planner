@@ -457,16 +457,16 @@ struct FoodRulesPlanningTests {
 
     @Test func theCardSaysWhatItLooksLikeOnANightItApplies() {
         let settings = settings()
-        #expect(NightBadges.badges(meal: burgers, library: library, allergies: [], home: [], settings: settings, ruleDay: friday)
+        #expect(NightBadges.badges(meal: burgers, library: library, allergies: [], home: [], lookup: .loaded, settings: settings, ruleDay: friday)
             == [.foodRule("Looks like it has meat: Fridays in Lent")])
-        #expect(NightBadges.badges(meal: burgers, library: library, allergies: [], home: [], settings: settings,
+        #expect(NightBadges.badges(meal: burgers, library: library, allergies: [], home: [], lookup: .loaded, settings: settings,
                                    ruleDay: friday.adding(days: -1)).isEmpty)
-        #expect(NightBadges.badges(meal: salmon, library: library, allergies: [], home: [], settings: settings, ruleDay: friday).isEmpty,
+        #expect(NightBadges.badges(meal: salmon, library: library, allergies: [], home: [], lookup: .loaded, settings: settings, ruleDay: friday).isEmpty,
                 "and never says anything about a dish that passes")
     }
 
     @Test func leftoversOrAFreezerDishStillCarryTheBadge() {
-        let badges = NightBadges.badges(meal: burgers, library: library, allergies: [], home: [], settings: settings(),
+        let badges = NightBadges.badges(meal: burgers, library: library, allergies: [], home: [], lookup: .loaded, settings: settings(),
                                         alreadyCooked: true, ruleDay: friday)
         #expect(badges == [.foodRule("Looks like it has meat: Fridays in Lent")])
     }

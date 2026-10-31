@@ -60,15 +60,15 @@ struct NightBadgeTests {
         let mac = LibraryMeal.fixture(name: "Mac and cheese", ingredients: ["milk", "elbow macaroni"])
         let allergies = [MemberAllergies(memberID: nora.id, firstName: "Nora", allergens: [.milk]),
                          MemberAllergies(memberID: owen.id, firstName: "Owen", allergens: [.milk])]
-        let badges = NightBadges.badges(meal: mac, library: [mac], allergies: allergies, home: [nora.id])
+        let badges = NightBadges.badges(meal: mac, library: [mac], allergies: allergies, home: [nora.id], lookup: .loaded)
         #expect(badges == [.allergy("Contains milk (Nora)")])
-        #expect(NightBadges.badges(meal: mac, library: [mac], allergies: allergies, home: []).isEmpty)
+        #expect(NightBadges.badges(meal: mac, library: [mac], allergies: allergies, home: [], lookup: .loaded).isEmpty)
     }
 
     @Test func prepStepsBecomeAPrepBadge() {
         let chicken = LibraryMeal.fixture(name: "Grilled chicken",
                                           prepSteps: [PrepStep(step: "Move the chicken to the fridge to thaw", leadHours: 24)])
-        #expect(NightBadges.badges(meal: chicken, library: [chicken], allergies: [], home: [])
+        #expect(NightBadges.badges(meal: chicken, library: [chicken], allergies: [], home: [], lookup: .loaded)
             == [.prep("Move the chicken to the fridge to thaw · 1 day ahead")])
     }
 }

@@ -9,11 +9,15 @@ enum NightBadges {
     /// What's said about a dish's allergies on a night: on its card, and in Swap and Plan it before it's chosen, so they
     /// can't disagree. `home` is `WeekNight.allergyHome`. A dish the library can't find (`nil`) says it couldn't be checked, once
     /// there's an answer: nothing while a load runs, and nothing if the allergies have been read and nobody home has any.
-    /// After a failed load nobody knows that, even if an older read says so, so it says so to everyone.
+    /// After a failed load nobody knows that, even if an older read says so, so it says so to everyone. A dish it can find
+    /// keeps its last flags, and says they may be out of date: someone's allergy may be what's missing.
     static func allergyCheck(dish: LibraryMeal?, library: [LibraryMeal], allergies: [MemberAllergies], home: Set<UUID>,
                              lookup: LibraryLookup) -> AllergyCheck {
         let athome = allergies.filter { home.contains($0.memberID) }
-        if let dish { return AllergyMatcher.check(meal: dish, library: library, members: athome) }
+        if let dish {
+            let check = AllergyMatcher.check(meal: dish, library: library, members: athome)
+            return lookup == .failed && check.note == nil ? AllergyCheck(flags: check.flags, note: AllergyMatcher.outOfDateNote) : check
+        }
         if lookup == .loaded, !athome.contains(where: \.hasAllergies) { return AllergyCheck() }
         return AllergyCheck(note: FreezerStash.allergyUnknownNote(for: nil, isLoading: lookup == .loading))
     }
@@ -28,10 +32,10 @@ enum NightBadges {
     }
 
     static func badges(meal: LibraryMeal, library: [LibraryMeal], allergies: [MemberAllergies], home: Set<UUID>,
-                       settings: HouseholdSettings = HouseholdSettings(), start: StartCooking? = nil,
+                       lookup: LibraryLookup, settings: HouseholdSettings = HouseholdSettings(), start: StartCooking? = nil,
                        alreadyCooked: Bool = false, ruleDay: CalendarDay? = nil) -> [DayCardModel.Badge] {
         let allergyBadges = allergyBadges(allergyCheck(dish: meal, library: library, allergies: allergies, home: home,
-                                                       lookup: .loaded))
+                                                       lookup: lookup))
         let rules: [DayCardModel.Badge] = ruleDay.map { day in
             FoodRuleMatcher.broken(by: meal, on: day, rules: settings.foodRules, library: library)
                 .map { .foodRule($0.looksLikeText) }

@@ -13,6 +13,11 @@ enum SwapRow {
         NightBadges.allergyCheck(catalog: dish, allergies: allergies, home: home(night, allergies))
     }
 
+    static func allergyCheck(offer: FreezerStash.Offer, lookup: LibraryLookup) -> AllergyCheck {
+        let note = offer.uncheckedNote ?? (lookup == .failed ? AllergyMatcher.outOfDateNote : nil)
+        return AllergyCheck(flags: offer.flags, note: note)
+    }
+
     /// For VoiceOver: the dish, its allergies, then the rest.
     static func label(_ name: String, allergies: AllergyCheck, details: [String] = []) -> String {
         let parts: [String] = [name] + allergies.texts + details
@@ -240,7 +245,7 @@ struct SwapSheet: View {
 
     private func freezerRow(_ offer: FreezerStash.Offer) -> some View {
         let made = FreezerStash.madeText(offer.item.madeOn, today: week.todayDay)
-        let allergies = AllergyCheck(flags: offer.flags, note: offer.uncheckedNote)
+        let allergies = SwapRow.allergyCheck(offer: offer, lookup: library.lookup)
         return Button {
             Task {
                 await choose(.freezer(offer.item, reason: FreezerStash.reason(madeOn: offer.item.madeOn, today: week.todayDay)))

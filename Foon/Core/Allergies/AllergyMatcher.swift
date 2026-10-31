@@ -63,11 +63,11 @@ struct AllergyCheck: Equatable, Sendable {
 enum LibraryLookup: Equatable, Sendable {
     /// A load is running, or none has started: wait for it rather than warn.
     case loading
-    /// The last load gave no answer. The dish and the family's allergies may be unknown, or read a while ago and out of date:
-    /// what it can find keeps its last flags, and what it can't says it couldn't be checked, to everyone.
+    /// The last load gave no answer, or a refresh couldn't read the allergies. They may be unknown or out of date: a dish it
+    /// can find keeps its last flags and says so, and one it can't says it couldn't be checked, to everyone.
     case failed
-    /// The last full load worked. A refresh reads the dishes and allergies again when This Week comes back, and keeps what it
-    /// had if it can't, so this means "read", not "read just now".
+    /// The last full load worked, and no refresh since has failed to read the allergies. A refresh that can't read the dishes
+    /// keeps what it had, so this means "read", not "read just now".
     case loaded
 }
 
@@ -126,6 +126,11 @@ enum AllergyMatcher {
         let isBare = dish.ingredients.isEmpty && members.contains(where: \.hasAllergies)
         return AllergyCheck(flags: flags(ingredients: dish.ingredients, members: members),
                             note: isBare ? String(localized: "No ingredients yet, so allergies can't be checked") : nil)
+    }
+
+    /// The allergies couldn't be read just now, so someone's may be missing from what a dish shows.
+    static var outOfDateNote: String {
+        String(localized: "Allergies may be out of date. Pull down to try again.")
     }
 
     private static let compiledKeywords = AllergenKeywords.all.map(CompiledKeywords.init)

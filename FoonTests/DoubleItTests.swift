@@ -243,11 +243,11 @@ struct DoubleItCardTests {
     private let allergies = [MemberAllergies(memberID: nora, firstName: "Nora", allergens: [.milk])]
 
     @Test func aLeftoversNightStillFlagsItsDishForWhoeversHomeThatNight() {
-        let badges = NightBadges.badges(meal: chili, library: [chili], allergies: allergies, home: [nora], alreadyCooked: true)
+        let badges = NightBadges.badges(meal: chili, library: [chili], allergies: allergies, home: [nora], lookup: .loaded, alreadyCooked: true)
         #expect(badges.count == 1)
         guard case .allergy(let text) = badges.first else { Issue.record("no allergy flag"); return }
         #expect(text.contains("Nora"))
-        #expect(NightBadges.badges(meal: chili, library: [chili], allergies: allergies, home: [owen],
+        #expect(NightBadges.badges(meal: chili, library: [chili], allergies: allergies, home: [owen], lookup: .loaded,
                                    alreadyCooked: true).isEmpty, "Nora's out that night")
     }
 
@@ -257,7 +257,7 @@ struct DoubleItCardTests {
         var settings = HouseholdSettings()
         settings.missingEquipment = [.slowCooker]
         let start = StartCooking(cookMinutes: 30, isEstimate: false, startMinute: 600, dinnerMinute: 630)
-        let cooked = NightBadges.badges(meal: meal, library: [meal], allergies: allergies, home: [nora], settings: settings,
+        let cooked = NightBadges.badges(meal: meal, library: [meal], allergies: allergies, home: [nora], lookup: .loaded, settings: settings,
                                         start: start, alreadyCooked: true)
         #expect(cooked.allSatisfy { if case .allergy = $0 { true } else { false } })
         #expect(cooked.count == 1)

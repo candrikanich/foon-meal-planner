@@ -116,6 +116,70 @@ struct AnotherPhoneChangedSomethingTests {
         #expect(allergyTexts(target, store: store) == ["Contains milk (Nora)"])
     }
 
+    /// Her allergy may be what's missing, on a dish this phone can read perfectly well.
+    @Test func aRefreshThatCantReadAllergiesSaysSoOnADishItCanFind() async {
+        let reads = Mutex(0)
+        let mac = mac
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in [mac] }, allergies: { _ in
+            if reads.withLock({ $0 += 1; return $0 }) > 1 { throw noRead }
+            return []
+        }))
+        await store.load(members: [owen])
+        await store.refreshReactions(members: [owen, nora])
+        #expect(store.lookup == .failed)
+        #expect(store.needsFullLoad(holding: [mac.id]), "the next pull tries again")
+        #expect(store.errorMessage == nil)
+        let noRow = night(meal: mac, home: [owen.id: true])
+        #expect(allergyTexts(noRow, store: store) == [AllergyMatcher.outOfDateNote], "not a clean card")
+        #expect(PlanIt.allergyCheck(for: mac, on: noRow, library: store.meals, allergies: store.allergies, lookup: store.lookup).note
+                == AllergyMatcher.outOfDateNote)
+        #expect(SwapRow.allergyCheck(mac, on: noRow, library: store.meals, allergies: store.allergies, lookup: store.lookup).note
+                == AllergyMatcher.outOfDateNote)
+    }
+
+    @Test func aDishItCanFindKeepsItsLastFlagsAndSaysTheyMayBeOld() async {
+        let reads = Mutex(0)
+        let mac = mac, rows = noraMilk
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in [mac] }, allergies: { _ in
+            if reads.withLock({ $0 += 1; return $0 }) > 1 { throw noRead }
+            return rows
+        }))
+        await store.load(members: [nora])
+        await store.refreshReactions(members: [nora])
+        #expect(allergyTexts(night(meal: mac, home: [nora.id: true]), store: store)
+                == ["Contains milk (Nora)", AllergyMatcher.outOfDateNote])
+    }
+
+    @Test func theNoAllergyNoteOutranksTheOutOfDateOne() {
+        let bare = LibraryMeal.fixture(name: "Bare")
+        let allergies = [MemberAllergies(memberID: nora.id, firstName: "Nora", allergens: [.milk])]
+        let said = NightBadges.allergyCheck(dish: bare, library: [bare], allergies: allergies, home: [nora.id], lookup: .failed)
+        #expect(said.note?.contains("No ingredients") == true)
+    }
+
+    @Test func aFreezerOfferSaysTheyMayBeOldToo() {
+        let item = FreezerItem(id: UUID(), mealID: mac.id, mealName: mac.name, madeOn: sunday, state: .in)
+        let offer = FreezerStash.Offer(item: item, meal: mac, flags: [])
+        #expect(SwapRow.allergyCheck(offer: offer, lookup: .failed).note == AllergyMatcher.outOfDateNote)
+        #expect(SwapRow.allergyCheck(offer: offer, lookup: .loaded).note == nil)
+        let bare = FreezerStash.Offer(item: item, meal: mac, flags: [], uncheckedNote: "No ingredients")
+        #expect(SwapRow.allergyCheck(offer: bare, lookup: .failed).note == "No ingredients")
+    }
+
+    @Test func aFullLoadClearsIt() async {
+        let reads = Mutex(0)
+        let mac = mac, rows = noraMilk
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in [mac] }, allergies: { _ in
+            if reads.withLock({ $0 += 1; return $0 }) == 2 { throw noRead }
+            return rows
+        }))
+        await store.load(members: [owen, nora])
+        await store.refreshReactions(members: [owen, nora])
+        await store.load(members: [owen, nora])
+        #expect(store.lookup == .loaded)
+        #expect(allergyTexts(night(meal: mac, home: [nora.id: true]), store: store) == ["Contains milk (Nora)"])
+    }
+
     @Test func aRefreshThatCantReadTheDishesKeepsThem() async {
         let reads = Mutex(0)
         let mac = mac, rows = noraMilk
@@ -145,6 +209,7 @@ struct AnotherPhoneChangedSomethingTests {
         offline.withLock { $0 = true }
         await store.refreshReactions(members: [nora])
         #expect(store.allergies.map(\.memberID) == [nora.id])
+        #expect(store.lookup == .loaded, "only the reactions failed, and the allergies were read")
     }
 
     @Test func anArchiveWhileARefreshIsOutStands() async {

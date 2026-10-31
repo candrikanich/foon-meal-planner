@@ -12,25 +12,25 @@ final class LibraryStore {
     private(set) var errorMessage: String?
     /// The last full load failed, so what's showing may be old. `errorMessage` also carries other actions' failures.
     private(set) var lastLoadFailed = false
-    /// Whether a dish missing from `meals` means anything yet. It's loaded only if the newest load's answer was applied.
-    /// Anything else reads as failed, cancelled included: a closed sheet can cancel the load a screen behind it was waiting
+    /// Whether a dish missing from `meals` means anything yet, and whether the allergies can be trusted. It's loaded only if
+    /// the newest load's answer was applied and a refresh hasn't since failed to read them. Anything else reads as failed, cancelled included: a closed sheet can cancel the load a screen behind it was waiting
     /// on, with nothing else to decide, and what was read before may be out of date, so it can't rule out a warning.
     var lookup: LibraryLookup {
         if isLoading { return .loading }
-        if newestLoadAnswered { return .loaded }
+        if allergiesAreCurrent { return .loaded }
         return loadGeneration == 0 ? .loading : .failed
     }
     /// Whether a screen holding these dishes needs a full load rather than a refresh. A note says to pull down, and a pull has
     /// to be able to find the dish: one another phone just planned, or anything after a load that failed.
     func needsFullLoad(holding mealIDs: some Sequence<UUID>) -> Bool {
-        !newestLoadAnswered || mealIDs.contains { meal($0) == nil }
+        !allergiesAreCurrent || mealIDs.contains { meal($0) == nil }
     }
 
     /// The same question once the screen's own data has been read, since that can bring a dish the first answer didn't know
     /// about. A full load that ran alongside it may have read too early; one that just failed waits for the next pull.
     func needsLoad(afterFullLoad ran: Bool, holding mealIDs: some Sequence<UUID>) -> Bool {
         guard ran else { return needsFullLoad(holding: mealIDs) }
-        return newestLoadAnswered && mealIDs.contains { meal($0) == nil }
+        return allergiesAreCurrent && mealIDs.contains { meal($0) == nil }
     }
 
     /// For a screen that needs the library and shouldn't replace a load already running.
@@ -54,8 +54,9 @@ final class LibraryStore {
     private var members: [Member] = []
     /// Bumped per load, so a slower, older load never overwrites a newer one.
     private var loadGeneration = 0
-    /// The newest load's answer was applied. Unlike `lastLoadFailed`, a cancelled load leaves this false too.
-    private var newestLoadAnswered = false
+    /// The newest load's answer was applied, and no refresh since has failed to read the allergies. Unlike `lastLoadFailed`, a
+    /// cancelled load leaves this false too.
+    private var allergiesAreCurrent = false
     /// Loads and refreshes still out. An archive or restore starts a new load if any are, since they read the dish before it.
     private var readsOut = 0
     /// Signed photo URLs by path. Reusing one keeps `AsyncImage` on the URL cache while scrolling.
@@ -125,7 +126,7 @@ final class LibraryStore {
         self.members = members
         loadGeneration += 1
         let generation = loadGeneration
-        newestLoadAnswered = false
+        allergiesAreCurrent = false
         readsOut += 1
         isLoading = true
         defer {
@@ -149,7 +150,7 @@ final class LibraryStore {
             let loadedComments = (try? await comments) ?? self.comments
             // Only the newest load counts: an older read can predate a save, and can't speak for a newer load that failed.
             guard generation == loadGeneration else { return }
-            newestLoadAnswered = true
+            allergiesAreCurrent = true
             self.meals = loaded.0
             self.history = loaded.1
             self.catalog = loaded.2
@@ -226,7 +227,11 @@ final class LibraryStore {
             let loadedMeals = try? await meals
             // What allergy checks read doesn't wait on the rest: if the reactions fail, these still count.
             guard generation == loadGeneration else { return }
-            if let loadedAllergies { allergies = Self.memberAllergies(loadedAllergies, members: self.members) }
+            if let loadedAllergies {
+                allergies = Self.memberAllergies(loadedAllergies, members: self.members)
+            } else {
+                allergiesAreCurrent = false
+            }
             if let loadedMeals { self.meals = loadedMeals }
             let reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
             // Serving notes are family input too: a note Mom just wrote shows on Dad's cards.

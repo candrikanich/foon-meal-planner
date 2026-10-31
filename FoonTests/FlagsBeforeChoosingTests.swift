@@ -209,7 +209,8 @@ struct CardWithAnUnknownDishTests {
         #expect(store.lastLoadFailed)
         #expect(card(night(mealID: UUID(), home: [nora.id: false, owen: true]), store: store).badges
                 == [.allergyUnchecked(unknownNote)])
-        #expect(card(night(meal: mac, home: [nora.id: true]), store: store).badges == [.allergy("Contains milk (Nora)")])
+        #expect(card(night(meal: mac, home: [nora.id: true]), store: store).badges
+                == [.allergy("Contains milk (Nora)"), .allergyUnchecked(AllergyMatcher.outOfDateNote)])
     }
 
     @Test func aFreezerNightSaysSo() {

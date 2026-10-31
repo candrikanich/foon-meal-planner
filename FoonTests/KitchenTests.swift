@@ -260,9 +260,9 @@ struct KitchenEquipmentTests {
     ] as [(KitchenEquipment, MealTag, String)])
     func aDishTheyMayNotBeAbleToMakeSaysSoHonestly(equipment: KitchenEquipment, tag: MealTag, text: String) {
         let meal = LibraryMeal.fixture(name: "Dish", tags: [tag])
-        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [],
+        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], lookup: .loaded,
                                    settings: settings(missing: [equipment])) == [.equipment(text)])
-        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], settings: settings()).isEmpty)
+        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], lookup: .loaded, settings: settings()).isEmpty)
     }
 
     @Test func theOtherEquipmentReadsTheSameWay() {
@@ -535,7 +535,7 @@ struct StartCookingTests {
     }
 
     @Test func aPassedStartLetsThePrepChipComeBack() {
-        let badges = NightBadges.badges(meal: chili, library: [chili], allergies: [], home: [],
+        let badges = NightBadges.badges(meal: chili, library: [chili], allergies: [], home: [], lookup: .loaded,
                                         start: nudge(chili, at: 15 * 60))
         #expect(badges == [.prep("Start the slow cooker · 8 hours ahead")])
     }
@@ -570,15 +570,15 @@ struct StartCookingTests {
     @Test func itJoinsTheNightsBadges() {
         let meal = LibraryMeal.fixture(name: "Tacos", tags: [.quick])
         let nudge = nudge(meal)
-        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], start: nudge)
+        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], lookup: .loaded, start: nudge)
             == [.startCooking(nudge?.text() ?? "")])
     }
 
     @Test func theSlowCookerStepGivesWay() {
         let nudge = nudge(chili)
-        #expect(NightBadges.badges(meal: chili, library: [chili], allergies: [], home: [], start: nudge)
+        #expect(NightBadges.badges(meal: chili, library: [chili], allergies: [], home: [], lookup: .loaded, start: nudge)
             == [.startCooking(nudge?.text() ?? "")])
-        #expect(NightBadges.badges(meal: chili, library: [chili], allergies: [], home: [])
+        #expect(NightBadges.badges(meal: chili, library: [chili], allergies: [], home: [], lookup: .loaded)
             == [.prep("Start the slow cooker · 8 hours ahead")])
     }
 
@@ -587,14 +587,14 @@ struct StartCookingTests {
                          prepSteps: [PrepStep(step: "Start the slow cooker", leadHours: 8)])
         let nudge = nudge(meal)
         #expect(nudge?.cookMinutes == 360)
-        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], start: nudge)
+        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], lookup: .loaded, start: nudge)
             == [.startCooking(nudge?.text() ?? "")])
     }
 
     @Test func aMarinateWithTheSameLeadStillShows() {
         let meal = timed(60, name: "Kebabs", prepSteps: [PrepStep(step: "Marinate the chicken", leadHours: 1)])
         let nudge = nudge(meal)
-        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], start: nudge)
+        #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], lookup: .loaded, start: nudge)
             == [.startCooking(nudge?.text() ?? ""), .prep("Marinate the chicken · 1 hour ahead")])
     }
 
@@ -603,7 +603,7 @@ struct StartCookingTests {
                                         prepSteps: [PrepStep(step: "Thaw the meat", leadHours: 24),
                                                     PrepStep(step: "Start the slow cooker", leadHours: 8)])
         let nudge = nudge(roast)
-        #expect(NightBadges.badges(meal: roast, library: [roast], allergies: [], home: [], start: nudge)
+        #expect(NightBadges.badges(meal: roast, library: [roast], allergies: [], home: [], lookup: .loaded, start: nudge)
             == [.startCooking(nudge?.text() ?? ""), .prep("Thaw the meat · 1 day ahead")])
     }
 

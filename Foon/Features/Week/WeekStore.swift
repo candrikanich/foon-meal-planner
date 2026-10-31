@@ -536,7 +536,7 @@ final class WeekStore {
                                      dish: nil, library: library, allergies: allergies, home: home, lookup: lookup))
                              }
                              return NightBadges.badges(
-                                 meal: dish, library: library, allergies: allergies, home: home, settings: settings,
+                                 meal: dish, library: library, allergies: allergies, home: home, lookup: lookup, settings: settings,
                                  start: StartCooking.nudge(for: dish, on: night, settings: settings, today: today,
                                                            minuteNow: minuteNow),
                                  alreadyCooked: night.mealID == nil || night.stashItemID != nil,
