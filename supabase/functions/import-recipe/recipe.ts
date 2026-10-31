@@ -203,7 +203,7 @@ function pageTitle(html: string): string | null {
   const head = html.slice(0, headBytes);
   const metas = head.match(/<meta\b[^>]{0,2000}>/gi) ?? [];
   const og = metas.find((tag) => /property\s*=\s*(["'])og:title\1/i.test(tag))
-    ?.match(/content\s*=\s*(["'])(.*?)\1/i)?.[2];
+    ?.match(/content\s*=\s*(["'])(.*?)\1/is)?.[2];
   const lower = head.toLowerCase();
   const open = lower.indexOf("<title");
   const start = open < 0 ? -1 : lower.indexOf(">", open);
