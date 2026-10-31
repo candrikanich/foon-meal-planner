@@ -66,6 +66,13 @@ struct RequestBoardTests {
         #expect(RequestBoard.waitingCount([friday, past, noDish, done]) == 3)
     }
 
+    @MainActor
+    @Test func anIdeaWithNoTitleIsCalledByItsSite() {
+        let library = LibraryStore(householdID: UUID(), client: .preview())
+        let idea = DinnerRequest(requestedByMemberID: nora, link: URL(string: "https://www.instagram.com/p/abc"))
+        #expect(RequestText.what(idea, library: library) == "Instagram post")
+    }
+
     @Test func decodesTheirRowsWithMeTooAndThePlannedNight() throws {
         let json = #"""
         [{"id":"6B1A2B49-8F7C-4E52-9C1F-3A1D2E4F5A61","requested_by_member_id":"0B2C7E7A-6D18-4A51-8E7C-2F6A9B1C3D4E",

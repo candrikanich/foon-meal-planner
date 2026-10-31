@@ -129,7 +129,7 @@ enum RequestText {
     /// The dish, the typed name, or the link's site.
     @MainActor
     static func what(_ request: DinnerRequest, library: LibraryStore) -> String {
-        request.mealID.flatMap { library.meal($0)?.name } ?? request.title ?? request.link?.host()
+        request.mealID.flatMap { library.meal($0)?.name } ?? request.title ?? request.link.map(ShareRouter.siteLabel)
             ?? String(localized: "An idea")
     }
 

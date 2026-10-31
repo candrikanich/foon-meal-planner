@@ -42,7 +42,8 @@ enum RecipeTextParser {
     /// link. A caption often runs together ("Ingredients: 1 lb beef, 2 cups rice Directions: ..."), so its headers are
     /// put on their own lines, and items after an Ingredients header are split at commas.
     static func parseCaption(_ caption: String) -> Capture? {
-        let spaced = caption.replacing(/(?i)\b(ingredients?|directions?|instructions?|method)\s*:/) { "\n\($0.1):\n" }
+        let spaced = unwrappedInstagram(caption)
+            .replacing(/(?i)\b(ingredients?|directions?|instructions?|method)\s*:/) { "\n\($0.1):\n" }
         var lines: [String] = []
         var inIngredients = false
         var sawIngredientsHeader = false
@@ -61,6 +62,14 @@ enum RecipeTextParser {
         // "Tag someone who loves tacos / Link in bio" would pass for a shopping list: a caption needs a header or amounts.
         let looksLikeARecipe = sawIngredientsHeader || capture.ingredients.count { $0.quantity != nil } >= 2
         return looksLikeARecipe && capture.ingredients.count >= 2 ? capture : nil
+    }
+
+    /// Instagram's page wraps a caption as `12 likes, 3 comments - cook on June 1, 2026: "the caption".` Left on, the
+    /// counts would pass for the dish's name.
+    private static func unwrappedInstagram(_ caption: String) -> String {
+        // A long caption is cut before its closing quote, and a post can hide its likes.
+        let wrapped = /(?is)(?:[\d.,km]+ likes?, )?[\d.,km]+ comments? - .+?: ["“](.*?)["”]?\.?\s*/
+        return caption.wholeMatch(of: wrapped).map { String($0.1) } ?? caption
     }
 
     static func parse(_ lines: [String]) -> Capture {

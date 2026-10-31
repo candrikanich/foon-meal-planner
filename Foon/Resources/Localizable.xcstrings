@@ -193,6 +193,9 @@
         }
       }
     },
+    "%@ post" : {
+      "comment" : "A shared link with no title"
+    },
     "%@ put %@ from the freezer on %@" : {
       "comment" : "Activity: the person, the dish, the night",
       "localizations" : {
