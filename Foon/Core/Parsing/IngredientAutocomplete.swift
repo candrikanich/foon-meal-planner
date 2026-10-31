@@ -53,8 +53,8 @@ enum IngredientAutocomplete {
             switch text[index] {
             case "(": depth += 1
             case ")": depth = max(depth - 1, 0)
-            case ",", ";", "•" where depth == 0: start = text.index(after: index)
-            case let character where depth == 0 && character.isNewline: start = text.index(after: index)
+            case let character where depth == 0 && (",;•".contains(character) || character.isNewline):
+                start = text.index(after: index)
             default: break
             }
         }
