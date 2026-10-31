@@ -175,3 +175,8 @@ Deno.test("a caption too long even to read is no caption, so it stays an idea", 
   const page = parsePage(`<meta property="og:description" content="${"x".repeat(9000)}">`);
   assertEquals(page.caption, null);
 });
+
+Deno.test("a title running over several lines is still the title", () => {
+  const html = `<meta property="og:title" content="Cook on Instagram: &quot;Beef biscuits are great.\n\nFlaky and golden">`;
+  assertEquals(parsePage(html).title, 'Cook on Instagram: "Beef biscuits are great. Flaky and golden');
+});
