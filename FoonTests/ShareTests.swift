@@ -497,6 +497,58 @@ struct RecipeTextParserTests {
         #expect(capture.steps == ["Brown the beef."])
     }
 
+    /// A real post, shared from Instagram on a phone.
+    @Test func aDecoratedCaption() throws {
+        let capture = try #require(RecipeTextParser.parseCaption("""
+        🍗🧄🧀 SAVORY BAKED CAESAR CHICKEN WITH PARMESAN SAUCE
+        💬 COMMENT “CAESAR” and I’ll send you the full recipe!
+        👇 INGREDIENTS
+        4 boneless, skinless chicken breasts
+        ½ cup Caesar dressing
+        ½ cup sour cream
+        ½ cup freshly grated Parmesan cheese
+        3 cloves garlic, minced
+        1 tsp Italian seasoning
+        👩‍🍳 INSTRUCTIONS
+        1️⃣ Preheat the oven.
+        2️⃣ Bake the chicken.
+        """))
+        #expect(capture.name == "Savory Baked Caesar Chicken with Parmesan Sauce")
+        #expect(capture.ingredients.count == 6)
+        #expect(capture.ingredients.first?.name.contains("chicken breasts") == true)
+        #expect(!capture.ingredients.contains { $0.name.localizedCaseInsensitiveContains("comment") })
+        #expect(!capture.ingredients.contains { $0.name.localizedCaseInsensitiveContains("ingredients") })
+        #expect(capture.steps == ["Preheat the oven.", "Bake the chicken."])
+    }
+
+    @Test func aCaptionsHeaderCanHaveItsEmojiLast() throws {
+        let capture = try #require(RecipeTextParser.parseCaption("Tacos\nINGREDIENTS 👇\n1 lb beef\n2 cups rice"))
+        #expect(capture.ingredients.count == 2)
+    }
+
+    @Test func aListWithItsOwnAmountsSplitsEvenOnSeveralLines() throws {
+        let capture = try #require(RecipeTextParser.parseCaption("Ingredients:\n1 cup flour, 1 tsp salt\n2 cups milk"))
+        #expect(capture.ingredients.count == 3)
+    }
+
+    @Test func aPromotionIsntAnIngredientOrAName() throws {
+        let capture = try #require(RecipeTextParser.parseCaption("""
+        Comment RECIPE and I'll send it!
+        Tacos
+        Ingredients:
+        1 lb beef
+        2 cups rice
+        Link in bio
+        """))
+        #expect(capture.name == "Tacos")
+        #expect(capture.ingredients.count == 2)
+    }
+
+    @Test func aNameThatIsntShoutingStaysAsItIs() throws {
+        let capture = try #require(RecipeTextParser.parseCaption("Mom's BBQ chicken\nIngredients:\n1 lb beef\n2 cups rice"))
+        #expect(capture.name == "Mom's BBQ chicken")
+    }
+
     @Test func aCaptionAllOnOneLine() throws {
         let capture = try #require(RecipeTextParser.parseCaption(
             "Ingredients: 1 lb beef, 2 cups rice, peanut sauce Directions: Brown the beef."))

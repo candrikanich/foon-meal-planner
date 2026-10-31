@@ -40,28 +40,75 @@ enum RecipeTextParser {
 
     /// A social post's caption, if it holds a recipe: at least two ingredients, or it's better saved as an idea with its
     /// link. A caption often runs together ("Ingredients: 1 lb beef, 2 cups rice Directions: ..."), so its headers are
-    /// put on their own lines, and items after an Ingredients header are split at commas.
+    /// put on their own lines. It's also decorated ("👇 INGREDIENTS") and selling something ("Comment CAESAR for the
+    /// recipe"), and neither of those is an ingredient.
     static func parseCaption(_ caption: String) -> Capture? {
         let spaced = unwrappedInstagram(caption)
             .replacing(/(?i)\b(ingredients?|directions?|instructions?|method)\s*:/) { "\n\($0.1):\n" }
         var lines: [String] = []
+        var ingredientLines: [String] = []
         var inIngredients = false
         var sawIngredientsHeader = false
         for line in spaced.split(whereSeparator: \.isNewline).map(String.init) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if isIngredientsHeader(trimmed) {
-                inIngredients = true
-                sawIngredientsHeader = true
-            } else if isStepsHeader(trimmed) {
-                inIngredients = false
+            let trimmed = withoutDecoration(line)
+            guard !trimmed.isEmpty, !trimmed.hasPrefix("#"), !isPromotion(trimmed) else { continue }
+            if isIngredientsHeader(trimmed) || isStepsHeader(trimmed) {
+                lines += splitItems(ingredientLines)
+                ingredientLines = []
+                inIngredients = isIngredientsHeader(trimmed)
+                sawIngredientsHeader = sawIngredientsHeader || inIngredients
+                lines.append(trimmed)
+            } else if inIngredients {
+                ingredientLines.append(trimmed)
+            } else {
+                lines.append(trimmed)
             }
-            guard !trimmed.hasPrefix("#") else { continue }
-            lines += inIngredients ? trimmed.split(separator: ",").map(String.init) : [trimmed]
         }
-        let capture = parse(lines)
+        lines += splitItems(ingredientLines)
+        var capture = parse(lines)
         // "Tag someone who loves tacos / Link in bio" would pass for a shopping list: a caption needs a header or amounts.
         let looksLikeARecipe = sawIngredientsHeader || capture.ingredients.count { $0.quantity != nil } >= 2
+        capture.name = capture.name.map(withoutShouting)
         return looksLikeARecipe && capture.ingredients.count >= 2 ? capture : nil
+    }
+
+    /// One line under the header is a list run together, so it splits at commas, and so does a line where every piece has
+    /// its own amount. Otherwise a comma belongs to the ingredient ("4 boneless, skinless chicken breasts").
+    private static func splitItems(_ section: [String]) -> [String] {
+        section.flatMap { line -> [String] in
+            let pieces = line.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            return section.count == 1 || pieces.allSatisfy(isAmountLed) ? pieces : [line]
+        }
+    }
+
+    /// Emoji off both ends, with a keycap "1️⃣" kept as the step number it is.
+    private static func withoutDecoration(_ line: String) -> String {
+        var text = Substring(line)
+        func isDecoration(_ character: Character) -> Bool {
+            guard let scalar = character.unicodeScalars.first else { return false }
+            // Digits, "#", "*", "©" and the like count as emoji too.
+            return character.isWhitespace || (scalar.properties.isEmoji && scalar.value > 0x238C)
+        }
+        while let first = text.first, isDecoration(first) { text.removeFirst() }
+        while let last = text.last, isDecoration(last) { text.removeLast() }
+        if let first = text.first, first.unicodeScalars.contains("\u{20E3}"), let digit = first.unicodeScalars.first {
+            return "\(digit). " + text.dropFirst().trimmingCharacters(in: .whitespaces)
+        }
+        return String(text)
+    }
+
+    /// A caption asking for something rather than saying how to cook.
+    private static func isPromotion(_ line: String) -> Bool {
+        line.firstMatch(of: /(?i)^comment\b|\bdm me\b|link in (my )?bio|full recipe|recipe (is )?in (my )?bio|^follow\b|^tag\b/) != nil
+    }
+
+    /// "SAVORY BAKED CHICKEN WITH SAUCE" reads as "Savory Baked Chicken with Sauce" in a list of dishes.
+    private static func withoutShouting(_ name: String) -> String {
+        guard name == name.uppercased(), name != name.lowercased() else { return name }
+        let small: Set<String> = ["a", "an", "and", "in", "of", "on", "or", "the", "with"]
+        return name.lowercased().split(separator: " ").enumerated().map { index, word in
+            index > 0 && small.contains(String(word)) ? String(word) : word.prefix(1).uppercased() + word.dropFirst()
+        }.joined(separator: " ")
     }
 
     /// Instagram's page wraps a caption as `12 likes, 3 comments - cook on June 1, 2026: "the caption".` Left on, the
