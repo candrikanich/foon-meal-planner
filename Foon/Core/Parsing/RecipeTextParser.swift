@@ -65,7 +65,11 @@ enum RecipeTextParser {
                 // "Ingredients (contains peanuts, shrimp)": a note like that may be the only place an allergen is named. Each
                 // part keeps parentheses, so "(notes)" or "(nutrition info below)" can't read as the end of the recipe.
                 if inIngredients, let note = plain.firstMatch(of: /\((.+)\)/)?.1 {
-                    lines += note.split(separator: ",").map { "(\($0.trimmingCharacters(in: .whitespaces)))" }
+                    lines += note.split(separator: ",").map { part in
+                        let words = part.trimmingCharacters(in: .whitespaces)
+                        // "(serves 2)" still scales the amounts.
+                        return servings(in: words) != nil ? words : "(\(words))"
+                    }
                 }
                 continue
             }

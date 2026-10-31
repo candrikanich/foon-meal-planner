@@ -595,6 +595,24 @@ struct RecipeTextParserTests {
         #expect(names.contains("shrimp"))
     }
 
+    @Test(arguments: [("Ingredients (rice, flour)", "flour"), ("Ingredients (peanut, butter)", "butter"),
+                      ("Ingredients (gluten-free, except the flour)", "except the flour"),
+                      ("Ingredients (nut-free, may contain peanuts)", "may contain peanuts"),
+                      ("Ingredients (vegan, contains shrimp paste)", "contains shrimp paste"),
+                      ("Ingredients (contains peanuts and tree nuts, may contain shrimp, sesame and soy from the sauce)", "sesame and soy"),
+                      ("Ingredients (contains peanuts, 4 star anise)", "contains peanuts"),
+                      ("Ingredients (5 stars, contains peanuts)", "contains peanuts")])
+    func aHeaderNotesPartsDontCancelEachOther(header: String, part: String) throws {
+        let names = try savedNames("Dish\n\(header)\n1 lb beef\n1 cup rice")
+        #expect(names.contains { $0.contains(part) && !$0.contains(",") })
+    }
+
+    @Test func aServingsNoteInAHeaderScales() throws {
+        let capture = try #require(RecipeTextParser.parseCaption("Dish\nIngredients (serves 2)\n1 lb beef\n1 cup rice"))
+        #expect(capture.servings == 2)
+        #expect(capture.ingredients.count == 2)
+    }
+
     @Test func eachPartOfAHeaderNoteIsItsOwnLine() throws {
         let names = try savedNames("Dish\nIngredients (vegan, contains shrimp)\n1 lb beef\n1 cup rice")
         #expect(names.contains { $0.contains("contains shrimp") && !$0.contains("vegan") })
