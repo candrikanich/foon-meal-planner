@@ -52,7 +52,9 @@ enum RecipeTextParser {
         var sawIngredientsHeader = false
         for line in spaced.split(whereSeparator: \.isNewline).map(String.init) {
             let plain = withoutDecoration(line, trailing: true)
-            guard !plain.isEmpty, !plain.hasPrefix("#"), !isPromotion(plain) else { continue }
+            // Only a hashtag that opens the line as written: "🥜 #1 peanut butter" is an ingredient.
+            let opensWithHashtag = line.trimmingCharacters(in: .whitespaces).hasPrefix("#")
+            guard !plain.isEmpty, !opensWithHashtag, !isPromotion(plain) else { continue }
             if isIngredientsHeader(plain) || isStepsHeader(plain) {
                 lines += splitItems(ingredientLines)
                 ingredientLines = []
@@ -62,9 +64,11 @@ enum RecipeTextParser {
                 lines.append(plain)
                 continue
             }
-            // A trailing emoji stays: "2 🥚" is an ingredient.
-            var kept = withoutDecoration(line, trailing: false)
-            if let keycap = keycapped(kept) {
+            // Otherwise the emoji only comes off what's clearly an amount. Bared, "💡 Tip" would end the recipe, and "🥜 Makes
+            // 2 cups peanut sauce" would be a servings line. A trailing one stays: "2 🥚" is an ingredient.
+            let bared = withoutDecoration(line, trailing: false)
+            var kept = isAmountLed(bared) ? bared : line
+            if let keycap = keycapped(bared) {
                 guard !keycap.rest.isEmpty else { continue }
                 if inSteps { kept = "\(keycap.digit). \(keycap.rest)" }
                 if inIngredients { kept = "\(keycap.digit) \(keycap.rest)" }
@@ -79,17 +83,30 @@ enum RecipeTextParser {
         return looksLikeARecipe && capture.ingredients.count >= 2 ? capture : nil
     }
 
-    /// Items split at commas, since a wrong extra line is a quick delete and a long merged one gets cut, taking any allergen
-    /// after the cut with it. The exception is one amount with a description, short enough to keep whole:
-    /// "4 boneless, skinless chicken breasts", "3 cloves garlic, minced". A section of one line is a list run together.
+    /// Items split at commas, since a wrong extra line is a quick delete, a long merged one gets cut, and a merged one can
+    /// hide an allergen ("gluten-free pasta, flour for dusting" reads as gluten-free). The exception is one amount with
+    /// a plain description, short enough to keep whole. A section of one line is a list run together.
     private static func splitItems(_ section: [String]) -> [String] {
         section.flatMap { line -> [String] in
             let pieces = line.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-            let isOneItem = section.count > 1 && pieces.count == 2 && isAmountLed(line) && !isAmountLed(pieces[1])
-                && MealDraft.length(line) <= maxWholeLine
+            let isOneItem = section.count > 1 && pieces.count == 2 && isAmountLed(line)
+                && MealDraft.length(line) <= maxWholeLine && isDescription(first: pieces[0], second: pieces[1])
             return isOneItem ? [line] : pieces
         }
     }
+
+    /// "4 boneless, skinless chicken breasts" or "3 cloves garlic, finely minced".
+    private static func isDescription(first: String, second: String) -> Bool {
+        if let last = first.split(separator: " ").last, leadingDescriptions.contains(last.lowercased()) { return true }
+        return second.split(separator: " ").allSatisfy { descriptions.contains($0.lowercased()) }
+    }
+
+    private static let leadingDescriptions: Set<String> = ["boneless", "skinless", "bone-in", "skin-on", "large", "medium", "small"]
+    private static let descriptions: Set<String> = [
+        "minced", "chopped", "diced", "sliced", "beaten", "melted", "softened", "peeled", "drained", "rinsed", "divided",
+        "grated", "shredded", "cubed", "crushed", "thawed", "halved", "quartered", "toasted", "sifted", "packed", "optional",
+        "finely", "roughly", "coarsely", "thinly", "freshly", "lightly", "room", "temperature", "at", "to", "taste",
+    ]
 
     /// `RecipeImport.ingredientName` cuts a longer name at its first comma.
     private static let maxWholeLine = 60
@@ -115,15 +132,20 @@ enum RecipeTextParser {
         return (digit, line.dropFirst().trimmingCharacters(in: .whitespaces))
     }
 
-    /// A caption asking for something rather than saying how to cook. Only a line that opens that way and has no amount:
-    /// "3 tbsp peanut butter (full recipe in bio)" and "Peanut sauce, link in bio" stay, because a wrong ingredient is a
-    /// quick delete and a dropped one is an allergy flag that never shows.
+    /// A caption asking for something rather than saying how to cook. When unsure it stays, because a wrong ingredient is a
+    /// quick delete and a dropped one is an allergy flag that never shows: a line that opens with an ask and holds no comma
+    /// or number ("Comment PEANUT: 1 cup peanut butter" stays), or one that's nothing but a pointer to the recipe.
     private static func isPromotion(_ line: String) -> Bool {
-        !isAmountLed(line) && line.prefixMatch(of: promotion) != nil
+        if line.wholeMatch(of: recipePointer) != nil { return true }
+        return line.prefixMatch(of: ask) != nil && !line.contains(",") && !line.contains(where: \.isNumber)
     }
 
-    private static var promotion: Regex<Substring> {
-        /(?i)(?:comment\b|dm me\b|follow (?:me|us|for)\b|follow @|tag (?:a|your|someone)\b|link in (?:my )?bio\b|(?:(?:get|see|grab) )?(?:the )?full recipe\b|recipe (?:is )?in (?:my )?bio\b)/
+    private static var ask: Regex<Substring> {
+        /(?i)(?:comment\b|dm me\b|follow (?:me|us|for)\b|follow @|tag (?:a|your|someone)\b)/
+    }
+
+    private static var recipePointer: Regex<Substring> {
+        /(?i)(?:link in (?:my )?bio|(?:(?:get|see|grab) )?(?:the )?(?:full )?recipe(?: (?:is )?(?:in|at) (?:my |the )?(?:bio|link)(?: in (?:my )?bio)?)?)[.!]*/
     }
 
     /// "SAVORY BAKED CHICKEN WITH SAUCE" reads as "Savory Baked Chicken with Sauce" in a list of dishes. A short name stays,

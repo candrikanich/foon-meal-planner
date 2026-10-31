@@ -563,6 +563,39 @@ struct RecipeTextParserTests {
         #expect(try savedNames(caption).contains { $0.localizedCaseInsensitiveContains(allergen) })
     }
 
+    /// Whole, the first part would cancel the allergen in the second.
+    @Test(arguments: [("8 oz gluten-free pasta, flour for dusting", "flour for dusting"), ("8 oz vegan sausage, parmesan to serve", "parmesan to serve"),
+                      ("2 cups rice, flour for dredging", "flour for dredging"), ("2 cups cooked rice, milk", "milk"),
+                      ("2 cups vegan broth, shrimp", "shrimp"), ("1 cup nut-free granola, pecans", "pecans"), ("1 cup soy-free tamari, tofu", "tofu")])
+    func aSecondItemGetsItsOwnLine(line: String, item: String) throws {
+        #expect(try savedNames("Dish\nIngredients:\n\(line)\n1 tsp salt").contains(item))
+    }
+
+    @Test(arguments: ["4 boneless, skinless chicken breasts", "3 cloves garlic, finely minced", "2 tbsp butter, at room temperature", "2 large, ripe avocados"])
+    func aDescriptionStaysWithItsIngredient(line: String) throws {
+        #expect(try savedNames("Dish\nIngredients:\n\(line)\n1 tsp salt").count == 2)
+    }
+
+    @Test(arguments: [("Comment PEANUT: 1 cup peanut butter, 2 eggs, 1 cup shrimp", "shrimp"), ("Full recipe in bio: peanut butter, soy sauce, eggs", "eggs"),
+                      ("Get the full recipe: 2 tbsp peanut butter, 1 cup shrimp", "shrimp"), ("Link in bio for the peanut sauce", "peanut"),
+                      ("Full recipe calls for peanut sauce", "peanut")])
+    func aPromotionHoldingIngredientsStays(line: String, allergen: String) throws {
+        #expect(try savedNames("Dish\nIngredients:\n\(line)\n1 tsp salt\n1 lb beef").contains { $0.localizedCaseInsensitiveContains(allergen) })
+    }
+
+    @Test(arguments: [
+        ("Dish\nIngredients:\n1 lb beef\n1 cup rice\n💡 Tip\nFor the sauce:\n3 tbsp peanut butter", "peanut"),
+        ("📝 Note\nEasy weeknight dinner.\n👇 INGREDIENTS\n1 cup peanut butter\n2 eggs", "peanut"),
+        ("Dish\nIngredients:\n✅ 1. Rice\n✅ 2. Beef\n✅ 3. Salt\n✅ 4. Creamy natural peanut butter from the store with no sugar\n✅ 5. Shrimp", "shrimp"),
+        ("Tacos\nIngredients:\n1 lb beef\n🥜 For the garnish crushed peanuts\n1 cup rice", "peanut"),
+        ("Tacos\nIngredients:\n1 lb beef\n🥜 Makes 2 cups peanut sauce\n1 cup rice", "peanut"),
+        ("Tacos\nIngredients:\n1 lb beef\n🔥 Cook 2 cups shrimp first\n1 cup rice", "shrimp"),
+        ("Tacos\nIngredients:\n1 lb beef\n🥜 #1 peanut butter\n1 cup rice", "peanut"),
+    ])
+    func aDecoratedLineDoesntEndOrHideTheList(caption: String, allergen: String) throws {
+        #expect(try savedNames(caption).contains { $0.localizedCaseInsensitiveContains(allergen) })
+    }
+
     @Test func aRecipeRunningIntoAPromotionIsStillARecipe() throws {
         let names = try savedNames("Peanut Noodles\nIngredients: 1 lb noodles, 2 tbsp peanut butter, 1 tbsp soy sauce. Full recipe in my bio!")
         #expect(names.contains { $0.contains("peanut butter") })
