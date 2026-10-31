@@ -11,8 +11,11 @@ enum RecipeTextParser {
         var steps: [String] = []
 
         var isEmpty: Bool { name == nil && ingredients.isEmpty && steps.isEmpty }
-        /// More ingredients than a meal can hold: the review screen says so, since flags only read what's kept.
-        var isTruncated: Bool { ingredients.count > ingredientLimit }
+        /// More ingredients than a meal can hold, or a name too long to keep whole: the review screen says so, since flags
+        /// only read what's kept.
+        var isTruncated: Bool {
+            ingredients.count > ingredientLimit || ingredients.contains { MealDraft.length($0.name) > maxIngredientName }
+        }
 
         /// Scaled to the family once, like a recipe from a link.
         func draft(householdSize: Int) -> MealDraft {
@@ -65,7 +68,7 @@ enum RecipeTextParser {
                 // "Ingredients (contains peanuts, shrimp)": a note like that may be the only place an allergen is named. Each
                 // part keeps parentheses, so "(notes)" or "(nutrition info below)" can't read as the end of the recipe.
                 if inIngredients, let note = plain.firstMatch(of: /\((.+)\)/)?.1 {
-                    lines += note.split(separator: ",").map { part in
+                    lines += note.split(whereSeparator: isItemSeparator).map { part in
                         let words = part.trimmingCharacters(in: .whitespaces)
                         // "(serves 2)" still scales the amounts. Only when that's all it says: "(makes 2 cups peanut sauce)" stays.
                         let isOnlyServings = words.wholeMatch(of: /(?i)(?:serves|servings?|yield|makes)\s*:?\s*\d{1,2}(?:\s*(?:people|servings?))?/) != nil
@@ -98,11 +101,10 @@ enum RecipeTextParser {
     /// a plain description, short enough to keep whole. A section of one line is a list run together.
     private static func splitItems(_ section: [String]) -> [String] {
         section.flatMap { line -> [String] in
-            let pieces = line.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-            // The matcher reads "plant-based" and "plant based" alike.
-            let lower = line.lowercased().replacing("-", with: " ")
+            let pieces = line.split(whereSeparator: isItemSeparator).map { $0.trimmingCharacters(in: .whitespaces) }
             // These labels apply to everything on an ingredient, so they'd cancel an allergen on the other side of the comma.
-            let hasFreeFromLabel = lower.contains("free") || freeFromLabels.contains { lower.contains($0) }
+            let words = Words(line)
+            let hasFreeFromLabel = line.lowercased().contains("free") || freeFromLabels.contains(where: words.contains)
             let isOneItem = section.count > 1 && pieces.count == 2 && isAmountLed(line) && !hasFreeFromLabel
                 && MealDraft.length(line) <= maxWholeLine && isDescription(first: pieces[0], second: pieces[1])
             return isOneItem ? [line] : pieces
@@ -122,11 +124,15 @@ enum RecipeTextParser {
         "finely", "roughly", "coarsely", "thinly", "freshly", "lightly", "room", "temperature", "at", "to", "taste",
     ]
 
-    /// The allergy matcher's own labels, so the two can't drift apart.
-    private static let freeFromLabels = AllergenKeywords.all.flatMap(\.freeFrom).map { $0.lowercased().replacing("-", with: " ") }
+    /// The allergy matcher's own labels and tokens, so the two can't drift apart.
+    private static let freeFromLabels = AllergenKeywords.all.flatMap(\.freeFrom).map { Words($0).tokens }
+
+    /// Inside parentheses too, unlike `IngredientParser`: kept whole, "(vegan, contains shrimp)" would cancel the shrimp, and
+    /// a split note is only a line to delete.
+    private static func isItemSeparator(_ character: Character) -> Bool { ",;•".contains(character) }
 
     /// `RecipeImport.ingredientName` cuts a longer name at its first comma.
-    private static let maxWholeLine = 60
+    private static var maxWholeLine: Int { maxIngredientName }
 
     /// Emoji and arrows off the start of a line, and optionally its end.
     private static func withoutDecoration(_ line: String, trailing: Bool) -> String {
@@ -320,6 +326,8 @@ enum RecipeTextParser {
         if let ingredient = IngredientParser.parseLine(line) { capture.ingredients.append(ingredient) }
     }
 
+    /// `RecipeImport.ingredientName` keeps this much.
+    private static let maxIngredientName = 60
     private static let longLine = 70
     private static let shortLine = 50
     private static var numbered: Regex<Substring> { /^\d{1,2}[.)]\s+/ }

@@ -618,6 +618,30 @@ struct RecipeTextParserTests {
         #expect(capture.ingredients.count == 2)
     }
 
+    @Test(arguments: [("Dish\nIngredients:\npeanut butter; shrimp; eggs\n1 lb beef", "shrimp"),
+                      ("Dish\nIngredients:\npeanut butter • shrimp • eggs\n1 lb beef", "shrimp"),
+                      ("Dish\nIngredients:\nComment PEANUT: peanut butter; shrimp; eggs\n1 lb beef", "shrimp"),
+                      ("Dish\nIngredients (vegan; contains shrimp)\n1 lb beef\n1 cup rice", "contains shrimp"),
+                      ("Dish\nIngredients (vegan • contains shrimp)\n1 lb beef\n1 cup rice", "contains shrimp"),
+                      ("Dish\nIngredients:\n1 cup milk (vegan, contains shrimp)\n1 lb beef", "contains shrimp")])
+    func eachSeparatorMakesItsOwnLine(caption: String, part: String) throws {
+        let names = try savedNames(caption)
+        #expect(names.contains { $0.contains(part) && !$0.contains(";") && !$0.contains("•") && !$0.contains("vegan") })
+    }
+
+    @Test func aNameTooLongToKeepSaysSo() throws {
+        let long = String(repeating: "mixed roasted nuts ", count: 5) + "peanuts"
+        let capture = try #require(RecipeTextParser.parseCaption("Dish\nIngredients:\n\(long)\n1 lb beef"))
+        #expect(capture.isTruncated)
+        let short = try #require(RecipeTextParser.parseCaption("Dish\nIngredients:\n1 cup rice\n1 lb beef"))
+        #expect(!short.isTruncated)
+    }
+
+    @Test(arguments: ["plant-based", "plant–based", "plant based", "gluten‑free", "eggless"])
+    func aFreeFromLabelHoweverWrittenSplitsALine(label: String) throws {
+        #expect(try savedNames("Dish\nIngredients:\n4 \(label) boneless, shrimp tacos\n1 tsp salt").contains("shrimp tacos"))
+    }
+
     @Test func eachPartOfAHeaderNoteIsItsOwnLine() throws {
         let names = try savedNames("Dish\nIngredients (vegan, contains shrimp)\n1 lb beef\n1 cup rice")
         #expect(names.contains { $0.contains("contains shrimp") && !$0.contains("vegan") })
