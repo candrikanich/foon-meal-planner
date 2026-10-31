@@ -648,6 +648,35 @@ struct RecipeTextParserTests {
         #expect(capture.servings == 2)
     }
 
+    @Test(arguments: [
+        ("Dish\nIngredients:\n• 1 lb beef\n• 1 cup rice\n• Tips\n• 2 tbsp peanut butter", "peanut"),
+        ("Dish\nIngredients:\n• 1 lb beef\n• Notes\n• 2 tbsp peanut butter\n• 1 cup shrimp", "shrimp"),
+        ("Dish\nIngredients:\n• 1 lb beef\n• For the garnish crushed peanuts\n• 1 cup rice", "peanuts"),
+        ("Dish\nIngredients:\n• 1 lb beef\n• Makes 2 cups peanut sauce\n• 1 cup rice", "peanut"),
+        ("Dish\nIngredients:\n• 1 lb beef\n• Cook 2 cups shrimp first\n• 1 cup rice", "shrimp"),
+        ("Dish\nIngredients:\n• 1 lb beef\n• 1 cup rice\n• Method\nMix well\n• 2 tbsp peanut butter", "peanut"),
+        ("Dish\nIngredients:\n• 1. Rice\n• 2. Beef\n• 3. Creamy natural peanut butter from the store with no sugar\n• 4. Shrimp", "shrimp"),
+        ("Dish\nIngredients:\n• Step 1 peanut butter\n• 2 cups rice\n• 1 lb beef", "peanut"),
+        ("Dish\nIngredients:\n1 lb beef; Notes\n2 tbsp peanut butter\n1 cup shrimp", "shrimp"),
+        ("Dish\nIngredients:\n1 lb beef • Tips\n2 tbsp peanut butter\n1 cup shrimp", "shrimp"),
+        ("Dish\nIngredients:\n1 lb beef; cook 2 cups shrimp first\n1 cup rice", "shrimp"),
+        ("Dish\nIngredients:\n1 lb beef; for the garnish crushed peanuts\n1 cup rice", "peanuts"),
+    ])
+    func aBulletedOrSplitControlWordStaysAnIngredient(caption: String, allergen: String) throws {
+        #expect(try savedNames(caption).contains { $0.localizedCaseInsensitiveContains(allergen) })
+    }
+
+    @Test(arguments: ["3 tablespoons unsalted butter, cut into small pieces, plus more for the pan",
+                      "Kosher salt and freshly ground black pepper, to taste, plus more as needed"])
+    func cuttingOnlyHowItsPreparedDoesntWarn(line: String) {
+        #expect(!RecipeTextParser.parse(["Dish", "Ingredients:", line, "1 lb beef"]).isTruncated)
+    }
+
+    @Test func aCutThatLosesAnAllergenWarns() {
+        let line = "2 cups a long blend of toasted grains from the store near home, with peanuts"
+        #expect(RecipeTextParser.parse(["Dish", "Ingredients:", line, "1 lb beef"]).isTruncated)
+    }
+
     @Test func aNameTooLongToKeepSaysSo() throws {
         let long = String(repeating: "mixed roasted nuts ", count: 5) + "peanuts"
         let capture = try #require(RecipeTextParser.parseCaption("Dish\nIngredients:\n\(long)\n1 lb beef"))

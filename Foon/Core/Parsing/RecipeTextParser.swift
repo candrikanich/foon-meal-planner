@@ -11,10 +11,10 @@ enum RecipeTextParser {
         var steps: [String] = []
 
         var isEmpty: Bool { name == nil && ingredients.isEmpty && steps.isEmpty }
-        /// More ingredients than a meal can hold, or a name too long to keep whole: the review screen says so, since flags
-        /// only read what's kept.
+        /// More ingredients than a meal can hold, or a name whose cut could hide something: the review screen says so, since
+        /// flags only read what's kept.
         var isTruncated: Bool {
-            ingredients.count > ingredientLimit || ingredients.contains { MealDraft.length($0.name) > maxIngredientName }
+            ingredients.count > ingredientLimit || ingredients.contains { RecipeTextParser.losesSomething($0.name) }
         }
 
         /// Scaled to the family once, like a recipe from a link.
@@ -338,6 +338,14 @@ enum RecipeTextParser {
 
     private static func add(_ line: String, to capture: inout Capture) {
         if let ingredient = IngredientParser.parseLine(line) { capture.ingredients.append(ingredient) }
+    }
+
+    /// A cut at a comma usually only drops how it's prepared ("butter, cut into small pieces"), so that alone isn't worth a
+    /// warning unless an allergen goes with it. A cut with no comma stops mid-text, which could be anything.
+    fileprivate static func losesSomething(_ name: String) -> Bool {
+        guard MealDraft.length(name) > maxIngredientName else { return false }
+        guard name.contains(",") else { return true }
+        return AllergyMatcher.allergens(in: name) != AllergyMatcher.allergens(in: RecipeImport.ingredientName(name))
     }
 
     /// `RecipeImport.ingredientName` keeps this much.
