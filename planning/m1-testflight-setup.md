@@ -90,6 +90,7 @@ Xcode Cloud numbers builds automatically, and 25 compute hours a month are free,
 - Xcode Cloud workflow: Archive (iOS, scheme Foon, which archives with **Staging**) → TestFlight Internal → Family.
 - **Start condition: tags matching `testflight/*`**, not every merge, so the family only gets builds worth trying.
   - To ship: `git tag testflight/<yyyy-mm-dd>[-n] origin/main && git push origin <tag>`. Say what's in it.
+  - To check on a build: `scripts/xcode-cloud.py runs`, `show <number>`, or `logs <number> <new dir>`. Read-only; it needs `~/.appstoreconnect/foon.json` beside the App Store Connect key, outside the repo. The key is the team's App Manager key, shared with TRC, so each token is scoped to a single GET.
   - Or click Start Build in Xcode (⌘9 → Cloud).
 - Staging migrations still deploy on every merge to `main` (`deploy-staging.yml`), so keep migrations backward
   compatible with the last TestFlight build.
