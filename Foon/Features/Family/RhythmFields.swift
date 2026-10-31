@@ -133,7 +133,7 @@ struct HouseholdRhythmView: View {
     }
 
     private var weekNote: String {
-        let times = String(localized: "A new dinner time starts with the next week you start.")
+        let times = String(localized: "Changing dinner time moves tonight and every night after it.")
         switch weekStart {
         case .lockedThrough(let last):
             let date = DayCardText.dateLabel(for: last)

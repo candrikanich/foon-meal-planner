@@ -505,9 +505,6 @@
     "A meal from your library, or something simple like salad or garlic bread" : {
 
     },
-    "A new dinner time starts with the next week you start." : {
-
-    },
     "A note (optional)" : {
 
     },
@@ -785,6 +782,9 @@
 
     },
     "Changes the night's effort" : {
+
+    },
+    "Changing dinner time moves tonight and every night after it." : {
 
     },
     "Changing your mind" : {
