@@ -123,6 +123,7 @@ struct SharedItemSheet: View {
         let imported = await library.importRecipe(url.absoluteString)
         library.clearError()
         guard let imported else { return }
+        if title.isEmpty, let pageTitle = ShareRouter.postTitle(imported.title, for: url) { title = pageTitle }
         let size = max(household.visibleMembers.count, 1)
         var draft: MealDraft?
         if imported.hasRecipe {
@@ -130,7 +131,7 @@ struct SharedItemSheet: View {
         } else if let capture = imported.caption.flatMap(RecipeTextParser.parseCaption) {
             readTruncated = capture.isTruncated || imported.captionTruncated == true
             draft = capture.draft(householdSize: size)
-            if capture.name == nil { draft?.name = RecipeImport.clamped(title.isEmpty ? imported.title ?? "" : title, to: 80) }
+            if capture.name == nil { draft?.name = RecipeImport.clamped(title.isEmpty ? ShareRouter.siteLabel(url) : title, to: 80) }
             draft?.link = url.absoluteString
         }
         if let draft { readDraft = draft }
@@ -228,7 +229,7 @@ struct SharedItemSheet: View {
     @ViewBuilder
     private func link(_ url: URL, canImport: Bool) -> some View {
         Section {
-            Link(destination: url) { Label(url.host() ?? url.absoluteString, systemImage: "safari") }
+            Link(destination: url) { Label(ShareRouter.linkLabel(url), systemImage: "safari") }
             TextField("What is it? (optional)", text: $title)
         }
         Section {

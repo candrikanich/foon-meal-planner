@@ -27,7 +27,7 @@ struct RecipeImport: Decodable, Equatable, Sendable {
     /// An idea's own name, when it has one, goes on the dish: it's what the family calls it.
     func draft(householdSize: Int, named name: String? = nil) -> MealDraft {
         let size = min(max(householdSize, 1), 50)
-        var draft = MealDraft(newNamed: Self.clamped(name ?? recipe?.name ?? title ?? url.host() ?? url.absoluteString, to: 80))
+        var draft = MealDraft(newNamed: Self.clamped(name ?? recipe?.name ?? ShareRouter.postTitle(title, for: url) ?? ShareRouter.siteLabel(url), to: 80))
         draft.link = Self.sourceLink(url)
         guard let recipe else { return draft }
         draft.servings = size

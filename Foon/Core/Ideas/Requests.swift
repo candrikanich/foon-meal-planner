@@ -251,7 +251,7 @@ enum RequestBoard {
         if let link = request.link, LibraryStore.webLink(link.absoluteString) != nil {
             return .read(IdeaLink(url: link, name: name))
         }
-        var draft = MealDraft(newNamed: name ?? request.link?.host() ?? String(localized: "New dish"))
+        var draft = MealDraft(newNamed: name ?? request.link.map(ShareRouter.siteLabel) ?? String(localized: "New dish"))
         draft.link = request.link?.absoluteString ?? ""
         return .make(draft)
     }

@@ -220,6 +220,89 @@ struct ShareRouterTests {
     @Test func textWithNothingToBuyIsAnEmptyList() {
         #expect(ShareRouter.route(.text(" , ,")) == .shoppingList([]))
     }
+
+    @Test(arguments: [("https://www.instagram.com/p/abc", "Instagram post"), ("https://instagr.am/p/abc", "Instagram post"),
+                      ("https://vm.tiktok.com/abc", "TikTok post"), ("https://fb.watch/abc", "Facebook post"),
+                      ("https://youtu.be/abc", "YouTube post"), ("https://www.pinterest.co.uk/pin/1", "Pinterest post"),
+                      ("https://www.threads.net/@a/post/1", "Threads post"), ("https://twitter.com/a/status/1", "X post"),
+                      ("https://www.allrecipes.com/chili", "allrecipes.com"), ("https://r.example/chili", "r.example")])
+    func aLinkWithNoTitleIsCalledByItsSite(link: String, label: String) {
+        #expect(ShareRouter.siteLabel(URL(string: link)!) == label)
+    }
+
+    @Test(arguments: ["https://pinterest.evil.example/pin/1", "https://www.pinterest.evil.com/pin/1", "https://notpinterest.com/pin/1",
+                      "https://pinterest.xy/pin/1", "https://pinterest.com.xy/pin/1", "https://pinterest.co.xy/pin/1"])
+    func aLookalikePinterestIsntPinterest(link: String) {
+        let url = URL(string: link)!
+        #expect(ShareRouter.route(.link(url, title: nil)) == .recipeLink(url, title: nil))
+        #expect(!ShareRouter.siteLabel(url).contains("Pinterest"))
+    }
+
+    @Test func aTappableLinkAlwaysSaysWhereItGoes() {
+        #expect(ShareRouter.linkLabel(URL(string: "https://www.instagram.com/p/abc")!) == "Instagram post · instagram.com")
+        #expect(ShareRouter.linkLabel(recipe) == "recipes.example")
+    }
+
+    private let post = URL(string: "https://www.instagram.com/p/abc")!
+
+    @Test(arguments: [("https://www.instagram.com/p/abc", "Instagram"), ("https://www.instagram.com/p/abc", "Login • Instagram"),
+                      ("https://www.instagram.com/p/abc", "Cook on Instagram"),
+                      ("https://www.tiktok.com/@me/video/1", "TikTok - Make Your Day"),
+                      ("https://www.facebook.com/x", "Log into Facebook"), ("https://x.com/a/status/1", "X"),
+                      ("https://www.threads.com/@a/post/1", "Threads • Log in"),
+                      ("https://x.com/a/status/1", "Jack (@jack) on X"), ("https://www.facebook.com/x", "Facebook"),
+                      ("https://www.instagram.com/p/abc", "   ")])
+    func aSocialPageThatOnlyNamesItsSiteIsNoTitle(link: String, page: String) {
+        #expect(ShareRouter.postTitle(page, for: URL(string: link)!) == nil)
+    }
+
+    @Test func noPageTitleIsNoTitle() {
+        #expect(ShareRouter.postTitle(nil, for: post) == nil)
+    }
+
+    @Test func anInstagramTitleBecomesItsCaption() {
+        #expect(ShareRouter.postTitle(#"Cook on Instagram: "Easy weeknight tacos""#, for: post) == "Easy weeknight tacos")
+        #expect(ShareRouter.postTitle("Cook on Instagram: “Easy weeknight tacos”", for: post) == "Easy weeknight tacos")
+    }
+
+    @Test func aCaptionKeepsItsOwnQuotes() {
+        #expect(ShareRouter.postTitle(#"Cook on Instagram: "She called it "the best"""#, for: post) == #"She called it "the best""#)
+        #expect(ShareRouter.postTitle(#"Cook on Instagram: ""Best" tacos ever""#, for: post) == #""Best" tacos ever"#)
+    }
+
+    @Test func facebooksCountsAndNameComeOff() {
+        let video = URL(string: "https://www.facebook.com/watch/?v=1")!
+        #expect(ShareRouter.postTitle("2.8M views · 1.3K reactions | Easy tacos | Facebook", for: video) == "Easy tacos")
+        #expect(ShareRouter.postTitle("Easy tacos | Facebook", for: video) == "Easy tacos")
+    }
+
+    @Test func aCutTitleDoesntEndOnPunctuation() throws {
+        let long = #"Cook on Instagram: "Introducing Ballroom in Focus, the largest digital archive of Ballroom history, curated with friends""#
+        #expect(ShareRouter.postTitle(long, for: post) == "Introducing Ballroom in Focus, the largest digital archive of Ballroom history")
+    }
+
+    @Test func aLongCaptionFitsAnIdeaAndEndsOnAWholeWord() throws {
+        let words = String(repeating: "tacos ", count: 30)
+        let title = try #require(ShareRouter.postTitle(#"Cook on Instagram: "\#(words)"#, for: post))
+        #expect(title.count <= SharedItem.titleLimit)
+        #expect(title.hasSuffix("tacos"))
+    }
+
+    @Test func aRealSocialTitleStays() {
+        let video = URL(string: "https://www.youtube.com/watch?v=abc")!
+        #expect(ShareRouter.postTitle("Best chili ever - YouTube", for: video) == "Best chili ever - YouTube")
+        #expect(ShareRouter.postTitle("Best chili on YouTube", for: video) == "Best chili on YouTube")
+        #expect(ShareRouter.postTitle("The best chili blog in Ohio", for: video) == "The best chili blog in Ohio")
+    }
+
+    @Test func anOrdinaryPageKeepsItsTitle() {
+        #expect(ShareRouter.postTitle("Instagram", for: recipe) == "Instagram")
+    }
+
+    @Test func aDishFromAPostWithNoTitleIsntNamedAfterTheAddress() {
+        let page = RecipeImport(recipe: nil, title: "Instagram", url: post)
+        #expect(page.draft(householdSize: 4).name == "Instagram post")
+    }
 }
 
 struct RecipeTextParserTests {
@@ -382,6 +465,22 @@ struct RecipeTextParserTests {
         #expect(RecipeTextParser.parseCaption("Best dinner ever!! So good #yum") == nil)
         #expect(RecipeTextParser.parseCaption("Tag someone who loves tacos\nLink in bio") == nil)
         #expect(RecipeTextParser.parseCaption("") == nil)
+    }
+
+    @Test(arguments: ["5,086 likes, 120 comments - cook on June 29, 2023: \"Tacos\nIngredients:\n1 lb beef\n2 cups rice\nDirections:\nBrown it",
+                      "120 comments - cook on June 29, 2023: \"Tacos\nIngredients:\n1 lb beef\n2 cups rice\nDirections:\nBrown it.\"."])
+    func instagramsWrapperComesOffACutCaptionOrHiddenLikes(page: String) throws {
+        let capture = try #require(RecipeTextParser.parseCaption(page))
+        #expect(capture.name == "Tacos")
+        #expect(capture.ingredients.count == 2)
+    }
+
+    @Test func instagramsLikesAndDateArentTheDish() throws {
+        let page = "5,086 likes, 120 comments - cook on June 29, 2023: \"Tacos\nIngredients:\n1 lb beef\n2 cups rice\nDirections:\nBrown it.\"."
+        let capture = try #require(RecipeTextParser.parseCaption(page))
+        #expect(capture.name == "Tacos")
+        #expect(capture.ingredients.count == 2)
+        #expect(capture.steps == ["Brown it."])
     }
 
     @Test func nothingReadIsEmpty() {
