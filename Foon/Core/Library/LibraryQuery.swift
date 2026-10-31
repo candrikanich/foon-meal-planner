@@ -42,6 +42,8 @@ struct LibraryEntry: Identifiable, Equatable, Sendable {
     /// How many people's current verdict is favorite, and how often anyone liked it: the Family favorites sort.
     var favoriteCount = 0
     var likes = 0
+    /// Said in place of a flag when there's nothing to check allergies against.
+    var uncheckedNote: String? = nil
 
     var id: UUID { meal.id }
 }
@@ -68,7 +70,8 @@ enum LibraryQuery {
                                             members: allergies),
                 isFavorite: favorites.contains(meal.id),
                 favoriteCount: favoriteCounts[meal.id] ?? 0,
-                likes: likes[meal.id] ?? 0
+                likes: likes[meal.id] ?? 0,
+                uncheckedNote: AllergyMatcher.uncheckedNote(meal: meal, library: meals, members: allergies)
             )
         }
     }

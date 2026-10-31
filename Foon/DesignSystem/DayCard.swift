@@ -154,6 +154,8 @@ struct DayCard: View {
             switch badge {
             case .allergy:
                 Chip(text: DayCardText.badgeLabel(badge), systemImage: "exclamationmark.triangle.fill", tint: Palette.caution)
+            case .allergyUnchecked:
+                Chip(text: DayCardText.badgeLabel(badge), systemImage: "questionmark.circle", tint: Palette.caution)
             case .tradition:
                 Chip(text: DayCardText.badgeLabel(badge), systemImage: "repeat", tint: Palette.paprika)
             case .request:

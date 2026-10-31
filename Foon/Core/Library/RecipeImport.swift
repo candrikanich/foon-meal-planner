@@ -24,9 +24,10 @@ struct RecipeImport: Decodable, Equatable, Sendable {
     var hasRecipe: Bool { recipe != nil }
 
     /// A new meal for the library: scaled from the recipe's servings to the household, the link kept as its source.
-    func draft(householdSize: Int) -> MealDraft {
+    /// An idea's own name, when it has one, goes on the dish: it's what the family calls it.
+    func draft(householdSize: Int, named name: String? = nil) -> MealDraft {
         let size = min(max(householdSize, 1), 50)
-        var draft = MealDraft(newNamed: Self.clamped(recipe?.name ?? title ?? url.host() ?? url.absoluteString, to: 80))
+        var draft = MealDraft(newNamed: Self.clamped(name ?? recipe?.name ?? title ?? url.host() ?? url.absoluteString, to: 80))
         draft.link = Self.sourceLink(url)
         guard let recipe else { return draft }
         draft.servings = size
@@ -38,6 +39,17 @@ struct RecipeImport: Decodable, Equatable, Sendable {
         }
         draft.stepsText = recipe.steps.prefix(50).joined(separator: "\n")
         return draft
+    }
+
+    /// What the preview says when the dish would save with no ingredients; nil when it has some.
+    func noIngredientsNote(lineCount: Int, couldntRead: Bool) -> String? {
+        guard lineCount == 0 else { return nil }
+        if couldntRead {
+            return String(localized: "Foon couldn't read that page, so it kept the name and link. Add ingredients when you can.")
+        }
+        return hasRecipe
+            ? String(localized: "That recipe has no ingredients Foon could read. Add them when you can.")
+            : String(localized: "No recipe card on that page, so Foon kept the name and link. Add ingredients when you can.")
     }
 
     /// The page's address as the source link; a tracking-laden one past the 2,048-character limit loses its query.

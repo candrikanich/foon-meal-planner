@@ -10,6 +10,9 @@ final class IdeasStore {
     private(set) var errorMessage: String?
     /// Requests with a write in flight, so their buttons don't fire twice.
     private(set) var saving: Set<UUID> = []
+    /// Dishes made for ideas (idea → dish) that aren't linked yet. Here rather than on the idea's screen, so closing it
+    /// after a failed link and coming back still retries the same dish.
+    private(set) var madeDishes: [UUID: UUID] = [:]
 
     let householdID: UUID
     private let client: IdeasClient
@@ -64,6 +67,19 @@ final class IdeasStore {
         await write(requestID, .update) { [client] in try await client.update(requestID, update) }
     }
 
+    func rememberDish(_ mealID: UUID, for requestID: UUID) {
+        madeDishes[requestID] = mealID
+    }
+
+    /// Points an idea at the dish made for it. Failing, the dish stays remembered for the retry.
+    @discardableResult
+    func linkDish(_ mealID: UUID, to requestID: UUID) async -> Bool {
+        rememberDish(mealID, for: requestID)
+        guard await update(requestID, RequestUpdate(linkMealID: mealID)) else { return false }
+        madeDishes[requestID] = nil
+        return true
+    }
+
     enum Action: Sendable { case make, meToo, update }
 
     /// Each refusal in words for what was tried (the server's codes mean different things per call).
@@ -78,6 +94,7 @@ final class IdeasStore {
         case (.update, "42501"): String(localized: "Only planners can do that with someone else's idea.")
         case (.update, "22023"): String(localized: "Pick a night from today on to plan it.")
         case (.update, "23514"): String(localized: "Notes need 200 characters or fewer.")
+        case (.update, "P0002"): String(localized: "That's not here anymore. Pull down on Ideas to refresh.")
         case (.make, _): String(localized: "Couldn't send the idea. Check your connection and try again.")
         default: String(localized: "Couldn't save that. Check your connection and try again.")
         }

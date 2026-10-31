@@ -53,6 +53,11 @@ final class LibraryStore {
         LibraryQuery.apply(entries(meals), filter: filter, sort: sort, search: search)
     }
 
+    /// Dishes in rotation whose allergies can't be checked yet.
+    var uncheckedCount: Int {
+        entries(meals).filter { $0.meal.status.isInRotation && $0.uncheckedNote != nil }.count
+    }
+
     private func entries(_ meals: [LibraryMeal]) -> [LibraryEntry] {
         let counts = Dictionary(favorites.map { ($0, reactions.favoriteCount($0)) }, uniquingKeysWith: { first, _ in first })
         return LibraryQuery.entries(meals: meals, history: history, allergies: allergies, favorites: favorites,

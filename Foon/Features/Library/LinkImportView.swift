@@ -8,6 +8,8 @@ struct LinkImportView: View {
     @Environment(\.dismiss) private var dismiss
     /// A link from the share sheet: read at once.
     var sharedLink: URL?
+    /// An idea's own name: it goes on the dish, whatever the page calls it.
+    var name: String?
     let onAdded: (UUID) -> Void
 
     @State private var link = ""
@@ -16,6 +18,11 @@ struct LinkImportView: View {
     @State private var isWorking = false
     /// The page couldn't be read (down, or the site turns Foon away): the link can still be saved.
     @State private var unreadable: URL?
+    /// Saving just the link, so the preview doesn't claim to have seen the page.
+    @State private var couldntRead = false
+    /// Set before the save starts and kept until the sheet is gone: a second tap can't make a second dish, and the sheet
+    /// can't be closed out from under a dish still being made.
+    @State private var isAdding = false
 
     private var householdSize: Int { max(household.visibleMembers.count, 1) }
 
@@ -59,9 +66,9 @@ struct LinkImportView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(isAdding) }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add", action: add).disabled(draft == nil || isWorking)
+                    Button("Add", action: add).disabled(draft == nil || isWorking || isAdding)
                 }
             }
             .onAppear {
@@ -71,6 +78,7 @@ struct LinkImportView: View {
                     read()
                 }
             }
+            .interactiveDismissDisabled(isAdding)
             // A failed read shouldn't leave its message on the library behind this sheet.
             .onDisappear { library.clearError() }
         }
@@ -84,12 +92,10 @@ struct LinkImportView: View {
         Section {
             TextField("Meal name", text: draft.name)
         } footer: {
-            if imported.hasRecipe {
-                if let servings = imported.recipe?.servings, servings != householdSize {
-                    Text("Scaled from \(servings) servings to \(householdSize) for your family.")
-                }
-            } else {
-                Text("No recipe card on that page, so Foon kept the title and link. Add ingredients when you can.")
+            if let note = imported.noIngredientsNote(lineCount: draft.wrappedValue.lines.count, couldntRead: couldntRead) {
+                Text(note)
+            } else if let servings = imported.recipe?.servings, servings != householdSize {
+                Text("Scaled from \(servings) servings to \(householdSize) for your family.")
             }
         }
         if !draft.wrappedValue.lines.isEmpty {
@@ -119,9 +125,10 @@ struct LinkImportView: View {
             imported = nil
             draft = nil
             unreadable = nil
+            couldntRead = false
             if let result = await library.importRecipe(link) {
                 imported = result
-                draft = result.draft(householdSize: householdSize)
+                draft = result.draft(householdSize: householdSize, named: name)
             } else {
                 unreadable = LibraryStore.webLink(link)
             }
@@ -132,21 +139,31 @@ struct LinkImportView: View {
         library.clearError()
         let linkOnly = RecipeImport(recipe: nil, title: nil, url: url)
         imported = linkOnly
-        draft = linkOnly.draft(householdSize: householdSize)
+        draft = linkOnly.draft(householdSize: householdSize, named: name)
         unreadable = nil
+        couldntRead = true
     }
 
     private func add() {
-        guard let draft else { return }
+        guard let draft, !isAdding else { return }
+        isAdding = true
         Task {
-            isWorking = true
-            defer { isWorking = false }
-            if let id = await library.create(draft) {
-                dismiss()
-                onAdded(id)
+            guard let id = await library.create(draft) else {
+                isAdding = false
+                return
             }
+            onAdded(id)
+            dismiss()
         }
     }
+}
+
+#Preview("From an idea") {
+    let household = HouseholdStore.preview()
+    LinkImportView(sharedLink: URL(string: "https://recipes.example/gnocchi"), name: "Sheet-pan gnocchi") { _ in }
+        .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
+        .environment(household)
+        .task { await household.load() }
 }
 
 #Preview {

@@ -12,19 +12,21 @@ enum NightBadges {
         let athome = allergies.filter { home.contains($0.memberID) }
         let flags = AllergyMatcher.flags(ingredients: ShoppingLines.lines(for: meal, library: library).map(\.name),
                                          members: athome)
+        let allergyBadges: [DayCardModel.Badge] = flags.map { .allergy($0.summary) }
+            + (AllergyMatcher.uncheckedNote(meal: meal, library: library, members: athome).map { [.allergyUnchecked($0)] } ?? [])
         let rules: [DayCardModel.Badge] = ruleDay.map { day in
             FoodRuleMatcher.broken(by: meal, on: day, rules: settings.foodRules, library: library)
                 .map { .foodRule($0.looksLikeText) }
         } ?? []
         // Out of the freezer or left over: allergies and rules still count, but there's nothing to start or cook it with.
-        guard !alreadyCooked else { return flags.map { .allergy($0.summary) } + rules }
+        guard !alreadyCooked else { return allergyBadges + rules }
         let prep = meal.prepSteps.first { step in
             start == nil || !DishTraits(name: step.step).equipment.contains(.slowCooker)
         }.map { step in
             DayCardModel.Badge.prep([step.step, MealText.leadTime(hours: step.leadHours)].compactMap { $0 }
                 .joined(separator: " · "))
         }
-        return flags.map { .allergy($0.summary) }
+        return allergyBadges
             + rules
             + settings.missingEquipment(for: meal).map { .equipment($0.usuallyUsesText) }
             + (start.map { [.startCooking($0.text())] } ?? [])

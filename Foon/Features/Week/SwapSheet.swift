@@ -211,12 +211,16 @@ struct SwapSheet: View {
                     ForEach(offer.flags, id: \.summary) { flag in
                         Chip(text: flag.summary, systemImage: "exclamationmark.triangle.fill", tint: Palette.caution)
                     }
+                    if let note = offer.uncheckedNote {
+                        Chip(text: note, systemImage: "questionmark.circle", tint: Palette.caution)
+                    }
                 }
                 Spacer()
                 Image(systemName: "chevron.right").foregroundStyle(.tertiary)
             }
         }
-        .accessibilityLabel(([offer.meal.name, made] + offer.flags.map(\.summary)).joined(separator: ", "))
+        .accessibilityLabel(([offer.meal.name, made] + offer.flags.map(\.summary) + [offer.uncheckedNote].compactMap { $0 })
+            .joined(separator: ", "))
     }
 
     private var quickPicksSection: some View {

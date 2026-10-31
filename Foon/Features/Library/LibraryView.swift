@@ -133,7 +133,8 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        let copy = LibraryText.emptyState(filter: library.filter, searching: !library.search.isEmpty)
+        let copy = LibraryText.emptyState(filter: library.filter, searching: !library.search.isEmpty,
+                                          unchecked: library.uncheckedCount)
         ContentUnavailableView {
             Label(copy.title, systemImage: copy.systemImage)
         } description: {
@@ -207,7 +208,7 @@ extension LibraryText {
         let systemImage: String
     }
 
-    static func emptyState(filter: LibraryFilter?, searching: Bool) -> EmptyState {
+    static func emptyState(filter: LibraryFilter?, searching: Bool, unchecked: Int = 0) -> EmptyState {
         if searching {
             return EmptyState(title: String(localized: "No matches"),
                               message: String(localized: "Try another meal or ingredient."),
@@ -234,6 +235,13 @@ extension LibraryText {
             return EmptyState(title: String(localized: "No backup dinners"),
                               message: String(localized: "Backup dinners are the ones you can make from the freezer or pantry."),
                               systemImage: "shippingbox")
+        case .allergyFlags where unchecked > 0:
+            // Nothing flagged isn't the same as nothing to worry about.
+            return EmptyState(title: String(localized: "No allergy flags"),
+                              message: unchecked == 1
+                                  ? String(localized: "Nothing flagged so far, but allergies can't be checked on 1 meal until it has ingredients.")
+                                  : String(localized: "Nothing flagged so far, but allergies can't be checked on \(unchecked) meals until they have ingredients."),
+                              systemImage: "questionmark.circle")
         case .allergyFlags:
             return EmptyState(title: String(localized: "No allergy flags"),
                               message: String(localized: "None of your meals contain anything your family avoids."),

@@ -215,9 +215,39 @@ private struct UpdateRequestParams: Encodable {
     }
 }
 
+/// A link on an idea, to read before saving it as a dish.
+struct IdeaLink: Identifiable, Equatable, Sendable {
+    let url: URL
+    /// The idea's own name, when it has one.
+    let name: String?
+
+    var id: URL { url }
+}
+
+/// What Save to library does next for an idea.
+enum LibrarySave: Equatable, Sendable {
+    /// A dish is already made for it and linking failed: link that one, never a second.
+    case link(UUID)
+    case read(IdeaLink)
+    case make(MealDraft)
+}
+
 /// The Ideas tab's sections and each request's status (docs/spec.md → Ideas tab), and the requests Build my week
 /// honors. Pure.
 enum RequestBoard {
+    /// A link is read first, so the dish gets its ingredients. A name with nothing to read is made as it is.
+    static func librarySave(_ request: DinnerRequest, made: UUID?) -> LibrarySave {
+        if let made { return .link(made) }
+        let title = request.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = title?.isEmpty == false ? title : nil
+        if let link = request.link, LibraryStore.webLink(link.absoluteString) != nil {
+            return .read(IdeaLink(url: link, name: name))
+        }
+        var draft = MealDraft(newNamed: name ?? request.link?.host() ?? String(localized: "New dish"))
+        draft.link = request.link?.absoluteString ?? ""
+        return .make(draft)
+    }
+
     enum Shown: Equatable, Sendable {
         case waiting
         case planned(CalendarDay)

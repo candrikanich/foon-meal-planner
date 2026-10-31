@@ -19,6 +19,12 @@ struct MealTile: View {
                 .lineLimit(2, reservesSpace: true)
                 .multilineTextAlignment(.leading)
             indicators
+            if let note = entry.uncheckedNote {
+                Text(note)
+                    .font(.foonCaption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+            }
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Palette.cardSurface))
@@ -97,6 +103,7 @@ enum LibraryText {
         if entry.meal.tags.contains(.quick) { parts.append(String(localized: "Quick")) }
         if let madeBy { parts.append(String(localized: "Made by \(madeBy.firstName)")) }
         parts.append(contentsOf: entry.flags.map(\.summary))
+        if let note = entry.uncheckedNote { parts.append(note) }
         if entry.meal.ingredients.isEmpty { parts.append(String(localized: "Add ingredients")) }
         return parts.joined(separator: ", ")
     }

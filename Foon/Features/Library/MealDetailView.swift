@@ -164,6 +164,9 @@ struct MealDetailView: View {
                 ForEach(entry.flags, id: \.self) { flag in
                     Chip(text: flag.summary, systemImage: "exclamationmark.triangle.fill", tint: Palette.caution)
                 }
+                if let note = entry.uncheckedNote {
+                    Chip(text: note, systemImage: "questionmark.circle", tint: Palette.caution)
+                }
             }
             Label(MealText.history(entry.history), systemImage: "clock.arrow.circlepath")
                 .font(.foonCaption)

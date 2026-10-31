@@ -117,6 +117,12 @@ struct FreezerView: View {
                     .font(.foonCaption)
                     .foregroundStyle(Palette.caution)
             }
+            if let meal, let note = AllergyMatcher.uncheckedNote(meal: meal, library: library.meals,
+                                                                 members: library.allergies) {
+                Label(note, systemImage: "questionmark.circle")
+                    .font(.foonCaption)
+                    .foregroundStyle(Palette.caution)
+            }
             if item.state == .in, let note = FreezerStash.notOfferedNote(for: meal) {
                 Text(note).font(.foonCaption).foregroundStyle(.secondary)
             }
