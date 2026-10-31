@@ -595,6 +595,17 @@ struct RecipeTextParserTests {
         #expect(names.contains("shrimp"))
     }
 
+    @Test func eachPartOfAHeaderNoteIsItsOwnLine() throws {
+        let names = try savedNames("Dish\nIngredients (vegan, contains shrimp)\n1 lb beef\n1 cup rice")
+        #expect(names.contains { $0.contains("contains shrimp") && !$0.contains("vegan") })
+        let long = try savedNames("Dish\nIngredients (a very long note about how this was made at home, contains peanuts)\n1 lb beef\n1 cup rice")
+        #expect(long.contains { $0.contains("peanuts") })
+    }
+
+    @Test func aHyphenatedFreeFromLabelSplitsALine() throws {
+        #expect(try savedNames("Dish\nIngredients:\n4 plant-based boneless, shrimp tacos\n1 tsp salt").contains("shrimp tacos"))
+    }
+
     @Test func everyFreeFromLabelSplitsALine() throws {
         for label in AllergenKeywords.all.flatMap(\.freeFrom) {
             let names = try savedNames("Dish\nIngredients:\n4 \(label) boneless, shrimp tacos\n1 tsp salt")
