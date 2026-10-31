@@ -71,8 +71,7 @@ enum RecipeTextParser {
                     lines += note.split(whereSeparator: isItemSeparator).map { part in
                         let words = part.trimmingCharacters(in: .whitespaces)
                         // "(serves 2)" still scales the amounts. Only when that's all it says: "(makes 2 cups peanut sauce)" stays.
-                        let isOnlyServings = words.wholeMatch(of: /(?i)(?:serves|servings?|yield|makes)\s*:?\s*\d{1,2}(?:\s*(?:people|servings?))?/) != nil
-                        return isOnlyServings ? words : "(\(words))"
+                        return isOnlyServings(words) ? words : "(\(words))"
                     }
                 }
                 continue
@@ -107,8 +106,21 @@ enum RecipeTextParser {
             let hasFreeFromLabel = line.lowercased().contains("free") || freeFromLabels.contains(where: words.contains)
             let isOneItem = section.count > 1 && pieces.count == 2 && isAmountLed(line) && !hasFreeFromLabel
                 && MealDraft.length(line) <= maxWholeLine && isDescription(first: pieces[0], second: pieces[1])
-            return isOneItem ? [line] : pieces
+            return isOneItem || pieces.count == 1 ? [line] : pieces.map(protectedPiece)
         }
+    }
+
+    /// One part of a split line is an ingredient, or it's nothing. Bare, "1 lb beef, notes" would end the recipe there and lose
+    /// everything after it, so a part that reads as a control line keeps parentheses, like a header's note.
+    private static func protectedPiece(_ piece: String) -> String {
+        guard !isOnlyServings(piece) else { return piece }
+        let isControl = isIngredientsHeader(piece) || isStepsHeader(piece) || isEndHeader(piece) || isSubHeader(piece)
+            || servings(in: piece) != nil || isNoise(piece) || startsAStep(piece)
+        return isControl ? "(\(piece))" : piece
+    }
+
+    private static func isOnlyServings(_ text: String) -> Bool {
+        text.wholeMatch(of: /(?i)(?:serves|servings?|yield|makes)\s*:?\s*\d{1,2}(?:\s*(?:people|servings?))?/) != nil
     }
 
     /// "4 boneless, skinless chicken breasts" or "3 cloves garlic, finely minced".
@@ -129,7 +141,9 @@ enum RecipeTextParser {
 
     /// Inside parentheses too, unlike `IngredientParser`: kept whole, "(vegan, contains shrimp)" would cancel the shrimp, and
     /// a split note is only a line to delete.
-    private static func isItemSeparator(_ character: Character) -> Bool { ",;•".contains(character) }
+    private static func isItemSeparator(_ character: Character) -> Bool { itemSeparators.contains(character) }
+
+    private static let itemSeparators: Set<Character> = [",", ";", "•", "·", "|", "，", "；", "、", "●", "▪", "◦", "‣"]
 
     /// `RecipeImport.ingredientName` cuts a longer name at its first comma.
     private static var maxWholeLine: Int { maxIngredientName }
@@ -161,7 +175,7 @@ enum RecipeTextParser {
     private static func isPromotion(_ line: String) -> Bool {
         if line.wholeMatch(of: recipePointer) != nil { return true }
         return line.prefixMatch(of: ask) != nil && !line.contains(where: \.isNumber)
-            && !line.contains(where: { ",;:•".contains($0) }) && !line.contains(" - ")
+            && !line.contains(where: isItemSeparator) && !line.contains(":") && !line.contains(" - ")
     }
 
     private static var ask: Regex<Substring> {

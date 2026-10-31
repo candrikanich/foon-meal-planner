@@ -629,6 +629,25 @@ struct RecipeTextParserTests {
         #expect(names.contains { $0.contains(part) && !$0.contains(";") && !$0.contains("•") && !$0.contains("vegan") })
     }
 
+    @Test(arguments: ["·", " | ", "，", "；", "、", "●", "▪", "◦", "‣"])
+    func moreListPunctuationSplitsToo(separator: String) throws {
+        let names = try savedNames("Dish\nIngredients:\nvegan butter\(separator)shrimp\n1 lb beef")
+        #expect(names.contains("shrimp"))
+    }
+
+    @Test(arguments: ["notes", "method", "tips", "nutrition info", "for the sauce", "print", "ingredients", "makes 2 cups peanut sauce", "1. peanuts", "5 stars"])
+    func aSplitPieceCantEndTheList(piece: String) throws {
+        let names = try savedNames("Dish\nIngredients:\n1 lb beef, \(piece); 2 cups rice\n3 tbsp peanut butter\n1 lb shrimp")
+        #expect(names.contains { $0.contains("peanut butter") })
+        #expect(names.contains("shrimp"))
+        #expect(names.contains("rice"))
+    }
+
+    @Test func aBareServingsPieceStillScales() throws {
+        let capture = try #require(RecipeTextParser.parseCaption("Dish\nIngredients:\n1 lb beef, serves 2\n1 cup rice"))
+        #expect(capture.servings == 2)
+    }
+
     @Test func aNameTooLongToKeepSaysSo() throws {
         let long = String(repeating: "mixed roasted nuts ", count: 5) + "peanuts"
         let capture = try #require(RecipeTextParser.parseCaption("Dish\nIngredients:\n\(long)\n1 lb beef"))
