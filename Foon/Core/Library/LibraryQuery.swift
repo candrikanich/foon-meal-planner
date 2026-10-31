@@ -57,12 +57,12 @@ enum LibraryQuery {
         var id: String { category }
     }
 
-    /// `meals` are the dishes to show; `library` is where their sides are found, when that's more than those.
+    /// `meals` are the dishes to show; `library` is where their sides are found. Required, so showing a filtered list
+    /// can't quietly lose the flags from its sides.
     static func entries(
-        meals: [LibraryMeal], library: [LibraryMeal]? = nil, history: [MealHistory], allergies: [MemberAllergies],
+        meals: [LibraryMeal], library: [LibraryMeal], history: [MealHistory], allergies: [MemberAllergies],
         favorites: Set<UUID>, favoriteCounts: [UUID: Int] = [:], likes: [UUID: Int] = [:]
     ) -> [LibraryEntry] {
-        let library = library ?? meals
         let historyByMeal = Dictionary(history.map { ($0.mealID, $0) }, uniquingKeysWith: { first, _ in first })
         return meals.map { meal in
             LibraryEntry(

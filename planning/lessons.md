@@ -13,12 +13,12 @@ _None yet._
 
 **Rule (lookups):** When a function takes a list and reads related rows from it, check every caller for a filtered list. Keep what's displayed and what's looked up as separate parameters.
 
-### A failing test run may not exit; don't wait for xcodebuild
+### A test run can print its results and never exit
 **Times seen:** 1
 
-**What happened (2026-10-30):** With any test failing, `scripts/test.sh` printed "Test run with ... failed" and then xcodebuild and the test host stayed up, past 45 minutes. A passing run exits normally. The cause isn't known.
+**What happened (2026-10-30):** Some `scripts/test.sh` runs with failing tests printed "Test run with ... failed" and then xcodebuild and the test host stayed up for hours. It's intermittent: other failing runs exit 65. A sample of a hung host shows the XCTest reporting queue stuck recording an issue, in `XCTSourceCodeContext.prepareForReporting` → `CSSymbolOwnerGetSymbolWithAddress` → `fopen` → `__open_nocancel`, with the main thread in `XCTWaiter` and no test frames. So symbolicating a failure sticks in a kernel `open()`; it isn't the tests.
 
-**Rule (test runs):** Run tests as a background task with output in a log. Watch for the `Test run with` line, read the result, then stop the task. A subprocess timeout can orphan xcodebuild.
+**Rule (test runs):** When the results have printed and the run hasn't exited, it's this. Read the results from the log, and check for a stale run sharing DerivedData. Run tests in the background with output in a log. A subprocess timeout can orphan xcodebuild.
 
 ### TextRecognizerTests can fail on a cold or contended model cache
 **Times seen:** 1

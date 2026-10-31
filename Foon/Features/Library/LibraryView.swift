@@ -70,6 +70,12 @@ struct LibraryView: View {
         } else if entries.isEmpty && catalogMatches.isEmpty {
             emptyState
         } else {
+            if let note = LibraryText.uncheckedFilterNote(filter: library.filter, unchecked: library.uncheckedCount) {
+                Label(note, systemImage: "questionmark.circle")
+                    .font(.foonCaption)
+                    .foregroundStyle(Palette.caution)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(entries) { entry in
                     NavigationLink(value: entry.meal.id) {
@@ -208,6 +214,18 @@ extension LibraryText {
         let systemImage: String
     }
 
+    /// The Allergy flags filter lists what's flagged; this says what it can't vouch for, so the list doesn't read as
+    /// complete. Counts a dish with no ingredients, and one whose side has none.
+    static func uncheckedFilterNote(filter: LibraryFilter?, unchecked: Int) -> String? {
+        filter == .allergyFlags && unchecked > 0 ? uncheckedNote(unchecked) : nil
+    }
+
+    private static func uncheckedNote(_ count: Int) -> String {
+        count == 1
+            ? String(localized: "1 meal can't be fully checked for allergies: it or a side has no ingredients yet.")
+            : String(localized: "\(count) meals can't be fully checked for allergies: they or their sides have no ingredients yet.")
+    }
+
     static func emptyState(filter: LibraryFilter?, searching: Bool, unchecked: Int = 0) -> EmptyState {
         if searching {
             return EmptyState(title: String(localized: "No matches"),
@@ -238,9 +256,7 @@ extension LibraryText {
         case .allergyFlags where unchecked > 0:
             // Nothing flagged isn't the same as nothing to worry about.
             return EmptyState(title: String(localized: "No allergy flags"),
-                              message: unchecked == 1
-                                  ? String(localized: "Nothing flagged so far, but allergies can't be checked on 1 meal until it has ingredients.")
-                                  : String(localized: "Nothing flagged so far, but allergies can't be checked on \(unchecked) meals until they have ingredients."),
+                              message: uncheckedNote(unchecked),
                               systemImage: "questionmark.circle")
         case .allergyFlags:
             return EmptyState(title: String(localized: "No allergy flags"),

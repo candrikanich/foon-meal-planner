@@ -43,7 +43,12 @@ struct IdeasView: View {
                     Button("I want...", systemImage: "plus") { asking = true }
                 }
             }
-            .refreshable { await ideas.load() }
+            .refreshable {
+                await ideas.load()
+                if RequestBoard.needsLibraryReload(ideas.requests, library: library.meals, hasLoaded: library.hasLoaded) {
+                    await library.load(members: household.members)
+                }
+            }
             .task {
                 await ideas.load()
                 if !library.hasLoaded { await library.load(members: household.members) }

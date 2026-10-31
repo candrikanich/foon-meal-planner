@@ -559,6 +559,16 @@ struct HouseholdClientLiveTests {
             #expect(!IdeasStore.message(for: .update, code: code).contains("connection"))
         }
         #expect(try await ideas.requests(household.id).first { $0.id == idea }?.mealID == dish, "and it stays linked")
+
+        // A stale phone's own dish doesn't take over.
+        let second = try await library.create(household.id, try MealDraft(newNamed: "Chili again").validated())
+        do {
+            try await ideas.update(idea, RequestUpdate(linkMealID: second))
+            Issue.record("an idea with a dish keeps it")
+        } catch {
+            #expect((error as? PostgrestError)?.code == "FD014", "refused by the rule, not a wiring mistake")
+        }
+        #expect(try await ideas.requests(household.id).first { $0.id == idea }?.mealID == dish)
     }
 
     @Test func aPlannerExportsTheHousehold() async throws {

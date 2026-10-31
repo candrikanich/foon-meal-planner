@@ -85,9 +85,14 @@ struct RequestDetailView: View {
                     if let mealID = request.mealID {
                         if let meal = library.meal(mealID) {
                             Button("Plan it", systemImage: "calendar.badge.plus") { planning = meal }
-                        } else {
+                        } else if library.isLoading {
                             // The library is still loading: never offer to make a dish this idea already has.
                             Label("Loading the dish...", systemImage: "hourglass").foregroundStyle(.secondary)
+                        } else {
+                            // The reload after making it failed, or it's from another phone: never a dead end.
+                            Button("Couldn't load the dish. Try again", systemImage: "arrow.clockwise") {
+                                Task { await library.load(members: household.members) }
+                            }
                         }
                     } else {
                         Button(savingToLibrary ? "Saving..." : "Save to library", systemImage: "book") {
@@ -136,7 +141,8 @@ struct RequestDetailView: View {
         savingToLibrary = true
         defer { savingToLibrary = false }
         library.clearError()
-        switch RequestBoard.librarySave(request, made: ideas.madeDishes[requestID]) {
+        guard let latest = await ideas.latestToSave(request) else { return }
+        switch RequestBoard.librarySave(latest, made: ideas.madeDishes[requestID]) {
         case .read(let link):
             readingLink = link
         case .link(let mealID):

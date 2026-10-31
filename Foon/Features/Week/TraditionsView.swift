@@ -82,7 +82,7 @@ private struct TraditionEditor: View {
     @State private var isSaving = false
 
     private var meals: [LibraryMeal] {
-        LibraryQuery.apply(LibraryQuery.entries(meals: library.meals, history: [], allergies: [], favorites: []),
+        LibraryQuery.apply(LibraryQuery.entries(meals: library.meals, library: library.meals, history: [], allergies: [], favorites: []),
                            filter: nil, sort: .recentlyAdded, search: search).map(\.meal)
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }

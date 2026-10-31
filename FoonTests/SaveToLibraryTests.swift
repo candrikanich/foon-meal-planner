@@ -40,7 +40,7 @@ struct LibrarySaveRouteTests {
         #expect(RequestBoard.librarySave(nameOnly, made: dish) == .link(dish))
     }
 
-    @Test func aLinkFoonCouldntOpenAnywaySavesAsItAlwaysDid() throws {
+    @Test func aLinkThatIsntAWebAddressIsntReadAndTheSaveIsRefused() throws {
         let odd = try #require(URL(string: "ftp://recipes.example/chili"))
         let idea = DinnerRequest(requestedByMemberID: asker, title: "Chili", link: odd)
         guard case .make(let draft) = RequestBoard.librarySave(idea, made: nil) else {
@@ -49,6 +49,7 @@ struct LibrarySaveRouteTests {
         }
         #expect(draft.name == "Chili")
         #expect(draft.link == odd.absoluteString)
+        #expect(throws: MealDraft.Problem.badLink) { try draft.validated() }
     }
 }
 
@@ -335,7 +336,7 @@ struct UncheckedInTheLibraryTests {
     private let mac = LibraryMeal.fixture(name: "Mac", ingredients: ["milk"])
 
     private func entries(_ allergies: [MemberAllergies]) -> [LibraryEntry] {
-        LibraryQuery.entries(meals: [bare, mac], history: [], allergies: allergies, favorites: [])
+        LibraryQuery.entries(allOf: [bare, mac], history: [], allergies: allergies, favorites: [])
     }
 
     @Test func theTileSaysSoAndSoDoesVoiceOver() throws {
@@ -436,5 +437,152 @@ struct MealDetailEntryTests {
         let entry = try #require(library.entry(chili.id))
         #expect(entry.flags.isEmpty)
         #expect(entry.uncheckedNote == nil)
+    }
+}
+
+/// Ideas have no realtime: phone B can be looking at an idea phone A has already saved and planned.
+@MainActor
+struct StalePhoneTests {
+    private let asker = UUID()
+
+    private func ideas(
+        _ requests: @escaping @Sendable () throws -> [DinnerRequest],
+        update: @escaping @Sendable (UUID, RequestUpdate) async throws -> Void = { _, _ in }
+    ) -> IdeasStore {
+        IdeasStore(householdID: UUID(), client: IdeasClient(
+            requests: { _ in try requests() }, make: { _, _ in UUID() }, toggleMeToo: { _, _ in true }, update: update
+        ))
+    }
+
+    @Test func anIdeaAnotherPhoneSavedIsntSavedAgain() async {
+        let seen = DinnerRequest(requestedByMemberID: asker, title: "Chili", link: link)
+        let dish = UUID()
+        let saved = DinnerRequest(id: seen.id, requestedByMemberID: asker, mealID: dish, title: "Chili", link: link,
+                                  status: .planned, plannedNightID: UUID())
+        let store = ideas { [saved] }
+        #expect(await store.latestToSave(seen) == nil)
+        #expect(store.requests.first?.mealID == dish, "and the screen now shows its dish")
+    }
+
+    @Test func anIdeaArchivedElsewhereIsntSaved() async {
+        let seen = DinnerRequest(requestedByMemberID: asker, title: "Chili")
+        #expect(await ideas { [] }.latestToSave(seen) == nil)
+    }
+
+    @Test func anIdeaStillWithoutADishGoesAhead() async {
+        let seen = DinnerRequest(requestedByMemberID: asker, title: "Chili")
+        #expect(await ideas { [seen] }.latestToSave(seen)?.id == seen.id)
+    }
+
+    @Test func offlineItGoesAheadOnWhatItHasWithNoError() async {
+        let seen = DinnerRequest(requestedByMemberID: asker, title: "Chili")
+        let store = ideas { throw URLError(.notConnectedToInternet) }
+        #expect(await store.latestToSave(seen)?.id == seen.id, "the server refuses a second dish if it comes to that")
+        #expect(store.errorMessage == nil)
+    }
+
+    @Test func aDishLostToAnotherPhoneSaysSoAndIsForgotten() async {
+        let first = UUID(), second = UUID()
+        let idea = DinnerRequest(requestedByMemberID: asker, mealID: first, title: "Chili")
+        let store = ideas({ [idea] }, update: { _, _ in throw PostgrestError(code: "FD014", message: "already linked") })
+        #expect(!(await store.linkDish(second, to: idea.id)))
+        #expect(store.madeDishes[idea.id] == nil, "a retry would only be refused again")
+        #expect(store.requests.first?.mealID == first, "the screen shows the dish it has")
+        #expect(store.errorMessage == IdeasStore.message(for: .update, code: "FD014"))
+        #expect(store.errorMessage?.contains("already") == true)
+        #expect(store.errorMessage?.contains("connection") == false)
+    }
+
+    @Test func aFailedLinkOfflineKeepsItsOwnMessageAndTheDish() async {
+        let dish = UUID()
+        let idea = DinnerRequest(requestedByMemberID: asker, title: "Chili")
+        let store = ideas({ throw URLError(.notConnectedToInternet) },
+                          update: { _, _ in throw URLError(.notConnectedToInternet) })
+        #expect(!(await store.linkDish(dish, to: idea.id)))
+        #expect(store.madeDishes[idea.id] == dish)
+        #expect(store.errorMessage == IdeasStore.message(for: .update, code: nil))
+    }
+}
+
+@MainActor
+struct DishThatDidntLoadTests {
+    private let dish = LibraryMeal.fixture(name: "Chili")
+
+    @Test func ideasReloadTheLibraryWhenItNeverLoaded() {
+        #expect(RequestBoard.needsLibraryReload([], library: [], hasLoaded: false))
+    }
+
+    @Test func ideasReloadTheLibraryWhenAnIdeasDishIsMissing() {
+        let idea = DinnerRequest(requestedByMemberID: UUID(), mealID: dish.id)
+        #expect(RequestBoard.needsLibraryReload([idea], library: [], hasLoaded: true))
+        #expect(!RequestBoard.needsLibraryReload([idea], library: [dish], hasLoaded: true))
+    }
+
+    @Test func ideasWithNoDishNeedNoReload() {
+        let idea = DinnerRequest(requestedByMemberID: UUID(), title: "Crab legs")
+        #expect(!RequestBoard.needsLibraryReload([idea], library: [], hasLoaded: true))
+    }
+
+    /// The reload after making it fails: the dish exists, the library doesn't show it, and loading again finds it.
+    @Test func aFailedReloadAfterMakingTheDishCanBeRecovered() async throws {
+        let failing = Mutex(false)
+        let made = LibraryMeal.fixture(name: "Chili")
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(
+            meals: { _ in
+                if failing.withLock({ $0 }) { throw URLError(.notConnectedToInternet) }
+                return [made]
+            },
+            create: { _, _ in made.id }
+        ))
+        failing.withLock { $0 = true }
+        let id = await store.create(MealDraft(newNamed: "Chili"))
+        #expect(id == made.id)
+        #expect(store.meal(made.id) == nil)
+        let idea = DinnerRequest(requestedByMemberID: UUID(), mealID: made.id)
+        #expect(RequestBoard.needsLibraryReload([idea], library: store.meals, hasLoaded: store.hasLoaded))
+        failing.withLock { $0 = false }
+        await store.load(members: [])
+        #expect(store.meal(made.id) != nil)
+        #expect(!RequestBoard.needsLibraryReload([idea], library: store.meals, hasLoaded: store.hasLoaded))
+    }
+}
+
+@MainActor
+struct UncheckedCountTests {
+    private let nora = Member.fixture(firstName: "Nora", ageGroup: .kid)
+
+    private func count(_ meals: [LibraryMeal], allergies: Bool = true) async -> Int {
+        let rows = allergies ? [AllergyRow(memberID: nora.id, allergen: .milk, customText: nil)] : []
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in meals }, allergies: { _ in rows }))
+        await store.load(members: [nora])
+        return store.uncheckedCount
+    }
+
+    @Test func countsOnlyDishesInRotation() async {
+        #expect(await count([.fixture(name: "Chili"), .fixture(name: "Soup", status: .trial)]) == 2)
+        #expect(await count([.fixture(name: "Old", status: .archived), .fixture(name: "Liver", status: .retired)]) == 0)
+    }
+
+    @Test func countsADishWithABareSide() async {
+        let cornbread = LibraryMeal.fixture(name: "Cornbread", status: .archived)
+        var chili = LibraryMeal.fixture(name: "Chili", ingredients: ["beans"])
+        chili.sides = [.meal(cornbread.id)]
+        #expect(await count([chili, cornbread]) == 1, "the archived side still goes with it; it isn't counted itself")
+    }
+
+    @Test func aDishWithIngredientsOrAFamilyWithNoAllergiesCountsNothing() async {
+        #expect(await count([.fixture(name: "Mac", ingredients: ["milk"])]) == 0)
+        #expect(await count([.fixture(name: "Chili")], allergies: false) == 0)
+    }
+
+    @Test func theFilterSaysSoEvenWithSomethingFlagged() throws {
+        let one = try #require(LibraryText.uncheckedFilterNote(filter: .allergyFlags, unchecked: 1))
+        #expect(one.contains("1 meal"))
+        #expect(one.contains("it or a side"), "true of a bare dish and of one whose side is bare")
+        let some = try #require(LibraryText.uncheckedFilterNote(filter: .allergyFlags, unchecked: 5))
+        #expect(some.contains("5 meals"))
+        #expect(LibraryText.uncheckedFilterNote(filter: .allergyFlags, unchecked: 0) == nil)
+        #expect(LibraryText.uncheckedFilterNote(filter: nil, unchecked: 5) == nil, "only on that filter")
+        #expect(LibraryText.uncheckedFilterNote(filter: .favorites, unchecked: 5) == nil)
     }
 }

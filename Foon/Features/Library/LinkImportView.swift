@@ -39,7 +39,7 @@ struct LinkImportView: View {
                         #endif
                         .onSubmit(read)
                     Button(isWorking && draft == nil ? "Reading…" : "Read recipe", action: read)
-                        .disabled(isWorking || link.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .disabled(isWorking || isAdding || link.trimmingCharacters(in: .whitespaces).isEmpty)
                 } footer: {
                     Text("Most recipe sites work. Foon reads the recipe card, not the whole page.")
                 }
@@ -68,7 +68,11 @@ struct LinkImportView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(isAdding) }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add", action: add).disabled(draft == nil || isWorking || isAdding)
+                    if isAdding {
+                        ProgressView().accessibilityLabel("Adding the dish")
+                    } else {
+                        Button("Add", action: add).disabled(draft == nil || isWorking)
+                    }
                 }
             }
             .onAppear {
@@ -115,7 +119,7 @@ struct LinkImportView: View {
     }
 
     private func read() {
-        guard !isWorking else { return }
+        guard !isWorking, !isAdding else { return }
         // Set before the task starts, so a quick second Return can't start another read; and the link as it was
         // when read, so editing it meanwhile can't change what "Save just the link" saves.
         isWorking = true

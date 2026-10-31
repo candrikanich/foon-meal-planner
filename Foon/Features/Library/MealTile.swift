@@ -111,7 +111,7 @@ enum LibraryText {
 
 #Preview {
     let entries = LibraryQuery.entries(
-        meals: LibraryMeal.sampleLibrary, history: [],
+        meals: LibraryMeal.sampleLibrary, library: LibraryMeal.sampleLibrary, history: [],
         allergies: [MemberAllergies(memberID: UUID(), firstName: "Nora", allergens: [.milk])], favorites: []
     )
     ScrollView {

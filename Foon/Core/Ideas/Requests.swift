@@ -235,6 +235,14 @@ enum LibrarySave: Equatable, Sendable {
 /// The Ideas tab's sections and each request's status (docs/spec.md → Ideas tab), and the requests Build my week
 /// honors. Pure.
 enum RequestBoard {
+    /// Whether pulling down on Ideas should load the library too: it never loaded, or an idea points at a dish it doesn't
+    /// hold yet (a reload that failed after the dish was made, a dish from another phone).
+    static func needsLibraryReload(_ requests: [DinnerRequest], library: [LibraryMeal], hasLoaded: Bool) -> Bool {
+        guard hasLoaded else { return true }
+        let held = Set(library.map(\.id))
+        return requests.contains { $0.mealID.map { !held.contains($0) } ?? false }
+    }
+
     /// A link is read first, so the dish gets its ingredients. A name with nothing to read is made as it is.
     static func librarySave(_ request: DinnerRequest, made: UUID?) -> LibrarySave {
         if let made { return .link(made) }

@@ -20,7 +20,7 @@ struct SwapSheet: View {
     private var settings: HouseholdSettings { household.household?.planningSettings ?? HouseholdSettings() }
 
     private var libraryMatches: [LibraryEntry] {
-        Array(LibraryQuery.apply(LibraryQuery.entries(meals: library.meals, history: library.history,
+        Array(LibraryQuery.apply(LibraryQuery.entries(meals: library.meals, library: library.meals, history: library.history,
                                                       allergies: library.allergies, favorites: []),
                                  filter: nil, sort: .notLately, search: search).prefix(12))
     }
