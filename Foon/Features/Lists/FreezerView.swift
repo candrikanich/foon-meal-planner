@@ -112,7 +112,7 @@ struct FreezerView: View {
             ForEach(flags, id: \.summary) { flag in
                 Chip(text: flag.summary, systemImage: "exclamationmark.triangle.fill", tint: Palette.caution)
             }
-            if let note = FreezerStash.allergyUnknownNote(for: meal, isLoading: library.isLoading) {
+            if let note = FreezerStash.allergyUnknownNote(for: meal, isLoading: library.lookup == .loading) {
                 Label(note, systemImage: "exclamationmark.triangle.fill")
                     .font(.foonCaption)
                     .foregroundStyle(Palette.caution)

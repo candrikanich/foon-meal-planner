@@ -10,13 +10,9 @@ enum DoubleIt {
     static func listNights(_ layout: WeekLayout, logged: Set<UUID> = []) -> [WeeklyList.Night] {
         layout.plannable.filter { !logged.contains($0.id) }.map { night in
             let later = leftoversNight(of: night, in: layout.ahead)
-            return WeeklyList.Night(mealID: night.mealID, home: home(night).union(later.map(home) ?? []),
+            return WeeklyList.Night(mealID: night.mealID, home: night.home.union(later?.home ?? []),
                                     doubled: later != nil, fromFreezer: night.stashItemID != nil)
         }
-    }
-
-    private static func home(_ night: WeekNight) -> Set<UUID> {
-        Set(night.attendance.filter(\.value).keys)
     }
 
     /// What changing this night also changes, said before it happens: in Swap, and in Plan it. Shuffle isn't offered on
@@ -64,6 +60,14 @@ enum DoubleIt {
         if let source = nights.first(where: { $0.id == night.leftoversFrom }) { return meal(source.mealID) }
         let before = nights.first { night.date.days(since: $0.date) == 1 }
         return meal(before?.mealID).flatMap { $0.tags.contains(.leftovers) ? $0 : nil }
+    }
+
+    /// A dish a leftovers night may be eating that the library can't find: the night it's linked to, or the night before,
+    /// since only the library can say that one was a big batch. So its card can say it couldn't check, not nothing.
+    static func missingLeftoversMeal(on night: WeekNight, nights: [WeekNight], library: [LibraryMeal]) -> UUID? {
+        guard night.quickPick == .leftovers else { return nil }
+        let source = nights.first { $0.id == night.leftoversFrom } ?? nights.first { night.date.days(since: $0.date) == 1 }
+        return source?.mealID.flatMap { id in library.contains { $0.id == id } ? nil : id }
     }
 
     /// "From Monday's Chili". Always the weekday: "From Tonight's Chili" reads as the wrong night once it's tomorrow.

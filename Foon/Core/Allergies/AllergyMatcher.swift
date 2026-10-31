@@ -50,6 +50,25 @@ struct AllergyFlag: Hashable, Sendable {
     }
 }
 
+/// What a screen says about a dish's allergies: its flags, and a note when it can't say. Empty means nothing to warn about.
+struct AllergyCheck: Equatable, Sendable {
+    var flags: [AllergyFlag] = []
+    var note: String? = nil
+
+    /// Everything said, for VoiceOver.
+    var texts: [String] { flags.map(\.summary) + [note].compactMap { $0 } }
+}
+
+/// Whether a dish missing from the library means anything yet.
+enum LibraryLookup: Equatable, Sendable {
+    /// A load is running, or none has started: wait for it rather than warn.
+    case loading
+    /// No load has answered, so neither the dish nor the family's allergies are known.
+    case failed
+    /// The library and the allergies have been read.
+    case loaded
+}
+
 /// Flags dishes against the household's allergies by keyword, never by AI. Pure and deterministic, so the
 /// library, day cards, and shopping list all agree, and flags never reorder between launches or devices.
 enum AllergyMatcher {
@@ -92,6 +111,19 @@ enum AllergyMatcher {
         let names = bareSides.formatted(.list(type: .and))
         return String(localized: "No ingredients for \(names) yet, so allergies can't be checked",
                       comment: "A note on a dish: side dishes with no ingredients")
+    }
+
+    /// A library dish's flags and note, sides included. `library` is the whole library, whatever's on screen: sides are found there.
+    static func check(meal: LibraryMeal, library: [LibraryMeal], members: [MemberAllergies]) -> AllergyCheck {
+        AllergyCheck(flags: flags(ingredients: ShoppingLines.lines(for: meal, library: library).map(\.name), members: members),
+                     note: uncheckedNote(meal: meal, library: library, members: members))
+    }
+
+    /// A starter dish not yet in the library: its own ingredients are all there is.
+    static func check(catalog dish: CatalogDish, members: [MemberAllergies]) -> AllergyCheck {
+        let isBare = dish.ingredients.isEmpty && members.contains(where: \.hasAllergies)
+        return AllergyCheck(flags: flags(ingredients: dish.ingredients, members: members),
+                            note: isBare ? String(localized: "No ingredients yet, so allergies can't be checked") : nil)
     }
 
     private static let compiledKeywords = AllergenKeywords.all.map(CompiledKeywords.init)

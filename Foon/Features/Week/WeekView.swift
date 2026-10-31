@@ -116,7 +116,9 @@ struct WeekView: View {
         guard household.household != nil else { return }
         // The library (allergy flags, sides, serving notes, and Build) loads alongside the week, not before it, for
         // everyone: members see the same flags and notes on the cards as planners.
+        // Its card says to pull down, and that has to fetch the dish, not just the reactions.
         let loadsLibrary = !library.hasLoaded
+            || WeekStore.holdsUnknownDish(week.week?.nights ?? [], library: library.meals)
         async let libraryLoad: Void = loadsLibrary ? library.load(members: household.members) : ()
         async let dinnerLoad: Void = dinner.load(settings: settings)
         async let ideasLoad: Void = ideas.load()
@@ -220,7 +222,7 @@ struct WeekView: View {
                                        notes: { meal, home in
                                            ServingNotes.lines(library.servingNotes, mealID: meal, home: home,
                                                               members: household.visibleMembers)
-                                       }, isAway: isAway)
+                                       }, isAway: isAway, lookup: library.lookup)
         let log = dinner.log(for: night.id)
         model.cook = isAway ? nil : NightClaims.cookLine(night: night, claims: dinner.claims, log: log,
                                                          members: household.visibleMembers, me: household.me?.id,

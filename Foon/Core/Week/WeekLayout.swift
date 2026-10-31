@@ -49,4 +49,7 @@ struct WeekLayout: Equatable, Sendable {
 
 extension WeekNight {
     var isPlanned: Bool { mealID != nil || quickPick != nil }
+
+    /// Who's expected home: who allergy flags and serving notes count, on the card and before a dish is chosen.
+    var home: Set<UUID> { Set(attendance.filter(\.value).keys) }
 }
