@@ -880,6 +880,18 @@ struct CookbookSpreadTests {
         #expect(capture.ingredients.map(\.name).contains("eggs"))
     }
 
+    @Test(arguments: [("4 mini peanut butter cups", "peanut"), ("2 minced anchovies", "anchovies"), ("3 hrvatska cheeses", "cheeses")])
+    func anIngredientThatStartsLikeATimeIsStillAnIngredient(line: String, word: String) {
+        let capture = RecipeTextParser.parse(["Directions", "1. Simmer the pot for", line])
+        #expect(capture.ingredients.contains { $0.name.contains(word) })
+    }
+
+    @Test(arguments: ["30 minutes, then serve.", "1 hour more.", "10-15 mins until done.", "350 degrees until brown.", "350° until brown."])
+    func aTimeOrHeatStaysInTheStep(line: String) {
+        let capture = RecipeTextParser.parse(["Directions", "1. Simmer the pot for", line])
+        #expect(capture.ingredients.isEmpty)
+    }
+
     @Test func aFinishedStepDoesntTurnALineIntoAnIngredient() {
         let capture = RecipeTextParser.parse(["Dish", "Ingredients:", "1 lb beef", "Directions:", "Stir in:", "the sauce and serve."])
         #expect(capture.steps == ["Stir in: the sauce and serve."])

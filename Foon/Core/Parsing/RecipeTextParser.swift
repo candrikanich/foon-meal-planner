@@ -321,7 +321,7 @@ enum RecipeTextParser {
     }
 
     private static func isTimeOrHeat(_ line: String) -> Bool {
-        line.prefixMatch(of: /(?i)\d+(?:\s*-\s*\d+)?\s*(?:sec|second|min|minute|hr|hour|degree|°)/) != nil
+        line.prefixMatch(of: /(?i)\d+(?:\s*-\s*\d+)?\s*(?:(?:secs?|seconds?|mins?|minutes?|hrs?|hours?|degrees?)\b|°)/) != nil
     }
 
     private static func isFinished(_ step: String) -> Bool {
