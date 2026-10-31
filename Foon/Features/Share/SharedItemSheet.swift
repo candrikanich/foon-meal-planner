@@ -120,28 +120,29 @@ struct SharedItemSheet: View {
         guard canAddToLibrary else { return }
         isReadingCaption = true
         defer { isReadingCaption = false }
+        let shared = title
         let imported = await library.importRecipe(url.absoluteString)
         library.clearError()
         guard let imported else { return }
+        // Shared with it or typed while it was reading: their words beat a guess from the page.
+        let words = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let own = words.isEmpty ? nil : words
+        let typed = title != shared ? own : nil
         if title.isEmpty, let pageTitle = ShareRouter.postTitle(imported.title, for: url) { title = pageTitle }
         let size = max(household.visibleMembers.count, 1)
-        var draft: MealDraft?
         if imported.hasRecipe {
-            draft = imported.draft(householdSize: size)
-        } else if let capture = imported.caption.flatMap(RecipeTextParser.parseCaption) {
-            readTruncated = capture.isTruncated || imported.captionTruncated == true
-            draft = capture.draft(householdSize: size)
-            if capture.name == nil { draft?.name = RecipeImport.clamped(title.isEmpty ? ShareRouter.siteLabel(url) : title, to: 80) }
-            draft?.link = url.absoluteString
+            readDraft = imported.draft(householdSize: size, named: typed)
+        } else if let read = imported.captionRecipe(householdSize: size, named: own) {
+            readTruncated = read.isTruncated
+            readDraft = read.draft
         }
-        if let draft { readDraft = draft }
     }
 
     /// Photos read imperfectly, and allergy flags read these ingredients: everything's here to fix before it's saved.
     @ViewBuilder
     private var readSection: some View {
         if let draft = Binding($readDraft) {
-            if draft.wrappedValue.name.isEmpty, draft.wrappedValue.lines.isEmpty, draft.wrappedValue.stepsText.isEmpty {
+            if case .capture = route, draft.wrappedValue.name.isEmpty, draft.wrappedValue.lines.isEmpty, draft.wrappedValue.stepsText.isEmpty {
                 Section {
                     Text("Foon couldn't find any text in that. If it's a locked PDF, remove the password and share it again.")
                         .foregroundStyle(.secondary)
@@ -150,7 +151,11 @@ struct SharedItemSheet: View {
                 Section {
                     TextField("Meal name", text: draft.name)
                 } footer: {
-                    Text("Read on this device, so check it over. Foon deletes the file when you're done here.")
+                    if case .capture = route {
+                        Text("Read on this device, so check it over. Foon deletes the file when you're done here.")
+                    } else {
+                        Text("Read from the post, so check it over.")
+                    }
                 }
                 Section {
                     ForEach(draft.lines) { $line in
@@ -230,7 +235,8 @@ struct SharedItemSheet: View {
     private func link(_ url: URL, canImport: Bool) -> some View {
         Section {
             Link(destination: url) { Label(ShareRouter.linkLabel(url), systemImage: "safari") }
-            TextField("What is it? (optional)", text: $title)
+            // Once a recipe's been read, its Meal name below is the one name on the screen.
+            if readDraft == nil { TextField("What is it? (optional)", text: $title) }
         }
         Section {
             if canImport {
@@ -239,7 +245,11 @@ struct SharedItemSheet: View {
             Button("Save as an idea", systemImage: "lightbulb") { Task { await saveIdea(url) } }
                 .disabled(isWorking || household.me == nil)
         } footer: {
-            Text("Ideas wait in the Ideas tab for a planner to plan.")
+            if readDraft == nil {
+                Text("Ideas wait in the Ideas tab for a planner to plan.")
+            } else {
+                Text("An idea keeps the name and link. To keep the ingredients and steps, add it to our meals now. Foon can try reading the post again later.")
+            }
         }
     }
 
@@ -260,7 +270,8 @@ struct SharedItemSheet: View {
 
     private func saveIdea(_ url: URL) async {
         guard let me = household.me,
-              let request = NewRequest.build(kind: .link, from: me.id, mealID: nil, title: title,
+              let request = NewRequest.build(kind: .link, from: me.id, mealID: nil,
+                                             title: ShareRouter.ideaTitle(typed: title, read: readDraft),
                                              link: url.absoluteString, note: "", date: nil) else {
             errorMessage = String(localized: "Names can be up to \(NewRequest.titleLimit) characters.")
             return

@@ -23,6 +23,10 @@ struct LinkImportView: View {
     /// Set before the save starts and kept until the sheet is gone: a second tap can't make a second dish, and the sheet
     /// can't be closed out from under a dish still being made.
     @State private var isAdding = false
+    /// A caption too long to keep whole: some ingredients may be missing.
+    @State private var isTruncated = false
+    /// Read from a social post's caption, which is a guess: it can be corrected or dropped here.
+    @State private var isFromCaption = false
 
     private var householdSize: Int { max(household.visibleMembers.count, 1) }
 
@@ -103,9 +107,18 @@ struct LinkImportView: View {
             }
         }
         if !draft.wrappedValue.lines.isEmpty {
-            Section("Ingredients") {
+            Section {
                 ForEach(draft.wrappedValue.lines) { line in
                     LabeledContent(line.name, value: line.quantity)
+                }
+                .onDelete { draft.wrappedValue.lines.remove(atOffsets: $0) }
+            } header: {
+                Text("Ingredients")
+            } footer: {
+                if isTruncated {
+                    Text("That was too long to keep it all, so some may be missing. Allergy flags only see what's here.")
+                } else if isFromCaption {
+                    Text("Read from the post's caption, so check it over. Swipe to remove anything that isn't an ingredient.")
                 }
             }
         }
@@ -114,6 +127,14 @@ struct LinkImportView: View {
             Section {
                 Text(steps == 1 ? String(localized: "1 step") : String(localized: "\(steps) steps"))
                     .foregroundStyle(.secondary)
+            }
+        }
+        if isFromCaption, steps > 0 || !draft.wrappedValue.lines.isEmpty {
+            Section {
+                Button("Keep just the name and link") {
+                    draft.wrappedValue.lines = []
+                    draft.wrappedValue.stepsText = ""
+                }
             }
         }
     }
@@ -130,9 +151,17 @@ struct LinkImportView: View {
             draft = nil
             unreadable = nil
             couldntRead = false
+            isTruncated = false
+            isFromCaption = false
             if let result = await library.importRecipe(link) {
                 imported = result
-                draft = result.draft(householdSize: householdSize, named: name)
+                if let read = result.captionRecipe(householdSize: householdSize, named: name) {
+                    draft = read.draft
+                    isTruncated = read.isTruncated
+                    isFromCaption = true
+                } else {
+                    draft = result.draft(householdSize: householdSize, named: name)
+                }
             } else {
                 unreadable = LibraryStore.webLink(link)
             }

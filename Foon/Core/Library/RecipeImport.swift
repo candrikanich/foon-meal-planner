@@ -41,6 +41,17 @@ struct RecipeImport: Decodable, Equatable, Sendable {
         return draft
     }
 
+    /// The recipe in a social post's caption, when the page has no recipe card. Only social posts: an ordinary page's
+    /// description is a blurb, not its recipe. `name` beats the caption's, which is only a guess from its first short line.
+    func captionRecipe(householdSize: Int, named name: String? = nil) -> (draft: MealDraft, isTruncated: Bool)? {
+        guard !hasRecipe, ShareRouter.isSocial(url), let capture = caption.flatMap(RecipeTextParser.parseCaption) else { return nil }
+        var draft = capture.draft(householdSize: householdSize)
+        let chosen = name ?? capture.name ?? ShareRouter.postTitle(title, for: url) ?? ShareRouter.siteLabel(url)
+        draft.name = Self.clamped(chosen, to: 80)
+        draft.link = Self.sourceLink(url)
+        return (draft, capture.isTruncated || captionTruncated == true)
+    }
+
     /// What the preview says when the dish would save with no ingredients; nil when it has some.
     func noIngredientsNote(lineCount: Int, couldntRead: Bool) -> String? {
         guard lineCount == 0 else { return nil }
