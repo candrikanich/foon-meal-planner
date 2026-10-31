@@ -120,7 +120,7 @@ enum RecipeTextParser {
     }
 
     private static func isOnlyServings(_ text: String) -> Bool {
-        text.wholeMatch(of: /(?i)(?:serves|servings?|yield|makes)\s*:?\s*\d{1,2}(?:\s*(?:people|servings?))?/) != nil
+        text.wholeMatch(of: /(?i)(?:serves|servings?|yield|makes)\s*:?\s*\d{1,2}(?:\s*(?:-|–|to)\s*\d{1,2})?(?:\s+(?:(?:small|medium|large|big|generous|hearty)\s+)?(?:people|servings?|portions?))?\.?/) != nil
     }
 
     /// "4 boneless, skinless chicken breasts" or "3 cloves garlic, finely minced".
@@ -306,13 +306,22 @@ enum RecipeTextParser {
         }
         if last.isEmpty {
             capture.steps[capture.steps.count - 1] = line
+        } else if last.hasSuffix(":"), line.count <= shortLine, !isFinished(line), !isTimeOrHeat(line) {
+            // "Whisk together:" introduces a list, amounts or not: "eggs", "milk".
+            add(line, to: &capture)
+        } else if isAmountLed(line), line.count <= shortLine, isFinished(last) || !isTimeOrHeat(line) {
+            // Even after an unfinished step: if it's really that step wrapping, the cost is a line to delete, and if it isn't,
+            // joining it hides an ingredient from allergy flags. "30 minutes, then serve" can only be the step.
+            add(line, to: &capture)
         } else if !isFinished(last) {
             capture.steps[capture.steps.count - 1] = last + " " + line
-        } else if isAmountLed(line), line.count <= shortLine {
-            add(line, to: &capture)
         } else {
             capture.steps.append(line)
         }
+    }
+
+    private static func isTimeOrHeat(_ line: String) -> Bool {
+        line.prefixMatch(of: /(?i)\d+(?:\s*-\s*\d+)?\s*(?:(?:secs?|seconds?|mins?|minutes?|hrs?|hours?|degrees?)\b|°)/) != nil
     }
 
     private static func isFinished(_ step: String) -> Bool {
@@ -329,9 +338,11 @@ enum RecipeTextParser {
             let items = (titled ? Array(loose.dropFirst()) : loose).compactMap(IngredientParser.parseLine)
             capture.ingredients = items + capture.ingredients
         } else {
-            capture.name = loose.first { $0.count <= 80 }
+            // "Makes 12 muffins" above the list isn't the dish's name.
+            let named = loose.firstIndex { $0.count <= 80 && $0.prefixMatch(of: /(?i)makes\s+\d/) == nil }
+            capture.name = named.map { loose[$0] }
             // When unsure, an ingredient: something between the name and the list may be one.
-            let rest = capture.name == nil ? loose : Array(loose.dropFirst())
+            let rest = loose.enumerated().filter { $0.offset != named }.map(\.element)
             capture.ingredients = rest.compactMap(IngredientParser.parseLine) + capture.ingredients
         }
     }
@@ -391,6 +402,8 @@ enum RecipeTextParser {
     }
 
     private static func servings(in line: String) -> Int? {
+        // "Makes 15 pancakes" is how many pancakes, not how many people, and scaling by it would shrink every amount.
+        if line.prefixMatch(of: /(?i)makes\b/) != nil, !isOnlyServings(line) { return nil }
         guard let match = line.wholeMatch(of: /(?i)(serves|servings?|yield|makes)\s*:?\s*(\d{1,2})\b.*/) else { return nil }
         return Int(match.2).flatMap { (1...50).contains($0) ? $0 : nil }
     }

@@ -607,7 +607,8 @@ struct RecipeTextParserTests {
         #expect(names.contains { $0.contains(part) && !$0.contains(",") })
     }
 
-    @Test(arguments: ["Ingredients (makes 2 cups peanut sauce)", "Ingredients (serves 4 contains peanuts)"])
+    @Test(arguments: ["Ingredients (makes 2 cups peanut sauce)", "Ingredients (serves 4 contains peanuts)",
+                      "Ingredients (makes 8 peanut servings)", "Ingredients (serves 4 peanut portions)"])
     func aNoteThatOpensLikeServingsKeepsItsAllergen(header: String) throws {
         #expect(try savedNames("Dish\n\(header)\n1 lb beef\n1 cup rice").contains { $0.contains("peanut") })
     }
@@ -837,6 +838,98 @@ struct RecipeTextParserTests {
 }
 
 /// The real thing: Apple's recognizer and PDFKit, on files made here.
+/// What the reader made of a real two-page cookbook spread, photographed on a phone.
+struct CookbookSpreadTests {
+    private let lines = [
+        "HOMEMADE INSTANT PANCAKE MIX",
+        "This is going to change your life irrevocably. Forgive any scintilla of self-congratulatory",
+        "preening and accept my boast as simple, enthusiastic exuberance. That is the spirit in",
+        "having to think about it. You know it makes sense.", "2", "FOR THE PANCAKE MIX:",
+        "4 cups flour", "3 tablespoons baking powder", "2 teaspoons baking soda", "1 teaspoon salt",
+        "2 tablespoons plus 2 teaspoons sugar", "Mix the above ingredients together and store in a jar.",
+        "TO MAKE THE BATTER AND THE PANCAKES:",
+        "To make the pancakes, for each 1 cup of pancake mix, add and whisk together:",
+        "1 egg", "1 tablespoon butter, melted", "1 cup milk", "Heat a dry flat griddle or pan", "- no need to oil it.",
+        "Spoon 1½ to 2 tablespoons of batter onto the hot griddle and when bubbles appear on",
+        "the surface of the little pancakes, flip them over to make them golden brown on both",
+        "sides. A minute or so a side should do it.", "Makes 15 pancakes of about 3 inches in diameter",
+    ]
+
+    @Test func aListAfterALabelIsIngredientsNotAStep() {
+        let capture = RecipeTextParser.parse(lines)
+        let names = capture.ingredients.map(\.name)
+        for item in ["egg", "butter, melted", "milk", "flour"] { #expect(names.contains(item), "\(item)") }
+        #expect(!capture.steps.contains { $0.contains("1 egg") })
+        #expect(capture.steps.contains { $0.contains("griddle") && $0.contains("Spoon") })
+    }
+
+    @Test func howManyItMakesIsntHowManyItServes() {
+        let capture = RecipeTextParser.parse(lines)
+        #expect(capture.servings == nil)
+        #expect(capture.draft(householdSize: 4).lines.contains { $0.name == "flour" && $0.quantity == "4 cups" })
+    }
+
+    @Test(arguments: [("Makes 4", 4), ("Makes 6 servings", 6), ("Makes: 8 people", 8), ("Serves 4 to 6", 4), ("Yield: 12", 12),
+                      ("Makes 4 to 6 servings", 4), ("Makes 4-6 servings", 4), ("Makes 4 servings.", 4), ("Makes 8 large servings", 8)])
+    func aRealServingsLineStillCounts(line: String, count: Int) {
+        #expect(RecipeTextParser.parse(["Dish", line, "1 lb beef", "2 cups rice"]).servings == count)
+    }
+
+    @Test func anAmountAfterAnUnfinishedStepIsAnIngredient() {
+        let capture = RecipeTextParser.parse(["Dish", "1 lb beef", "2 cups rice",
+            "Whisk the sauce with everything you have on hand until it is smooth and then add", "1 cup milk", "2 eggs"])
+        #expect(capture.ingredients.map(\.name).contains("milk"))
+        #expect(capture.ingredients.map(\.name).contains("eggs"))
+    }
+
+    @Test(arguments: [("4 mini peanut butter cups", "peanut"), ("2 minced anchovies", "anchovies"), ("3 hrvatska cheeses", "cheeses")])
+    func anIngredientThatStartsLikeATimeIsStillAnIngredient(line: String, word: String) {
+        let capture = RecipeTextParser.parse(["Directions", "1. Simmer the pot for", line])
+        #expect(capture.ingredients.contains { $0.name.contains(word) })
+    }
+
+    @Test(arguments: ["30 minutes, then serve.", "1 hour more.", "10-15 mins until done.", "350 degrees until brown.", "350° until brown."])
+    func aTimeOrHeatStaysInTheStep(line: String) {
+        let capture = RecipeTextParser.parse(["Directions", "1. Simmer the pot for", line])
+        #expect(capture.ingredients.isEmpty)
+    }
+
+    @Test func aLongLabelKeepsItsStepsWhole() {
+        let capture = RecipeTextParser.parse(["Pancakes", "1 cup flour", "2 eggs",
+            "Preheat the griddle and in a large bowl combine all of these ingredients with:", "1 cup milk",
+            "Heat the griddle over medium heat, then pour in a little batter.",
+            "Flip when bubbles appear, then cook until golden and serve warm."])
+        #expect(capture.ingredients.map(\.name) == ["flour", "eggs", "milk"])
+        #expect(capture.steps.joined().contains("then pour in a little batter"))
+        #expect(capture.steps.joined().contains("then cook until golden and serve warm"))
+    }
+
+    @Test func howManyItMakesAboveTheListIsntTheName() {
+        let capture = RecipeTextParser.parse(["Makes 12 muffins", "Muffins", "1 cup flour", "2 eggs"])
+        #expect(capture.name == "Muffins")
+    }
+
+    @Test func aFirstLineNamingAnAllergenStaysAnIngredient() {
+        let capture = RecipeTextParser.parse(["Noodles", "Makes 2 cups peanut sauce", "1 lb noodles", "2 eggs"])
+        #expect(capture.name == "Noodles")
+        #expect(capture.ingredients.contains { $0.name.contains("peanut") })
+    }
+
+    @Test func aListWithNoAmountsAfterALabelIsIngredients() {
+        let capture = RecipeTextParser.parse(["Dish", "1 cup flour", "2 cups rice",
+            "Preheat the griddle and in a large bowl combine all of these ingredients with:", "eggs", "milk",
+            "Heat the griddle over medium heat, then pour in a little batter and cook it through."])
+        #expect(capture.ingredients.map(\.name).contains("eggs"))
+        #expect(capture.ingredients.map(\.name).contains("milk"))
+        #expect(capture.steps.joined().contains("pour in a little batter"))
+    }
+
+    @Test func aFinishedStepDoesntTurnALineIntoAnIngredient() {
+        let capture = RecipeTextParser.parse(["Dish", "Ingredients:", "1 lb beef", "Directions:", "Stir in:", "the sauce and serve."])
+        #expect(capture.steps == ["Stir in: the sauce and serve."])
+    }
+}
+
 @Suite(.serialized)
 struct TextRecognizerTests {
     private func pdf(_ text: String?) throws -> URL {
