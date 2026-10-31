@@ -38,6 +38,17 @@ create policy "planners read the log, everyone their own" on public.notification
   using (public.is_household_member(household_id)
          and (public.is_household_planner(household_id) or member_id = public.my_member_id(household_id)));
 
+-- The household's lock for this log: shared by writers, and exclusive for whatever empties it. An advisory lock, taken before any
+-- row, so erasing and writing can't wait on each other's rows in opposite orders, and a write can't land after the log's emptied.
+create function public.notification_log_lock(target_household uuid)
+returns bigint
+language sql immutable set search_path = ''
+as $$
+  select hashtextextended('notification_log:' || target_household::text, 0);
+$$;
+
+revoke execute on function public.notification_log_lock(uuid) from public, anon, authenticated;
+
 -- Writes the caller's own rows and nobody else's. A row sent again (the device didn't hear back, or it's been answered since)
 -- only fills in: a sent or answered time, once known, stays, and a row someone else owns is left alone. A night that isn't
 -- this household's, or has gone since, reads as no night, so one old row can't hold the rest back.
@@ -46,14 +57,16 @@ returns void
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  me uuid := public.my_member_id(target_household);
+  me uuid;
 begin
-  -- Under a lock, re-reading the profile: if an erase or an account deletion holds it, this waits and then sees what they did,
-  -- rather than writing a row after they've emptied the log.
-  perform 1 from public.members
-  where id = me and user_id = (select auth.uid()) and status <> 'removed'
-  for key share;
-  if me is null or not found then
+  -- Only family can make an erase wait, however briefly.
+  if public.my_member_id(target_household) is null then
+    raise exception 'not a member of this household' using errcode = '42501';
+  end if;
+  perform pg_advisory_xact_lock_shared(public.notification_log_lock(target_household));
+  -- Read again now the lock's held: an erase or an account deletion may have just finished, and this sees it.
+  me := public.my_member_id(target_household);
+  if me is null then
     raise exception 'not a member of this household' using errcode = '42501';
   end if;
   if jsonb_typeof(entries) <> 'array' or jsonb_array_length(entries) > 200 then
@@ -87,12 +100,11 @@ returns void
 language plpgsql security definer set search_path = ''
 as $$
 begin
+  -- Before any row: a device's write holds this while it takes its own locks, so one in flight finishes first, and a later one
+  -- waits and is then refused.
+  perform pg_advisory_xact_lock(public.notification_log_lock(target));
   -- Holds the nights first, so a Swap in flight can't log a new entry after the log's been emptied and fail the erase.
   perform 1 from public.plan_nights where household_id = target for update;
-  -- And the household and its people, in that order after the nights, as a Swap takes them: a device logging a reminder needs
-  -- a key-share lock on these, so one in flight waits here and then fails rather than landing after the log's been emptied.
-  perform 1 from public.households where id = target for update;
-  perform 1 from public.members where household_id = target for update;
   delete from public.notification_log where household_id = target;
   delete from public.plan_changes where household_id = target;
   delete from public.night_claims where household_id = target;
@@ -203,13 +215,14 @@ begin
     return 'household_deleted';
   end if;
 
-  -- Held, so their device can't log a reminder between this and the log being emptied (record_notifications takes a lock too).
-  select * into profile from public.members where user_id = target_user for update;
+  select * into profile from public.members where user_id = target_user;
   if profile.id is null then
     return 'no_household';
   end if;
 
-  -- What was sent to them is about them, kid or adult.
+  -- What was sent to them is about them, kid or adult. The lock lasts until they're unlinked or removed, so their device can't
+  -- log a reminder after this: it waits, then finds it's no longer in the family.
+  perform pg_advisory_xact_lock(public.notification_log_lock(profile.household_id));
   delete from public.notification_log where member_id = profile.id;
 
   if profile.age_group = 'kid' then

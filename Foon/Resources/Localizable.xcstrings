@@ -140,17 +140,6 @@
         }
       }
     },
-    "%@ on %@" : {
-      "comment" : "Prep reminder title: the dish's name, then a weekday",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ on %2$@"
-          }
-        }
-      }
-    },
     "%@ out %@" : {
       "comment" : "Saved schedule: a name, then weekdays or how often",
       "localizations" : {
@@ -242,12 +231,6 @@
           }
         }
       }
-    },
-    "%@ tomorrow" : {
-      "comment" : "Prep reminder title: the dish's name"
-    },
-    "%@ tonight" : {
-      "comment" : "Prep reminder title: the dish's name"
     },
     "%@ tonight?" : {
       "comment" : "After-dinner card: the dish, then the question"
@@ -2841,11 +2824,8 @@
     "Tap the dinners your family already makes. You can add your own anytime." : {
 
     },
-    "Tap to rate %@." : {
-      "comment" : "Reminder body: rate the dish, never the cook. The dish's name"
-    },
     "Tap to rate dinner." : {
-      "comment" : "Reminder body when the dish's name can't go on a lock screen"
+      "comment" : "Reminder body: rate the dish, never the cook"
     },
     "Taste" : {
 

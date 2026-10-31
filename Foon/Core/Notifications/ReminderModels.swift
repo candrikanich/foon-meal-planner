@@ -39,13 +39,13 @@ struct NotificationPrefs: Decodable, Equatable, Sendable {
     }
 }
 
-/// One night, with what reminders need. It lives in the offline cache, so it holds nothing about allergies.
+/// One night, with what reminders need. It lives in the offline cache, so it holds nothing about allergies, and no dish name:
+/// nothing on a lock screen uses one.
 struct ReminderNight: Codable, Equatable, Identifiable, Sendable {
     let id: UUID
     let date: CalendarDay
     var dinnerTime: String?
     var mealID: UUID?
-    var mealName: String?
     var quickPick: QuickPick?
     var leftoversFrom: UUID?
     var stashItemID: UUID?
@@ -92,7 +92,7 @@ enum ReminderRoute: Equatable, Sendable {
     case dinnerCard
 }
 
-/// One notification to schedule. Text is ready to show on a lock screen, so it's checked when it's written.
+/// One notification to schedule. Its text is fixed words (`ReminderText`).
 struct PlannedReminder: Equatable, Identifiable, Sendable {
     let id: String
     let kind: ReminderKind

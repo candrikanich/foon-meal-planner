@@ -125,7 +125,7 @@ private final class Harness {
     let container: ModelContainer
     var currentTime = Harness.at(8, 10)
     let chili = UUID()
-    lazy var night = ReminderNight(id: UUID(), date: Self.day(10), mealID: chili, mealName: "Chili",
+    lazy var night = ReminderNight(id: UUID(), date: Self.day(10), mealID: chili,
                                    prepSteps: [PrepStep(step: "Thaw the beef", leadHours: 24)],
                                    attendance: [ann.id: true, kim.id: true])
 
@@ -195,7 +195,6 @@ struct ReminderSchedulingTests {
         let tacos = UUID()
         var swapped = test.night
         swapped.mealID = tacos
-        swapped.mealName = "Tacos"
         test.server.set(weeks: [test.week([swapped])])
         await store.replan(test.wanted())
         #expect(test.center.removed.contains(test.prepID))
@@ -245,7 +244,6 @@ struct ReminderSchedulingTests {
         let wanted = test.wanted()
         var swapped = test.night
         swapped.mealID = UUID()
-        swapped.mealName = "Tacos"
         let newWeek = test.week([swapped])
         let server = test.server
         let parked = AsyncStream<Void>.makeStream()
@@ -413,7 +411,6 @@ struct ReminderLogTests {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let json = String(data: try encoder.encode(entry), encoding: .utf8) ?? ""
-        #expect(!json.contains("Chili"), "no dish")
         #expect(!json.contains("Thaw"), "no text")
         let keys = try #require(try JSONSerialization.jsonObject(with: try encoder.encode(entry)) as? [String: Any]).keys
         #expect(Set(keys).isSubset(of: ["id", "type", "night_id", "scheduled_for", "sent_at", "responded_at", "response"]))
@@ -461,7 +458,7 @@ struct ReminderLogTests {
         let test = try Harness()
         // A kid on Balanced: five a week. Three have gone by the time she next opens the app.
         let nights = (8...14).map { day in
-            ReminderNight(id: UUID(), date: Harness.day(day), mealID: UUID(), mealName: "Dish \(day)",
+            ReminderNight(id: UUID(), date: Harness.day(day), mealID: UUID(),
                           attendance: [test.kim.id: true])
         }
         test.server.set(weeks: [test.week(nights)])

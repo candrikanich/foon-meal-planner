@@ -31,12 +31,11 @@ private enum Fixture {
         return settings
     }
 
-    static func night(_ day: Int, meal: UUID? = chili, name: String? = "Chili", steps: [PrepStep] = [],
+    static func night(_ day: Int, meal: UUID? = chili, steps: [PrepStep] = [],
                       home: [Member] = family, out: [Member] = []) -> ReminderNight {
         var attendance = Dictionary(uniqueKeysWithValues: home.map { ($0.id, true) })
         for member in out { attendance[member.id] = false }
-        return ReminderNight(id: UUID(), date: Self.day(day), mealID: meal, mealName: meal == nil ? nil : name,
-                             prepSteps: steps, attendance: attendance)
+        return ReminderNight(id: UUID(), date: Self.day(day), mealID: meal, prepSteps: steps, attendance: attendance)
     }
 
     static func week(_ nights: [ReminderNight], start: Int = 8, approved: Bool = true) -> ReminderWeek {
@@ -124,7 +123,7 @@ private typealias F = Fixture
         #expect(reminder.fireAt == F.at(9, 19, 30))
         #expect(reminder.dinnerAt == F.at(10, 19, 30))
         #expect(reminder.route == .night(night.id, F.day(10)))
-        #expect(reminder.title == "Chili tomorrow")
+        #expect(reminder.title == "Dinner tomorrow")
         #expect(reminder.body == "Time to start prep.", "the step's own words stay off the lock screen")
     }
 
@@ -228,11 +227,10 @@ private typealias F = Fixture
         let before = try #require(F.of(.prep, F.plan(weeks: [F.week([night])])).first)
         var swapped = night
         swapped.mealID = UUID()
-        swapped.mealName = "Tacos"
         let history = [ReminderHistory(id: before.id, sentAt: F.at(8, 9))]
         let after = try #require(F.of(.prep, F.plan(weeks: [F.week([swapped])], history: history)).first)
         #expect(after.id != before.id)
-        #expect(after.title == "Tacos tomorrow")
+        #expect(after.title == "Dinner tomorrow")
     }
 
     @Test func aMovedDinnerMovesTheSameReminder() throws {
@@ -256,8 +254,8 @@ private typealias F = Fixture
         let weeks = [F.week([F.night(8, steps: [PrepStep(step: "Marinate", leadHours: 4)]),
                              F.night(13, steps: [PrepStep(step: "Soak", leadHours: 72)])])]
         let titles = F.of(.prep, F.plan(weeks: weeks)).map(\.title)
-        #expect(titles.first == "Chili tonight")
-        #expect(titles.last == "Chili on Friday")
+        #expect(titles.first == "Dinner tonight")
+        #expect(titles.last == "Dinner on Friday")
     }
 }
 
@@ -267,14 +265,14 @@ private typealias F = Fixture
         let reminder = try #require(F.of(.afterDinner, F.plan(me: F.kim, weeks: [F.week([night])])).first)
         #expect(reminder.fireAt == F.at(10, 19))
         #expect(reminder.route == .dinnerCard)
-        #expect(reminder.body.contains("Chili"))
+        #expect(reminder.body == "Tap to rate dinner.")
     }
 
     @Test func itsTheSameMomentTheCardOnThisWeekOpens() throws {
         let night = F.night(10)
         let reminder = try #require(F.of(.afterDinner, F.plan(me: F.kim, weeks: [F.week([night])])).first)
         let card = WeekNight(id: night.id, date: night.date, effort: .normal, dinnerTime: nil, mealID: night.mealID,
-                             mealName: night.mealName, quickPick: nil, locked: false, attendance: night.attendance)
+                             mealName: nil, quickPick: nil, locked: false, attendance: night.attendance)
         #expect(DinnerPrompts.promptTime(card, defaultDinnerTime: F.settings.dinnerTime, calendar: F.calendar) == reminder.fireAt)
     }
 
@@ -595,7 +593,7 @@ private typealias F = Fixture
     @Test func aThawAcrossSpringForwardKeepsItsClockTime() throws {
         // Clocks change at 2am Sunday, March 14, 2027. 24 hours before Sunday's dinner is 6pm Saturday by the clock.
         let sunday = CalendarDay(year: 2027, month: 3, day: 14)
-        let night = ReminderNight(id: UUID(), date: sunday, mealID: F.chili, mealName: "Chili", prepSteps: [F.thaw],
+        let night = ReminderNight(id: UUID(), date: sunday, mealID: F.chili, prepSteps: [F.thaw],
                                   attendance: [F.ann.id: true])
         let week = ReminderWeek(planID: UUID(), start: sunday, isApproved: true, nights: [night])
         let now = F.at(12, 12, month: 3, year: 2027)
@@ -607,7 +605,7 @@ private typealias F = Fixture
     @Test func aPromptAndATimeAcrossFallBackAreOnTheHouseholdsClock() throws {
         // Clocks change at 2am Sunday, November 1, 2026.
         let sunday = F.day(1)
-        let night = ReminderNight(id: UUID(), date: sunday, mealID: F.chili, mealName: "Chili",
+        let night = ReminderNight(id: UUID(), date: sunday, mealID: F.chili,
                                   attendance: [F.ann.id: true])
         let week = ReminderWeek(planID: UUID(), start: sunday, isApproved: true, nights: [night])
         let plan = F.plan(weeks: [week], now: F.at(31, 12, month: 10))
@@ -733,15 +731,38 @@ private typealias F = Fixture
     }
 }
 
+/// Every word on a lock screen is one of ours. Text is built from fixed strings and the day, whatever the family typed.
 @Suite struct ReminderLockScreenTests {
-    private func prep(_ step: String, dish: String = "Chili", settings: HouseholdSettings = F.settings) -> [PlannedReminder] {
-        F.of(.prep, F.plan(settings: settings, weeks: [F.week([F.night(10, name: dish, steps: [PrepStep(step: step, leadHours: 24)])])]))
+    private var engaged: HouseholdSettings {
+        var settings = F.settings
+        settings.notificationPreset = .engaged
+        return settings
     }
 
-    @Test func aStepsOwnWordsNeverReachTheLockScreen() throws {
-        for step in ["Move the beef to the fridge", "Make Kim's without milk, she's allergic", "Get the dairy free cheese out", "Ask Zoë"] {
-            let reminder = try #require(prep(step).first)
-            #expect(reminder.body == "Time to start prep.", "\(step)")
+    /// Everything a plan could put on a lock screen, follow-ups included.
+    private func words(step: String) -> [String] {
+        let weeks = [F.week([F.night(10, steps: [PrepStep(step: step, leadHours: 24)])])]
+        return F.plan(settings: engaged, weeks: weeks).flatMap { [$0.title, $0.body] }
+    }
+
+    /// A dish's name can't make a difference: `ReminderNight` doesn't have one, so the planner never sees it.
+    @Test func aStepsOwnWordsMakeNoDifference() {
+        let plain = words(step: "Soak")
+        #expect(plain.count >= 6, "prep, its follow-up, and the prompt")
+        for step in ["Move the beef to the fridge", "Make Kim's without milk, she's allergic", "Nora's dairy-free lasagna", "ノラ用", ""] {
+            #expect(words(step: step) == plain, "\(step)")
+        }
+    }
+
+    @Test func theWordsAreExactlyTheseAndNoOthers() throws {
+        let fixed: Set<String> = ["Dinner tonight", "Dinner tomorrow", "Time to thaw what's for dinner.", "Time to start the marinade.",
+                                  "Time to start the slow cooker.", "Time to start prep.", "How was dinner?", "Tap to rate dinner.",
+                                  "Time to plan the week", "Foon can draft it in a tap, and you can change any night."]
+        let steps = ["Thaw it", "Marinate it", "Start the slow cooker", "Kim's without milk"]
+        let night = F.night(10, steps: steps.map { PrepStep(step: $0, leadHours: 20) })
+        for reminder in F.plan(settings: engaged, weeks: [F.week([night])]) {
+            #expect(fixed.contains(reminder.title), "\(reminder.title)")
+            #expect(fixed.contains(reminder.body), "\(reminder.body)")
         }
     }
 
@@ -754,69 +775,16 @@ private typealias F = Fixture
             "Fill the crock-pot": "Time to start the slow cooker."
         ]
         for (step, body) in expected {
-            #expect(try #require(prep(step).first).body == body, "\(step)")
+            let weeks = [F.week([F.night(10, steps: [PrepStep(step: step, leadHours: 24)])])]
+            #expect(try #require(F.of(.prep, F.plan(weeks: weeks)).first).body == body, "\(step)")
         }
     }
 
-    @Test(arguments: ["Nora's lasagna", "NORA'S lasagna", "Noras lasagna", "Zoë's stew", "Zoe's stew", "Mary Ann's pie", "Ann's pie",
-                      "Dairy-free lasagna", "Dairy free lasagna", "Dairyfree lasagna", "Coeliac pasta", "Cœliac pasta", "Celiac pasta",
-                      "Lactose-safe mac", "Gluten pasta", "No nuts brownies", "Tacos without cheese", "Allergy-safe cake",
-                      "Non-dairy curry", "ALLERGEN friendly soup", "Sopa sin alérgenos"])
-    func aDishThatNamesSomeoneOrAFreeFromIsntSafe(dish: String) {
-        #expect(!ReminderText.isSafeToShow(dish, people: ["Nora", "Zoë", "Mary Ann"]), "\(dish)")
-    }
-
-    @Test(arguments: ["Chili", "Grandma's meatloaf", "Peanut noodles", "Fish tacos", "Crème brûlée", "Snorable stew", "Freezer burritos"])
-    func anOrdinaryDishIs(dish: String) {
-        #expect(ReminderText.isSafeToShow(dish, people: ["Nora", "Zoë", "Mary Ann"]), "\(dish)")
-    }
-
-    @Test func aBlankNameHasNothingToShow() {
-        #expect(!ReminderText.isSafeToShow("  ", people: []))
-    }
-
-    @Test func aPrepTitleFallsBackForAnUnsafeDish() {
-        let kim = "Kim's dairy-free lasagna"
-        #expect(prep("Soak", dish: kim).first?.title == "Dinner tomorrow")
-        let weeks = [F.week([F.night(8, name: kim, steps: [PrepStep(step: "Soak", leadHours: 4)]),
-                             F.night(13, name: kim, steps: [PrepStep(step: "Soak", leadHours: 72)])])]
-        let titles = F.of(.prep, F.plan(weeks: weeks)).map(\.title)
-        #expect(titles == ["Dinner tonight", "Dinner on Friday"])
-    }
-
-    @Test func anAfterDinnerPromptFallsBackForAnUnsafeDish() throws {
-        let reminder = try #require(F.plan(me: F.kim, weeks: [F.week([F.night(10, name: "Nut-free Kim's pie")])]).first)
-        #expect(reminder.body == "Tap to rate dinner.")
-    }
-
-    @Test func theirOwnNameCountsEvenIfTheFamilyListIsBehind() throws {
-        let weeks = [F.week([F.night(10, name: "Kim's pie")])]
-        let reminder = try #require(F.plan(me: F.kim, members: [F.ann], weeks: weeks).first)
-        #expect(reminder.body == "Tap to rate dinner.")
-    }
-
-    @Test func aFollowUpCarriesTheSameSafeWords() {
-        var settings = F.settings
-        settings.notificationPreset = .engaged
-        let both = prep("Note for Kim", dish: "Kim's dairy-free lasagna", settings: settings)
-        #expect(both.count == 2)
-        #expect(both[1].id == ReminderID.followUp(of: both[0].id))
-        #expect(both.allSatisfy { $0.title == "Dinner tomorrow" && $0.body == "Time to start prep." })
-    }
-
-    @Test func noSurfaceCarriesAnUnsafeNameOrStep() {
-        var settings = F.settings
-        settings.notificationPreset = .engaged
-        let unsafe = ["Kim", "dairy", "milk", "allerg"]
-        let night = F.night(10, name: "Kim's dairy-free pie", steps: [PrepStep(step: "Keep Kim's without milk, allergy", leadHours: 24)])
-        let plan = F.plan(settings: settings, weeks: [F.week([night])])
-        #expect(plan.count >= 3)
-        for reminder in plan {
-            for word in unsafe {
-                #expect(!reminder.title.localizedCaseInsensitiveContains(word))
-                #expect(!reminder.body.localizedCaseInsensitiveContains(word))
-            }
-        }
+    @Test func theTitleSaysTheDayInFixedWords() {
+        let weeks = [F.week([F.night(8, steps: [PrepStep(step: "Soak", leadHours: 4)]),
+                             F.night(11, steps: [PrepStep(step: "Soak", leadHours: 24)]),
+                             F.night(13, steps: [PrepStep(step: "Soak", leadHours: 72)])])]
+        #expect(F.of(.prep, F.plan(weeks: weeks)).map(\.title) == ["Dinner tonight", "Dinner on Friday", "Dinner tomorrow"])
     }
 
     @Test func nothingNamesWhoIsOut() {
@@ -829,9 +797,9 @@ private typealias F = Fixture
         }
     }
 
-    @Test func aKidsPromptIsAboutTheDishAlone() throws {
+    @Test func aKidsPromptIsTheSameFixedWords() throws {
         let reminder = try #require(F.plan(me: F.kim, weeks: [F.week([F.night(10)])]).first)
         #expect(reminder.title == "How was dinner?")
-        #expect(reminder.body == "Tap to rate Chili.")
+        #expect(reminder.body == "Tap to rate dinner.")
     }
 }

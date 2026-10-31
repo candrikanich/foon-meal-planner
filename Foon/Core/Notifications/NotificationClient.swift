@@ -90,7 +90,7 @@ private struct ReminderPlanRow: Decodable, Sendable {
 
 private struct ReminderNightRow: Decodable, Sendable {
     static let columns = """
-        id, date, dinner_time, meal_id, quick_pick, leftovers_from, stash_item_id, meals(name, prep_steps), \
+        id, date, dinner_time, meal_id, quick_pick, leftovers_from, stash_item_id, meals(prep_steps), \
         night_attendance(member_id, expected)
         """
 
@@ -104,17 +104,14 @@ private struct ReminderNightRow: Decodable, Sendable {
             }
         }
 
-        let name: String
         let prepSteps: [PrepStep]
 
         enum CodingKeys: String, CodingKey {
-            case name
             case prepSteps = "prep_steps"
         }
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            name = try container.decode(String.self, forKey: .name)
             prepSteps = ((try? container.decodeIfPresent([LenientStep].self, forKey: .prepSteps)) ?? nil)?
                 .compactMap(\.step) ?? []
         }
@@ -141,7 +138,7 @@ private struct ReminderNightRow: Decodable, Sendable {
     }
 
     func night(log: ReminderLogRow?) -> ReminderNight {
-        ReminderNight(id: id, date: date, dinnerTime: dinnerTime, mealID: mealID, mealName: meals?.name, quickPick: quickPick,
+        ReminderNight(id: id, date: date, dinnerTime: dinnerTime, mealID: mealID, quickPick: quickPick,
                       leftoversFrom: leftoversFrom, stashItemID: stashItemID, prepSteps: meals?.prepSteps ?? [],
                       attendance: Dictionary(nightAttendance.map { ($0.memberID, $0.expected) },
                                              uniquingKeysWith: { first, _ in first }),

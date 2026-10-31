@@ -922,7 +922,7 @@ struct HouseholdClientLiveTests {
         #expect(read.count == 1, "next week hasn't been started")
         #expect(thisWeek.isApproved)
         let night = try #require(thisWeek.nights.first { $0.id == tonight.id })
-        #expect(night.mealName == "Chili")
+        #expect(night.mealID == chili)
         #expect(night.prepSteps == [PrepStep(step: "Thaw the beef", leadHours: 24)])
         #expect(night.attendance[ann.id] == true)
         #expect(night.ratedBy == [ann.id], "the embedded rating comes through")

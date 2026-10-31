@@ -173,19 +173,20 @@ select is(public.delete_account_data('e0000000-0000-0000-0000-00000000000e'), 'u
 select is((select count(*)::int from public.notification_log where member_id = '00000000-0000-0000-0000-0000000000a6'), 0,
   'and hers goes too, though her profile stays');
 
--- Racing an erase. One connection can't race, so these pin the locks; a two-connection run is in the PR's notes.
+-- Racing an erase. One connection can't race, so these pin the household's lock, taken first by all three; a two-connection run
+-- is in the PR's notes.
 create function pg_temp.before(fn regprocedure, first text, second text) returns boolean language sql as $$
   select position(first in lower(pg_get_functiondef(fn))) between 1 and position(second in lower(pg_get_functiondef(fn))) - 1;
 $$;
-select ok(pg_temp.before('public.erase_household(uuid)', 'from public.members where household_id = target for update',
-                         'delete from public.notification_log'),
-  'an erase holds the members before it empties the log, so a late insert waits and then fails');
-select ok(pg_temp.before('public.erase_household(uuid)', 'from public.households where id = target for update',
-                         'delete from public.notification_log'), 'and the household');
-select ok(pg_temp.before('public.delete_account_data(uuid)', 'where user_id = target_user for update',
-                         'delete from public.notification_log'), 'deleting an account holds the profile first');
-select ok(position('for key share' in lower(pg_get_functiondef('public.record_notifications(uuid, jsonb)'::regprocedure))) > 0,
-  'and writing checks the profile again under a lock, so it sees what they did');
+select ok(pg_temp.before('public.erase_household(uuid)', 'pg_advisory_xact_lock(public.notification_log_lock(target))',
+                         'from public.plan_nights'),
+  'an erase takes the household''s lock before any other');
+select ok(pg_temp.before('public.delete_account_data(uuid)', 'pg_advisory_xact_lock(public.notification_log_lock(profile.household_id))',
+                         'delete from public.notification_log'), 'deleting an account takes it before emptying the log');
+select ok(pg_temp.before('public.record_notifications(uuid, jsonb)', 'pg_advisory_xact_lock_shared(public.notification_log_lock(target_household))',
+                         'insert into public.notification_log'), 'writing takes it, shared, before anything else');
+select ok(pg_temp.before('public.record_notifications(uuid, jsonb)', 'pg_advisory_xact_lock_shared(',
+                         'me := public.my_member_id(target_household)'), 'and only then reads who the caller is');
 
 -- After the account's gone, its device can't log.
 select pg_temp.as_user('e0000000-0000-0000-0000-00000000000e');
