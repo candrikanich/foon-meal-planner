@@ -1358,6 +1358,9 @@
     "Foon couldn't check your plan, so nothing was saved. Check your connection and try again." : {
 
     },
+    "Foon couldn't find a recipe in this post. You can still save it as an idea with its link." : {
+
+    },
     "Foon couldn't find any text in that. If it's a locked PDF, remove the password and share it again." : {
 
     },
