@@ -125,7 +125,7 @@ private typealias F = Fixture
         #expect(reminder.dinnerAt == F.at(10, 19, 30))
         #expect(reminder.route == .night(night.id, F.day(10)))
         #expect(reminder.title == "Chili tomorrow")
-        #expect(reminder.body == "Move the beef to the fridge")
+        #expect(reminder.body == "Time to start prep.", "the step's own words stay off the lock screen")
     }
 
     @Test func everyStepWithALeadTimeGetsOne() {
@@ -734,33 +734,89 @@ private typealias F = Fixture
 }
 
 @Suite struct ReminderLockScreenTests {
-    @Test func aStepThatMentionsAnAllergyLosesItsWords() {
-        let people = ["Nora", "Owen"]
-        #expect(ReminderText.isSafeToShow("Thaw the beef", people: people))
-        #expect(ReminderText.isSafeToShow("Soak the peanuts overnight", people: people), "an ingredient isn't anyone's allergy")
-        #expect(!ReminderText.isSafeToShow("Check for the allergy version", people: people))
-        #expect(!ReminderText.isSafeToShow("Make a separate ALLERGEN-safe batch", people: people))
-        #expect(!ReminderText.isSafeToShow("Get the dairy-free cheese out", people: people))
-        #expect(!ReminderText.isSafeToShow("Is gluten intolerance an issue?", people: people))
+    private func prep(_ step: String, dish: String = "Chili", settings: HouseholdSettings = F.settings) -> [PlannedReminder] {
+        F.of(.prep, F.plan(settings: settings, weeks: [F.week([F.night(10, name: dish, steps: [PrepStep(step: step, leadHours: 24)])])]))
     }
 
-    @Test func aStepThatNamesSomeoneLosesItsWords() {
-        let people = ["Nora", "Owen"]
-        #expect(!ReminderText.isSafeToShow("Make Nora's without milk", people: people))
-        #expect(!ReminderText.isSafeToShow("owen's portion on the side", people: people))
-        #expect(ReminderText.isSafeToShow("Snorable stew", people: people), "a whole word, not part of one")
+    @Test func aStepsOwnWordsNeverReachTheLockScreen() throws {
+        for step in ["Move the beef to the fridge", "Make Kim's without milk, she's allergic", "Get the dairy free cheese out", "Ask Zoë"] {
+            let reminder = try #require(prep(step).first)
+            #expect(reminder.body == "Time to start prep.", "\(step)")
+        }
     }
 
-    @Test func aBlankStepHasNothingToShow() {
+    @Test func aKnownKindOfStepSaysSoInFixedWords() throws {
+        let expected = [
+            "Thaw the beef for Kim": "Time to thaw what's for dinner.",
+            "DEFROST the chicken": "Time to thaw what's for dinner.",
+            "Marinate Nora's portion": "Time to start the marinade.",
+            "Start the slow cooker": "Time to start the slow cooker.",
+            "Fill the crock-pot": "Time to start the slow cooker."
+        ]
+        for (step, body) in expected {
+            #expect(try #require(prep(step).first).body == body, "\(step)")
+        }
+    }
+
+    @Test(arguments: ["Nora's lasagna", "NORA'S lasagna", "Noras lasagna", "Zoë's stew", "Zoe's stew", "Mary Ann's pie", "Ann's pie",
+                      "Dairy-free lasagna", "Dairy free lasagna", "Dairyfree lasagna", "Coeliac pasta", "Cœliac pasta", "Celiac pasta",
+                      "Lactose-safe mac", "Gluten pasta", "No nuts brownies", "Tacos without cheese", "Allergy-safe cake",
+                      "Non-dairy curry", "ALLERGEN friendly soup", "Sopa sin alérgenos"])
+    func aDishThatNamesSomeoneOrAFreeFromIsntSafe(dish: String) {
+        #expect(!ReminderText.isSafeToShow(dish, people: ["Nora", "Zoë", "Mary Ann"]), "\(dish)")
+    }
+
+    @Test(arguments: ["Chili", "Grandma's meatloaf", "Peanut noodles", "Fish tacos", "Crème brûlée", "Snorable stew", "Freezer burritos"])
+    func anOrdinaryDishIs(dish: String) {
+        #expect(ReminderText.isSafeToShow(dish, people: ["Nora", "Zoë", "Mary Ann"]), "\(dish)")
+    }
+
+    @Test func aBlankNameHasNothingToShow() {
         #expect(!ReminderText.isSafeToShow("  ", people: []))
     }
 
-    @Test func theReminderItselfUsesTheSafeWords() throws {
-        let step = PrepStep(step: "Make Kim's without milk, she's allergic", leadHours: 24)
-        let reminder = try #require(F.of(.prep, F.plan(weeks: [F.week([F.night(10, steps: [step])])])).first)
-        #expect(reminder.body == "Time to start prep.")
-        #expect(!reminder.title.contains("Kim"))
-        #expect(!reminder.body.contains("milk"))
+    @Test func aPrepTitleFallsBackForAnUnsafeDish() {
+        let kim = "Kim's dairy-free lasagna"
+        #expect(prep("Soak", dish: kim).first?.title == "Dinner tomorrow")
+        let weeks = [F.week([F.night(8, name: kim, steps: [PrepStep(step: "Soak", leadHours: 4)]),
+                             F.night(13, name: kim, steps: [PrepStep(step: "Soak", leadHours: 72)])])]
+        let titles = F.of(.prep, F.plan(weeks: weeks)).map(\.title)
+        #expect(titles == ["Dinner tonight", "Dinner on Friday"])
+    }
+
+    @Test func anAfterDinnerPromptFallsBackForAnUnsafeDish() throws {
+        let reminder = try #require(F.plan(me: F.kim, weeks: [F.week([F.night(10, name: "Nut-free Kim's pie")])]).first)
+        #expect(reminder.body == "Tap to rate dinner.")
+    }
+
+    @Test func theirOwnNameCountsEvenIfTheFamilyListIsBehind() throws {
+        let weeks = [F.week([F.night(10, name: "Kim's pie")])]
+        let reminder = try #require(F.plan(me: F.kim, members: [F.ann], weeks: weeks).first)
+        #expect(reminder.body == "Tap to rate dinner.")
+    }
+
+    @Test func aFollowUpCarriesTheSameSafeWords() {
+        var settings = F.settings
+        settings.notificationPreset = .engaged
+        let both = prep("Note for Kim", dish: "Kim's dairy-free lasagna", settings: settings)
+        #expect(both.count == 2)
+        #expect(both[1].id == ReminderID.followUp(of: both[0].id))
+        #expect(both.allSatisfy { $0.title == "Dinner tomorrow" && $0.body == "Time to start prep." })
+    }
+
+    @Test func noSurfaceCarriesAnUnsafeNameOrStep() {
+        var settings = F.settings
+        settings.notificationPreset = .engaged
+        let unsafe = ["Kim", "dairy", "milk", "allerg"]
+        let night = F.night(10, name: "Kim's dairy-free pie", steps: [PrepStep(step: "Keep Kim's without milk, allergy", leadHours: 24)])
+        let plan = F.plan(settings: settings, weeks: [F.week([night])])
+        #expect(plan.count >= 3)
+        for reminder in plan {
+            for word in unsafe {
+                #expect(!reminder.title.localizedCaseInsensitiveContains(word))
+                #expect(!reminder.body.localizedCaseInsensitiveContains(word))
+            }
+        }
     }
 
     @Test func nothingNamesWhoIsOut() {

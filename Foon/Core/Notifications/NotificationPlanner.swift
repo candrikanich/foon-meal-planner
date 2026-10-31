@@ -66,6 +66,7 @@ enum NotificationPlanner {
 
         private var me: Member { inputs.me }
         private var settings: HouseholdSettings { inputs.settings }
+        private var people: [String] { (inputs.members + [me]).map(\.firstName) }
 
         func candidates() -> [Candidate] {
             let first = timeToPlan() + prep() + afterDinner()
@@ -106,7 +107,7 @@ enum NotificationPlanner {
                 return night.prepSteps.enumerated().compactMap { index, step -> Candidate? in
                     guard let lead = step.leadHours, lead > 0, let fire = counted(back: lead, from: dinner) else { return nil }
                     let copy = ReminderText.prep(dish: dish, step: step.step, night: night.date, firing: fire,
-                                                 people: inputs.members.map(\.firstName), calendar: calendar)
+                                                 people: people, calendar: calendar)
                     return Candidate(reminder: PlannedReminder(
                         id: ReminderID.prep(me: me.id, night: night.id, meal: meal, step: index), kind: .prep,
                         nightID: night.id, fireAt: fire, dinnerAt: dinner, title: copy.title, body: copy.body,
@@ -129,7 +130,7 @@ enum NotificationPlanner {
                 return Candidate(reminder: PlannedReminder(
                     id: ReminderID.afterDinner(me: me.id, night: night.id, meal: meal), kind: .afterDinner,
                     nightID: night.id, fireAt: dinner.addingTimeInterval(DinnerPrompts.delay), dinnerAt: nil,
-                    title: ReminderText.afterDinnerTitle, body: ReminderText.afterDinnerBody(dish: dish),
+                    title: ReminderText.afterDinnerTitle, body: ReminderText.afterDinnerBody(dish: dish, people: people),
                     route: .dinnerCard))
             }
         }
@@ -242,7 +243,9 @@ private extension PlannedReminder {
     }
 }
 
-/// Lock-screen words, kids' included: dish names and nothing else about anyone. Never who's out, and never allergies.
+/// Lock-screen words, kids' included. Never who's out, and never allergies. A family types its own prep steps and dish names, so
+/// a step's words never go out at all, only which of a few fixed kinds it is, and a dish name goes out only if it passes
+/// `isSafeToShow`. A check like that can't be complete, so it leans toward "dinner".
 enum ReminderText {
     static var timeToPlanTitle: String { String(localized: "Time to plan the week", comment: "Reminder title") }
     static var timeToPlanBody: String {
@@ -250,36 +253,70 @@ enum ReminderText {
     }
     static var afterDinnerTitle: String { String(localized: "How was dinner?", comment: "Reminder title") }
 
-    static func afterDinnerBody(dish: String) -> String {
-        String(localized: "Tap to rate \(dish).", comment: "Reminder body: rate the dish, never the cook. The dish's name")
+    static func afterDinnerBody(dish: String, people: [String]) -> String {
+        isSafeToShow(dish, people: people)
+            ? String(localized: "Tap to rate \(dish).", comment: "Reminder body: rate the dish, never the cook. The dish's name")
+            : String(localized: "Tap to rate dinner.", comment: "Reminder body when the dish's name can't go on a lock screen")
     }
 
     static func prep(dish: String, step: String, night: CalendarDay, firing: Date, people: [String],
                      calendar: Calendar) -> (title: String, body: String) {
-        let fireDay = CalendarDay(firing, calendar: calendar)
-        let title: String
-        if fireDay == night {
-            title = String(localized: "\(dish) tonight", comment: "Prep reminder title: the dish's name")
-        } else if fireDay.adding(days: 1, calendar: calendar) == night {
-            title = String(localized: "\(dish) tomorrow", comment: "Prep reminder title: the dish's name")
-        } else {
-            let style = Date.FormatStyle(calendar: calendar, timeZone: calendar.timeZone).weekday(.wide)
-            let weekday = night.date(in: calendar).formatted(style)
-            title = String(localized: "\(dish) on \(weekday)", comment: "Prep reminder title: the dish's name, then a weekday")
-        }
-        let body = isSafeToShow(step, people: people) ? step
-            : String(localized: "Time to start prep.", comment: "Prep reminder body when the step's own words can't go on a lock screen")
-        return (title, body)
+        let name = isSafeToShow(dish, people: people) ? dish : nil
+        return (prepTitle(dish: name, night: night, firing: firing, calendar: calendar), prepBody(step: step))
     }
 
-    /// A prep step is whatever the family typed, and a lock screen isn't the place for "Nora's without milk, she's allergic".
-    /// So a step that mentions an allergy, or anyone by name, goes out without its words. A dish name always shows.
-    static func isSafeToShow(_ step: String, people: [String]) -> Bool {
-        let text = step.lowercased()
+    private static func prepTitle(dish: String?, night: CalendarDay, firing: Date, calendar: Calendar) -> String {
+        let fireDay = CalendarDay(firing, calendar: calendar)
+        if fireDay == night {
+            return dish.map { String(localized: "\($0) tonight", comment: "Prep reminder title: the dish's name") }
+                ?? String(localized: "Dinner tonight", comment: "Prep reminder title")
+        }
+        if fireDay.adding(days: 1, calendar: calendar) == night {
+            return dish.map { String(localized: "\($0) tomorrow", comment: "Prep reminder title: the dish's name") }
+                ?? String(localized: "Dinner tomorrow", comment: "Prep reminder title")
+        }
+        let style = Date.FormatStyle(calendar: calendar, timeZone: calendar.timeZone).weekday(.wide)
+        let weekday = night.date(in: calendar).formatted(style)
+        return dish.map { String(localized: "\($0) on \(weekday)", comment: "Prep reminder title: the dish's name, then a weekday") }
+            ?? String(localized: "Dinner on \(weekday)", comment: "Prep reminder title: a weekday")
+    }
+
+    /// Fixed words for the kinds of step the starter pack has. Nothing the family typed gets through.
+    private static func prepBody(step: String) -> String {
+        let text = folded(step)
+        if ["thaw", "defrost"].contains(where: text.contains) {
+            return String(localized: "Time to thaw what's for dinner.", comment: "Prep reminder body")
+        }
+        if text.contains("marinat") {
+            return String(localized: "Time to start the marinade.", comment: "Prep reminder body")
+        }
+        if ["slow cooker", "slow-cooker", "crock"].contains(where: text.contains) {
+            return String(localized: "Time to start the slow cooker.", comment: "Prep reminder body")
+        }
+        return String(localized: "Time to start prep.", comment: "Prep reminder body")
+    }
+
+    /// False for a dish name that mentions a family member ("Nora's lasagna") or reads as a diet or an allergy
+    /// ("Dairy free lasagna", "No nuts brownies"). An ingredient alone is fine: "Peanut noodles" says nothing about anyone.
+    static func isSafeToShow(_ name: String, people: [String]) -> Bool {
+        let text = folded(name)
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !["allerg", "anaphyla", "epipen", "epi-pen", "intoleran", "celiac", "-free"].contains(where: text.contains)
+              !["allerg", "alerg", "anaphyla", "epipen", "epi-pen", "intoleran", "celiac", "coeliac", "lactose", "gluten"]
+                .contains(where: text.contains) else { return false }
+        let words = Set(tokens(text))
+        guard words.isDisjoint(with: ["no", "non", "without", "safe", "friendly"]), !words.contains(where: { $0.hasSuffix("free") })
         else { return false }
-        let words = Set(text.split(whereSeparator: { !$0.isLetter }).map(String.init))
-        return !people.contains { words.contains($0.lowercased()) }
+        return !people.flatMap { tokens(folded($0)) }.contains { words.contains($0) || words.contains($0 + "s") }
+    }
+
+    /// Lowercase with accents gone, so "Zoë" and "ZOE'S" are the same person.
+    private static func folded(_ text: String) -> String {
+        text.lowercased()
+            .replacing("œ", with: "oe").replacing("æ", with: "ae").replacing("ß", with: "ss").replacing("ø", with: "o")
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+    }
+
+    private static func tokens(_ text: String) -> [String] {
+        text.split(whereSeparator: { !$0.isLetter }).map(String.init)
     }
 }

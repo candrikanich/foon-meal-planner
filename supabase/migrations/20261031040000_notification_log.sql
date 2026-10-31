@@ -48,7 +48,12 @@ as $$
 declare
   me uuid := public.my_member_id(target_household);
 begin
-  if me is null then
+  -- Under a lock, re-reading the profile: if an erase or an account deletion holds it, this waits and then sees what they did,
+  -- rather than writing a row after they've emptied the log.
+  perform 1 from public.members
+  where id = me and user_id = (select auth.uid()) and status <> 'removed'
+  for key share;
+  if me is null or not found then
     raise exception 'not a member of this household' using errcode = '42501';
   end if;
   if jsonb_typeof(entries) <> 'array' or jsonb_array_length(entries) > 200 then
@@ -84,6 +89,10 @@ as $$
 begin
   -- Holds the nights first, so a Swap in flight can't log a new entry after the log's been emptied and fail the erase.
   perform 1 from public.plan_nights where household_id = target for update;
+  -- And the household and its people, in that order after the nights, as a Swap takes them: a device logging a reminder needs
+  -- a key-share lock on these, so one in flight waits here and then fails rather than landing after the log's been emptied.
+  perform 1 from public.households where id = target for update;
+  perform 1 from public.members where household_id = target for update;
   delete from public.notification_log where household_id = target;
   delete from public.plan_changes where household_id = target;
   delete from public.night_claims where household_id = target;
@@ -194,7 +203,8 @@ begin
     return 'household_deleted';
   end if;
 
-  select * into profile from public.members where user_id = target_user;
+  -- Held, so their device can't log a reminder between this and the log being emptied (record_notifications takes a lock too).
+  select * into profile from public.members where user_id = target_user for update;
   if profile.id is null then
     return 'no_household';
   end if;

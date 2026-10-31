@@ -1146,6 +1146,15 @@
     "Dinner jobs" : {
 
     },
+    "Dinner on %@" : {
+      "comment" : "Prep reminder title: a weekday"
+    },
+    "Dinner tomorrow" : {
+      "comment" : "Prep reminder title"
+    },
+    "Dinner tonight" : {
+      "comment" : "Prep reminder title"
+    },
     "Dinners" : {
 
     },
@@ -2835,6 +2844,9 @@
     "Tap to rate %@." : {
       "comment" : "Reminder body: rate the dish, never the cook. The dish's name"
     },
+    "Tap to rate dinner." : {
+      "comment" : "Reminder body when the dish's name can't go on a lock screen"
+    },
     "Taste" : {
 
     },
@@ -3086,7 +3098,16 @@
       "comment" : "Reminder title"
     },
     "Time to start prep." : {
-      "comment" : "Prep reminder body when the step's own words can't go on a lock screen"
+      "comment" : "Prep reminder body"
+    },
+    "Time to start the marinade." : {
+      "comment" : "Prep reminder body"
+    },
+    "Time to start the slow cooker." : {
+      "comment" : "Prep reminder body"
+    },
+    "Time to thaw what's for dinner." : {
+      "comment" : "Prep reminder body"
     },
     "Timer done: %@" : {
       "comment" : "Cook mode timer alert title"

@@ -1,7 +1,7 @@
 -- The notification log (#40 part 1). A device writes its own rows and nobody else's; planners read the household's, everyone
 -- reads their own, and another household reads nothing. Only type, night, and times: there's nowhere to put message text.
 begin;
-select plan(35);
+select plan(40);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -172,6 +172,26 @@ insert into public.notification_log (id, household_id, member_id, type, schedule
 select is(public.delete_account_data('e0000000-0000-0000-0000-00000000000e'), 'unlinked', 'a kid deletes her account');
 select is((select count(*)::int from public.notification_log where member_id = '00000000-0000-0000-0000-0000000000a6'), 0,
   'and hers goes too, though her profile stays');
+
+-- Racing an erase. One connection can't race, so these pin the locks; a two-connection run is in the PR's notes.
+create function pg_temp.before(fn regprocedure, first text, second text) returns boolean language sql as $$
+  select position(first in lower(pg_get_functiondef(fn))) between 1 and position(second in lower(pg_get_functiondef(fn))) - 1;
+$$;
+select ok(pg_temp.before('public.erase_household(uuid)', 'from public.members where household_id = target for update',
+                         'delete from public.notification_log'),
+  'an erase holds the members before it empties the log, so a late insert waits and then fails');
+select ok(pg_temp.before('public.erase_household(uuid)', 'from public.households where id = target for update',
+                         'delete from public.notification_log'), 'and the household');
+select ok(pg_temp.before('public.delete_account_data(uuid)', 'where user_id = target_user for update',
+                         'delete from public.notification_log'), 'deleting an account holds the profile first');
+select ok(position('for key share' in lower(pg_get_functiondef('public.record_notifications(uuid, jsonb)'::regprocedure))) > 0,
+  'and writing checks the profile again under a lock, so it sees what they did');
+
+-- After the account's gone, its device can't log.
+select pg_temp.as_user('e0000000-0000-0000-0000-00000000000e');
+select throws_ok($$ select public.record_notifications('00000000-0000-0000-0000-0000000000a0', jsonb_build_array(
+    pg_temp.entry(gen_random_uuid()))) $$, '42501', null, 'a device whose profile was unlinked can''t write');
+reset role;
 
 select is(public.delete_account_data('c0000000-0000-0000-0000-00000000000c'), 'household_deleted', 'an owner deletes her account');
 select is((select count(*)::int from public.notification_log where household_id = '00000000-0000-0000-0000-0000000000b0'), 0,
