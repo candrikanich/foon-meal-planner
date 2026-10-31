@@ -62,8 +62,16 @@ enum RecipeTextParser {
                 inSteps = !inIngredients
                 sawIngredientsHeader = sawIngredientsHeader || inIngredients
                 lines.append(plain)
-                // "Ingredients (contains peanuts, shrimp)": a note like that may be the only place an allergen is named.
-                if inIngredients, let note = plain.firstMatch(of: /\((.+)\)/)?.1 { ingredientLines.append(String(note)) }
+                // "Ingredients (contains peanuts, shrimp)": a note like that may be the only place an allergen is named. Each
+                // part keeps parentheses, so "(notes)" or "(nutrition info below)" can't read as the end of the recipe.
+                if inIngredients, let note = plain.firstMatch(of: /\((.+)\)/)?.1 {
+                    lines += note.split(separator: ",").map { part in
+                        let words = part.trimmingCharacters(in: .whitespaces)
+                        // "(serves 2)" still scales the amounts. Only when that's all it says: "(makes 2 cups peanut sauce)" stays.
+                        let isOnlyServings = words.wholeMatch(of: /(?i)(?:serves|servings?|yield|makes)\s*:?\s*\d{1,2}(?:\s*(?:people|servings?))?/) != nil
+                        return isOnlyServings ? words : "(\(words))"
+                    }
+                }
                 continue
             }
             // Otherwise the emoji only comes off what's clearly an amount. Bared, "💡 Tip" would end the recipe, and "🥜 Makes
@@ -91,9 +99,10 @@ enum RecipeTextParser {
     private static func splitItems(_ section: [String]) -> [String] {
         section.flatMap { line -> [String] in
             let pieces = line.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-            let lower = line.lowercased()
+            // The matcher reads "plant-based" and "plant based" alike.
+            let lower = line.lowercased().replacing("-", with: " ")
             // These labels apply to everything on an ingredient, so they'd cancel an allergen on the other side of the comma.
-            let hasFreeFromLabel = ["free", "vegan", "plant"].contains { lower.contains($0) }
+            let hasFreeFromLabel = lower.contains("free") || freeFromLabels.contains { lower.contains($0) }
             let isOneItem = section.count > 1 && pieces.count == 2 && isAmountLed(line) && !hasFreeFromLabel
                 && MealDraft.length(line) <= maxWholeLine && isDescription(first: pieces[0], second: pieces[1])
             return isOneItem ? [line] : pieces
@@ -112,6 +121,9 @@ enum RecipeTextParser {
         "grated", "shredded", "cubed", "crushed", "thawed", "halved", "quartered", "toasted", "sifted", "packed", "optional",
         "finely", "roughly", "coarsely", "thinly", "freshly", "lightly", "room", "temperature", "at", "to", "taste",
     ]
+
+    /// The allergy matcher's own labels, so the two can't drift apart.
+    private static let freeFromLabels = AllergenKeywords.all.flatMap(\.freeFrom).map { $0.lowercased().replacing("-", with: " ") }
 
     /// `RecipeImport.ingredientName` cuts a longer name at its first comma.
     private static let maxWholeLine = 60

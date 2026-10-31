@@ -588,6 +588,54 @@ struct RecipeTextParserTests {
         #expect(try savedNames(caption).contains { $0.localizedCaseInsensitiveContains(allergen) })
     }
 
+    @Test(arguments: ["notes", "method", "nutrition info below", "makes 2 cups peanut sauce", "for the sauce", "print"])
+    func aHeaderNoteCantEndTheList(note: String) throws {
+        let names = try savedNames("Dish\nIngredients:\n1 cup rice\nIngredients (\(note))\n3 tbsp peanut butter\n1 lb shrimp")
+        #expect(names.contains { $0.contains("peanut butter") })
+        #expect(names.contains("shrimp"))
+    }
+
+    @Test(arguments: [("Ingredients (rice, flour)", "flour"), ("Ingredients (peanut, butter)", "butter"),
+                      ("Ingredients (gluten-free, except the flour)", "except the flour"),
+                      ("Ingredients (nut-free, may contain peanuts)", "may contain peanuts"),
+                      ("Ingredients (vegan, contains shrimp paste)", "contains shrimp paste"),
+                      ("Ingredients (contains peanuts and tree nuts, may contain shrimp, sesame and soy from the sauce)", "sesame and soy"),
+                      ("Ingredients (contains peanuts, 4 star anise)", "contains peanuts"),
+                      ("Ingredients (5 stars, contains peanuts)", "contains peanuts")])
+    func aHeaderNotesPartsDontCancelEachOther(header: String, part: String) throws {
+        let names = try savedNames("Dish\n\(header)\n1 lb beef\n1 cup rice")
+        #expect(names.contains { $0.contains(part) && !$0.contains(",") })
+    }
+
+    @Test(arguments: ["Ingredients (makes 2 cups peanut sauce)", "Ingredients (serves 4 contains peanuts)"])
+    func aNoteThatOpensLikeServingsKeepsItsAllergen(header: String) throws {
+        #expect(try savedNames("Dish\n\(header)\n1 lb beef\n1 cup rice").contains { $0.contains("peanut") })
+    }
+
+    @Test func aServingsNoteInAHeaderScales() throws {
+        let capture = try #require(RecipeTextParser.parseCaption("Dish\nIngredients (serves 2)\n1 lb beef\n1 cup rice"))
+        #expect(capture.servings == 2)
+        #expect(capture.ingredients.count == 2)
+    }
+
+    @Test func eachPartOfAHeaderNoteIsItsOwnLine() throws {
+        let names = try savedNames("Dish\nIngredients (vegan, contains shrimp)\n1 lb beef\n1 cup rice")
+        #expect(names.contains { $0.contains("contains shrimp") && !$0.contains("vegan") })
+        let long = try savedNames("Dish\nIngredients (a very long note about how this was made at home, contains peanuts)\n1 lb beef\n1 cup rice")
+        #expect(long.contains { $0.contains("peanuts") })
+    }
+
+    @Test func aHyphenatedFreeFromLabelSplitsALine() throws {
+        #expect(try savedNames("Dish\nIngredients:\n4 plant-based boneless, shrimp tacos\n1 tsp salt").contains("shrimp tacos"))
+    }
+
+    @Test func everyFreeFromLabelSplitsALine() throws {
+        for label in AllergenKeywords.all.flatMap(\.freeFrom) {
+            let names = try savedNames("Dish\nIngredients:\n4 \(label) boneless, shrimp tacos\n1 tsp salt")
+            #expect(names.contains("shrimp tacos"), "\(label)")
+        }
+    }
+
     @Test(arguments: [("Comment PEANUT: 1 cup peanut butter, 2 eggs, 1 cup shrimp", "shrimp"), ("Full recipe in bio: peanut butter, soy sauce, eggs", "eggs"),
                       ("Get the full recipe: 2 tbsp peanut butter, 1 cup shrimp", "shrimp"), ("Link in bio for the peanut sauce", "peanut"),
                       ("Full recipe calls for peanut sauce", "peanut")])
