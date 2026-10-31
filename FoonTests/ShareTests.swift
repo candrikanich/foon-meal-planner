@@ -544,6 +544,69 @@ struct RecipeTextParserTests {
         #expect(capture.ingredients.count == 2)
     }
 
+    private func savedNames(_ caption: String) throws -> [String] {
+        let capture = try #require(RecipeTextParser.parseCaption(caption))
+        return capture.draft(householdSize: 4).lines.map(\.name)
+    }
+
+    @Test(arguments: [
+        ("Dish\nIngredients:\n1 lb boneless skinless chicken thighs, 2 tbsp creamy peanut butter, soy sauce, lime juice\nsalt to taste", "peanut"),
+        ("Dish\nIngredients:\n8 oz wide flat rice noodles from the store, 2 eggs, 1 cup shrimp, and peanuts\n1 tbsp oil", "shrimp"),
+        ("Dish\nIngredients:\nFor the sauce:\ncreamy peanut butter, soy sauce, fish sauce, sesame oil, lime juice, brown sugar\nFor the chicken:\n1 lb chicken thighs", "sesame"),
+        ("Dish\nIngredients:\nFor the sauce: 3 tbsp creamy peanut butter, 2 tbsp soy sauce, 1 tbsp fish sauce\nFor the noodles: 8 oz noodles, 2 eggs", "fish sauce"),
+        ("Dish\nIngredients:\n2 cups a very long blend of mixed roasted nuts from the store, peanuts\n1 tbsp oil", "peanuts"),
+        ("Tacos\nIngredients:\n1 lb beef\n2 cups rice\n3 tbsp peanut butter (full recipe in bio)", "peanut"),
+        ("Tacos\nIngredients:\n1 lb beef\n2 cups rice, 1 cup shrimp - full recipe link in bio\n1 tsp salt", "shrimp"),
+        ("Tacos\nIngredients:\n1 lb beef\n2 cups rice\nPeanut sauce, link in bio", "peanut"),
+    ])
+    func anAllergenSurvivesToTheSavedDish(caption: String, allergen: String) throws {
+        #expect(try savedNames(caption).contains { $0.localizedCaseInsensitiveContains(allergen) })
+    }
+
+    @Test func aRecipeRunningIntoAPromotionIsStillARecipe() throws {
+        let names = try savedNames("Peanut Noodles\nIngredients: 1 lb noodles, 2 tbsp peanut butter, 1 tbsp soy sauce. Full recipe in my bio!")
+        #expect(names.contains { $0.contains("peanut butter") })
+    }
+
+    @Test func aPlainListSplitsAroundSubheadsAndNotes() throws {
+        #expect(try savedNames("Dish\nIngredients:\nFor the sauce:\npeanut butter, soy sauce, fish sauce").count == 3)
+        #expect(try savedNames("Dish\nIngredients:\npeanut butter, soy sauce, fish sauce\nNotes:\nUse crunchy.").count == 3)
+        #expect(try savedNames("Dish\nIngredients:\nServes 4\nnoodles, peanut butter, soy sauce").count == 3)
+    }
+
+    @Test func aRealStepStartingWithFollowStays() throws {
+        let capture = try #require(RecipeTextParser.parseCaption(
+            "Dish\nIngredients:\n1 lb beef\n2 cups rice\nDirections:\nFollow the package directions.\nStir in the milk."))
+        #expect(capture.steps == ["Follow the package directions.", "Stir in the milk."])
+    }
+
+    @Test func keycapsMeanWhatTheirPlaceSays() throws {
+        let cooked = try #require(RecipeTextParser.parseCaption(
+            "Dish\nIngredients:\n2️⃣ cups milk\n3️⃣ eggs\nDirections:\n1️⃣\nBrown it.\n2️⃣\nServe."))
+        #expect(cooked.ingredients.map(\.quantity) == ["2 cups", "3"])
+        #expect(cooked.steps == ["Brown it.", "Serve."])
+        let titled = try #require(RecipeTextParser.parseCaption("3️⃣ INGREDIENT PEANUT COOKIES\n1 cup peanut butter\n1 cup sugar\n1 egg"))
+        #expect(titled.ingredients.count == 3)
+    }
+
+    @Test func anIngredientWrittenAsAnEmojiStays() throws {
+        let capture = try #require(RecipeTextParser.parseCaption("Dish\nIngredients:\n2 🥚\n1 cup 🥛\n1 lb beef"))
+        #expect(capture.ingredients.count == 3)
+    }
+
+    @Test func arrowsAreDecoration() throws {
+        let capture = try #require(RecipeTextParser.parseCaption("Dish\n→ INGREDIENTS\n→ 1 lb beef\n→ 2 cups rice\nINSTRUCTIONS ↓\nBrown it."))
+        #expect(capture.ingredients.compactMap(\.quantity) == ["1 lb", "2 cups"])
+        #expect(capture.steps == ["Brown it."])
+    }
+
+    @Test(arguments: [("BLT", "BLT"), ("NY STRIP", "NY STRIP"), ("BBQ CHICKEN WITH RICE", "BBQ Chicken with Rice"),
+                      ("\"THE BIG TACOS\"", "\"The Big Tacos\""), ("MOM'S CHICKEN POT PIE", "Mom's Chicken Pot Pie")])
+    func aShoutedNameIsCalmedCarefully(name: String, expected: String) throws {
+        let capture = try #require(RecipeTextParser.parseCaption("\(name)\nIngredients:\n1 lb beef\n2 cups rice"))
+        #expect(capture.name == expected)
+    }
+
     @Test func aNameThatIsntShoutingStaysAsItIs() throws {
         let capture = try #require(RecipeTextParser.parseCaption("Mom's BBQ chicken\nIngredients:\n1 lb beef\n2 cups rice"))
         #expect(capture.name == "Mom's BBQ chicken")

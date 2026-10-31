@@ -48,66 +48,96 @@ enum RecipeTextParser {
         var lines: [String] = []
         var ingredientLines: [String] = []
         var inIngredients = false
+        var inSteps = false
         var sawIngredientsHeader = false
         for line in spaced.split(whereSeparator: \.isNewline).map(String.init) {
-            let trimmed = withoutDecoration(line)
-            guard !trimmed.isEmpty, !trimmed.hasPrefix("#"), !isPromotion(trimmed) else { continue }
-            if isIngredientsHeader(trimmed) || isStepsHeader(trimmed) {
+            let plain = withoutDecoration(line, trailing: true)
+            guard !plain.isEmpty, !plain.hasPrefix("#"), !isPromotion(plain) else { continue }
+            if isIngredientsHeader(plain) || isStepsHeader(plain) {
                 lines += splitItems(ingredientLines)
                 ingredientLines = []
-                inIngredients = isIngredientsHeader(trimmed)
+                inIngredients = isIngredientsHeader(plain)
+                inSteps = !inIngredients
                 sawIngredientsHeader = sawIngredientsHeader || inIngredients
-                lines.append(trimmed)
-            } else if inIngredients {
-                ingredientLines.append(trimmed)
-            } else {
-                lines.append(trimmed)
+                lines.append(plain)
+                continue
             }
+            // A trailing emoji stays: "2 🥚" is an ingredient.
+            var kept = withoutDecoration(line, trailing: false)
+            if let keycap = keycapped(kept) {
+                guard !keycap.rest.isEmpty else { continue }
+                if inSteps { kept = "\(keycap.digit). \(keycap.rest)" }
+                if inIngredients { kept = "\(keycap.digit) \(keycap.rest)" }
+            }
+            if inIngredients { ingredientLines.append(kept) } else { lines.append(kept) }
         }
         lines += splitItems(ingredientLines)
         var capture = parse(lines)
         // "Tag someone who loves tacos / Link in bio" would pass for a shopping list: a caption needs a header or amounts.
         let looksLikeARecipe = sawIngredientsHeader || capture.ingredients.count { $0.quantity != nil } >= 2
-        capture.name = capture.name.map(withoutShouting)
+        capture.name = capture.name.map { withoutShouting(withoutDecoration($0, trailing: true)) }
         return looksLikeARecipe && capture.ingredients.count >= 2 ? capture : nil
     }
 
-    /// One line under the header is a list run together, so it splits at commas, and so does a line where every piece has
-    /// its own amount. Otherwise a comma belongs to the ingredient ("4 boneless, skinless chicken breasts").
+    /// Items split at commas, since a wrong extra line is a quick delete and a long merged one gets cut, taking any allergen
+    /// after the cut with it. The exception is one amount with a description, short enough to keep whole:
+    /// "4 boneless, skinless chicken breasts", "3 cloves garlic, minced". A section of one line is a list run together.
     private static func splitItems(_ section: [String]) -> [String] {
         section.flatMap { line -> [String] in
             let pieces = line.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-            return section.count == 1 || pieces.allSatisfy(isAmountLed) ? pieces : [line]
+            let isOneItem = section.count > 1 && pieces.count == 2 && isAmountLed(line) && !isAmountLed(pieces[1])
+                && MealDraft.length(line) <= maxWholeLine
+            return isOneItem ? [line] : pieces
         }
     }
 
-    /// Emoji off both ends, with a keycap "1️⃣" kept as the step number it is.
-    private static func withoutDecoration(_ line: String) -> String {
+    /// `RecipeImport.ingredientName` cuts a longer name at its first comma.
+    private static let maxWholeLine = 60
+
+    /// Emoji and arrows off the start of a line, and optionally its end.
+    private static func withoutDecoration(_ line: String, trailing: Bool) -> String {
         var text = Substring(line)
         func isDecoration(_ character: Character) -> Bool {
             guard let scalar = character.unicodeScalars.first else { return false }
             // Digits, "#", "*", "©" and the like count as emoji too.
             return character.isWhitespace || (scalar.properties.isEmoji && scalar.value > 0x238C)
+                || (0x2190...0x21FF).contains(scalar.value)
         }
         while let first = text.first, isDecoration(first) { text.removeFirst() }
-        while let last = text.last, isDecoration(last) { text.removeLast() }
-        if let first = text.first, first.unicodeScalars.contains("\u{20E3}"), let digit = first.unicodeScalars.first {
-            return "\(digit). " + text.dropFirst().trimmingCharacters(in: .whitespaces)
-        }
+        while trailing, let last = text.last, isDecoration(last) { text.removeLast() }
         return String(text)
     }
 
-    /// A caption asking for something rather than saying how to cook.
-    private static func isPromotion(_ line: String) -> Bool {
-        line.firstMatch(of: /(?i)^comment\b|\bdm me\b|link in (my )?bio|full recipe|recipe (is )?in (my )?bio|^follow\b|^tag\b/) != nil
+    /// A line starting with a keycap "1️⃣": what it means depends on where it is, so it's only changed under a header.
+    private static func keycapped(_ line: String) -> (digit: Character, rest: String)? {
+        guard let first = line.first, first.unicodeScalars.contains("\u{20E3}"),
+              let digit = first.unicodeScalars.first.map(Character.init) else { return nil }
+        return (digit, line.dropFirst().trimmingCharacters(in: .whitespaces))
     }
 
-    /// "SAVORY BAKED CHICKEN WITH SAUCE" reads as "Savory Baked Chicken with Sauce" in a list of dishes.
+    /// A caption asking for something rather than saying how to cook. Only a line that opens that way and has no amount:
+    /// "3 tbsp peanut butter (full recipe in bio)" and "Peanut sauce, link in bio" stay, because a wrong ingredient is a
+    /// quick delete and a dropped one is an allergy flag that never shows.
+    private static func isPromotion(_ line: String) -> Bool {
+        !isAmountLed(line) && line.prefixMatch(of: promotion) != nil
+    }
+
+    private static var promotion: Regex<Substring> {
+        /(?i)(?:comment\b|dm me\b|follow (?:me|us|for)\b|follow @|tag (?:a|your|someone)\b|link in (?:my )?bio\b|(?:(?:get|see|grab) )?(?:the )?full recipe\b|recipe (?:is )?in (?:my )?bio\b)/
+    }
+
+    /// "SAVORY BAKED CHICKEN WITH SAUCE" reads as "Savory Baked Chicken with Sauce" in a list of dishes. A short name stays,
+    /// since it may be an acronym: "BLT", "NY STRIP".
     private static func withoutShouting(_ name: String) -> String {
-        guard name == name.uppercased(), name != name.lowercased() else { return name }
+        let words = name.split(separator: " ")
+        guard words.count >= 3, name == name.uppercased(), name != name.lowercased() else { return name }
         let small: Set<String> = ["a", "an", "and", "in", "of", "on", "or", "the", "with"]
-        return name.lowercased().split(separator: " ").enumerated().map { index, word in
-            index > 0 && small.contains(String(word)) ? String(word) : word.prefix(1).uppercased() + word.dropFirst()
+        return words.enumerated().map { index, word in
+            if word == "BBQ" { return String(word) }
+            let lower = word.lowercased()
+            if index > 0, small.contains(lower) { return lower }
+            guard let letter = lower.firstIndex(where: \.isLetter) else { return lower }
+            return lower[..<letter] + lower[letter].uppercased() + lower[lower.index(after: letter)...]
         }.joined(separator: " ")
     }
 
