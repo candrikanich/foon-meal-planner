@@ -13,6 +13,8 @@ private final class SpyCenter: Sendable {
         var intervals: [String: TimeInterval] = [:]
         var removed: [String] = []
         var requests = 0
+        /// What the system's prompt answers with, and what permission is from then on.
+        var permissionAfterRequest: ReminderPermission?
         var clears = 0
         var addFails = false
     }
@@ -27,6 +29,7 @@ private final class SpyCenter: Sendable {
             requestPermission: {
                 self.state.withLock {
                     $0.requests += 1
+                    if let answer = $0.permissionAfterRequest { $0.permission = answer }
                     return $0.permission
                 }
             },
@@ -126,12 +129,17 @@ private final class Harness {
     var currentTime = Harness.at(8, 10)
     let chili = UUID()
     lazy var night = ReminderNight(id: UUID(), date: Self.day(10), mealID: chili,
-                                   prepSteps: [PrepStep(step: "Thaw the beef", leadHours: 24)],
+                                   prepSteps: [PrepStep(step: "Thaw the beef", leadHours: 24)].compactMap(ReminderPrep.init),
                                    attendance: [ann.id: true, kim.id: true])
 
-    init() throws {
+    /// Everyone's turned reminders on, unless a test says otherwise.
+    init(optedIn: Bool = true) throws {
         device = ReminderDevice(defaults: UserDefaults(suiteName: "foon.tests.\(UUID().uuidString)")!)
         container = try SyncService.inMemoryContainer()
+        if optedIn {
+            device.setOptedIn(true, for: ann.id)
+            device.setOptedIn(true, for: kim.id)
+        }
     }
 
     var context: ModelContext { container.mainContext }
@@ -185,6 +193,30 @@ struct ReminderSchedulingTests {
         await store.replan(test.wanted())
         #expect(test.center.pending.sorted() == first)
         #expect(test.center.removed.isEmpty)
+    }
+
+    @Test func anUnchangedPendingReminderIsLeftAlone() async throws {
+        let test = try Harness()
+        test.server.set(weeks: [test.week()])
+        let store = test.store()
+        await store.replan(test.wanted())
+        let added = test.center.added.count
+        #expect(added > 0)
+        await store.replan(test.wanted())
+        #expect(test.center.added.count == added, "adding it again could fire it twice, right at its time")
+    }
+
+    @Test func aMovedOneIsReplaced() async throws {
+        let test = try Harness()
+        test.server.set(weeks: [test.week()])
+        let store = test.store()
+        await store.replan(test.wanted())
+        test.center.state.withLock { $0.added = [] }
+        var later = test.night
+        later.dinnerTime = "19:30"
+        test.server.set(weeks: [test.week([later])])
+        await store.replan(test.wanted())
+        #expect(test.center.added.first { $0.id == test.prepID }?.fireAt == Harness.at(9, 19, 30))
     }
 
     @Test func aDishThatChangedCancelsItsReminders() async throws {
@@ -301,7 +333,7 @@ struct ReminderPermissionTests {
     }
 
     @Test func aNewFamilyIsntAskedBeforeAWeekIsApproved() async throws {
-        let test = try Harness()
+        let test = try Harness(optedIn: false)
         test.center.set(permission: .notAsked)
         let store = test.store()
         await store.replan(test.wanted())
@@ -317,7 +349,7 @@ struct ReminderPermissionTests {
     }
 
     @Test func someoneWithNothingToBeRemindedOfIsntAsked() async throws {
-        let test = try Harness()
+        let test = try Harness(optedIn: false)
         test.center.set(permission: .notAsked)
         var settings = test.settings
         settings.notificationPreset = .light
@@ -328,7 +360,7 @@ struct ReminderPermissionTests {
     }
 
     @Test func notNowIsTheEndOfIt() async throws {
-        let test = try Harness()
+        let test = try Harness(optedIn: false)
         test.center.set(permission: .notAsked)
         test.server.set(weeks: [test.week()])
         let store = test.store()
@@ -342,17 +374,94 @@ struct ReminderPermissionTests {
         #expect(later.permission == .notAsked, "Family can still turn them on")
     }
 
-    @Test func turningThemOnSchedulesWhatThereIs() async throws {
-        let test = try Harness()
+    @Test func turningThemOnAsksTheSystemIfItHasntBeenAskedThenSchedules() async throws {
+        let test = try Harness(optedIn: false)
         test.center.set(permission: .notAsked)
         test.server.set(weeks: [test.week()])
         let store = test.store()
         await store.replan(test.wanted())
-        test.center.set(permission: .on)
-        await store.requestPermission(for: test.wanted())
+        test.center.state.withLock { $0.permissionAfterRequest = .on }
+        await store.turnOn(for: test.wanted())
         #expect(test.center.state.withLock { $0.requests } == 1)
         #expect(test.center.pending.contains(test.prepID))
         #expect(store.permission == .on)
+        #expect(store.isOptedIn)
+        #expect(!store.shouldAsk)
+    }
+
+    @Test func aNoFromTheSystemSchedulesNothing() async throws {
+        let test = try Harness(optedIn: false)
+        test.center.set(permission: .notAsked)
+        test.server.set(weeks: [test.week()])
+        let store = test.store()
+        await store.replan(test.wanted())
+        test.center.state.withLock { $0.permissionAfterRequest = .off }
+        await store.turnOn(for: test.wanted())
+        #expect(test.center.added.isEmpty)
+        #expect(store.permission == .off)
+        #expect(!store.shouldAsk)
+    }
+
+    @Test func notNowHoldsEvenAfterACookTimerGetsPermission() async throws {
+        let test = try Harness(optedIn: false)
+        test.center.set(permission: .notAsked)
+        test.server.set(weeks: [test.week()])
+        let store = test.store()
+        await store.replan(test.wanted())
+        store.decline(test.ann.id)
+        // They said yes to alerts for a cook timer, and came back to Foon.
+        test.center.set(permission: .on)
+        await store.replan(test.wanted())
+        #expect(test.center.added.isEmpty, "that yes was for timers")
+        #expect(!store.shouldAsk)
+        #expect(test.server.uploads.isEmpty)
+    }
+
+    @Test func someoneWhoAlreadyAllowedCookTimersIsAskedAndNotSentAnything() async throws {
+        let test = try Harness(optedIn: false)
+        test.center.set(permission: .on)
+        test.server.set(weeks: [test.week()])
+        let store = test.store()
+        await store.replan(test.wanted())
+        #expect(test.center.added.isEmpty, "an update doesn't start reminders by itself")
+        #expect(store.shouldAsk, "permission's already there, but they haven't been asked about reminders")
+
+        await store.turnOn(for: test.wanted())
+        #expect(test.center.state.withLock { $0.requests } == 0, "the system has its answer, so no second prompt")
+        #expect(test.center.pending.contains(test.prepID))
+    }
+
+    @Test func turningThemOffCancelsRemindersAndLeavesCookTimers() async throws {
+        let test = try Harness()
+        test.server.set(weeks: [test.week()])
+        let store = test.store()
+        await store.replan(test.wanted())
+        let timer = UUID().uuidString
+        test.center.state.withLock { $0.pending.append(timer) }
+        test.center.state.withLock { $0.added = [] }
+
+        await store.turnOff(for: test.wanted())
+        #expect(test.center.pending == [timer])
+        #expect(try test.records().isEmpty, "called off, so they don't count")
+        #expect(!store.isOptedIn)
+        #expect(!store.shouldAsk, "the card doesn't come back after they've said no")
+        #expect(test.center.state.withLock { $0.clears } == 0)
+
+        await store.replan(test.wanted())
+        #expect(test.center.added.isEmpty, "and it stays off")
+
+        await store.turnOn(for: test.wanted())
+        #expect(test.center.pending.contains(test.prepID), "until they turn it back on")
+    }
+
+    @Test func theChoiceIsPerPerson() async throws {
+        let test = try Harness(optedIn: false)
+        test.device.setOptedIn(true, for: test.ann.id)
+        test.server.set(weeks: [test.week()])
+        let store = test.store()
+        await store.replan(test.wanted(me: test.kim))
+        #expect(test.center.added.isEmpty, "Ann's yes isn't Kim's, on a shared device")
+        #expect(!store.isOptedIn)
     }
 }
 
@@ -414,6 +523,15 @@ struct ReminderLogTests {
         #expect(!json.contains("Thaw"), "no text")
         let keys = try #require(try JSONSerialization.jsonObject(with: try encoder.encode(entry)) as? [String: Any]).keys
         #expect(Set(keys).isSubset(of: ["id", "type", "night_id", "scheduled_for", "sent_at", "responded_at", "response"]))
+    }
+
+    @Test func theCachedPlanKeepsNoStepWords() throws {
+        let step = PrepStep(step: "Make Kim's without milk", leadHours: 8)
+        let night = ReminderNight(id: UUID(), date: Harness.day(10), mealID: UUID(), prepSteps: [step].compactMap(ReminderPrep.init))
+        #expect(night.prepSteps.count == 1)
+        let json = String(data: try JSONEncoder().encode(night), encoding: .utf8) ?? ""
+        #expect(!json.contains("milk"))
+        #expect(!json.contains("Kim"))
     }
 
     @Test func aRowSentOnceIsntSentAgainUntilItChanges() async throws {
@@ -519,6 +637,29 @@ struct ReminderAnswerTests {
         #expect(!test.center.removed.contains(test.prepID))
     }
 
+    @Test func noAnswerIsLostToAnotherArrivingAtTheSameTime() async throws {
+        let device = try Harness().device
+        await withTaskGroup(of: Void.self) { group in
+            for index in 0..<200 {
+                group.addTask {
+                    device.add(ReminderAnswer(id: "foon.reminder.\(index)", response: "done", at: .now))
+                }
+            }
+        }
+        #expect(device.answers.count == 100, "all of them, up to the most it keeps")
+    }
+
+    @Test func anAnswerArrivingWhileOthersAreFiledIsKept() throws {
+        let device = try Harness().device
+        let first = ReminderAnswer(id: "foon.reminder.first", response: "done", at: Date(timeIntervalSince1970: 1))
+        device.add(first)
+        let being = device.answers
+        let late = ReminderAnswer(id: "foon.reminder.late", response: "done", at: Date(timeIntervalSince1970: 2))
+        device.add(late)
+        device.removeAnswers(being)
+        #expect(device.answers == [late])
+    }
+
     @Test func anAnswerFromSomeoneElsesReminderIsIgnored() async throws {
         let test = try Harness()
         test.server.set(weeks: [test.week()])
@@ -580,6 +721,19 @@ struct ReminderAnswerTests {
         #expect(outcome.answer.id == id)
     }
 
+    private func prep(fireAt: Date, dinnerAt: Date?, kind: ReminderKind = .prep) -> PlannedReminder {
+        PlannedReminder(id: id, kind: kind, nightID: night, fireAt: fireAt, dinnerAt: dinnerAt, title: "", body: "", route: .dinnerCard)
+    }
+
+    @Test func snoozeIsOfferedOnlyIfAnHourFromThenIsBeforeDinner() {
+        let dinner = Harness.at(9, 18)
+        #expect(ReminderCenter.category(for: prep(fireAt: Harness.at(9, 16, 59), dinnerAt: dinner)) == ReminderCenter.prepCategory)
+        #expect(ReminderCenter.category(for: prep(fireAt: Harness.at(9, 17), dinnerAt: dinner)) == ReminderCenter.prepNoSnoozeCategory)
+        #expect(ReminderCenter.category(for: prep(fireAt: Harness.at(9, 17, 30), dinnerAt: dinner)) == ReminderCenter.prepNoSnoozeCategory,
+                "a follow-up or a snoozed one comes through here too")
+        #expect(ReminderCenter.category(for: prep(fireAt: Harness.at(9, 17), dinnerAt: dinner, kind: .timeToPlan)) == nil)
+    }
+
     @Test func aPayloadSurvivesTheNotification() {
         let dinner = Date(timeIntervalSince1970: 1_800_000_000)
         for route in [ReminderRoute.week(day), .night(night, day), .dinnerCard] {
@@ -613,6 +767,7 @@ struct ReminderSignOutTests {
         #expect(test.center.state.withLock { $0.clears } == 1)
         #expect(test.device.answers.isEmpty)
         #expect(!test.device.hasDeclined(test.ann.id))
+        #expect(!test.device.isOptedIn(test.ann.id), "signing out clears the choice")
         #expect(try test.context.fetch(FetchDescriptor<CachedReminders>()).isEmpty)
         #expect(try test.records().isEmpty)
 
@@ -701,6 +856,14 @@ struct ReminderSignOutTests {
 }
 
 /// The picker's words are promises, so they say what's on the way and don't claim it's here.
+struct ReminderAskWordingTests {
+    @Test func theCardPromisesOnlyWhatsTrueOfEveryPreset() {
+        let words = ReminderAskCard.bodyText
+        #expect(!words.localizedCaseInsensitiveContains("few"), "adults can get up to 16 a week")
+        #expect(!words.localizedCaseInsensitiveContains("rat"), "Light has no rating prompts")
+    }
+}
+
 struct ReminderPresetWordingTests {
     @Test func theySayWhatWorksAndWhatDoesnt() {
         let light = HouseholdSettings.NotificationPreset.light.summary

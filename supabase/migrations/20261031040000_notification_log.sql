@@ -10,8 +10,10 @@ create table public.notification_log (
   id uuid primary key,
   household_id uuid not null references public.households (id),
   member_id uuid not null,
-  -- Open-ended, so a newer app's type doesn't need a migration before an older database takes it.
-  type text not null check (type ~ '^[a-z][a-z_]{0,39}$'),
+  -- The spec's notifications, so it can't hold words. A newer type needs a migration first; until then its rows are dropped.
+  type text not null check (type in (
+    'time_to_plan', 'prep_reminder', 'after_dinner', 'day_of_check_in', 'requests_open', 'plan_set', 'no_plan_tonight',
+    'tonight_poll', 'urgent_item', 'new_requests', 'weekly_recap', 'claim', 'request_planned', 'heading_to_store')),
   channel text not null default 'device' check (channel in ('device', 'push')),
   -- Set null, not cascade: the log outlives a night, and nothing here is worth refusing a delete over.
   night_id uuid references public.plan_nights (id) on delete set null,
@@ -51,13 +53,18 @@ revoke execute on function public.notification_log_lock(uuid) from public, anon,
 
 -- Writes the caller's own rows and nobody else's. A row sent again (the device didn't hear back, or it's been answered since)
 -- only fills in: a sent or answered time, once known, stays, and a row someone else owns is left alone. A night that isn't
--- this household's, or has gone since, reads as no night, so one old row can't hold the rest back.
+-- this household's, or has gone since, reads as no night. A row that won't read is dropped, so one bad one can't hold the rest
+-- back and keep the device retrying. 200 new rows a member a day: far more than any budget, and a modified app can't flood the
+-- table. Answers to rows already there still go in.
 create function public.record_notifications(target_household uuid, entries jsonb)
 returns void
 language plpgsql security definer set search_path = ''
 as $$
 declare
   me uuid;
+  entry jsonb;
+  used int;
+  added boolean;
 begin
   -- Only family can make an erase wait, however briefly.
   if public.my_member_id(target_household) is null then
@@ -73,20 +80,38 @@ begin
     raise exception 'entries must be an array of at most 200' using errcode = '22023';
   end if;
 
-  insert into public.notification_log as log
-    (id, household_id, member_id, type, night_id, scheduled_for, sent_at, responded_at, response)
-  select e.id, target_household, me, e.type,
-         (select n.id from public.plan_nights n where n.id = e.night_id and n.household_id = target_household),
-         e.scheduled_for, e.sent_at, e.responded_at, e.response
-  from jsonb_to_recordset(entries) as e(
-    id uuid, type text, night_id uuid, scheduled_for timestamptz, sent_at timestamptz, responded_at timestamptz,
-    response text)
-  on conflict (id) do update
-    set scheduled_for = excluded.scheduled_for,
-        sent_at = coalesce(log.sent_at, excluded.sent_at),
-        responded_at = coalesce(log.responded_at, excluded.responded_at),
-        response = coalesce(log.response, excluded.response)
-    where log.member_id = me and log.household_id = target_household;
+  select count(*) into used from public.notification_log
+  where member_id = me and created_at > now() - interval '1 day';
+
+  for entry in select value from jsonb_array_elements(entries) loop
+    begin
+      if used < 200 then
+        insert into public.notification_log as log
+          (id, household_id, member_id, type, night_id, scheduled_for, sent_at, responded_at, response)
+        values ((entry ->> 'id')::uuid, target_household, me, entry ->> 'type',
+                (select n.id from public.plan_nights n
+                 where n.id = (entry ->> 'night_id')::uuid and n.household_id = target_household),
+                (entry ->> 'scheduled_for')::timestamptz, (entry ->> 'sent_at')::timestamptz,
+                (entry ->> 'responded_at')::timestamptz, entry ->> 'response')
+        on conflict (id) do update
+          set scheduled_for = excluded.scheduled_for,
+              sent_at = coalesce(log.sent_at, excluded.sent_at),
+              responded_at = coalesce(log.responded_at, excluded.responded_at),
+              response = coalesce(log.response, excluded.response)
+          where log.member_id = me and log.household_id = target_household
+        returning (log.xmax = 0) into added;
+        if added then used := used + 1; end if;
+      else
+        update public.notification_log as log
+        set sent_at = coalesce(log.sent_at, (entry ->> 'sent_at')::timestamptz),
+            responded_at = coalesce(log.responded_at, (entry ->> 'responded_at')::timestamptz),
+            response = coalesce(log.response, entry ->> 'response')
+        where log.id = (entry ->> 'id')::uuid and log.member_id = me and log.household_id = target_household;
+      end if;
+    exception
+      when data_exception or check_violation or not_null_violation then null;
+    end;
+  end loop;
 end;
 $$;
 

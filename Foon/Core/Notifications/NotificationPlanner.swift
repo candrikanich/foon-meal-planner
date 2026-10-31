@@ -3,8 +3,8 @@ import Foundation
 /// What one person's device should have scheduled (docs/spec.md → Notifications), as a pure function of what it knows. No
 /// randomness and no clock of its own: the same inputs give the same list, and running it again changes nothing.
 ///
-/// Times are the household's: a wall-clock time on its calendar (`settings.dayCalendar`, so its time zone, daylight saving
-/// included) becomes one instant, whatever zone the phone is in. It fails toward not sending: data that's old, a week that isn't
+/// Times are the household's: a wall-clock time on its calendar (`DinnerPrompts.calendar`, the same clock as the This Week card
+/// and the server, so its time zone, daylight saving included) becomes one instant, whatever zone the phone is in. It fails toward not sending: data that's old, a week that isn't
 /// approved, a night it can't read, or anything it isn't sure of means no reminder.
 enum NotificationPlanner {
     struct Inputs: Sendable {
@@ -59,8 +59,8 @@ enum NotificationPlanner {
             self.inputs = inputs
             self.snapshot = snapshot
             self.rules = rules
-            calendar = inputs.settings.dayCalendar
-            today = inputs.settings.today(now: inputs.now)
+            calendar = DinnerPrompts.calendar(for: inputs.settings)
+            today = CalendarDay(inputs.now, calendar: calendar)
             history = Dictionary(inputs.history.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         }
 
@@ -104,11 +104,11 @@ enum NotificationPlanner {
                       let dinner = DinnerPrompts.moment(night.dinnerTime ?? settings.dinnerTime, on: night.date,
                                                         calendar: calendar) else { return [] }
                 return night.prepSteps.enumerated().compactMap { index, step -> Candidate? in
-                    guard let lead = step.leadHours, lead > 0, let fire = counted(back: lead, from: dinner) else { return nil }
-                    let copy = ReminderText.prep(step: step.step, night: night.date, firing: fire, calendar: calendar)
+                    guard let fire = counted(back: step.leadHours, from: dinner) else { return nil }
+                    // The title waits until `settled` knows when it goes.
                     return Candidate(reminder: PlannedReminder(
                         id: ReminderID.prep(me: me.id, night: night.id, meal: meal, step: index), kind: .prep,
-                        nightID: night.id, fireAt: fire, dinnerAt: dinner, title: copy.title, body: copy.body,
+                        nightID: night.id, fireAt: fire, dinnerAt: dinner, title: "", body: ReminderText.prepBody(step.kind),
                         route: .night(night.id, night.date)))
                 }
             }
@@ -122,7 +122,7 @@ enum NotificationPlanner {
             return plannableNights().compactMap { night -> Candidate? in
                 guard let meal = night.mealID, night.quickPick == nil,
                       night.attendance[me.id] == true, !me.isAway(today: night.date),
-                      !night.ratedBy.contains(me.id), night.loggedMealID == nil || night.loggedMealID == meal,
+                      !night.ratedBy.contains(me.id), !night.hasLog || night.loggedMealID == meal,
                       let dinner = DinnerPrompts.moment(night.dinnerTime ?? settings.dinnerTime, on: night.date,
                                                         calendar: calendar) else { return nil }
                 return Candidate(reminder: PlannedReminder(
@@ -139,7 +139,7 @@ enum NotificationPlanner {
             let reminder = first.reminder
             let known = history[reminder.id]
             guard reminder.kind != .afterDinner, known?.respondedAt == nil,
-                  let moved = settled(time: reminder.fireAt, for: reminder.kind),
+                  let moved = settled(time: reminder.fireAt, for: reminder),
                   known?.sentAt != nil || moved > inputs.now else { return nil }
             return Candidate(reminder: PlannedReminder(
                 id: ReminderID.followUp(of: reminder.id), kind: reminder.kind, nightID: reminder.nightID,
@@ -183,24 +183,43 @@ enum NotificationPlanner {
                 fire = snoozed
             } else {
                 guard known?.sentAt == nil, known?.respondedAt == nil,
-                      let moved = settled(time: reminder.fireAt, for: reminder.kind, isFollowUp: candidate.isFollowUp)
+                      let moved = settled(time: reminder.fireAt, for: reminder, isFollowUp: candidate.isFollowUp)
                 else { return nil }
                 fire = moved
             }
             guard fire > inputs.now, fire <= snapshot.pulledAt.addingTimeInterval(NotificationPlanner.horizon),
                   reminder.dinnerAt.map({ fire < $0 }) ?? true else { return nil }
-            return Candidate(reminder: reminder.firing(at: fire), isFollowUp: candidate.isFollowUp)
+            return Candidate(reminder: firing(reminder, at: fire), isFollowUp: candidate.isFollowUp)
         }
 
-        /// Out of quiet hours. A prep reminder goes earlier, since later could be too late. Time to plan goes later, since
-        /// the week will still need planning. An after-dinner prompt, or a follow-up, just doesn't go: the card's still there.
-        private func settled(time: Date, for kind: ReminderKind, isFollowUp: Bool = false) -> Date? {
+        /// The reminder as it goes at this time, with its words: a move can make tonight's dinner tomorrow's.
+        private func firing(_ reminder: PlannedReminder, at date: Date) -> PlannedReminder {
+            var title = reminder.title
+            if case .night(_, let night) = reminder.route {
+                title = ReminderText.prepTitle(night: night, firing: date, calendar: calendar)
+            }
+            return PlannedReminder(id: reminder.id, kind: reminder.kind, nightID: reminder.nightID, fireAt: date,
+                                   dinnerAt: reminder.dinnerAt, title: title, body: reminder.body, route: reminder.route)
+        }
+
+        /// Out of quiet hours. A prep reminder goes just before them, or if that's gone by, when they end, as long as at least
+        /// half its lead time is left before dinner. Time to plan goes later, since the week will still need planning. An
+        /// after-dinner prompt, or a follow-up, just doesn't go: the card's still there.
+        private func settled(time: Date, for reminder: PlannedReminder, isFollowUp: Bool = false) -> Date? {
             var moved = time
             for _ in 0..<4 {
                 guard let quiet = rules.window(containing: moved, calendar: calendar) else { return moved }
                 if isFollowUp { return nil }
-                switch kind {
-                case .prep: moved = quiet.start.addingTimeInterval(-NotificationPlanner.quietMargin)
+                switch reminder.kind {
+                case .prep:
+                    let before = quiet.start.addingTimeInterval(-NotificationPlanner.quietMargin)
+                    if before > inputs.now {
+                        moved = before
+                    } else {
+                        guard let dinner = reminder.dinnerAt,
+                              dinner.timeIntervalSince(quiet.end) >= dinner.timeIntervalSince(time) / 2 else { return nil }
+                        moved = quiet.end
+                    }
                 case .timeToPlan: moved = quiet.end
                 case .afterDinner: return nil
                 }
@@ -234,16 +253,8 @@ enum NotificationPlanner {
     }
 }
 
-private extension PlannedReminder {
-    func firing(at date: Date) -> PlannedReminder {
-        PlannedReminder(id: id, kind: kind, nightID: nightID, fireAt: date, dinnerAt: dinnerAt, title: title, body: body,
-                        route: route)
-    }
-}
-
 /// Lock-screen words, kids' included, and every one of them is ours. No dish name, no words from a prep step, and no person's
-/// name: a family types those, and no check of what they typed could be complete. A step's words only choose which fixed line
-/// goes out. The dish shows in the app after a tap.
+/// name: a family types those, and no check of what they typed could be complete. The dish shows in the app after a tap.
 enum ReminderText {
     static var timeToPlanTitle: String { String(localized: "Time to plan the week", comment: "Reminder title") }
     static var timeToPlanBody: String {
@@ -254,33 +265,24 @@ enum ReminderText {
         String(localized: "Tap to rate dinner.", comment: "Reminder body: rate the dish, never the cook")
     }
 
-    static func prep(step: String, night: CalendarDay, firing: Date, calendar: Calendar) -> (title: String, body: String) {
-        (prepTitle(night: night, firing: firing, calendar: calendar), prepBody(step: step))
-    }
-
-    private static func prepTitle(night: CalendarDay, firing: Date, calendar: Calendar) -> String {
+    /// Which dinner, from when the reminder goes: quiet hours can move one to another day.
+    static func prepTitle(night: CalendarDay, firing: Date, calendar: Calendar, locale: Locale = .current) -> String {
         let fireDay = CalendarDay(firing, calendar: calendar)
         if fireDay == night { return String(localized: "Dinner tonight", comment: "Prep reminder title") }
         if fireDay.adding(days: 1, calendar: calendar) == night {
             return String(localized: "Dinner tomorrow", comment: "Prep reminder title")
         }
-        let style = Date.FormatStyle(calendar: calendar, timeZone: calendar.timeZone).weekday(.wide)
+        let style = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone).weekday(.wide)
         let weekday = night.date(in: calendar).formatted(style)
         return String(localized: "Dinner on \(weekday)", comment: "Prep reminder title: a weekday")
     }
 
-    /// The kinds of step the starter pack has.
-    private static func prepBody(step: String) -> String {
-        let text = step.lowercased()
-        if ["thaw", "defrost"].contains(where: text.contains) {
-            return String(localized: "Time to thaw what's for dinner.", comment: "Prep reminder body")
+    static func prepBody(_ kind: PrepKind) -> String {
+        switch kind {
+        case .thaw: String(localized: "Time to thaw what's for dinner.", comment: "Prep reminder body")
+        case .marinate: String(localized: "Time to start the marinade.", comment: "Prep reminder body")
+        case .slowCooker: String(localized: "Time to start the slow cooker.", comment: "Prep reminder body")
+        case .other: String(localized: "Time to start prep.", comment: "Prep reminder body")
         }
-        if text.contains("marinat") {
-            return String(localized: "Time to start the marinade.", comment: "Prep reminder body")
-        }
-        if ["slow cooker", "slow-cooker", "crock"].contains(where: text.contains) {
-            return String(localized: "Time to start the slow cooker.", comment: "Prep reminder body")
-        }
-        return String(localized: "Time to start prep.", comment: "Prep reminder body")
     }
 }

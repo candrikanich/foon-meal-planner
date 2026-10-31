@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import Synchronization
 
 /// Someone's answer to a notification, kept until the app can file it. It's written by the notification delegate, which can
 /// run with the app in the background and none of its screens or stores around.
@@ -11,40 +12,67 @@ struct ReminderAnswer: Codable, Equatable, Sendable {
     var snoozedUntil: Date?
 }
 
-/// What's kept on this device outside the cache: answers waiting to be filed, and who's said "Not now" to the ask.
+/// What's kept on this device outside the cache: answers waiting to be filed, and each person's choice about reminders. System
+/// permission is shared with cook-mode timers, so a yes there isn't a yes to reminders: that's the opt-in, and it's per person.
 struct ReminderDevice: @unchecked Sendable {
     private let defaults: UserDefaults
     private static let answersKey = "foon.reminder.answers"
     private static let declinedKey = "foon.reminder.declined"
+    private static let optedInKey = "foon.reminder.optedIn"
+    /// The notification delegate writes answers off the main thread while the store reads them.
+    private static let answersLock = Mutex(())
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
     }
 
     var answers: [ReminderAnswer] {
+        Self.answersLock.withLock { _ in storedAnswers }
+    }
+
+    private var storedAnswers: [ReminderAnswer] {
         defaults.data(forKey: Self.answersKey).flatMap { try? JSONDecoder().decode([ReminderAnswer].self, from: $0) } ?? []
     }
 
-    func add(_ answer: ReminderAnswer) {
-        defaults.set(try? JSONEncoder().encode(Array((answers + [answer]).suffix(100))), forKey: Self.answersKey)
+    private func store(_ answers: [ReminderAnswer]) {
+        defaults.set(try? JSONEncoder().encode(answers), forKey: Self.answersKey)
     }
 
-    func clearAnswers() {
-        defaults.removeObject(forKey: Self.answersKey)
+    func add(_ answer: ReminderAnswer) {
+        Self.answersLock.withLock { _ in store(Array((storedAnswers + [answer]).suffix(100))) }
+    }
+
+    /// Takes these off the waiting list, now they're filed. One that arrived since stays.
+    func removeAnswers(_ filed: [ReminderAnswer]) {
+        Self.answersLock.withLock { _ in store(storedAnswers.filter { !filed.contains($0) }) }
+    }
+
+    func isOptedIn(_ member: UUID) -> Bool {
+        defaults.stringArray(forKey: Self.optedInKey)?.contains(member.uuidString) ?? false
+    }
+
+    func setOptedIn(_ on: Bool, for member: UUID) {
+        set(on, member: member, key: Self.optedInKey)
     }
 
     func hasDeclined(_ member: UUID) -> Bool {
         defaults.stringArray(forKey: Self.declinedKey)?.contains(member.uuidString) ?? false
     }
 
-    func decline(_ member: UUID) {
-        defaults.set((defaults.stringArray(forKey: Self.declinedKey) ?? []) + [member.uuidString], forKey: Self.declinedKey)
+    func setDeclined(_ declined: Bool, for member: UUID) {
+        set(declined, member: member, key: Self.declinedKey)
+    }
+
+    private func set(_ on: Bool, member: UUID, key: String) {
+        let others = (defaults.stringArray(forKey: key) ?? []).filter { $0 != member.uuidString }
+        defaults.set(on ? others + [member.uuidString] : others, forKey: key)
     }
 
     /// Signing out leaves nothing of this person's.
     func clear() {
-        clearAnswers()
+        Self.answersLock.withLock { _ in defaults.removeObject(forKey: Self.answersKey) }
         defaults.removeObject(forKey: Self.declinedKey)
+        defaults.removeObject(forKey: Self.optedInKey)
     }
 }
 

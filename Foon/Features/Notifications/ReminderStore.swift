@@ -13,7 +13,8 @@ final class ReminderSession {
 }
 
 /// Keeps what's scheduled on this device in step with `NotificationPlanner`: when the app comes to the foreground and when the
-/// plan changes. It only ever touches its own identifiers, so cook-mode timers are safe, and with notifications off it schedules
+/// plan changes. It only ever touches its own identifiers, so cook-mode timers are safe. It needs two yeses: this person turned
+/// reminders on, and the system allows notifications, which cook-mode timers may have asked for. Without both it schedules
 /// nothing, logs nothing, and the app works as if none of this were here.
 ///
 /// A plan changed on another phone reaches this one the next time Foon opens here. There's no background refresh or push yet,
@@ -32,6 +33,7 @@ final class ReminderStore {
     /// put the ask at first launch, before Foon has done anything for them.
     private(set) var hasRemindersToOffer = false
     private(set) var hasDeclined = false
+    private(set) var isOptedIn = false
 
     let householdID: UUID
     private let client: NotificationClient
@@ -58,8 +60,9 @@ final class ReminderStore {
         self.now = now
     }
 
-    /// Whether to show the ask on This Week: once there's something to offer, and never again after "Not now".
-    var shouldAsk: Bool { permission == .notAsked && hasRemindersToOffer && !hasDeclined }
+    /// Whether to show the ask on This Week: once there's something to offer, whether or not cook-mode timers got permission first,
+    /// and never again after "Not now". After a no in Settings the card couldn't do anything, so it's Family's link instead.
+    var shouldAsk: Bool { !isOptedIn && !hasDeclined && hasRemindersToOffer && permission != .off }
 
     func attach(_ context: ModelContext) {
         self.context = context
@@ -77,14 +80,29 @@ final class ReminderStore {
         }
     }
 
-    /// Asks the system, from a button someone pressed. Then schedules what there is.
-    func requestPermission(for wanted: Context) async {
-        permission = await center.requestPermission()
+    /// From a button someone pressed. Asks the system only if it hasn't been asked, then schedules what there is.
+    func turnOn(for wanted: Context) async {
+        device.setOptedIn(true, for: wanted.me.id)
+        device.setDeclined(false, for: wanted.me.id)
+        isOptedIn = true
+        hasDeclined = false
+        permission = await center.permission()
+        if permission == .notAsked { permission = await center.requestPermission() }
+        await replan(wanted)
+    }
+
+    /// Family's switch. Reminders stop now; cook-mode timers don't, and the system's permission stays as it is.
+    func turnOff(for wanted: Context) async {
+        device.setOptedIn(false, for: wanted.me.id)
+        device.setDeclined(true, for: wanted.me.id)
+        isOptedIn = false
+        hasDeclined = true
+        center.remove(await center.pendingIDs().filter(ReminderID.isReminder))
         await replan(wanted)
     }
 
     func decline(_ member: UUID) {
-        device.decline(member)
+        device.setDeclined(true, for: member)
         hasDeclined = true
     }
 
@@ -107,6 +125,7 @@ final class ReminderStore {
         guard !isStopped else { return }
         self.permission = permission
         hasDeclined = device.hasDeclined(wanted.me.id)
+        isOptedIn = device.isOptedIn(wanted.me.id)
         if let weeks { saveSnapshot(weeks, in: context) }
         let snapshot = loadSnapshot(in: context)
 
@@ -122,7 +141,7 @@ final class ReminderStore {
         ))
         hasRemindersToOffer = !plan.isEmpty && snapshot?.weeks.contains(where: \.isApproved) == true
 
-        guard permission == .on else {
+        guard permission == .on, isOptedIn else {
             center.remove(pending)
             forgetUnsent(keeping: [], member: wanted.me.id, in: context)
             await upload(member: wanted.me.id, in: context)
@@ -133,8 +152,13 @@ final class ReminderStore {
         center.remove(pending.filter { !planned.contains($0) })
         forgetUnsent(keeping: planned, member: wanted.me.id, in: context)
         var added: [String] = []
+        let waiting = Set(pending)
+        let known = Dictionary(records(member: wanted.me.id, in: context).map { ($0.key, $0.fireAt) },
+                               uniquingKeysWith: { first, _ in first })
         for reminder in plan {
             guard !isStopped else { break }
+            // Already in at that time: adding it again could send it twice if its moment is now.
+            if waiting.contains(reminder.id), known[reminder.id] == reminder.fireAt { continue }
             guard await center.add(reminder, reminder.fireAt.timeIntervalSince(now())) else { continue }
             added.append(reminder.id)
             guard !isStopped else { break }
@@ -152,8 +176,8 @@ final class ReminderStore {
     /// This week and next by the household's calendar. Nil when they can't be read: the plan comes from the cache, offline
     /// included, until it's too old to trust.
     private func fetchWeeks(settings: HouseholdSettings) async -> [ReminderWeek]? {
-        let calendar = settings.dayCalendar
-        let thisWeek = WeekMath.start(of: settings.today(now: now()), weekStart: settings.weekStart, calendar: calendar)
+        let calendar = DinnerPrompts.calendar(for: settings)
+        let thisWeek = WeekMath.start(of: CalendarDay(now(), calendar: calendar), weekStart: settings.weekStart, calendar: calendar)
         return try? await client.weeks(householdID, thisWeek, thisWeek.adding(days: 7, calendar: calendar))
     }
 
@@ -203,8 +227,8 @@ final class ReminderStore {
             record.snoozedUntil = answer.snoozedUntil
             record.changed()
         }
-        device.clearAnswers()
         try? context.save()
+        device.removeAnswers(answers)
     }
 
     /// A reminder whose time has passed and that isn't pending any more has gone out. iOS doesn't tell the app, and this is what

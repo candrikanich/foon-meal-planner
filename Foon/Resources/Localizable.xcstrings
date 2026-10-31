@@ -487,9 +487,6 @@
     "A family favorite" : {
       "comment" : "Reason chip"
     },
-    "A few reminders about dinner, sent from this device. Foon works the same without them." : {
-
-    },
     "A kid removed from the family becomes \"Former member\" after 12 months, and their ratings stay as anonymous history." : {
 
     },
@@ -1330,7 +1327,7 @@
     "Foon can draft it in a tap, and you can change any night." : {
       "comment" : "Reminder body: time to plan"
     },
-    "Foon can nudge you about dinner on this device, when something needs starting or a dish needs rating. Only a few a week, and you can turn them off anytime." : {
+    "Foon can remind you about dinner on this device, with a limit each week. You can turn them off anytime in Family." : {
 
     },
     "Foon can't open that link. Try the recipe's web page." : {
@@ -2144,6 +2141,9 @@
     "Notifications" : {
 
     },
+    "Notifications for Foon are off. Turn them on in Settings." : {
+
+    },
     "Off" : {
       "comment" : "Family: the household doesn't use dinner jobs"
     },
@@ -2416,10 +2416,10 @@
     "Remind me in an hour" : {
       "comment" : "Prep reminder action"
     },
-    "Reminders are off. Turn them on in Settings." : {
+    "Reminders about dinner, sent from this device. Foon works the same without them, and cook mode's timers have their own alerts." : {
 
     },
-    "Reminders are on for this device" : {
+    "Reminders on this device" : {
 
     },
     "Remove" : {
@@ -3233,7 +3233,7 @@
     "Want a copy first? Export saves everything as a file." : {
 
     },
-    "Want a few reminders?" : {
+    "Want reminders about dinner?" : {
 
     },
     "Want steak Friday, or crab legs someday? Ask here, and the planner sees it." : {

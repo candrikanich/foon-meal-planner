@@ -28,11 +28,20 @@ struct ReminderCenter: Sendable {
 
 extension ReminderCenter {
     static let prepCategory = "foon.reminder.prep"
+    static let prepNoSnoozeCategory = "foon.reminder.prep.nosnooze"
     static let doneAction = "foon.reminder.done"
     static let snoozeAction = "foon.reminder.snooze"
     static let swapAction = "foon.reminder.swap"
 
     /// Done and Remind me in an hour don't open the app, and Swap does.
+    /// Which set of actions a reminder offers. "Remind me in an hour" only if an hour from then is before dinner, so it can't be
+    /// a button that does nothing.
+    static func category(for reminder: PlannedReminder) -> String? {
+        guard reminder.kind == .prep else { return nil }
+        let inTime = reminder.dinnerAt.map { reminder.fireAt.addingTimeInterval(ReminderResponse.snoozeDelay) < $0 } ?? true
+        return inTime ? prepCategory : prepNoSnoozeCategory
+    }
+
     static func registerActions() {
         let done = UNNotificationAction(identifier: doneAction, title: String(localized: "Done", comment: "Prep reminder action"))
         let snooze = UNNotificationAction(identifier: snoozeAction,
@@ -40,7 +49,8 @@ extension ReminderCenter {
         let swap = UNNotificationAction(identifier: swapAction, title: String(localized: "Swap dinner", comment: "Prep reminder action"),
                                         options: [.foreground])
         let prep = UNNotificationCategory(identifier: prepCategory, actions: [done, snooze, swap], intentIdentifiers: [])
-        UNUserNotificationCenter.current().setNotificationCategories([prep])
+        let noSnooze = UNNotificationCategory(identifier: prepNoSnoozeCategory, actions: [done, swap], intentIdentifiers: [])
+        UNUserNotificationCenter.current().setNotificationCategories([prep, noSnooze])
     }
 
     static let system = ReminderCenter(
@@ -64,7 +74,7 @@ extension ReminderCenter {
             content.title = reminder.title
             content.body = reminder.body
             content.sound = .default
-            if reminder.kind == .prep { content.categoryIdentifier = prepCategory }
+            if let category = category(for: reminder) { content.categoryIdentifier = category }
             content.userInfo = ReminderPayload(reminder: reminder).userInfo
             // An interval, not calendar components: the time's already worked out on the household's clock, so one instant
             // is right whatever zone the phone is in, and a change of zone can't move it.

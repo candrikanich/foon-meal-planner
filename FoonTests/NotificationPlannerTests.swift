@@ -35,7 +35,7 @@ private enum Fixture {
                       home: [Member] = family, out: [Member] = []) -> ReminderNight {
         var attendance = Dictionary(uniqueKeysWithValues: home.map { ($0.id, true) })
         for member in out { attendance[member.id] = false }
-        return ReminderNight(id: UUID(), date: Self.day(day), mealID: meal, prepSteps: steps, attendance: attendance)
+        return ReminderNight(id: UUID(), date: Self.day(day), mealID: meal, prepSteps: steps.compactMap(ReminderPrep.init), attendance: attendance)
     }
 
     static func week(_ nights: [ReminderNight], start: Int = 8, approved: Bool = true) -> ReminderWeek {
@@ -320,8 +320,19 @@ private typealias F = Fixture
 
     @Test func whenSomeoneLoggedSomethingElseTheOldDishIsntNamed() {
         var night = F.night(10)
+        night.hasLog = true
         night.loggedMealID = UUID()
         #expect(F.of(.afterDinner, F.plan(me: F.kim, weeks: [F.week([night])])).isEmpty)
+        night.loggedMealID = night.mealID
+        #expect(!F.of(.afterDinner, F.plan(me: F.kim, weeks: [F.week([night])])).isEmpty)
+    }
+
+    @Test func aLoggedQuickPickIsSomethingElseToo() {
+        var night = F.night(10)
+        night.hasLog = true
+        night.loggedMealID = nil
+        #expect(F.of(.afterDinner, F.plan(me: F.kim, weeks: [F.week([night])])).isEmpty,
+                "logged as takeout: a log with no dish isn't the same as no log")
         night.loggedMealID = night.mealID
         #expect(!F.of(.afterDinner, F.plan(me: F.kim, weeks: [F.week([night])])).isEmpty)
     }
@@ -490,15 +501,67 @@ private typealias F = Fixture
 }
 
 @Suite struct ReminderQuietHoursTests {
-    @Test func aPrepReminderBeforeDawnMovesToTheEveningBefore() {
-        // Marinate 13 hours before 6pm is 5am, in quiet hours.
+    @Test func aPrepReminderBeforeDawnMovesToTheEveningBefore() throws {
+        // Marinate 13 hours before Tuesday's 6pm is 5am, in quiet hours, so it goes Monday evening: tomorrow, by then.
         let weeks = [F.week([F.night(10, steps: [PrepStep(step: "Marinate", leadHours: 13)])])]
-        #expect(F.of(.prep, F.plan(weeks: weeks)).map(\.fireAt) == [F.at(9, 20, 45)])
+        let reminder = try #require(F.of(.prep, F.plan(weeks: weeks)).first)
+        #expect(reminder.fireAt == F.at(9, 20, 45))
+        #expect(reminder.title == "Dinner tomorrow")
     }
 
-    @Test func butNotIfThatEveningHasAlreadyGone() {
+    @Test func aMovedLunchtimeDinnerSaysTomorrowToo() throws {
+        // Saturday at 2pm, 8 hours back is 6am, so Friday evening.
+        var night = F.night(14, steps: [PrepStep(step: "Marinate", leadHours: 8)])
+        night.dinnerTime = "14:00"
+        let reminder = try #require(F.of(.prep, F.plan(weeks: [F.week([night])])).first)
+        #expect(reminder.fireAt == F.at(13, 20, 45))
+        #expect(reminder.title == "Dinner tomorrow")
+    }
+
+    @Test func aMoveAcrossAnotherDayNamesTheNight() throws {
+        // Wednesday's 6pm less 37 hours is Tuesday 5am, so Monday evening.
+        let weeks = [F.week([F.night(11, steps: [PrepStep(step: "Marinate", leadHours: 37)])])]
+        let reminder = try #require(F.of(.prep, F.plan(weeks: weeks)).first)
+        #expect(reminder.fireAt == F.at(9, 20, 45))
+        #expect(reminder.title == "Dinner on Wednesday")
+    }
+
+    @Test func aFollowUpSaysTheDayFromItsOwnTime() throws {
+        var settings = F.settings
+        settings.notificationPreset = .engaged
+        // Tuesday 6pm less 20 hours is 10pm Monday, so 8:45pm; the follow-up would be 9:45pm, in quiet hours, and doesn't go.
+        // Less 24 hours: 6pm Monday, and 7pm.
+        let weeks = [F.week([F.night(10, steps: [F.thaw])])]
+        let both = F.of(.prep, F.plan(settings: settings, weeks: weeks))
+        #expect(both.map(\.title) == ["Dinner tomorrow", "Dinner tomorrow"])
+    }
+
+    @Test func onceTheEveningHasGoneItWaitsForMorningWhileThereIsTime() throws {
+        // Read at 10pm Monday: 7am still leaves 11 of the 13 hours.
         let weeks = [F.week([F.night(10, steps: [PrepStep(step: "Marinate", leadHours: 13)])])]
-        #expect(F.of(.prep, F.plan(weeks: weeks, now: F.at(9, 22))).isEmpty)
+        let reminder = try #require(F.of(.prep, F.plan(weeks: weeks, now: F.at(9, 22))).first)
+        #expect(reminder.fireAt == F.at(10, 7))
+        #expect(reminder.title == "Dinner tonight")
+    }
+
+    @Test func notWithLessThanHalfTheLeadTimeLeft() {
+        // A 7:30am breakfast-for-dinner with a 3-hour lead: 7am leaves half an hour.
+        var night = F.night(10, steps: [PrepStep(step: "Soak", leadHours: 3)])
+        night.dinnerTime = "07:30"
+        #expect(F.of(.prep, F.plan(weeks: [F.week([night])], now: F.at(9, 22))).isEmpty)
+        // A 3-hour lead with exactly half left does go.
+        night.dinnerTime = "08:30"
+        #expect(F.of(.prep, F.plan(weeks: [F.week([night])], now: F.at(9, 22))).map(\.fireAt) == [F.at(10, 7)])
+    }
+
+    @Test func aKidsPrepWaitsForTheEndOfSchoolTheSameWay() {
+        let teen = Member.fixture(firstName: "Tess", ageGroup: .kid, role: .planner, userID: UUID())
+        // Wednesday: 8 hours before 6pm is 10am, in school. Before school has gone at 7:50am, and 3pm leaves 3 of 8: too little.
+        let short = [F.week([F.night(11, steps: [PrepStep(step: "Slow cooker", leadHours: 8)], home: [teen])])]
+        #expect(F.of(.prep, F.plan(me: teen, members: [teen], weeks: short, now: F.at(11, 7, 50))).isEmpty)
+        // Less 5 hours is 1pm: 3pm leaves 3 of 5, so it goes.
+        let long = [F.week([F.night(11, steps: [PrepStep(step: "Soak", leadHours: 5)], home: [teen])])]
+        #expect(F.of(.prep, F.plan(me: teen, members: [teen], weeks: long, now: F.at(11, 7, 50))).map(\.fireAt) == [F.at(11, 15)])
     }
 
     @Test func aLateDinnersPromptJustDoesntGo() {
@@ -593,7 +656,7 @@ private typealias F = Fixture
     @Test func aThawAcrossSpringForwardKeepsItsClockTime() throws {
         // Clocks change at 2am Sunday, March 14, 2027. 24 hours before Sunday's dinner is 6pm Saturday by the clock.
         let sunday = CalendarDay(year: 2027, month: 3, day: 14)
-        let night = ReminderNight(id: UUID(), date: sunday, mealID: F.chili, prepSteps: [F.thaw],
+        let night = ReminderNight(id: UUID(), date: sunday, mealID: F.chili, prepSteps: [F.thaw].compactMap(ReminderPrep.init),
                                   attendance: [F.ann.id: true])
         let week = ReminderWeek(planID: UUID(), start: sunday, isApproved: true, nights: [night])
         let now = F.at(12, 12, month: 3, year: 2027)
@@ -624,6 +687,23 @@ private typealias F = Fixture
         let reminder = try #require(F.of(.afterDinner, F.plan(settings: settings, weeks: weeks)).first)
         #expect(reminder.fireAt == tokyo.date(from: DateComponents(year: 2026, month: 11, day: 9, hour: 19)))
         #expect(F.of(.afterDinner, F.plan(settings: settings, weeks: weeks)).count == 1)
+    }
+
+    @Test func withNoSavedZoneThePromptIsOnTheCardsClock() throws {
+        var settings = F.settings
+        settings.timeZone = nil
+        let night = F.night(10)
+        let reminder = try #require(F.of(.afterDinner, F.plan(settings: settings, weeks: [F.week([night])])).first)
+        let card = WeekNight(id: night.id, date: night.date, effort: .normal, dinnerTime: nil, mealID: night.mealID,
+                             mealName: nil, quickPick: nil, locked: false, attendance: night.attendance)
+        #expect(reminder.fireAt == DinnerPrompts.promptTime(card, defaultDinnerTime: settings.dinnerTime,
+                                                            calendar: DinnerPrompts.calendar(for: settings)))
+    }
+
+    @Test func aWeekdayIsInTheReadersLanguage() {
+        let title = ReminderText.prepTitle(night: F.day(13), firing: F.at(9, 18), calendar: F.calendar,
+                                           locale: Locale(identifier: "fr_FR"))
+        #expect(title.contains("vendredi"), "\(title)")
     }
 
     @Test func quietHoursAreTheHouseholdsToo() {

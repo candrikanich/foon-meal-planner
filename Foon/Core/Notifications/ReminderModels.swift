@@ -39,6 +39,37 @@ struct NotificationPrefs: Decodable, Equatable, Sendable {
     }
 }
 
+/// The kinds of prep step the starter pack has. The step's words only choose one, and then they're dropped.
+enum PrepKind: String, Codable, Sendable {
+    case thaw, marinate, slowCooker, other
+
+    init(step: String) {
+        let text = step.lowercased()
+        if ["thaw", "defrost"].contains(where: text.contains) {
+            self = .thaw
+        } else if text.contains("marinat") {
+            self = .marinate
+        } else if ["slow cooker", "slow-cooker", "crock"].contains(where: text.contains) {
+            self = .slowCooker
+        } else {
+            self = .other
+        }
+    }
+}
+
+/// A prep step as reminders keep it: what kind, and how long before dinner. None of what the family typed, so it can't reach
+/// the offline cache or a lock screen. Nil for a step with no lead time, which has nothing to count back from.
+struct ReminderPrep: Codable, Equatable, Sendable {
+    let kind: PrepKind
+    let leadHours: Int
+
+    init?(_ step: PrepStep) {
+        guard let lead = step.leadHours, lead > 0 else { return nil }
+        kind = PrepKind(step: step.step)
+        leadHours = lead
+    }
+}
+
 /// One night, with what reminders need. It lives in the offline cache, so it holds nothing about allergies, and no dish name:
 /// nothing on a lock screen uses one.
 struct ReminderNight: Codable, Equatable, Identifiable, Sendable {
@@ -49,11 +80,12 @@ struct ReminderNight: Codable, Equatable, Identifiable, Sendable {
     var quickPick: QuickPick?
     var leftoversFrom: UUID?
     var stashItemID: UUID?
-    var prepSteps: [PrepStep] = []
+    var prepSteps: [ReminderPrep] = []
     var attendance: [UUID: Bool] = [:]
     /// Whose rating is in, however it got there: Pass the phone can beat the prompt to it.
     var ratedBy: Set<UUID> = []
-    /// The dish someone logged, when they said they had something else.
+    /// Whether anyone's logged this night, and the dish if it was one: a quick pick logs no dish.
+    var hasLog = false
     var loggedMealID: UUID?
 
     /// Out of the freezer or left over: already cooked, so nothing to start ahead.

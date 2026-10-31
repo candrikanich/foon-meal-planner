@@ -104,8 +104,11 @@ struct SwapSheet: View {
             .task {
                 week.clearError()
                 library.clearError()
-                await suggest()
                 await freezer?.load()
+            }
+            // From a reminder about next week, this opens before that week has loaded, so it waits for the night.
+            .task(id: night?.id) {
+                if night != nil { await suggest() }
             }
         }
     }

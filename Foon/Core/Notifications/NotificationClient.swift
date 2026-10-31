@@ -139,10 +139,10 @@ private struct ReminderNightRow: Decodable, Sendable {
 
     func night(log: ReminderLogRow?) -> ReminderNight {
         ReminderNight(id: id, date: date, dinnerTime: dinnerTime, mealID: mealID, quickPick: quickPick,
-                      leftoversFrom: leftoversFrom, stashItemID: stashItemID, prepSteps: meals?.prepSteps ?? [],
+                      leftoversFrom: leftoversFrom, stashItemID: stashItemID, prepSteps: (meals?.prepSteps ?? []).compactMap(ReminderPrep.init),
                       attendance: Dictionary(nightAttendance.map { ($0.memberID, $0.expected) },
                                              uniquingKeysWith: { first, _ in first }),
-                      ratedBy: Set(log?.reactions.map(\.memberID) ?? []), loggedMealID: log?.mealID)
+                      ratedBy: Set(log?.reactions.map(\.memberID) ?? []), hasLog: log != nil, loggedMealID: log?.mealID)
     }
 }
 

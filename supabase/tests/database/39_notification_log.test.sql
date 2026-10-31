@@ -1,7 +1,7 @@
 -- The notification log (#40 part 1). A device writes its own rows and nobody else's; planners read the household's, everyone
 -- reads their own, and another household reads nothing. Only type, night, and times: there's nowhere to put message text.
 begin;
-select plan(40);
+select plan(48);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -124,12 +124,54 @@ select results_eq($$ select sent_at, responded_at, response from public.notifica
   'a stale copy can''t clear what''s known');
 select throws_ok($$ select public.record_notifications('00000000-0000-0000-0000-0000000000a0', '{}') $$, '22023', null,
   'entries must be a list');
-select throws_ok($$ select public.record_notifications('00000000-0000-0000-0000-0000000000a0', jsonb_build_array(
-    pg_temp.entry(gen_random_uuid(), 'Has Spaces'))) $$, '23514', null, 'a type is a short key, not a sentence');
+
+-- A bad row is dropped, and the rest of its batch goes in.
+select lives_ok($$ select public.record_notifications('00000000-0000-0000-0000-0000000000a0', jsonb_build_array(
+    pg_temp.entry(gen_random_uuid(), 'Nora is allergic to milk'),
+    jsonb_build_object('id', 'not-a-uuid', 'type', 'prep_reminder', 'scheduled_for', '2037-11-02T19:00:00Z'),
+    jsonb_build_object('id', gen_random_uuid(), 'type', 'prep_reminder', 'scheduled_for', 'someday'),
+    jsonb_build_object('id', gen_random_uuid(), 'type', 'prep_reminder'),
+    pg_temp.entry(gen_random_uuid(), 'prep_reminder', null, null, null, 'Nora is allergic to milk'),
+    '"just text"'::jsonb,
+    pg_temp.entry('00000000-0000-0000-0000-0000000004b7', 'prep_reminder'))) $$,
+  'bad rows don''t fail the batch');
+select is((select count(*)::int from public.notification_log where id = '00000000-0000-0000-0000-0000000004b7'), 1,
+  'the good row goes in');
+select is((select count(*)::int from public.notification_log where type = 'Nora is allergic to milk'
+           or response = 'Nora is allergic to milk' or id = '00000000-0000-0000-0000-0000000004b7'), 1, 'none of the bad ones do');
 
 -- Export, and retention.
-select is(jsonb_array_length(public.export_household('00000000-0000-0000-0000-0000000000a0') -> 'notification_log'), 4,
+select is(jsonb_array_length(public.export_household('00000000-0000-0000-0000-0000000000a0') -> 'notification_log'), 5,
   'the export includes it');
+
+-- A device can't flood the log: 200 new rows a member a day, and answers to the ones it has still go in.
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select lives_ok($$ select public.record_notifications('00000000-0000-0000-0000-0000000000a0',
+    (select jsonb_agg(pg_temp.entry(gen_random_uuid())) from generate_series(1, 200))) $$, 'a big batch goes in');
+select lives_ok($$ select public.record_notifications('00000000-0000-0000-0000-0000000000a0',
+    (select jsonb_agg(pg_temp.entry(gen_random_uuid())) from generate_series(1, 50))) $$, 'over the cap isn''t an error');
+reset role;
+select is((select count(*)::int from public.notification_log where member_id = '00000000-0000-0000-0000-0000000000a2'), 200,
+  'but stops at the day''s cap');
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select public.record_notifications('00000000-0000-0000-0000-0000000000a0', jsonb_build_array(
+  pg_temp.entry('00000000-0000-0000-0000-0000000004a2', 'after_dinner', null, null, '2037-11-02T19:00:00Z', 'opened')));
+reset role;
+select is((select response from public.notification_log where id = '00000000-0000-0000-0000-0000000004a2'), 'opened',
+  'an answer to a row already there still goes in at the cap');
+update public.notification_log set created_at = now() - interval '25 hours' where member_id = '00000000-0000-0000-0000-0000000000a2';
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select public.record_notifications('00000000-0000-0000-0000-0000000000a0', jsonb_build_array(pg_temp.entry(gen_random_uuid())));
+reset role;
+select is((select count(*)::int from public.notification_log where member_id = '00000000-0000-0000-0000-0000000000a2'), 201,
+  'and the next day it starts again');
+-- The cap's rows age out with the rest, called off (no sent_at) or not: see "older than eight weeks goes" below.
+delete from public.notification_log where member_id = '00000000-0000-0000-0000-0000000000a2'
+  and id <> '00000000-0000-0000-0000-0000000004a2';
+select throws_ok($$ insert into public.notification_log (id, household_id, member_id, type, scheduled_for)
+    values (gen_random_uuid(), '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a1', 'Words here', now()) $$,
+  '23514', null, 'and the table itself only takes known types');
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 reset role;
 insert into public.notification_log (id, household_id, member_id, type, scheduled_for, created_at) values
   ('00000000-0000-0000-0000-0000000004a5', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a1',

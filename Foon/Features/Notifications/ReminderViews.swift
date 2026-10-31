@@ -53,14 +53,18 @@ extension HouseholdStore {
 /// Foon's one ask, once a week has been approved and there's something to remind them of. "Not now" is the end of it: Family has
 /// the switch from then on.
 struct ReminderAskCard: View {
+    static var bodyText: String {
+        String(localized: "Foon can remind you about dinner on this device, with a limit each week. You can turn them off anytime in Family.")
+    }
+
     @Environment(ReminderStore.self) private var reminders
     @Environment(HouseholdStore.self) private var household
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Want a few reminders?", systemImage: "bell")
+            Label("Want reminders about dinner?", systemImage: "bell")
                 .font(.foonHeadline)
-            Text("Foon can nudge you about dinner on this device, when something needs starting or a dish needs rating. Only a few a week, and you can turn them off anytime.")
+            Text(Self.bodyText)
                 .font(.foonCaption)
                 .foregroundStyle(.secondary)
             // Side by side, until a large text size needs them stacked.
@@ -79,7 +83,7 @@ struct ReminderAskCard: View {
     private var buttons: some View {
         Button("Turn on reminders") {
             guard let context = household.reminderContext else { return }
-            Task { await reminders.requestPermission(for: context) }
+            Task { await reminders.turnOn(for: context) }
         }
         .buttonStyle(.borderedProminent)
         .tint(Palette.paprika)
@@ -90,7 +94,8 @@ struct ReminderAskCard: View {
     }
 }
 
-/// Family: whether this device shows reminders, and the way back after "Not now" or a no. It never asks on its own.
+/// Family: this person's switch for reminders on this device, and the way back after "Not now". Turning it off leaves cook-mode
+/// timers alone. It never asks on its own.
 struct ReminderSettingsSection: View {
     @Environment(ReminderStore.self) private var reminders: ReminderStore?
     @Environment(HouseholdStore.self) private var household
@@ -101,21 +106,21 @@ struct ReminderSettingsSection: View {
 
     private func section(_ reminders: ReminderStore) -> some View {
         Section {
-            switch reminders.permission {
-            case .on:
-                Label("Reminders are on for this device", systemImage: "bell")
-            case .notAsked:
-                Button("Turn on reminders", systemImage: "bell") {
-                    guard let context = household.reminderContext else { return }
-                    Task { await reminders.requestPermission(for: context) }
-                }
-            case .off:
+            if reminders.permission == .off {
                 Link(destination: Self.settingsURL) {
-                    Label("Reminders are off. Turn them on in Settings.", systemImage: "bell.slash")
+                    Label("Notifications for Foon are off. Turn them on in Settings.", systemImage: "bell.slash")
                 }
+            } else {
+                Toggle("Reminders on this device", systemImage: "bell", isOn: Binding(
+                    get: { reminders.isOptedIn },
+                    set: { on in
+                        guard let context = household.reminderContext else { return }
+                        Task { await on ? reminders.turnOn(for: context) : reminders.turnOff(for: context) }
+                    }
+                ))
             }
         } footer: {
-            Text("A few reminders about dinner, sent from this device. Foon works the same without them.")
+            Text("Reminders about dinner, sent from this device. Foon works the same without them, and cook mode's timers have their own alerts.")
         }
     }
 
