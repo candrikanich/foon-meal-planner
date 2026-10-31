@@ -230,6 +230,18 @@ struct ShareRouterTests {
         #expect(ShareRouter.siteLabel(URL(string: link)!) == label)
     }
 
+    @Test(arguments: ["https://pinterest.evil.example/pin/1", "https://www.pinterest.evil.com/pin/1", "https://notpinterest.com/pin/1"])
+    func aLookalikePinterestIsntPinterest(link: String) {
+        let url = URL(string: link)!
+        #expect(ShareRouter.route(.link(url, title: nil)) == .recipeLink(url, title: nil))
+        #expect(!ShareRouter.siteLabel(url).contains("Pinterest"))
+    }
+
+    @Test func aTappableLinkAlwaysSaysWhereItGoes() {
+        #expect(ShareRouter.linkLabel(URL(string: "https://www.instagram.com/p/abc")!) == "Instagram post · instagram.com")
+        #expect(ShareRouter.linkLabel(recipe) == "recipes.example")
+    }
+
     private let post = URL(string: "https://www.instagram.com/p/abc")!
 
     @Test(arguments: [("https://www.instagram.com/p/abc", "Instagram"), ("https://www.instagram.com/p/abc", "Login • Instagram"),

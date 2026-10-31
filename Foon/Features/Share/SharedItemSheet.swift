@@ -229,7 +229,7 @@ struct SharedItemSheet: View {
     @ViewBuilder
     private func link(_ url: URL, canImport: Bool) -> some View {
         Section {
-            Link(destination: url) { Label(ShareRouter.siteLabel(url), systemImage: "safari") }
+            Link(destination: url) { Label(ShareRouter.linkLabel(url), systemImage: "safari") }
             TextField("What is it? (optional)", text: $title)
         }
         Section {

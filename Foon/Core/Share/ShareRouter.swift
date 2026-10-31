@@ -33,6 +33,16 @@ enum ShareRouter {
     /// What to call a link with no title: "Instagram post", or the site's address without its "www."
     static func siteLabel(_ url: URL) -> String {
         if let site = socialSite(url) { return String(localized: "\(site) post", comment: "A shared link with no title") }
+        return siteAddress(url)
+    }
+
+    /// For a link someone can tap: what it is, and always where it really goes.
+    static func linkLabel(_ url: URL) -> String {
+        let (label, address) = (siteLabel(url), siteAddress(url))
+        return label == address ? address : "\(label) · \(address)"
+    }
+
+    private static func siteAddress(_ url: URL) -> String {
         let host = url.host() ?? url.absoluteString
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
@@ -74,8 +84,8 @@ enum ShareRouter {
     /// The domain or a subdomain of it; "notinstagram.com" doesn't count.
     private static func socialSite(_ url: URL) -> String? {
         guard let host = url.host()?.lowercased() else { return nil }
-        // Pinterest has a domain per country (pinterest.co.uk).
-        if host.split(separator: ".").contains("pinterest") { return "Pinterest" }
+        // Pinterest has a domain per country (pinterest.co.uk), and pinterest.evil.example isn't one of them.
+        if host.wholeMatch(of: /(?:.+\.)?pinterest\.(?:com|[a-z]{2}|co\.[a-z]{2}|com\.[a-z]{2})/) != nil { return "Pinterest" }
         return socialSites.first { host == $0.key || host.hasSuffix(".\($0.key)") }?.value
     }
 
