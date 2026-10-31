@@ -62,8 +62,9 @@ enum RecipeTextParser {
                 inSteps = !inIngredients
                 sawIngredientsHeader = sawIngredientsHeader || inIngredients
                 lines.append(plain)
-                // "Ingredients (contains peanuts, shrimp)": a note like that may be the only place an allergen is named.
-                if inIngredients, let note = plain.firstMatch(of: /\((.+)\)/)?.1 { ingredientLines.append(String(note)) }
+                // "Ingredients (contains peanuts, shrimp)": a note like that may be the only place an allergen is named. Kept
+                // whole with its parentheses, so "(notes)" or "(nutrition info below)" can't read as the end of the recipe.
+                if inIngredients, let note = plain.firstMatch(of: /\(.+\)/)?.0 { lines.append(String(note)) }
                 continue
             }
             // Otherwise the emoji only comes off what's clearly an amount. Bared, "💡 Tip" would end the recipe, and "🥜 Makes
@@ -93,7 +94,7 @@ enum RecipeTextParser {
             let pieces = line.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
             let lower = line.lowercased()
             // These labels apply to everything on an ingredient, so they'd cancel an allergen on the other side of the comma.
-            let hasFreeFromLabel = ["free", "vegan", "plant"].contains { lower.contains($0) }
+            let hasFreeFromLabel = lower.contains("free") || freeFromLabels.contains { lower.contains($0) }
             let isOneItem = section.count > 1 && pieces.count == 2 && isAmountLed(line) && !hasFreeFromLabel
                 && MealDraft.length(line) <= maxWholeLine && isDescription(first: pieces[0], second: pieces[1])
             return isOneItem ? [line] : pieces
@@ -112,6 +113,9 @@ enum RecipeTextParser {
         "grated", "shredded", "cubed", "crushed", "thawed", "halved", "quartered", "toasted", "sifted", "packed", "optional",
         "finely", "roughly", "coarsely", "thinly", "freshly", "lightly", "room", "temperature", "at", "to", "taste",
     ]
+
+    /// The allergy matcher's own labels, so the two can't drift apart.
+    private static let freeFromLabels = AllergenKeywords.all.flatMap(\.freeFrom).map { $0.lowercased() }
 
     /// `RecipeImport.ingredientName` cuts a longer name at its first comma.
     private static let maxWholeLine = 60

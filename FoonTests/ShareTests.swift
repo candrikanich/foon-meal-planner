@@ -588,6 +588,20 @@ struct RecipeTextParserTests {
         #expect(try savedNames(caption).contains { $0.localizedCaseInsensitiveContains(allergen) })
     }
 
+    @Test(arguments: ["notes", "method", "nutrition info below", "makes 2 cups peanut sauce", "for the sauce", "print"])
+    func aHeaderNoteCantEndTheList(note: String) throws {
+        let names = try savedNames("Dish\nIngredients:\n1 cup rice\nIngredients (\(note))\n3 tbsp peanut butter\n1 lb shrimp")
+        #expect(names.contains { $0.contains("peanut butter") })
+        #expect(names.contains("shrimp"))
+    }
+
+    @Test func everyFreeFromLabelSplitsALine() throws {
+        for label in AllergenKeywords.all.flatMap(\.freeFrom) {
+            let names = try savedNames("Dish\nIngredients:\n4 \(label) boneless, shrimp tacos\n1 tsp salt")
+            #expect(names.contains("shrimp tacos"), "\(label)")
+        }
+    }
+
     @Test(arguments: [("Comment PEANUT: 1 cup peanut butter, 2 eggs, 1 cup shrimp", "shrimp"), ("Full recipe in bio: peanut butter, soy sauce, eggs", "eggs"),
                       ("Get the full recipe: 2 tbsp peanut butter, 1 cup shrimp", "shrimp"), ("Link in bio for the peanut sauce", "peanut"),
                       ("Full recipe calls for peanut sauce", "peanut")])
