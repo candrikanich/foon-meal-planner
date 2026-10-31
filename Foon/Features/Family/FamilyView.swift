@@ -4,7 +4,8 @@ struct FamilyView: View {
     @Environment(HouseholdStore.self) private var store
     @Environment(SessionStore.self) private var session
     @Environment(DinnerStore.self) private var dinner
-    @State private var editor: EditorTarget?
+    @State private var addingMember = false
+    @State private var editingRhythm = false
     @State private var confirmingSignOutEverywhere = false
     @State private var deletingAccount = false
     @State private var deletingHousehold = false
@@ -40,21 +41,22 @@ struct FamilyView: View {
 
                 Section("Family") {
                     ForEach(store.visibleMembers) { member in
-                        if store.editScope(for: member) == .none {
-                            MemberRow(member: member, isYou: false, invited: store.invitedMemberIDs.contains(member.id))
-                        } else {
-                            Button {
-                                editor = .existing(member)
-                            } label: {
-                                MemberRow(member: member, isYou: member.userID == store.userID,
-                                          invited: store.invitedMemberIDs.contains(member.id))
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityHint("Edit")
+                        NavigationLink {
+                            MemberDetailView(memberID: member.id)
+                        } label: {
+                            MemberRow(member: member, isYou: member.userID == store.userID,
+                                      invited: store.invitedMemberIDs.contains(member.id))
                         }
                     }
                 }
 
+                if canPlan {
+                    Section {
+                        Button("Rhythm and planning mix") { editingRhythm = true }
+                    } footer: {
+                        Text("When you plan, when the week starts, dinner time, and what goes in a week.")
+                    }
+                }
 
                 if canPlan || store.canManagePeople {
                     Section {
@@ -126,11 +128,9 @@ struct FamilyView: View {
                                     Text(member.firstName).font(.body.weight(.medium))
                                     Spacer()
                                     VStack(alignment: .trailing, spacing: 2) {
-                                        Text(tally.dinners == 1 ? String(localized: "1 dinner")
-                                                                : String(localized: "\(tally.dinners) dinners"))
+                                        Text(tally.dinnersTitle)
                                         if tally.thanks > 0 {
-                                            Text(tally.thanks == 1 ? String(localized: "1 thank-you")
-                                                                   : String(localized: "\(tally.thanks) thank-yous"))
+                                            Text(tally.thanksTitle)
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
                                         }
@@ -146,6 +146,7 @@ struct FamilyView: View {
                     }
                 }
                 Section {
+                    NavigationLink("What Foon keeps") { PrivacySummaryView() }
                     if store.canExport {
                         ExportButton(exportURL: $exportURL)
                     }
@@ -193,7 +194,7 @@ struct FamilyView: View {
                 if store.canManagePeople {
                     ToolbarItem(placement: .primaryAction) {
                         Button("Add member", systemImage: "person.badge.plus") {
-                            editor = .new
+                            addingMember = true
                         }
                     }
                 }
@@ -209,12 +210,8 @@ struct FamilyView: View {
             }
             .sheet(isPresented: $deletingAccount) { DeleteAccountView() }
             .sheet(isPresented: $deletingHousehold) { DeleteHouseholdView() }
-            .sheet(item: $editor) { target in
-                switch target {
-                case .new: MemberEditorView(member: nil)
-                case .existing(let member): MemberEditorView(member: member)
-                }
-            }
+            .sheet(isPresented: $addingMember) { MemberEditorView(member: nil) }
+            .sheet(isPresented: $editingRhythm) { HouseholdRhythmView(store: store) }
         }
     }
 
@@ -255,21 +252,10 @@ struct FamilyView: View {
         guard let household = store.household else { return }
         await dinner.load(settings: household.planningSettings)
     }
-
-    private enum EditorTarget: Identifiable {
-        case new
-        case existing(Member)
-
-        var id: String {
-            switch self {
-            case .new: "new"
-            case .existing(let member): member.id.uuidString
-            }
-        }
-    }
 }
 
 struct MemberRow: View {
+    @Environment(HouseholdStore.self) private var store
     let member: Member
     let isYou: Bool
     var invited = false
@@ -302,16 +288,9 @@ struct MemberRow: View {
     }
 
     private var details: String {
-        let age = member.ageGroup == .adult ? String(localized: "Adult") : String(localized: "Kid")
-        let role = member.role == .planner ? String(localized: "Planner") : String(localized: "Member")
-        return ([age, role, status] + (invited ? [String(localized: "Invite sent")] : [])).joined(separator: " · ")
-    }
-
-    private var status: String {
-        guard member.status == .away else { return String(localized: "Home") }
-        guard let day = member.awayUntil else { return String(localized: "Away") }
-        let date = day.date().formatted(.dateTime.month(.abbreviated).day())
-        return String(localized: "Away until \(date)", comment: "Member status: a short date such as Nov 4")
+        let today = (store.household?.planningSettings ?? HouseholdSettings()).today()
+        return ([member.ageTitle, member.roleTitle, member.statusTitle(today: today)]
+                + (invited ? [String(localized: "Invite sent")] : [])).joined(separator: " · ")
     }
 }
 
@@ -321,6 +300,7 @@ struct MemberRow: View {
         .environment(store)
         .environment(SessionStore(auth: .preview()))
         .environment(DinnerStore(householdID: Household.sample.id, client: .preview))
+        .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .environment(PlanActivityStore(householdID: Household.sample.id, client: .preview(started: true)))
         .task { await store.load() }
 }

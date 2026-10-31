@@ -229,7 +229,7 @@ struct HouseholdStoreTests {
         var draft = MemberDraft(kid)
         draft.status = .away
         draft.awayUntil = CalendarDay(year: 2026, month: 12, day: 20)
-        #expect(await store.save(draft, editing: kid.id))
+        #expect(await store.save(draft, editing: kid))
         #expect(store.members.first { $0.id == kid.id } == saved)
     }
 
@@ -243,7 +243,7 @@ struct HouseholdStoreTests {
         await store.load()
         var draft = MemberDraft(kid)
         draft.firstName = "Nori"
-        #expect(!(await store.save(draft, editing: kid.id)))
+        #expect(!(await store.save(draft, editing: kid)))
         #expect(store.members == [kid])
         #expect(store.errorMessage != nil)
     }
@@ -285,7 +285,7 @@ struct HouseholdStoreTests {
         await store.load()
         var draft = MemberDraft(kid)
         draft.avatar = "🦊"
-        #expect(await store.save(draft, editing: kid.id))
+        #expect(await store.save(draft, editing: kid))
         #expect(changed.withLock { $0 } == MemberChanges(avatar: .some("🦊")))
     }
 
@@ -300,7 +300,7 @@ struct HouseholdStoreTests {
             }
         ))
         await store.load()
-        #expect(await store.save(MemberDraft(kid), editing: kid.id))
+        #expect(await store.save(MemberDraft(kid), editing: kid))
     }
 
     @Test func aCreatedHouseholdIsReadyEvenIfMembersFailToLoad() async {

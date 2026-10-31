@@ -10,6 +10,8 @@ final class LibraryStore {
     private(set) var isLoading = false
     private(set) var hasLoaded = false
     private(set) var errorMessage: String?
+    /// The last full load failed, so what's showing may be old. `errorMessage` also carries other actions' failures.
+    private(set) var lastLoadFailed = false
     /// Dishes being copied in, so their Add buttons don't fire twice.
     private(set) var addingDishIDs: Set<UUID> = []
     /// Meals being copied (Copy and tweak), for the same reason.
@@ -115,9 +117,11 @@ final class LibraryStore {
             self.servingNotes = servingNotes
             self.comments = loadedComments
             hasLoaded = true
+            lastLoadFailed = false
             errorMessage = nil
         } catch {
             guard generation == loadGeneration, !Self.isCancellation(error) else { return }
+            lastLoadFailed = true
             errorMessage = String(localized: "Couldn't load your library. Check your connection and try again.")
         }
     }
@@ -153,21 +157,31 @@ final class LibraryStore {
         }
     }
 
-    /// Re-reads just the family's reactions (cheap), so a dislike from last night reaches Build my week without a
-    /// full library reload. Keeps what it had if the network says no.
+    /// Re-reads just what the family has said since (cheap), so a dislike from last night reaches Build my week, and an
+    /// allergy a parent just added reaches the flags on this phone, without a full library reload. Keeps what it had if
+    /// the network says no: offline never reads as no allergies. A load or save that came along meanwhile is newer, so
+    /// this stands down rather than put old answers back.
     func refreshReactions() async {
         guard hasLoaded else { return }
+        let generation = loadGeneration
         do {
             async let verdicts = client.verdicts(householdID)
             async let likes = client.likes(householdID)
             async let notes = client.servingNotes(householdID)
             async let comments = client.comments(householdID)
-            reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
+            async let allergyRows = client.allergies(householdID)
+            let loadedAllergies = try? await allergyRows
+            let reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
             // Serving notes are family input too: a note Mom just wrote shows on Dad's cards.
-            servingNotes = try await notes
-            if let comments = try? await comments { self.comments = comments }
+            let servingNotes = try await notes
+            let loadedComments = try? await comments
+            guard generation == loadGeneration else { return }
+            if let loadedAllergies { allergies = Self.memberAllergies(loadedAllergies, members: members) }
+            self.reactions = reactions
+            self.servingNotes = servingNotes
+            if let loadedComments { self.comments = loadedComments }
         } catch {
-            // Offline: last load's reactions still stand.
+            // Offline: last load's reactions still stand, and any allergies read above wait for the next refresh.
         }
     }
 
@@ -216,6 +230,17 @@ final class LibraryStore {
             }
             return false
         }
+    }
+
+    /// Shows what a parent just saved, so flags and their profile are right whether or not the reload that follows gets
+    /// through. That reload also drops any older one still out, which would bring the old allergies back.
+    func showAllergies(_ saved: AllergyChoice, for member: Member, members: [Member]) async {
+        let others = allergies.filter { $0.memberID != member.id }
+        allergies = saved.isEmpty ? others : others + [
+            MemberAllergies(memberID: member.id, firstName: member.firstName, allergens: saved.allergens,
+                            customTexts: saved.custom.sorted())
+        ]
+        await load(members: members)
     }
 
     func meal(_ id: UUID) -> LibraryMeal? {

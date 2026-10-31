@@ -75,6 +75,8 @@ insert into public.meal_sides (household_id, meal_id, side_meal_id) values
    '00000000-0000-0000-0000-0000000002a2');
 insert into public.consents (household_id, kind, granted_by, text_version) values
   ('00000000-0000-0000-0000-0000000000a0', 'allergy_data', 'a0000000-0000-0000-0000-00000000000a', 'test-v1');
+insert into public.consent_agreements (household_id, agreed_by, text_version) values
+  ('00000000-0000-0000-0000-0000000000a0', 'a0000000-0000-0000-0000-00000000000a', 'test-v1');
 insert into public.meal_ingredients (household_id, meal_id, item_id) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000002a1',
    '00000000-0000-0000-0000-0000000001a1');

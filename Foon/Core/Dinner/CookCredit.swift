@@ -8,6 +8,14 @@ enum CookCredit {
         let dinners: Int
         let thanks: Int
         var id: UUID { memberID }
+
+        var dinnersTitle: String {
+            dinners == 1 ? String(localized: "1 dinner") : String(localized: "\(dinners) dinners")
+        }
+
+        var thanksTitle: String {
+            thanks == 1 ? String(localized: "1 thank-you") : String(localized: "\(thanks) thank-yous")
+        }
     }
 
     /// Everyone who cooked a dish logged this month (quick picks aren't cooking), in no ranked order: the view lists

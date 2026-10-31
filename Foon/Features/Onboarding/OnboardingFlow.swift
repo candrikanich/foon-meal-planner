@@ -179,7 +179,7 @@ private struct AllergyStep: View {
 }
 
 /// The nine major allergens as toggle chips.
-private struct AllergenChips: View {
+struct AllergenChips: View {
     @Binding var selection: Set<Allergen>
 
     var body: some View {
@@ -313,50 +313,10 @@ private struct RhythmStep: View {
 
     var body: some View {
         Form {
-            Section {
-                Picker("Plan on", selection: $settings.planningDay) { weekdayOptions }
-                DatePicker("At", selection: time(\.planningTime), displayedComponents: .hourAndMinute)
-            } header: {
-                Text("When do you plan the week?")
-            } footer: {
-                Text("Foon reminds you then. Lots of families plan Sunday morning, before shopping.")
-            }
-            Section {
-                Picker("Week starts", selection: $settings.weekStart) { weekdayOptions }
-                DatePicker("Dinner at", selection: time(\.dinnerTime), displayedComponents: .hourAndMinute)
-            } footer: {
-                Text("The week starts on your shopping day.")
-            }
-            Section {
-                Picker("Notifications", selection: $settings.notificationPreset) {
-                    ForEach(HouseholdSettings.NotificationPreset.allCases, id: \.self) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-            } footer: {
-                Text("\(settings.notificationPreset.summary) You can change any of this later, for each person.")
-            }
+            RhythmFields(settings: $settings)
         }
         .navigationTitle("Your rhythm")
         .safeAreaInset(edge: .bottom) { StepFooter(primary: String(localized: "Next"), onPrimary: onNext) }
-    }
-
-    private var weekdayOptions: some View {
-        ForEach(WeekMath.weekdays) { Text($0.name()).tag($0.iso) }
-    }
-
-    /// "HH:mm" in settings, a Date in the picker.
-    private func time(_ key: WritableKeyPath<HouseholdSettings, String>) -> Binding<Date> {
-        Binding(
-            get: {
-                let parts = settings[keyPath: key].split(separator: ":").compactMap { Int($0) }
-                return Calendar.current.date(bySettingHour: parts.first ?? 18, minute: parts.last ?? 0, second: 0,
-                                             of: .now) ?? .now
-            },
-            set: { date in
-                let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
-                settings[keyPath: key] = String(format: "%02d:%02d", parts.hour ?? 18, parts.minute ?? 0)
-            }
-        )
     }
 }
 

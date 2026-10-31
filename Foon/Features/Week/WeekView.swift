@@ -425,7 +425,12 @@ struct WeekView: View {
 
     /// The library must load before drafting from it; nil when it didn't.
     private func planningContext() async -> PlanningContext? {
-        if !library.hasLoaded { await library.load(members: household.members) }
+        if library.hasLoaded {
+            // A phone left open: another parent's allergy or last night's answers should be on the cards this builds.
+            await library.refreshReactions()
+        } else {
+            await library.load(members: household.members)
+        }
         guard library.hasLoaded else { return nil }
         return PlanningContext(meals: library.meals, history: library.history, settings: settings,
                                members: household.visibleMembers, requests: requests,

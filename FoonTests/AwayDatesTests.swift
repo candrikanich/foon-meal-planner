@@ -462,13 +462,12 @@ struct HouseholdAwayAndTemplateTests {
 
     @Test func aPlannerSavesTheDeviceTimeZoneWhenItsMissing() async {
         let id = household.id, me = me
-        let sent = Mutex<HouseholdSettings?>(nil)
-        let store = HouseholdStore(userID: me, client: .fake(
-            myHousehold: { Household(id: id, name: "The Smiths", emoji: nil, owner: me) },
-            updateSettings: { _, settings in sent.withLock { $0 = settings } }
-        ), deviceTimeZone: { "America/Los_Angeles" })
+        let sent = Mutex<String?>(nil)
+        var client = HouseholdClient.fake(myHousehold: { Household(id: id, name: "The Smiths", emoji: nil, owner: me) })
+        client.saveTimeZone = { _, zone in sent.withLock { $0 = zone } }
+        let store = HouseholdStore(userID: me, client: client, deviceTimeZone: { "America/Los_Angeles" })
         await store.load()
-        #expect(sent.withLock { $0?.timeZone } == "America/Los_Angeles")
+        #expect(sent.withLock { $0 } == "America/Los_Angeles")
         #expect(store.household?.planningSettings.timeZone == "America/Los_Angeles")
     }
 
@@ -478,10 +477,9 @@ struct HouseholdAwayAndTemplateTests {
         settings.timeZone = "America/Chicago"
         let saved = settings
         let sent = Mutex(false)
-        let store = HouseholdStore(userID: me, client: .fake(
-            myHousehold: { Household(id: id, name: "The Smiths", emoji: nil, owner: me, settings: saved) },
-            updateSettings: { _, _ in sent.withLock { $0 = true } }
-        ), deviceTimeZone: { "America/Los_Angeles" })
+        var client = HouseholdClient.fake(myHousehold: { Household(id: id, name: "The Smiths", emoji: nil, owner: me, settings: saved) })
+        client.saveTimeZone = { _, _ in sent.withLock { $0 = true } }
+        let store = HouseholdStore(userID: me, client: client, deviceTimeZone: { "America/Los_Angeles" })
         await store.load()
         #expect(!sent.withLock { $0 })
         #expect(store.household?.planningSettings.timeZone == "America/Chicago")
@@ -490,11 +488,10 @@ struct HouseholdAwayAndTemplateTests {
     @Test func someoneWhoIsntAPlannerWritesNoTimeZone() async {
         let household = household, me = me
         let sent = Mutex(false)
-        let store = HouseholdStore(userID: me, client: .fake(
-            myHousehold: { household },
-            members: { _ in [.fixture(firstName: "Bob", role: .member, userID: me)] },
-            updateSettings: { _, _ in sent.withLock { $0 = true } }
-        ), deviceTimeZone: { "America/Los_Angeles" })
+        var client = HouseholdClient.fake(myHousehold: { household },
+                                          members: { _ in [.fixture(firstName: "Bob", role: .member, userID: me)] })
+        client.saveTimeZone = { _, _ in sent.withLock { $0 = true } }
+        let store = HouseholdStore(userID: me, client: client, deviceTimeZone: { "America/Los_Angeles" })
         await store.load()
         #expect(!sent.withLock { $0 })
         #expect(store.household?.planningSettings.timeZone == nil)
@@ -502,10 +499,9 @@ struct HouseholdAwayAndTemplateTests {
 
     @Test func aFailedTimeZoneSaveIsQuietAndTriedAgainLater() async {
         let id = household.id, me = me
-        let store = HouseholdStore(userID: me, client: .fake(
-            myHousehold: { Household(id: id, name: "The Smiths", emoji: nil, owner: me) },
-            updateSettings: { _, _ in throw URLError(.notConnectedToInternet) }
-        ), deviceTimeZone: { "America/Los_Angeles" })
+        var client = HouseholdClient.fake(myHousehold: { Household(id: id, name: "The Smiths", emoji: nil, owner: me) })
+        client.saveTimeZone = { _, _ in throw URLError(.notConnectedToInternet) }
+        let store = HouseholdStore(userID: me, client: client, deviceTimeZone: { "America/Los_Angeles" })
         await store.load()
         #expect(store.errorMessage == nil)
         #expect(store.household?.planningSettings.timeZone == nil)
