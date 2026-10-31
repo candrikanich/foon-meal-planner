@@ -607,6 +607,11 @@ struct RecipeTextParserTests {
         #expect(names.contains { $0.contains(part) && !$0.contains(",") })
     }
 
+    @Test(arguments: ["Ingredients (makes 2 cups peanut sauce)", "Ingredients (serves 4 contains peanuts)"])
+    func aNoteThatOpensLikeServingsKeepsItsAllergen(header: String) throws {
+        #expect(try savedNames("Dish\n\(header)\n1 lb beef\n1 cup rice").contains { $0.contains("peanut") })
+    }
+
     @Test func aServingsNoteInAHeaderScales() throws {
         let capture = try #require(RecipeTextParser.parseCaption("Dish\nIngredients (serves 2)\n1 lb beef\n1 cup rice"))
         #expect(capture.servings == 2)

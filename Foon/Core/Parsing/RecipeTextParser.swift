@@ -67,8 +67,9 @@ enum RecipeTextParser {
                 if inIngredients, let note = plain.firstMatch(of: /\((.+)\)/)?.1 {
                     lines += note.split(separator: ",").map { part in
                         let words = part.trimmingCharacters(in: .whitespaces)
-                        // "(serves 2)" still scales the amounts.
-                        return servings(in: words) != nil ? words : "(\(words))"
+                        // "(serves 2)" still scales the amounts. Only when that's all it says: "(makes 2 cups peanut sauce)" stays.
+                        let isOnlyServings = words.wholeMatch(of: /(?i)(?:serves|servings?|yield|makes)\s*:?\s*\d{1,2}(?:\s*(?:people|servings?))?/) != nil
+                        return isOnlyServings ? words : "(\(words))"
                     }
                 }
                 continue
