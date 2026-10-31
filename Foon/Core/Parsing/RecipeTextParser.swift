@@ -40,28 +40,133 @@ enum RecipeTextParser {
 
     /// A social post's caption, if it holds a recipe: at least two ingredients, or it's better saved as an idea with its
     /// link. A caption often runs together ("Ingredients: 1 lb beef, 2 cups rice Directions: ..."), so its headers are
-    /// put on their own lines, and items after an Ingredients header are split at commas.
+    /// put on their own lines. It's also decorated ("👇 INGREDIENTS") and selling something ("Comment CAESAR for the
+    /// recipe"), and neither of those is an ingredient.
     static func parseCaption(_ caption: String) -> Capture? {
         let spaced = unwrappedInstagram(caption)
             .replacing(/(?i)\b(ingredients?|directions?|instructions?|method)\s*:/) { "\n\($0.1):\n" }
         var lines: [String] = []
+        var ingredientLines: [String] = []
         var inIngredients = false
+        var inSteps = false
         var sawIngredientsHeader = false
         for line in spaced.split(whereSeparator: \.isNewline).map(String.init) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if isIngredientsHeader(trimmed) {
-                inIngredients = true
-                sawIngredientsHeader = true
-            } else if isStepsHeader(trimmed) {
-                inIngredients = false
+            let plain = withoutDecoration(line, trailing: true)
+            // Only a hashtag that opens the line as written: "🥜 #1 peanut butter" is an ingredient.
+            let opensWithHashtag = line.trimmingCharacters(in: .whitespaces).hasPrefix("#")
+            guard !plain.isEmpty, !opensWithHashtag, !isPromotion(plain) else { continue }
+            if isIngredientsHeader(plain) || isStepsHeader(plain) {
+                lines += splitItems(ingredientLines)
+                ingredientLines = []
+                inIngredients = isIngredientsHeader(plain)
+                inSteps = !inIngredients
+                sawIngredientsHeader = sawIngredientsHeader || inIngredients
+                lines.append(plain)
+                // "Ingredients (contains peanuts, shrimp)": a note like that may be the only place an allergen is named.
+                if inIngredients, let note = plain.firstMatch(of: /\((.+)\)/)?.1 { ingredientLines.append(String(note)) }
+                continue
             }
-            guard !trimmed.hasPrefix("#") else { continue }
-            lines += inIngredients ? trimmed.split(separator: ",").map(String.init) : [trimmed]
+            // Otherwise the emoji only comes off what's clearly an amount. Bared, "💡 Tip" would end the recipe, and "🥜 Makes
+            // 2 cups peanut sauce" would be a servings line. A trailing one stays: "2 🥚" is an ingredient.
+            let bared = withoutDecoration(line, trailing: false)
+            var kept = isAmountLed(bared) ? bared : line
+            if let keycap = keycapped(bared) {
+                guard !keycap.rest.isEmpty else { continue }
+                if inSteps { kept = "\(keycap.digit). \(keycap.rest)" }
+                if inIngredients { kept = "\(keycap.digit) \(keycap.rest)" }
+            }
+            if inIngredients { ingredientLines.append(kept) } else { lines.append(kept) }
         }
-        let capture = parse(lines)
+        lines += splitItems(ingredientLines)
+        var capture = parse(lines)
         // "Tag someone who loves tacos / Link in bio" would pass for a shopping list: a caption needs a header or amounts.
         let looksLikeARecipe = sawIngredientsHeader || capture.ingredients.count { $0.quantity != nil } >= 2
+        capture.name = capture.name.map { withoutShouting(withoutDecoration($0, trailing: true)) }
         return looksLikeARecipe && capture.ingredients.count >= 2 ? capture : nil
+    }
+
+    /// Items split at commas, since a wrong extra line is a quick delete, a long merged one gets cut, and a merged one can
+    /// hide an allergen ("gluten-free pasta, flour for dusting" reads as gluten-free). The exception is one amount with
+    /// a plain description, short enough to keep whole. A section of one line is a list run together.
+    private static func splitItems(_ section: [String]) -> [String] {
+        section.flatMap { line -> [String] in
+            let pieces = line.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            let lower = line.lowercased()
+            // These labels apply to everything on an ingredient, so they'd cancel an allergen on the other side of the comma.
+            let hasFreeFromLabel = ["free", "vegan", "plant"].contains { lower.contains($0) }
+            let isOneItem = section.count > 1 && pieces.count == 2 && isAmountLed(line) && !hasFreeFromLabel
+                && MealDraft.length(line) <= maxWholeLine && isDescription(first: pieces[0], second: pieces[1])
+            return isOneItem ? [line] : pieces
+        }
+    }
+
+    /// "4 boneless, skinless chicken breasts" or "3 cloves garlic, finely minced".
+    private static func isDescription(first: String, second: String) -> Bool {
+        if let last = first.split(separator: " ").last, leadingDescriptions.contains(last.lowercased()) { return true }
+        return second.split(separator: " ").allSatisfy { descriptions.contains($0.lowercased()) }
+    }
+
+    private static let leadingDescriptions: Set<String> = ["boneless", "skinless", "bone-in", "skin-on"]
+    private static let descriptions: Set<String> = [
+        "minced", "chopped", "diced", "sliced", "beaten", "melted", "softened", "peeled", "drained", "rinsed", "divided",
+        "grated", "shredded", "cubed", "crushed", "thawed", "halved", "quartered", "toasted", "sifted", "packed", "optional",
+        "finely", "roughly", "coarsely", "thinly", "freshly", "lightly", "room", "temperature", "at", "to", "taste",
+    ]
+
+    /// `RecipeImport.ingredientName` cuts a longer name at its first comma.
+    private static let maxWholeLine = 60
+
+    /// Emoji and arrows off the start of a line, and optionally its end.
+    private static func withoutDecoration(_ line: String, trailing: Bool) -> String {
+        var text = Substring(line)
+        func isDecoration(_ character: Character) -> Bool {
+            guard let scalar = character.unicodeScalars.first else { return false }
+            // Digits, "#", "*", "©" and the like count as emoji too.
+            return character.isWhitespace || (scalar.properties.isEmoji && scalar.value > 0x238C)
+                || (0x2190...0x21FF).contains(scalar.value)
+        }
+        while let first = text.first, isDecoration(first) { text.removeFirst() }
+        while trailing, let last = text.last, isDecoration(last) { text.removeLast() }
+        return String(text)
+    }
+
+    /// A line starting with a keycap "1️⃣": what it means depends on where it is, so it's only changed under a header.
+    private static func keycapped(_ line: String) -> (digit: Character, rest: String)? {
+        guard let first = line.first, first.unicodeScalars.contains("\u{20E3}"),
+              let digit = first.unicodeScalars.first.map(Character.init) else { return nil }
+        return (digit, line.dropFirst().trimmingCharacters(in: .whitespaces))
+    }
+
+    /// A caption asking for something rather than saying how to cook. When unsure it stays, because a wrong ingredient is a
+    /// quick delete and a dropped one is an allergy flag that never shows: a line that opens with an ask and has no number or
+    /// list punctuation ("Comment PEANUT: 1 cup peanut butter" stays), or one that's nothing but a pointer to the recipe.
+    private static func isPromotion(_ line: String) -> Bool {
+        if line.wholeMatch(of: recipePointer) != nil { return true }
+        return line.prefixMatch(of: ask) != nil && !line.contains(where: \.isNumber)
+            && !line.contains(where: { ",;:•".contains($0) }) && !line.contains(" - ")
+    }
+
+    private static var ask: Regex<Substring> {
+        /(?i)(?:comment\b|dm me\b|follow (?:me|us|for)\b|follow @|tag (?:a|your|someone)\b)/
+    }
+
+    private static var recipePointer: Regex<Substring> {
+        /(?i)(?:link in (?:my )?bio|(?:(?:get|see|grab) )?(?:the )?(?:full )?recipe(?: (?:is )?(?:in|at) (?:my |the )?(?:bio|link)(?: in (?:my )?bio)?)?)[.!]*/
+    }
+
+    /// "SAVORY BAKED CHICKEN WITH SAUCE" reads as "Savory Baked Chicken with Sauce" in a list of dishes. A short name stays,
+    /// since it may be an acronym: "BLT", "NY STRIP".
+    private static func withoutShouting(_ name: String) -> String {
+        let words = name.split(separator: " ")
+        guard words.count >= 3, name == name.uppercased(), name != name.lowercased() else { return name }
+        let small: Set<String> = ["a", "an", "and", "in", "of", "on", "or", "the", "with"]
+        return words.enumerated().map { index, word in
+            if word == "BBQ" { return String(word) }
+            let lower = word.lowercased()
+            if index > 0, small.contains(lower) { return lower }
+            guard let letter = lower.firstIndex(where: \.isLetter) else { return lower }
+            return lower[..<letter] + lower[letter].uppercased() + lower[lower.index(after: letter)...]
+        }.joined(separator: " ")
     }
 
     /// Instagram's page wraps a caption as `12 likes, 3 comments - cook on June 1, 2026: "the caption".` Left on, the
