@@ -783,7 +783,7 @@ private typealias F = Fixture
     @Test func theTitleSaysTheDayInFixedWords() {
         let weeks = [F.week([F.night(8, steps: [PrepStep(step: "Soak", leadHours: 4)]),
                              F.night(11, steps: [PrepStep(step: "Soak", leadHours: 24)]),
-                             F.night(13, steps: [PrepStep(step: "Soak", leadHours: 72)])])]
+                             F.night(13, steps: [PrepStep(step: "Soak", leadHours: 96)])])]
         #expect(F.of(.prep, F.plan(weeks: weeks)).map(\.title) == ["Dinner tonight", "Dinner on Friday", "Dinner tomorrow"])
     }
 
