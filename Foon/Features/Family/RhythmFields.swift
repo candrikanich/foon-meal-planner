@@ -24,7 +24,7 @@ struct RhythmFields: View {
             DatePicker("Dinner at", selection: time(\.dinnerTime), displayedComponents: .hourAndMinute)
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
-                Text("The week starts on your shopping day. Changing dinner time moves tonight and every night after it.")
+                Text("The week starts on your shopping day.")
                 if let weekNote { Text(weekNote) }
             }
         }
@@ -133,7 +133,7 @@ struct HouseholdRhythmView: View {
     }
 
     private var weekNote: String {
-        let times = String(localized: "A new dinner time starts with the next week you start.")
+        let times = String(localized: "Changing dinner time moves tonight and every night after it.")
         switch weekStart {
         case .lockedThrough(let last):
             let date = DayCardText.dateLabel(for: last)

@@ -20,3 +20,12 @@ create trigger households_move_dinner_time
   for each row
   when (new.settings ->> 'dinner_time' is distinct from old.settings ->> 'dinner_time')
   execute function public.households_move_dinner_time();
+
+-- Households that changed it before this existed: their nights ahead catch up once.
+update public.plan_nights n
+set dinner_time = (h.settings ->> 'dinner_time')::time
+from public.households h
+where n.household_id = h.id
+  and h.settings ->> 'dinner_time' ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+  and n.date >= public.household_today(h.id)
+  and n.dinner_time is distinct from (h.settings ->> 'dinner_time')::time;
