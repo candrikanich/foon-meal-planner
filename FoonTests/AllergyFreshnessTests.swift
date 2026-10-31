@@ -148,23 +148,13 @@ struct AnotherPhoneChangedSomethingTests {
     }
 
     @Test func anArchiveWhileARefreshIsOutStands() async {
-        let (gate, release) = AsyncStream<Void>.makeStream()
-        let (parked, signal) = AsyncStream<Void>.makeStream()
-        let reads = Mutex(0)
-        let mac = mac
-        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in
-            if reads.withLock({ $0 += 1; return $0 }) == 2 {
-                signal.yield()
-                for await _ in gate { break }
-            }
-            return [mac]
-        }))
+        let server = FakeMealServer(meal: mac, parkOnRead: 2)
+        let store = LibraryStore(householdID: Household.sample.id, client: server.client)
         await store.load(members: [])
         let refresh = Task { await store.refreshReactions(members: []) }
-        for await _ in parked { break }
+        await server.waitUntilParked()
         await store.setArchived(true, mealID: mac.id)
-        release.yield()
-        release.finish()
+        server.release()
         await refresh.value
         #expect(store.meal(mac.id)?.status == .archived, "the read started before the archive")
     }
@@ -322,28 +312,132 @@ struct AReplacedLoadTests {
         #expect(store.meals.map(\.id) == [newer.id])
     }
 
-    /// An archive doesn't reload, so a load already out read the dish before it.
-    @Test func anArchiveWhileALoadIsOutStands() async {
+    /// That load read the dish before the archive, but it's also the only news about allergies and ingredients: read again.
+    @Test func anArchiveWhileALoadIsOutStandsAndStillGetsAnAnswer() async {
+        let server = FakeMealServer(meal: mac, parkOnRead: 2)
+        let store = LibraryStore(householdID: Household.sample.id, client: server.client)
+        await store.load(members: [nora])
+        server.edit { $0.ingredients = LibraryMeal.fixture(ingredients: ["peanut butter"]).ingredients }
+        let reload = Task { await store.load(members: [nora]) }
+        await server.waitUntilParked()
+        await store.setArchived(true, mealID: mac.id)
+        server.release()
+        await reload.value
+        #expect(store.meal(mac.id)?.status == .archived)
+        #expect(store.meal(mac.id)?.ingredients.map(\.name) == ["peanut butter"], "the answer wasn't thrown away")
+        #expect(store.lookup == .loaded)
+    }
+
+    @Test func anArchiveWithNothingOutReadsNothing() async {
+        let server = FakeMealServer(meal: mac, parkOnRead: 99)
+        let store = LibraryStore(householdID: Household.sample.id, client: server.client)
+        await store.load(members: [])
+        await store.setArchived(true, mealID: mac.id)
+        #expect(server.reads == 1)
+    }
+
+    /// `lookup` says `.loaded` only if the newest load's answer was applied.
+    @Test func aCancelledReloadIsntLoadedThoughThereIsOldData() async {
         let mac = mac
-        let (gate, release) = AsyncStream<Void>.makeStream()
-        let (parked, signal) = AsyncStream<Void>.makeStream()
         let reads = Mutex(0)
         let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in
-            if reads.withLock({ $0 += 1; return $0 }) == 2 {
-                signal.yield()
-                for await _ in gate { break }
-            }
+            if reads.withLock({ $0 += 1; return $0 }) == 2 { throw CancellationError() }
             return [mac]
         }))
         await store.load(members: [])
-        let reload = Task { await store.load(members: []) }
+        #expect(store.lookup == .loaded)
+        await store.load(members: [])
+        #expect(store.hasLoaded)
+        #expect(store.lookup == .failed)
+        #expect(store.needsFullLoad(holding: [mac.id]))
+        #expect(!store.needsLoad(afterFullLoad: true, holding: [UUID()]), "it waits for the next pull")
+        #expect(store.errorMessage == nil, "a cancel isn't something to tell anyone about")
+        #expect(!store.lastLoadFailed)
+        #expect(store.meals.map(\.id) == [mac.id], "what it read stays")
+        await store.load(members: [])
+        #expect(store.lookup == .loaded)
+    }
+
+    @Test func aMissingDishAfterACancelledReloadSaysSo() async {
+        let mac = mac
+        let reads = Mutex(0)
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in
+            if reads.withLock({ $0 += 1; return $0 }) == 2 { throw CancellationError() }
+            return [mac]
+        }))
+        await store.load(members: [])
+        await store.load(members: [])
+        let missing = WeekNight(id: UUID(), date: sunday.adding(days: 1), effort: .normal, dinnerTime: nil, mealID: UUID(),
+                                mealName: "New", quickPick: nil, locked: false, attendance: [:])
+        #expect(allergyTexts(missing, store: store) == [FreezerStash.allergyUnknownNote(for: nil, isLoading: false)])
+    }
+
+    @Test func aFailureThenACancelledReplacementIsntLoaded() async {
+        let (gate, release) = AsyncStream<Void>.makeStream()
+        let (parked, signal) = AsyncStream<Void>.makeStream()
+        let reads = Mutex(0)
+        let mac = mac
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in
+            let read = reads.withLock { $0 += 1; return $0 }
+            if read == 1 { return [mac] }
+            if read == 3 { throw CancellationError() }
+            signal.yield()
+            for await _ in gate { break }
+            throw noRead
+        }))
+        await store.load(members: [])
+        let second = Task { await store.load(members: []) }
         for await _ in parked { break }
-        await store.setArchived(true, mealID: mac.id)
+        await store.load(members: [])
         release.yield()
         release.finish()
-        await reload.value
-        #expect(store.meal(mac.id)?.status == .archived)
-        #expect(store.lookup == .loaded, "and the store isn't left waiting")
+        await second.value
+        #expect(store.lookup == .failed)
+    }
+}
+
+/// A server for one dish: a read sees the dish as it was when the read started, however long it takes to come back.
+private final class FakeMealServer: Sendable {
+    private let dish: Mutex<LibraryMeal>
+    private let readCount = Mutex(0)
+    private let parkOnRead: Int
+    private let gate: AsyncStream<Void>
+    private let open: AsyncStream<Void>.Continuation
+    private let parked: AsyncStream<Void>
+    private let signal: AsyncStream<Void>.Continuation
+
+    init(meal: LibraryMeal, parkOnRead: Int) {
+        dish = Mutex(meal)
+        self.parkOnRead = parkOnRead
+        (gate, open) = AsyncStream<Void>.makeStream()
+        (parked, signal) = AsyncStream<Void>.makeStream()
+    }
+
+    var reads: Int { readCount.withLock { $0 } }
+
+    var client: LibraryClient {
+        .fake(meals: { [self] _ in
+            let read = readCount.withLock { $0 += 1; return $0 }
+            let seen = dish.withLock { $0 }
+            if read == parkOnRead {
+                signal.yield()
+                for await _ in gate { break }
+            }
+            return [seen]
+        }, setStatus: { [self] _, status in
+            dish.withLock { $0.status = status }
+        })
+    }
+
+    func edit(_ change: (inout LibraryMeal) -> Void) { dish.withLock { change(&$0) } }
+
+    func waitUntilParked() async {
+        for await _ in parked { break }
+    }
+
+    func release() {
+        open.yield()
+        open.finish()
     }
 }
 
