@@ -262,7 +262,10 @@ enum RecipeTextParser {
         } else if isAmountLed(line) {
             add(line, to: &capture)
         } else if line.count > longLine {
-            if !capture.ingredients.isEmpty {
+            // "To make the pancakes, whisk together:" introduces a list. As a step, it would swallow the eggs and milk below it.
+            if line.hasSuffix(":") {
+                if !capture.ingredients.isEmpty { add(line, to: &capture) }
+            } else if !capture.ingredients.isEmpty {
                 section = .steps
                 step(line, &capture)
             }
@@ -306,13 +309,19 @@ enum RecipeTextParser {
         }
         if last.isEmpty {
             capture.steps[capture.steps.count - 1] = line
+        } else if isAmountLed(line), line.count <= shortLine, isFinished(last) || !isTimeOrHeat(line) {
+            // Even after an unfinished step: if it's really that step wrapping, the cost is a line to delete, and if it isn't,
+            // joining it hides an ingredient from allergy flags. "30 minutes, then serve" can only be the step.
+            add(line, to: &capture)
         } else if !isFinished(last) {
             capture.steps[capture.steps.count - 1] = last + " " + line
-        } else if isAmountLed(line), line.count <= shortLine {
-            add(line, to: &capture)
         } else {
             capture.steps.append(line)
         }
+    }
+
+    private static func isTimeOrHeat(_ line: String) -> Bool {
+        line.prefixMatch(of: /(?i)\d+(?:\s*-\s*\d+)?\s*(?:sec|second|min|minute|hr|hour|degree|°)/) != nil
     }
 
     private static func isFinished(_ step: String) -> Bool {
@@ -391,6 +400,8 @@ enum RecipeTextParser {
     }
 
     private static func servings(in line: String) -> Int? {
+        // "Makes 15 pancakes" is how many pancakes, not how many people, and scaling by it would shrink every amount.
+        if line.prefixMatch(of: /(?i)makes\b/) != nil, !isOnlyServings(line) { return nil }
         guard let match = line.wholeMatch(of: /(?i)(serves|servings?|yield|makes)\s*:?\s*(\d{1,2})\b.*/) else { return nil }
         return Int(match.2).flatMap { (1...50).contains($0) ? $0 : nil }
     }
