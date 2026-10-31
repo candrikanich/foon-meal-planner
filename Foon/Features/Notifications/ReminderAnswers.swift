@@ -19,7 +19,7 @@ struct ReminderDevice: @unchecked Sendable {
     private static let answersKey = "foon.reminder.answers"
     private static let declinedKey = "foon.reminder.declined"
     private static let optedInKey = "foon.reminder.optedIn"
-    /// The notification delegate writes answers off the main thread while the store reads them.
+    /// Answers can be written and read from different threads.
     private static let answersLock = Mutex(())
 
     init(defaults: UserDefaults = .standard) {

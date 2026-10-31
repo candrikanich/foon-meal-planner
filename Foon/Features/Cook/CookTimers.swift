@@ -95,9 +95,9 @@ final class CookTimers {
 /// Shows a cook-mode alert or a reminder even while Foon is in front (otherwise a timer that ends with cook mode on screen is
 /// silent), and takes answers to reminders. Set as the notification center's delegate when the app starts.
 ///
-/// These are the completion-handler forms on purpose. The async forms finish on a background thread, and that crashes the app
-/// ("Call must be made on main thread") when someone taps a notification. Swift 6 won't let the async forms be main-actor
-/// isolated, because the notification types aren't Sendable.
+/// These are the completion-handler forms on purpose. The async forms finish on a background thread, which is reported to crash
+/// with "Call must be made on main thread", and tapping a notification crashed on a device while this used them. Swift 6 won't
+/// let the async forms be main-actor isolated, because the notification types aren't Sendable.
 final class CookAlertPresenter: NSObject, UNUserNotificationCenterDelegate, Sendable {
     static let shared = CookAlertPresenter()
 
