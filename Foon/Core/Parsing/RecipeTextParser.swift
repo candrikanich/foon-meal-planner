@@ -340,7 +340,7 @@ enum RecipeTextParser {
         } else {
             // "Makes 12 muffins" above the list isn't the dish's name.
             let named = loose.firstIndex { $0.count <= 80 && $0.prefixMatch(of: /(?i)makes\s+\d/) == nil }
-            capture.name = named.map { loose[$0] }
+            capture.name = named.map { withoutShouting(loose[$0]) }
             // When unsure, an ingredient: something between the name and the list may be one.
             let rest = loose.enumerated().filter { $0.offset != named }.map(\.element)
             capture.ingredients = rest.compactMap(IngredientParser.parseLine) + capture.ingredients

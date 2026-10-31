@@ -863,6 +863,11 @@ struct CookbookSpreadTests {
         #expect(capture.steps.contains { $0.contains("griddle") && $0.contains("Spoon") })
     }
 
+    @Test func aPagesCapitalizedTitleIsCalmed() {
+        #expect(RecipeTextParser.parse(lines).name == "Homemade Instant Pancake Mix")
+        #expect(RecipeTextParser.parse(["BLT", "1 lb bacon", "2 tomatoes"]).name == "BLT")
+    }
+
     @Test func howManyItMakesIsntHowManyItServes() {
         let capture = RecipeTextParser.parse(lines)
         #expect(capture.servings == nil)

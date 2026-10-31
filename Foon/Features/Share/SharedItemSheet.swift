@@ -163,7 +163,7 @@ struct SharedItemSheet: View {
                 Section {
                     ForEach(draft.lines) { $line in
                         HStack {
-                            TextField("Amount", text: $line.quantity).frame(maxWidth: 90)
+                            TextField("Amount", text: $line.quantity).frame(maxWidth: 130)
                             TextField("Ingredient", text: $line.name)
                         }
                     }
