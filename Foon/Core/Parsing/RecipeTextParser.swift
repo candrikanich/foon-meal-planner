@@ -340,13 +340,20 @@ enum RecipeTextParser {
         if let ingredient = IngredientParser.parseLine(line) { capture.ingredients.append(ingredient) }
     }
 
-    /// A cut at a comma usually only drops how it's prepared ("butter, cut into small pieces"), so that alone isn't worth a
-    /// warning unless an allergen goes with it. A cut with no comma stops mid-text, which could be anything.
+    /// A cut says so unless all it drops is how the thing's prepared ("butter, cut into small pieces"). A fixed list, not the
+    /// allergen keywords: those can't see a family's own allergy typed under Other, and an extra warning costs little.
     fileprivate static func losesSomething(_ name: String) -> Bool {
         guard MealDraft.length(name) > maxIngredientName else { return false }
-        guard name.contains(",") else { return true }
-        return AllergyMatcher.allergens(in: name) != AllergyMatcher.allergens(in: RecipeImport.ingredientName(name))
+        let parts = name.split(separator: ",", maxSplits: 1)
+        guard parts.count == 2, MealDraft.length(parts[0].trimmingCharacters(in: .whitespaces)) <= maxIngredientName else { return true }
+        return !parts[1].lowercased().split { !$0.isLetter }.allSatisfy { preparationWords.contains(String($0)) }
     }
+
+    private static let preparationWords = descriptions.union([
+        "cut", "into", "small", "medium", "large", "pieces", "piece", "chunks", "inch", "cubes", "plus", "more", "for", "the",
+        "pan", "serving", "garnish", "as", "needed", "and", "or", "if", "desired", "seeded", "trimmed", "stemmed", "cored",
+        "pitted", "deveined", "cooked", "warmed", "cooled", "chilled", "fresh", "dried", "ground", "whole", "about", "each",
+    ])
 
     /// `RecipeImport.ingredientName` keeps this much.
     private static let maxIngredientName = 60

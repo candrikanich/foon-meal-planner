@@ -672,6 +672,13 @@ struct RecipeTextParserTests {
         #expect(!RecipeTextParser.parse(["Dish", "Ingredients:", line, "1 lb beef"]).isTruncated)
     }
 
+    @Test(arguments: ["2 cups dairy free spread from the store near home for the pan, with butter",
+                      "2 cups a long blend of toasted grains from the store near home, with dragonfruit",
+                      "2 cups a very long blend of toasted grains from the store near our house, minced"])
+    func aCutThatMightHideSomethingWarns(line: String) {
+        #expect(RecipeTextParser.parse(["Dish", "Ingredients:", line, "1 lb beef"]).isTruncated)
+    }
+
     @Test func aCutThatLosesAnAllergenWarns() {
         let line = "2 cups a long blend of toasted grains from the store near home, with peanuts"
         #expect(RecipeTextParser.parse(["Dish", "Ingredients:", line, "1 lb beef"]).isTruncated)
