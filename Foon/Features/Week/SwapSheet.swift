@@ -14,7 +14,7 @@ enum SwapRow {
     }
 
     static func allergyCheck(offer: FreezerStash.Offer, lookup: LibraryLookup) -> AllergyCheck {
-        let note = offer.uncheckedNote ?? (lookup == .failed ? AllergyMatcher.outOfDateNote : nil)
+        let note = offer.uncheckedNote ?? (lookup.isOutOfDate ? AllergyMatcher.outOfDateNote : nil)
         return AllergyCheck(flags: offer.flags, note: note)
     }
 

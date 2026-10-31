@@ -162,8 +162,67 @@ struct AnotherPhoneChangedSomethingTests {
         let offer = FreezerStash.Offer(item: item, meal: mac, flags: [])
         #expect(SwapRow.allergyCheck(offer: offer, lookup: .failed).note == AllergyMatcher.outOfDateNote)
         #expect(SwapRow.allergyCheck(offer: offer, lookup: .loaded).note == nil)
+        #expect(SwapRow.allergyCheck(offer: offer, lookup: .retrying).note == AllergyMatcher.outOfDateNote)
         let bare = FreezerStash.Offer(item: item, meal: mac, flags: [], uncheckedNote: "No ingredients")
         #expect(SwapRow.allergyCheck(offer: bare, lookup: .failed).note == "No ingredients")
+    }
+
+    /// A retry can hang for a minute, and nothing's been answered yet: the note stays until an answer is applied.
+    @Test func theOutOfDateNoteStaysWhileARetryRuns() async {
+        let (gate, release) = AsyncStream<Void>.makeStream()
+        let (parked, signal) = AsyncStream<Void>.makeStream()
+        let mealReads = Mutex(0), allergyReads = Mutex(0)
+        let mac = mac, rows = noraMilk
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in
+            if mealReads.withLock({ $0 += 1; return $0 }) == 3 {
+                signal.yield()
+                for await _ in gate { break }
+            }
+            return [mac]
+        }, allergies: { _ in
+            if allergyReads.withLock({ $0 += 1; return $0 }) == 2 { throw noRead }
+            return rows
+        }))
+        let nora = nora
+        await store.load(members: [nora])
+        await store.refreshReactions(members: [nora])
+        let found = night(meal: mac, home: [nora.id: true])
+        let missing = WeekNight(id: UUID(), date: sunday.adding(days: 2), effort: .normal, dinnerTime: nil, mealID: UUID(),
+                                mealName: "New", quickPick: nil, locked: false, attendance: [nora.id: true])
+
+        let retry = Task { await store.load(members: [nora]) }
+        for await _ in parked { break }
+        #expect(allergyTexts(found, store: store) == ["Contains milk (Nora)", AllergyMatcher.outOfDateNote])
+        #expect(allergyTexts(missing, store: store).isEmpty, "it may be about to find it")
+        #expect(!store.shouldStartLoad(holding: [mac.id]), "and one's already running")
+        release.yield()
+        release.finish()
+        await retry.value
+        #expect(allergyTexts(found, store: store) == ["Contains milk (Nora)"])
+    }
+
+    /// A reload from a good read has nothing to warn about: every pull would flash the note otherwise.
+    @Test func anOrdinaryReloadShowsNoNote() async {
+        let (gate, release) = AsyncStream<Void>.makeStream()
+        let (parked, signal) = AsyncStream<Void>.makeStream()
+        let reads = Mutex(0)
+        let mac = mac, rows = noraMilk
+        let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in
+            if reads.withLock({ $0 += 1; return $0 }) == 2 {
+                signal.yield()
+                for await _ in gate { break }
+            }
+            return [mac]
+        }, allergies: { _ in rows }))
+        let nora = nora
+        await store.load(members: [nora])
+        let reload = Task { await store.load(members: [nora]) }
+        for await _ in parked { break }
+        #expect(allergyTexts(night(meal: mac, home: [nora.id: true]), store: store) == ["Contains milk (Nora)"])
+        #expect(store.lookup == .loading)
+        release.yield()
+        release.finish()
+        await reload.value
     }
 
     @Test func aFullLoadClearsIt() async {

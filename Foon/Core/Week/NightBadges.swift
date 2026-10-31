@@ -16,10 +16,10 @@ enum NightBadges {
         let athome = allergies.filter { home.contains($0.memberID) }
         if let dish {
             let check = AllergyMatcher.check(meal: dish, library: library, members: athome)
-            return lookup == .failed && check.note == nil ? AllergyCheck(flags: check.flags, note: AllergyMatcher.outOfDateNote) : check
+            return lookup.isOutOfDate && check.note == nil ? AllergyCheck(flags: check.flags, note: AllergyMatcher.outOfDateNote) : check
         }
         if lookup == .loaded, !athome.contains(where: \.hasAllergies) { return AllergyCheck() }
-        return AllergyCheck(note: FreezerStash.allergyUnknownNote(for: nil, isLoading: lookup == .loading))
+        return AllergyCheck(note: FreezerStash.allergyUnknownNote(for: nil, isLoading: lookup.isWaiting))
     }
 
     /// A starter dish offered in Swap's search, for whoever's home that night.

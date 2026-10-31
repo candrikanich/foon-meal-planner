@@ -16,7 +16,7 @@ final class LibraryStore {
     /// the newest load's answer was applied and a refresh hasn't since failed to read them. Anything else reads as failed, cancelled included: a closed sheet can cancel the load a screen behind it was waiting
     /// on, with nothing else to decide, and what was read before may be out of date, so it can't rule out a warning.
     var lookup: LibraryLookup {
-        if isLoading { return .loading }
+        if isLoading { return hasLoaded && !allergiesAreCurrent ? .retrying : .loading }
         if allergiesAreCurrent { return .loaded }
         return loadGeneration == 0 ? .loading : .failed
     }
@@ -126,12 +126,15 @@ final class LibraryStore {
         self.members = members
         loadGeneration += 1
         let generation = loadGeneration
-        allergiesAreCurrent = false
+        var answered = false
         readsOut += 1
         isLoading = true
         defer {
             readsOut -= 1
-            if generation == loadGeneration { isLoading = false }
+            if generation == loadGeneration {
+                isLoading = false
+                if !answered { allergiesAreCurrent = false }
+            }
         }
         do {
             async let meals = client.meals(householdID)
@@ -150,6 +153,7 @@ final class LibraryStore {
             let loadedComments = (try? await comments) ?? self.comments
             // Only the newest load counts: an older read can predate a save, and can't speak for a newer load that failed.
             guard generation == loadGeneration else { return }
+            answered = true
             allergiesAreCurrent = true
             self.meals = loaded.0
             self.history = loaded.1

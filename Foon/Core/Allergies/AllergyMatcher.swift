@@ -63,12 +63,20 @@ struct AllergyCheck: Equatable, Sendable {
 enum LibraryLookup: Equatable, Sendable {
     /// A load is running, or none has started: wait for it rather than warn.
     case loading
+    /// Allergies were out of date and a load is running to fix that. Until its answer is applied, nothing's changed: a dish it
+    /// can find still says they may be out of date, and one it can't waits for the answer.
+    case retrying
     /// The last load gave no answer, or a refresh couldn't read the allergies. They may be unknown or out of date: a dish it
     /// can find keeps its last flags and says so, and one it can't says it couldn't be checked, to everyone.
     case failed
     /// The last full load worked, and no refresh since has failed to read the allergies. A refresh that can't read the dishes
     /// keeps what it had, so this means "read", not "read just now".
     case loaded
+
+    /// A dish that isn't there may be about to be: don't warn yet.
+    var isWaiting: Bool { self == .loading || self == .retrying }
+    /// What's been read may be missing someone's allergy.
+    var isOutOfDate: Bool { self == .failed || self == .retrying }
 }
 
 /// Flags dishes against the household's allergies by keyword, never by AI. Pure and deterministic, so the
