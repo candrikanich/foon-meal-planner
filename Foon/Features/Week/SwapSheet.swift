@@ -91,6 +91,7 @@ struct SwapSheet: View {
                 }
             }
             .searchable(text: $search, prompt: Text("Search your meals or add one"))
+            .scrollDismissesKeyboard(.immediately)
             .disabled(isWorking)
             .navigationTitle(title)
             #if os(iOS)

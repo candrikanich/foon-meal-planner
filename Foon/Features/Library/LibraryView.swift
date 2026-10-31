@@ -18,6 +18,9 @@ struct LibraryView: View {
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: 12)]
 
+    /// The keyboard covers the tab bar while searching, so there has to be a way out that isn't the search field's own.
+    @FocusState private var isSearching: Bool
+
     var body: some View {
         @Bindable var library = library
         NavigationStack(path: $path) {
@@ -31,13 +34,22 @@ struct LibraryView: View {
                 }
                 .padding()
             }
+            .scrollDismissesKeyboard(.immediately)
             .background(Palette.cream)
             .navigationTitle("Library")
             .navigationDestination(for: UUID.self) { id in
                 MealDetailView(mealID: id, canEdit: canEdit)
             }
             .searchable(text: $library.search, prompt: Text("Meals or ingredients"))
+            .searchFocused($isSearching)
+            .onSubmit(of: .search) { isSearching = false }
             .toolbar { toolbar }
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { isSearching = false }
+                }
+            }
             .refreshable { await library.load(members: household.members) }
             .confirmationDialog("Bring back a dish the family voted out?", isPresented: Binding(
                 get: { bringingBack != nil }, set: { if !$0 { bringingBack = nil } }
