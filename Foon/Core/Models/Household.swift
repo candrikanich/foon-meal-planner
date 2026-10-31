@@ -43,6 +43,8 @@ struct Member: Decodable, Equatable, Identifiable, Sendable {
     var attendanceDefaults: AttendanceDefaults?
     /// `eats_separately`, read through `eatsSeparately`.
     var separately: Bool? = nil
+    /// Their own notification settings, if any.
+    var notificationPrefs: NotificationPrefs? = nil
 
     /// ISO weekdays (1 = Monday) they're usually out for dinner ("Owen works Mon to Thu").
     var usuallyAway: Set<Int> { attendanceDefaults?.usuallyAway ?? [] }
@@ -67,6 +69,7 @@ struct Member: Decodable, Equatable, Identifiable, Sendable {
         case userID = "user_id"
         case attendanceDefaults = "attendance_defaults"
         case separately = "eats_separately"
+        case notificationPrefs = "notification_prefs"
     }
 }
 

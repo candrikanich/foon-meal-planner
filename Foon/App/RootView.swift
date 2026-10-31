@@ -11,6 +11,7 @@ struct RootView: View {
     let dinnerClient: DinnerClient
     let ideasClient: IdeasClient
     let freezerClient: FreezerClient
+    var notificationClient: NotificationClient = .preview
 
     @ViewBuilder
     private var content: some View {
@@ -22,7 +23,7 @@ struct RootView: View {
         case .signedIn(let userID):
             HouseholdGate(userID: userID, client: householdClient, syncClient: syncClient, libraryClient: libraryClient,
                           weekClient: weekClient, dinnerClient: dinnerClient, ideasClient: ideasClient,
-                          freezerClient: freezerClient)
+                          freezerClient: freezerClient, notificationClient: notificationClient)
                 .id(userID)
         }
     }
@@ -34,6 +35,8 @@ struct RootView: View {
                 case .signedOut:
                     // The next person to sign in on this device must never see this household's week or lists.
                     try? SyncService.clearCache(in: context)
+                    // And no reminder of theirs goes off for them.
+                    ReminderStore.clearDevice()
                     // Signing out drops what's waiting. Launching signed out doesn't: someone may have just shared
                     // something and be on their way to sign in.
                     if case .signedIn = previous { SharedInbox.shared?.clear() }
@@ -56,9 +59,11 @@ struct HouseholdGate: View {
     let dinnerClient: DinnerClient
     let ideasClient: IdeasClient
     let freezerClient: FreezerClient
+    let notificationClient: NotificationClient
 
     init(userID: UUID, client: HouseholdClient, syncClient: SyncClient, libraryClient: LibraryClient,
-         weekClient: WeekClient, dinnerClient: DinnerClient, ideasClient: IdeasClient, freezerClient: FreezerClient) {
+         weekClient: WeekClient, dinnerClient: DinnerClient, ideasClient: IdeasClient, freezerClient: FreezerClient,
+         notificationClient: NotificationClient) {
         _store = State(initialValue: HouseholdStore(userID: userID, client: client))
         self.syncClient = syncClient
         self.libraryClient = libraryClient
@@ -66,6 +71,7 @@ struct HouseholdGate: View {
         self.dinnerClient = dinnerClient
         self.ideasClient = ideasClient
         self.freezerClient = freezerClient
+        self.notificationClient = notificationClient
     }
 
     var body: some View {
@@ -81,11 +87,13 @@ struct HouseholdGate: View {
                         // of the old one may stay on the device. This runs once the old screens are gone, after
                         // SyncGate stopped their service, so no late pull can refill the cache.
                         try? SyncService.clearCache(in: context)
+                        ReminderStore.clearDevice()
                     }
             case .ready(let household):
                 SyncGate(householdID: household.id, client: syncClient) {
                     RootTabView(householdID: household.id, libraryClient: libraryClient, weekClient: weekClient,
-                                dinnerClient: dinnerClient, ideasClient: ideasClient, freezerClient: freezerClient)
+                                dinnerClient: dinnerClient, ideasClient: ideasClient, freezerClient: freezerClient,
+                                notificationClient: notificationClient)
                 }
             case .failed:
                 ContentUnavailableView {

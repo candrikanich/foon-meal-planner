@@ -886,6 +886,75 @@ struct HouseholdClientLiveTests {
         #expect(saved?.takeoutNights == 2)
     }
 
+    @Test func remindersReadTheWeeksAndWriteTheLog() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let weeks = WeekClient.live(supabase)
+        let library = LibraryClient.live(supabase)
+        let dinners = DinnerClient.live(supabase)
+        let reminders = NotificationClient.live(supabase)
+        let household = try await households.createHousehold("Reminder family", nil, "Ann", HouseholdSettings())
+        let ann = try #require(try await households.members(household.id).first)
+        #expect(ann.notificationPrefs?.preset == nil, "an empty notification_prefs column reads as no override")
+
+        let chili = try await library.create(household.id, try MealDraft(newNamed: "Chili").validated())
+        struct PrepPatch: Encodable {
+            let prep_steps: [PrepStep]
+        }
+        try await supabase.from("meals")
+            .update(PrepPatch(prep_steps: [PrepStep(step: "Thaw the beef", leadHours: 24)]))
+            .eq("id", value: chili)
+            .execute()
+
+        let today = CalendarDay(Date(), calendar: household.planningSettings.dayCalendar)
+        let start = WeekMath.start(of: today, weekStart: household.planningSettings.weekStart,
+                                   calendar: household.planningSettings.dayCalendar)
+        let week = try await weeks.create(household.id, start)
+        let tonight = try #require(week.nights.first { $0.date == today })
+        try await weeks.setNight(NightUpdate(nightID: tonight.id, mealID: chili), false)
+        try await weeks.approve(week.planID, [])
+        _ = try await dinners.react(tonight.id, ann.id, .good)
+
+        let read = try await reminders.weeks(household.id, start, start.adding(days: 7))
+        let thisWeek = try #require(read.first)
+        #expect(read.count == 1, "next week hasn't been started")
+        #expect(thisWeek.isApproved)
+        let night = try #require(thisWeek.nights.first { $0.id == tonight.id })
+        #expect(night.mealID == chili)
+        #expect(night.prepSteps.map(\.leadHours) == [24])
+        #expect(night.hasLog)
+        #expect(night.attendance[ann.id] == true)
+        #expect(night.ratedBy == [ann.id], "the embedded rating comes through")
+        #expect(night.loggedMealID == chili)
+
+        // A cached copy reads back the same.
+        let snapshot = ReminderSnapshot(pulledAt: .now, weeks: read)
+        let cached = try JSONDecoder().decode(ReminderSnapshot.self, from: JSONEncoder().encode(snapshot))
+        #expect(cached.weeks == read)
+
+        let row = UUID()
+        let entry = NotificationLogEntry(id: row, type: ReminderKind.prep.rawValue, nightID: tonight.id, scheduledFor: .now,
+                                         sentAt: nil, respondedAt: nil, response: nil)
+        try await reminders.record(household.id, [entry])
+        try await reminders.record(household.id, [NotificationLogEntry(id: row, type: ReminderKind.prep.rawValue, nightID: tonight.id,
+                                                                       scheduledFor: .now, sentAt: .now, respondedAt: .now,
+                                                                       response: "done")])
+        struct LogRow: Decodable {
+            let id: UUID
+            let member_id: UUID
+            let night_id: UUID?
+            let response: String?
+        }
+        let rows: [LogRow] = try await supabase.from("notification_log").select().execute().value
+        #expect(rows.count == 1)
+        #expect(rows.first?.id == row)
+        #expect(rows.first?.member_id == ann.id)
+        #expect(rows.first?.night_id == tonight.id)
+        #expect(rows.first?.response == "done")
+    }
+
     @Test func planChangesAreLoggedAndUndone() async throws {
         let supabase = Self.newSupabaseClient()
         try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",

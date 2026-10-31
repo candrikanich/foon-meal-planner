@@ -89,10 +89,13 @@ enum DinnerPrompts {
 
     /// An hour after the night's dinner time ("18:00" or the database's "18:00:00").
     static func promptTime(_ night: WeekNight, defaultDinnerTime: String, calendar: Calendar) -> Date? {
-        let parts = (night.dinnerTime ?? defaultDinnerTime).split(separator: ":").compactMap { Int($0) }
-        guard parts.count >= 2,
-              let dinner = calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0,
-                                         of: night.date.date(in: calendar)) else { return nil }
-        return dinner.addingTimeInterval(delay)
+        moment(night.dinnerTime ?? defaultDinnerTime, on: night.date, calendar: calendar)?.addingTimeInterval(delay)
+    }
+
+    /// "18:00" or the database's "18:00:00" on that day, by that calendar's clock.
+    static func moment(_ time: String, on day: CalendarDay, calendar: Calendar) -> Date? {
+        let parts = time.split(separator: ":").compactMap { Int($0) }
+        guard parts.count >= 2, (0..<24).contains(parts[0]), (0..<60).contains(parts[1]) else { return nil }
+        return calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: day.date(in: calendar))
     }
 }

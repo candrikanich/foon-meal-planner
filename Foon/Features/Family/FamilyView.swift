@@ -110,6 +110,8 @@ struct FamilyView: View {
                     }
                 }
 
+                ReminderSettingsSection()
+
                 Section {
                     NavigationLink("Plan activity") { PlanActivityView() }
                 } footer: {

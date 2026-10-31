@@ -92,8 +92,8 @@ final class CookTimers {
     }
 }
 
-/// Shows a cook-mode alert even while Foon is in front (otherwise a timer that ends with cook mode on screen is
-/// silent). Set as the notification center's delegate when the app starts.
+/// Shows a cook-mode alert or a reminder even while Foon is in front (otherwise a timer that ends with cook mode on screen is
+/// silent), and takes answers to reminders. Set as the notification center's delegate when the app starts.
 final class CookAlertPresenter: NSObject, UNUserNotificationCenterDelegate, Sendable {
     static let shared = CookAlertPresenter()
 
@@ -102,5 +102,28 @@ final class CookAlertPresenter: NSObject, UNUserNotificationCenterDelegate, Send
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification)
         async -> UNNotificationPresentationOptions {
         Self.foregroundOptions
+    }
+
+    /// Can run with the app in the background and none of its screens up. So it does what can't wait (cancels a follow-up,
+    /// schedules a snooze), saves the answer for `ReminderStore`, and leaves the rest for the next re-plan.
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        let request = response.notification.request
+        let (title, body) = (request.content.title, request.content.body)
+        let payload = ReminderPayload(userInfo: request.content.userInfo)
+        guard let outcome = ReminderResponse.outcome(id: request.identifier, action: response.actionIdentifier,
+                                                     payload: payload, now: .now) else { return }
+        ReminderCenter.system.remove(outcome.cancels)
+        if outcome.schedulesAgain, let until = outcome.answer.snoozedUntil, let payload {
+            // Only prep reminders have the action.
+            _ = await ReminderCenter.system.add(
+                PlannedReminder(id: outcome.answer.id, kind: .prep, nightID: nil, fireAt: until, dinnerAt: payload.dinnerAt,
+                                title: title, body: body, route: payload.route),
+                until.timeIntervalSinceNow
+            )
+        }
+        ReminderDevice().add(outcome.answer)
+        if let route = outcome.route {
+            await MainActor.run { ReminderRouter.shared.go(to: route) }
+        }
     }
 }

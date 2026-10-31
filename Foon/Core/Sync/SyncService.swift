@@ -10,7 +10,8 @@ import SwiftData
 /// change twice, deliver changes out of order, or let an older snapshot wipe a change just sent.
 @Observable @MainActor
 final class SyncService {
-    static let schema = Schema([CachedPlan.self, CachedNight.self, CachedListItem.self, CachedItem.self, PendingChange.self])
+    static let schema = Schema([CachedPlan.self, CachedNight.self, CachedListItem.self, CachedItem.self, PendingChange.self,
+                                CachedReminders.self, NotificationRecord.self])
 
     private(set) var lastPulled: Date?
     private(set) var pendingCount = 0
@@ -54,6 +55,8 @@ final class SyncService {
         try context.delete(model: CachedListItem.self)
         try context.delete(model: CachedItem.self)
         try context.delete(model: PendingChange.self)
+        try context.delete(model: CachedReminders.self)
+        try context.delete(model: NotificationRecord.self)
         try context.save()
     }
 
@@ -188,6 +191,8 @@ final class SyncService {
         try? context.delete(model: CachedListItem.self, where: #Predicate { $0.householdID != household })
         try? context.delete(model: CachedItem.self, where: #Predicate { $0.householdID != household })
         try? context.delete(model: PendingChange.self, where: #Predicate { $0.householdID != household })
+        try? context.delete(model: CachedReminders.self, where: #Predicate { $0.householdID != household })
+        try? context.delete(model: NotificationRecord.self, where: #Predicate { $0.householdID != household })
         try? context.save()
     }
 
