@@ -38,6 +38,13 @@ struct ListsView: View {
                 onTheList
                 runningLow
                 Section {
+                    NavigationLink { KeepOnHandView() } label: {
+                        Label("Keep on hand", systemImage: "basket")
+                    }
+                } footer: {
+                    Text("Staples you never want to run out of. Anyone can mark them low or out.")
+                }
+                Section {
                     NavigationLink { FreezerView() } label: {
                         Label("Freezer stash", systemImage: "snowflake")
                     }

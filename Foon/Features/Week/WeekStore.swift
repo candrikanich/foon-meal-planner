@@ -12,6 +12,11 @@ final class WeekStore {
     private(set) var isStarting = false
     private(set) var hasLoaded = false
     private(set) var errorMessage: String?
+    /// The latest dish swapped onto a night still to come in an approved week, for `PivotRunner`. It has its own id so the same
+    /// night swapped twice counts twice.
+    private(set) var swappedDish: SwappedDish?
+    /// What that swap put on the quick list, until it's dismissed or the next swap.
+    private(set) var pivotNote: String?
     var showingNextWeek = false
 
     let householdID: UUID
@@ -282,11 +287,21 @@ final class WeekStore {
         case freezer(FreezerItem, reason: String)
     }
 
+    struct SwappedDish: Equatable, Sendable {
+        let id = UUID()
+        let nightID: UUID
+    }
+
+    func notePivot(_ note: String?) {
+        pivotNote = note
+    }
+
     /// The planner's own pick replaces the night and locks it, so a later Rebuild keeps it. Clearing unlocks.
     /// Returns whether it saved. Not while a build is saving: the two writes would race.
     @discardableResult
     func swap(nightID: UUID, to choice: SwapChoice) async -> Bool {
         guard !isBuilding, let index = nightIndex(nightID) else { return false }
+        pivotNote = nil
         var update = NightUpdate(nightID: nightID)
         var mealName: String?
         var stashItem: UUID?
@@ -331,6 +346,7 @@ final class WeekStore {
         if succeeded, linked || (write != nil && date >= today()) { noteListChanged() }
         // The server just moved the night at the other end of a link; show what it did.
         if succeeded, linked { await settleThenReload() }
+        if succeeded, saved.mealID != nil, week?.approvedAt != nil, date >= today() { swappedDish = SwappedDish(nightID: nightID) }
         return succeeded
     }
 

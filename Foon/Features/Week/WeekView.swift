@@ -50,6 +50,17 @@ struct WeekView: View {
                     if let message = week.errorMessage {
                         Text(message).font(.callout).foregroundStyle(.red)
                     }
+                    if let note = week.pivotNote {
+                        HStack {
+                            Label(note, systemImage: "cart.badge.plus").font(.foonCaption).foregroundStyle(Palette.ink)
+                            Spacer(minLength: 0)
+                            Button("Dismiss", systemImage: "xmark") { week.notePivot(nil) }
+                                .labelStyle(.iconOnly)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .buttonStyle(.borderless)
+                                .tint(.secondary)
+                        }
+                    }
                     if openNight == nil, let message = dinner.claimMessage {
                         Text(message).font(.callout).foregroundStyle(.red)
                     }
@@ -298,8 +309,9 @@ struct WeekView: View {
         let staples = cachedItems.filter(\.keepOnHand).compactMap { item in
             item.stockState.map { WeeklyList.Staple(itemID: item.id, name: item.name, state: $0) }
         }
-        return WeeklyList.build(nights: DoubleIt.listNights(layout, logged: Set(dinner.logs.map(\.nightID)), library: library.meals, allergies: library.allergies), library: library.meals, stock: stock, staples: staples,
+        let built = WeeklyList.build(nights: DoubleIt.listNights(layout, logged: Set(dinner.logs.map(\.nightID)), library: library.meals, allergies: library.allergies), library: library.meals, stock: stock, staples: staples,
                                 allergies: library.allergies)
+        return PivotGaps.weekly(built, open: openListItems.map(\.pivotLine), planID: week.week?.planID)
     }
 
     private func approveSection(_ layout: WeekLayout) -> some View {

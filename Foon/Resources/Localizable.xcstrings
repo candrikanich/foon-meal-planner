@@ -24,7 +24,7 @@
       }
     },
     "%@ (%@)" : {
-      "comment" : "Weekly list allergy note: advice, then who it's for",
+      "comment" : "After a swap: an item and the amount the dish needs\nWeekly list allergy note: advice, then who it's for",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -568,6 +568,9 @@
     "Add a side" : {
 
     },
+    "Add a staple" : {
+
+    },
     "Add all to list" : {
 
     },
@@ -618,6 +621,15 @@
     },
     "Add “%@” as a new dish" : {
 
+    },
+    "Added %@ to the list for tonight." : {
+      "comment" : "After a swap: what's missing for tonight's dish"
+    },
+    "Added %@ to the quick list." : {
+      "comment" : "After a swap: what's missing for that night's dish"
+    },
+    "Added an allergy note to %@." : {
+      "comment" : "After a swap: an item already listed gained an allergy note"
     },
     "Adding the dish" : {
 
@@ -672,6 +684,9 @@
     },
     "Allergy flags" : {
 
+    },
+    "Already listed, so check the amount: %@." : {
+      "comment" : "After a swap: already on the list with another amount than the dish needs"
     },
     "Amount" : {
 
@@ -808,6 +823,9 @@
     "Cancel" : {
 
     },
+    "Cereal, milk, paper towels: what you never want to run out of. Several at once: separate them with commas." : {
+
+    },
     "Change allergies" : {
 
     },
@@ -933,6 +951,9 @@
     },
     "Couldn't check this one for allergies. Pull down to try again." : {
 
+    },
+    "Couldn't check what this dish needs. Look over the list before you shop." : {
+      "comment" : "After a swap, when stock or the dish couldn't be read"
     },
     "Couldn't copy %@. Check your connection and try again." : {
 
@@ -1674,6 +1695,9 @@
     "How %@ likes it" : {
 
     },
+    "How much %@ is left" : {
+
+    },
     "How often" : {
 
     },
@@ -1720,6 +1744,9 @@
     },
     "Ideas wait in the Ideas tab for a planner to plan." : {
 
+    },
+    "In" : {
+      "comment" : "Stock state: there's enough"
     },
     "In the cart" : {
 
@@ -1902,6 +1929,9 @@
 
     },
     "Low" : {
+
+    },
+    "Low and out show under Staples running low on Lists, and go on the next weekly list." : {
 
     },
     "Made %@" : {
@@ -2121,6 +2151,9 @@
 
     },
     "No rule" : {
+
+    },
+    "No staples yet." : {
 
     },
     "No suggestions fit this night. Search your meals instead." : {
@@ -2777,6 +2810,9 @@
     "Staples running low" : {
 
     },
+    "Staples you never want to run out of. Anyone can mark them low or out." : {
+
+    },
     "Start cooking" : {
 
     },
@@ -2837,6 +2873,9 @@
 
     },
     "Stop" : {
+
+    },
+    "Stop keeping" : {
 
     },
     "Stop the %@ timer" : {

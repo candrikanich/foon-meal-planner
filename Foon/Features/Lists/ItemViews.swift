@@ -26,6 +26,22 @@ struct ItemLabel: View {
     }
 }
 
+/// In, low, or out: one tap, no counting.
+struct StockPicker: View {
+    @Binding var state: StockState
+    let name: String
+
+    var body: some View {
+        Picker("How much \(name) is left", selection: $state) {
+            Text("In", comment: "Stock state: there's enough").tag(StockState.in)
+            Text("Low").tag(StockState.low)
+            Text("Out").tag(StockState.out)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+    }
+}
+
 extension EnvironmentValues {
     /// Set at the app root to the live client; previews use this one.
     @Entry var itemClient = ItemClient.unconfigured
@@ -52,9 +68,9 @@ struct ItemSheet: View {
     private func makeStore() {
         let sync = sync
         let store = ItemStore(item: item, canRecategorize: canRecategorize, client: client, queueStock: sync.map { sync in
-            { keep in await sync.perform(.setStock(itemID: item.id, state: keep ? .in : nil)) }
+            { state in await sync.perform(.setStock(itemID: item.id, state: state)) }
         })
-        if let cached = sync?.isKeptOnHand(item.id) { store.startFromCache(keepOnHand: cached) }
+        if let cached = sync?.isKeptOnHand(item.id) { store.startFromCache(keepOnHand: cached, stock: sync?.stockState(item.id)) }
         self.store = store
     }
 }
@@ -89,6 +105,9 @@ private struct ItemForm: View {
                     }
                     if store.canKeepOnHand {
                         Toggle("Keep on hand", isOn: $store.keepOnHand)
+                        if store.keepOnHand {
+                            StockPicker(state: $store.stockState, name: store.item.name)
+                        }
                     }
                 } footer: {
                     if store.canKeepOnHand {
@@ -126,6 +145,11 @@ private struct ItemForm: View {
     ItemSheet(item: ItemDetails(id: UUID(), name: "Yogurt", category: .dairyEggs, note: "Vanilla, not plain",
                                 keepOnHand: true),
               canRecategorize: true, client: .preview, onSaved: {})
+}
+
+#Preview("Stock picker") {
+    @Previewable @State var state = StockState.low
+    StockPicker(state: $state, name: "Milk").padding()
 }
 
 #Preview("Labels") {

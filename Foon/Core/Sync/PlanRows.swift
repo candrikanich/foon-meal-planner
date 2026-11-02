@@ -93,9 +93,12 @@ struct ListItemRow: Decodable, Equatable, Sendable {
     let checkedAt: Date?
     /// The amounts the week's plan calls for ("1 lb + 1 lb").
     var quantity: String? = nil
+    /// The week it was written for: a weekly line's plan, or the dish a pivot line was for. Nil on anything added by hand.
+    var planID: UUID? = nil
 
     enum CodingKeys: String, CodingKey {
         case id, list, urgency, source, note, quantity
+        case planID = "plan_id"
         case householdID = "household_id"
         case itemID = "item_id"
         case checkedAt = "checked_at"

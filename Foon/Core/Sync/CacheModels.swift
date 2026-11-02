@@ -61,10 +61,12 @@ final class CachedListItem {
     var note: String?
     var checkedAt: Date?
     var quantity: String?
+    var planID: UUID?
 
     init(id: UUID, householdID: UUID, itemID: UUID, itemName: String, list: ListKind, urgency: ListUrgency,
-         source: ListItemSource, note: String?, checkedAt: Date?, quantity: String? = nil) {
+         source: ListItemSource, note: String?, checkedAt: Date?, quantity: String? = nil, planID: UUID? = nil) {
         self.quantity = quantity
+        self.planID = planID
         self.id = id
         self.householdID = householdID
         self.itemID = itemID
