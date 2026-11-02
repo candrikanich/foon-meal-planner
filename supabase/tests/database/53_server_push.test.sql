@@ -1,7 +1,7 @@
 -- Server push, car 1 (#40 part 2): device tokens are their owner's alone, the outbox is the server's alone, Plan's set goes to
 -- everyone with a device but the approver, once a plan, and quiet hours hold a push until they end.
 begin;
-select plan(45);
+select plan(46);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -209,23 +209,29 @@ select is((select count(*) from public.push_devices where token = repeat('ab', 3
 
 select pg_temp.as_postgres();
 insert into auth.sessions (id, user_id) values
-  ('5e550000-0000-0000-0000-0000000000f1', 'a0000000-0000-0000-0000-00000000000a'),
-  ('5e550000-0000-0000-0000-0000000000f2', 'a0000000-0000-0000-0000-00000000000a');
+  ('5e550000-0000-0000-0000-0000000000f1', 'a0000000-0000-0000-0000-00000000000a'), ('5e550000-0000-0000-0000-0000000000f2', 'a0000000-0000-0000-0000-00000000000a'), ('5e550000-0000-0000-0000-0000000000f3', 'a0000000-0000-0000-0000-00000000000a'), ('5e550000-0000-0000-0000-0000000000f4', 'a0000000-0000-0000-0000-00000000000a');
 select pg_temp.as_session('a0000000-0000-0000-0000-00000000000a', '5e550000-0000-0000-0000-0000000000f1');
 select public.register_push_device(repeat('f1', 32), 'production');
 select pg_temp.as_session('a0000000-0000-0000-0000-00000000000a', '5e550000-0000-0000-0000-0000000000f2');
 select public.register_push_device(repeat('f2', 32), 'production');
+select pg_temp.as_session('a0000000-0000-0000-0000-00000000000a', '5e550000-0000-0000-0000-0000000000f3');
+select public.register_push_device(repeat('f3', 32), 'production');
 select pg_temp.as_postgres();
 select is((select session_id from public.push_devices where token = repeat('f1', 32)),
   '5e550000-0000-0000-0000-0000000000f1'::uuid, 'a device remembers the sign-in that registered it');
-delete from auth.sessions where id = '5e550000-0000-0000-0000-0000000000f1';  -- "Sign out everywhere", or a lost phone
+select pg_temp.as_session('a0000000-0000-0000-0000-00000000000a', '5e550000-0000-0000-0000-0000000000f4');
+select public.register_push_device(repeat('f2', 32), 'production');
+select pg_temp.as_postgres();
+select is((select session_id from public.push_devices where token = repeat('f2', 32)),
+  '5e550000-0000-0000-0000-0000000000f4'::uuid, 'and the latest one, when it''s registered again');
+delete from auth.sessions where id in ('5e550000-0000-0000-0000-0000000000f1', '5e550000-0000-0000-0000-0000000000f2');  -- "Sign out everywhere", or a lost phone
+update auth.sessions set not_after = now() - interval '1 minute' where id = '5e550000-0000-0000-0000-0000000000f3';
 set local role service_role;
 select count(*) from public.claim_push_outbox(0);
 select pg_temp.as_postgres();
-select results_eq($$ select token from public.push_devices where user_id = 'a0000000-0000-0000-0000-00000000000a'
-                    order by token $$,
+select results_eq($$ select token from public.push_devices where user_id = 'a0000000-0000-0000-0000-00000000000a' order by token $$,
   $$ values (repeat('a1', 32)), (repeat('f2', 32)) $$,
-  'once that sign-in ends, the device is forgotten before anything is sent, whatever the phone did');
+  'once that sign-in ends or runs out, the device is forgotten before anything is sent, whatever the phone did');
 
 -- Leaving takes devices along ---------------------------------------------------------------------------------------------
 

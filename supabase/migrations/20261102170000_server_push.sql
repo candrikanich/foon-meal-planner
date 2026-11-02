@@ -239,6 +239,8 @@ language plpgsql security definer set search_path = ''
 as $$
 #variable_conflict use_column
 begin
+  -- auth.sessions has no row past a sign-out and a not_after past its timebox. Inactivity timeouts (off in config.toml)
+  -- would leave the row: check refreshed_at here if they're ever turned on.
   delete from public.push_devices d
   where d.session_id is not null
     and not exists (select 1 from auth.sessions s

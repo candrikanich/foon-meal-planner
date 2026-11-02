@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 #if os(iOS)
 import UIKit
 #endif
@@ -53,16 +54,29 @@ enum PushRegistration {
         device.pushToken = nil
     }
 
+    /// Doesn't wait for `work` past `limit`, even when it ignores cancellation (the SDK refreshes an expired session in a
+    /// task of its own).
     private static func within(_ limit: Duration, _ work: @escaping @Sendable () async throws -> Void) async -> Bool {
-        await withTaskGroup(of: Bool.self) { group in
-            group.addTask { (try? await work()) != nil }
-            group.addTask {
+        await withCheckedContinuation { continuation in
+            let first = FirstAnswer(continuation)
+            Task { first.give((try? await work()) != nil) }
+            Task {
                 try? await Task.sleep(for: limit)
-                return false
+                first.give(false)
             }
-            let first = await group.next() ?? false
-            group.cancelAll()
-            return first
+        }
+    }
+}
+
+private final class FirstAnswer: Sendable {
+    private let continuation: Mutex<CheckedContinuation<Bool, Never>?>
+
+    init(_ continuation: CheckedContinuation<Bool, Never>) { self.continuation = Mutex(continuation) }
+
+    func give(_ answer: Bool) {
+        continuation.withLock { waiting in
+            waiting?.resume(returning: answer)
+            waiting = nil
         }
     }
 }

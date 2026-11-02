@@ -910,7 +910,7 @@ struct ReminderPresetWordingTests {
 
 /// Server push (#40 part 2): the device's token is on the server only while this person has reminders on.
 @MainActor
-struct PushTokenTests {
+@Suite(.serialized) struct PushTokenTests {
     @Test func remindersOnAskForAToken() async throws {
         let test = try Harness()
         test.server.set(weeks: [test.week()])
@@ -971,7 +971,8 @@ struct PushTokenTests {
         let test = try Harness()
         test.device.pushToken = "abc123"
         var client = test.server.client
-        client.unregisterPush = { _ in try await Task.sleep(for: .seconds(60)) }
+        // Like the SDK's session refresh: a task of its own, which signing out can't cancel.
+        client.unregisterPush = { _ in try await Task { try await Task.sleep(for: .seconds(60)) }.value }
         let started = ContinuousClock.now
         await PushRegistration.forget(client: client, device: test.device, waiting: .milliseconds(50))
         #expect(ContinuousClock.now - started < .seconds(5))
