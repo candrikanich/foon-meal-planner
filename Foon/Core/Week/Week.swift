@@ -22,6 +22,8 @@ struct WeekNight: Identifiable, Equatable, Sendable {
     var locked: Bool
     /// Member id → expected home. Members without a row (added after the week was made) are left off.
     var attendance: [UUID: Bool]
+    /// Who answered this night's check-in themselves. What they said is in `attendance`.
+    var checkedIn: Set<UUID> = []
     /// The chip Build my week gave the pick ("Haven't had it in 3 weeks").
     var reason: String? = nil
     /// On a leftovers night planned by Double it: the night cooking twice as much. A night is doubled because one of these
@@ -284,17 +286,19 @@ struct PlanNightRow: Decodable, Sendable {
     struct Attendance: Decodable, Sendable {
         let memberID: UUID
         let expected: Bool
+        let checkedInAt: Date?
 
         enum CodingKeys: String, CodingKey {
             case expected
             case memberID = "member_id"
+            case checkedInAt = "checked_in_at"
         }
     }
 
     /// The columns to select for it.
     static let columns = """
         id, date, effort, dinner_time, meal_id, quick_pick, locked, reason, leftovers_from, stash_item_id, meals(name), \
-        night_attendance(member_id, expected)
+        night_attendance(member_id, expected, checked_in_at)
         """
 
     let id: UUID
@@ -325,6 +329,7 @@ struct PlanNightRow: Decodable, Sendable {
                   quickPick: quickPick, locked: locked,
                   attendance: Dictionary(nightAttendance.map { ($0.memberID, $0.expected) },
                                          uniquingKeysWith: { first, _ in first }),
+                  checkedIn: Set(nightAttendance.filter { $0.checkedInAt != nil }.map(\.memberID)),
                   reason: reason, leftoversFrom: leftoversFrom, stashItemID: stashItemID)
     }
 }

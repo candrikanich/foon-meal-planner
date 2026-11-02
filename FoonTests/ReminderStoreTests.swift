@@ -76,6 +76,9 @@ private final class SpyServer: Sendable {
         var offline = false
         var uploadsFail = false
         var uploads: [[NotificationLogEntry]] = []
+        /// What the server had heard, each time a week was read.
+        var checkIns: [Bool] = []
+        var checkInsAtRead: [[Bool]] = []
     }
 
     let state = Mutex(State())
@@ -85,6 +88,7 @@ private final class SpyServer: Sendable {
             weeks: { _, _, _ in
                 try self.state.withLock {
                     if $0.offline { throw URLError(.notConnectedToInternet) }
+                    $0.checkInsAtRead.append($0.checkIns)
                     return $0.weeks
                 }
             },
@@ -93,6 +97,9 @@ private final class SpyServer: Sendable {
                     if $0.uploadsFail { throw URLError(.notConnectedToInternet) }
                     $0.uploads.append(entries)
                 }
+            },
+            answerCheckIn: { _, _, home in
+                self.state.withLock { $0.checkIns.append(home) }
             }
         )
     }
@@ -249,6 +256,15 @@ struct ReminderSchedulingTests {
         #expect(test.center.pending.contains(timer), "or when notifications are off")
     }
 
+    @Test func aLockScreenAnswerWaitingGoesBeforeTheRead() async throws {
+        let test = try Harness()
+        test.server.set(weeks: [test.week()])
+        test.device.add(CheckInAnswer(nightID: test.night.id, memberID: test.ann.id, home: false))
+        await test.store().replan(test.wanted())
+        #expect(test.server.state.withLock { $0.checkInsAtRead.first } == [false], "so what it plans from already has it")
+        #expect(test.device.checkIns.isEmpty)
+    }
+
     @Test func aPreviousPersonsRemindersGoAndTheirRecordsDontCount() async throws {
         let test = try Harness()
         test.server.set(weeks: [test.week()])
@@ -257,7 +273,8 @@ struct ReminderSchedulingTests {
 
         await test.store().replan(test.wanted(me: test.kim))
         #expect(Set(anns).isSubset(of: Set(test.center.removed)))
-        #expect(test.center.pending == [ReminderID.afterDinner(me: test.kim.id, night: test.night.id, meal: test.chili)])
+        #expect(Set(test.center.pending) == [ReminderID.afterDinner(me: test.kim.id, night: test.night.id, meal: test.chili),
+                                             ReminderID.checkIn(me: test.kim.id, night: test.night.id)])
         #expect(try test.records().allSatisfy { $0.memberID == test.kim.id })
     }
 
@@ -873,7 +890,6 @@ struct ReminderPresetWordingTests {
         let balanced = HouseholdSettings.NotificationPreset.balanced.summary
         #expect(balanced.contains("after-dinner"))
         #expect(balanced.contains("check-in"))
-        #expect(balanced.contains("on the way"), "the check-in is #41")
         let engaged = HouseholdSettings.NotificationPreset.engaged.summary
         #expect(engaged.contains("follow-up"))
         #expect(engaged.contains("on the way"))

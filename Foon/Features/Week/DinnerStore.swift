@@ -201,6 +201,14 @@ final class DinnerStore {
         }
     }
 
+    /// This person's answer on the check-in card. Returns whether it saved; This Week then re-reads who's home.
+    @discardableResult
+    func answerCheckIn(nightID: UUID, memberID: UUID, home: Bool) async -> Bool {
+        await write(nightID, failure: String(localized: "Couldn't save that. Check your connection and try again.")) {
+            [client] in try await client.answerCheckIn(nightID, memberID, home)
+        }
+    }
+
     func clearError() {
         errorMessage = nil
         claimNote = nil
@@ -278,6 +286,7 @@ final class DinnerStore {
             let code = (error as? PostgrestError)?.code
             errorMessage = code == "FD004" ? String(localized: "They eat separately, so they don't rate dinners.")
                 : code == "FD011" ? String(localized: "Someone already thanked the cook, so the cook and the dish stay as they are.")
+                : code == "FD016" ? String(localized: "A planner has you out tonight, so ask them to change it.")
                 : code == "42501" || code == "22023" ? (refused ?? failure) : failure
             return false
         }

@@ -4,7 +4,7 @@ import Testing
 
 /// Sunday Nov 8, 2026 starts the week, in New York. It's Sunday at 10am unless a test says otherwise, so this morning's
 /// planning time has gone by.
-private enum Fixture {
+enum PlannerFixture {
     static let zone = "America/New_York"
     static let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
@@ -62,7 +62,7 @@ private enum Fixture {
     }
 }
 
-private typealias F = Fixture
+private typealias F = PlannerFixture
 
 @Suite struct TimeToPlanReminderTests {
     @Test func aPlannerIsRemindedOnPlanningDayAtPlanningTime() throws {
@@ -449,7 +449,8 @@ private typealias F = Fixture
 
     @Test func aKidGetsFiveOnBalancedSoonestFirst() {
         let plan = F.plan(me: F.kim, weeks: [everyNight], now: F.at(8, 9))
-        #expect(plan.map(\.fireAt) == [8, 9, 10, 11, 12].map { F.at($0, 19) })
+        #expect(plan.map(\.fireAt) == [F.at(8, 15, 30), F.at(8, 19), F.at(9, 15, 30), F.at(9, 19), F.at(10, 15, 30)],
+                "the check-in and the prompt take turns, night by night")
     }
 
     @Test func whatsAlreadyGoneOutThisWeekCounts() {
@@ -463,7 +464,7 @@ private typealias F = Fixture
         let sent = (0..<5).map { ReminderHistory(id: "earlier.\($0)", sentAt: F.at(8, 9 + $0)) }
         // Saturday: this week's used up, and only next week's first nights are within the horizon.
         let plan = F.plan(me: F.kim, weeks: [everyNight, next], history: sent, now: F.at(14, 8))
-        #expect(plan.map(\.fireAt) == [15, 16, 17, 18, 19].map { F.at($0, 19) })
+        #expect(plan.map(\.fireAt) == [F.at(15, 15, 30), F.at(15, 19), F.at(16, 15, 30), F.at(16, 19), F.at(17, 15, 30)])
     }
 
     @Test func prepOutranksARatingPromptWhenItRunsShort() {
@@ -495,7 +496,7 @@ private typealias F = Fixture
     }
 
     @Test func allergyRemindersDontExistToBeDropped() {
-        #expect(Set(ReminderKind.allCases) == [.timeToPlan, .prep, .afterDinner],
+        #expect(Set(ReminderKind.allCases) == [.timeToPlan, .prep, .afterDinner, .checkIn],
                 "if a safety reminder joins these, it must be exempt from the budget")
     }
 }
@@ -796,7 +797,7 @@ private typealias F = Fixture
     @Test func everyIdentifierIsOursAndCarriesThePerson() {
         let weeks = [F.week([F.night(10, steps: [F.thaw])])]
         let plan = F.plan(weeks: weeks)
-        #expect(plan.count == 3)
+        #expect(plan.count == 4)
         for reminder in plan {
             #expect(ReminderID.isReminder(reminder.id))
             #expect(reminder.id.contains(F.ann.id.uuidString))
@@ -837,7 +838,7 @@ private typealias F = Fixture
     @Test func theWordsAreExactlyTheseAndNoOthers() throws {
         let fixed: Set<String> = ["Dinner tonight", "Dinner tomorrow", "Time to thaw what's for dinner.", "Time to start the marinade.",
                                   "Time to start the slow cooker.", "Time to start prep.", "How was dinner?", "Tap to rate dinner.",
-                                  "Time to plan the week", "Foon can draft it in a tap, and you can change any night."]
+                                  "Home tonight?", "Tap to see what's for dinner.", "Time to plan the week", "Foon can draft it in a tap, and you can change any night."]
         let steps = ["Thaw it", "Marinate it", "Start the slow cooker", "Kim's without milk"]
         let night = F.night(10, steps: steps.map { PrepStep(step: $0, leadHours: 20) })
         for reminder in F.plan(settings: engaged, weeks: [F.week([night])]) {
@@ -878,7 +879,7 @@ private typealias F = Fixture
     }
 
     @Test func aKidsPromptIsTheSameFixedWords() throws {
-        let reminder = try #require(F.plan(me: F.kim, weeks: [F.week([F.night(10)])]).first)
+        let reminder = try #require(F.of(.afterDinner, F.plan(me: F.kim, weeks: [F.week([F.night(10)])])).first)
         #expect(reminder.title == "How was dinner?")
         #expect(reminder.body == "Tap to rate dinner.")
     }

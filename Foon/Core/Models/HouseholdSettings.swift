@@ -16,6 +16,8 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
     var planningDay = 7
     var planningTime = "09:00"
     var notificationPreset: NotificationPreset = .balanced
+    /// "HH:mm", when "Home tonight?" goes out: after school, by default.
+    var checkInTime = "15:30"
     /// False from creating a household until onboarding finishes; households from before onboarding count as done.
     var onboarded = true
     /// Set by "Load a sample family"; onboarding fills in the demo family, then clears it.
@@ -62,7 +64,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
             case .light:
                 String(localized: "Only what you'd hate to miss: time to plan and prep reminders. No rating prompts or polls. \"The plan's set\" and urgent list items are on the way.")
             case .balanced:
-                String(localized: "Light, plus an after-dinner rating prompt. Kids get a few a week at most. A \"home tonight?\" check-in is on the way.")
+                String(localized: "Light, plus a \"home tonight?\" check-in and an after-dinner rating prompt. Kids get a few a week at most.")
             case .engaged:
                 String(localized: "Everything so far: Balanced, plus one follow-up on reminders. Idea digests, tonight polls, \"heading to the store,\" and the weekly recap are on the way.")
             }
@@ -122,6 +124,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         case planningDay = "planning_day"
         case planningTime = "planning_time"
         case notificationPreset = "notification_preset"
+        case checkInTime = "check_in_time"
         case onboarded
         case samplePending = "sample_pending"
         case isSample = "sample"
@@ -153,6 +156,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         try container.encode(planningDay, forKey: .planningDay)
         try container.encode(planningTime, forKey: .planningTime)
         try container.encode(notificationPreset, forKey: .notificationPreset)
+        try container.encode(checkInTime, forKey: .checkInTime)
         try container.encode(onboarded, forKey: .onboarded)
         try container.encode(samplePending, forKey: .samplePending)
         try container.encode(isSample, forKey: .isSample)
@@ -176,6 +180,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         planningTime = Self.time(container, .planningTime) ?? defaults.planningTime
         notificationPreset = (try? container.decodeIfPresent(String.self, forKey: .notificationPreset))
             .flatMap { $0 }.flatMap(NotificationPreset.init(rawValue:)) ?? defaults.notificationPreset
+        checkInTime = Self.time(container, .checkInTime) ?? defaults.checkInTime
         onboarded = (try? container.decodeIfPresent(Bool.self, forKey: .onboarded)).flatMap { $0 } ?? defaults.onboarded
         samplePending = (try? container.decodeIfPresent(Bool.self, forKey: .samplePending)).flatMap { $0 } ?? false
         isSample = (try? container.decodeIfPresent(Bool.self, forKey: .isSample)).flatMap { $0 } ?? false

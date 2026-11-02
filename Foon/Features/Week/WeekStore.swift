@@ -127,6 +127,8 @@ final class WeekStore {
     func toggleAttendance(nightID: UUID, memberID: UUID) async {
         guard let index = nightIndex(nightID), let current = week?.nights[index].attendance[memberID] else { return }
         week?.nights[index].attendance[memberID] = !current
+        // The server drops their check-in answer on this write: it's not what they said any more.
+        week?.nights[index].checkedIn.remove(memberID)
         await send(nightID: nightID, failure: String(localized: "Couldn't change who's home. Check your connection and try again.")) {
             [client] in try await client.setExpected(nightID, memberID, !current)
         }

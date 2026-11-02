@@ -80,6 +80,16 @@ final class ReminderStore {
         }
     }
 
+    /// Before a screen reads the week, so it sees what was said on the lock screen.
+    func sendWaitingCheckIns() async {
+        await CheckInDelivery.send(device: device, client: client)
+    }
+
+    /// The card's answer reached the server, and it's newer than anything still waiting for that night.
+    func forgetWaitingCheckIns(night: UUID, member: UUID) {
+        device.removeCheckIns(night: night, member: member)
+    }
+
     /// From a button someone pressed. Asks the system only if it hasn't been asked, then schedules what there is.
     func turnOn(for wanted: Context) async {
         device.setOptedIn(true, for: wanted.me.id)
@@ -121,13 +131,15 @@ final class ReminderStore {
     private func run(_ wanted: Context) async {
         guard let context else { return }
         let permission = await center.permission()
+        // Before the read, so it sees them.
+        await CheckInDelivery.send(device: device, client: client)
         let weeks = await fetchWeeks(settings: wanted.settings)
         guard !isStopped else { return }
         self.permission = permission
         hasDeclined = device.hasDeclined(wanted.me.id)
         isOptedIn = device.isOptedIn(wanted.me.id)
         if let weeks { saveSnapshot(weeks, in: context) }
-        let snapshot = loadSnapshot(in: context)
+        let snapshot = loadSnapshot(in: context)?.applying(device.checkIns)
 
         let pending = await center.pendingIDs().filter(ReminderID.isReminder)
         guard !isStopped else { return }

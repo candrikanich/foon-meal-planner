@@ -1,20 +1,21 @@
 import Foundation
 
 /// What a device reminds about on its own (docs/spec.md → Notifications → Delivery: on the device). The raw value is
-/// `notification_log.type`. The day-of check-in (#41) joins these: a case, its rule in `NotificationPlanner`, a preset in
-/// `ReminderRules`, and a place in `budgetOrder`.
+/// `notification_log.type`.
 enum ReminderKind: String, Codable, CaseIterable, Sendable {
     case timeToPlan = "time_to_plan"
     case prep = "prep_reminder"
     case afterDinner = "after_dinner"
+    case checkIn = "day_of_check_in"
 
-    /// Who loses out when a week's budget runs short: forgetting to thaw means no dinner, and a rating prompt can wait for
-    /// the card on This Week. Nothing about allergies or safety is ever a reminder, so a budget can't drop one.
+    /// Who loses out when a week's budget runs short: forgetting to thaw means no dinner, and a check-in or a rating prompt
+    /// can wait for its card on This Week. Those two share a place, so each night gets both while the budget lasts rather than
+    /// one kind using it all up. Nothing about allergies or safety is ever a reminder, so a budget can't drop one.
     var budgetOrder: Int {
         switch self {
         case .timeToPlan: 0
         case .prep: 1
-        case .afterDinner: 2
+        case .afterDinner, .checkIn: 2
         }
     }
 }
@@ -82,6 +83,8 @@ struct ReminderNight: Codable, Equatable, Identifiable, Sendable {
     var stashItemID: UUID?
     var prepSteps: [ReminderPrep] = []
     var attendance: [UUID: Bool] = [:]
+    /// Who's already answered this night's check-in, on any phone.
+    var checkedIn: Set<UUID> = []
     /// Whose rating is in, however it got there: Pass the phone can beat the prompt to it.
     var ratedBy: Set<UUID> = []
     /// Whether anyone's logged this night, and the dish if it was one: a quick pick logs no dish.
@@ -90,6 +93,27 @@ struct ReminderNight: Codable, Equatable, Identifiable, Sendable {
 
     /// Out of the freezer or left over: already cooked, so nothing to start ahead.
     var isAlreadyCooked: Bool { stashItemID != nil || leftoversFrom != nil }
+}
+
+extension ReminderNight {
+    /// By hand for `checkedIn` alone: a snapshot cached before it existed has to keep reading, or an offline launch after an
+    /// update would call off every pending reminder.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        date = try container.decode(CalendarDay.self, forKey: .date)
+        dinnerTime = try container.decodeIfPresent(String.self, forKey: .dinnerTime)
+        mealID = try container.decodeIfPresent(UUID.self, forKey: .mealID)
+        quickPick = try container.decodeIfPresent(QuickPick.self, forKey: .quickPick)
+        leftoversFrom = try container.decodeIfPresent(UUID.self, forKey: .leftoversFrom)
+        stashItemID = try container.decodeIfPresent(UUID.self, forKey: .stashItemID)
+        prepSteps = try container.decode([ReminderPrep].self, forKey: .prepSteps)
+        attendance = try container.decode([UUID: Bool].self, forKey: .attendance)
+        checkedIn = try container.decodeIfPresent(Set<UUID>.self, forKey: .checkedIn) ?? []
+        ratedBy = try container.decode(Set<UUID>.self, forKey: .ratedBy)
+        hasLog = try container.decode(Bool.self, forKey: .hasLog)
+        loggedMealID = try container.decodeIfPresent(UUID.self, forKey: .loggedMealID)
+    }
 }
 
 struct ReminderWeek: Codable, Equatable, Sendable {
@@ -103,6 +127,24 @@ struct ReminderWeek: Codable, Equatable, Sendable {
 struct ReminderSnapshot: Codable, Equatable, Sendable {
     let pulledAt: Date
     let weeks: [ReminderWeek]
+
+    /// With answers the server hasn't got yet counted as if it had. They're what this person last said, and planning from the
+    /// read alone would ask again, and bring back the prompt for a dinner they said they'd miss.
+    func applying(_ answers: [CheckInAnswer]) -> ReminderSnapshot {
+        guard !answers.isEmpty else { return self }
+        return ReminderSnapshot(pulledAt: pulledAt, weeks: weeks.map { week in
+            var week = week
+            week.nights = week.nights.map { night in
+                var night = night
+                for answer in answers where answer.nightID == night.id {
+                    night.attendance[answer.memberID] = answer.home
+                    night.checkedIn.insert(answer.memberID)
+                }
+                return night
+            }
+            return week
+        })
+    }
 }
 
 /// What this device has already done about a reminder.
@@ -122,6 +164,8 @@ enum ReminderRoute: Equatable, Sendable {
     case swap(UUID, CalendarDay)
     /// This Week's after-dinner cards.
     case dinnerCard
+    /// This Week's check-in card. The lock screen's Home and Not home answer for this person on this night.
+    case checkIn(night: UUID, member: UUID)
 }
 
 /// One notification to schedule. Its text is fixed words (`ReminderText`).
@@ -154,6 +198,15 @@ enum ReminderID {
 
     static func afterDinner(me: UUID, night: UUID, meal: UUID) -> String {
         "\(prefix)\(me.uuidString).after.\(night.uuidString).\(meal.uuidString)"
+    }
+
+    static func checkIn(me: UUID, night: UUID) -> String {
+        "\(prefix)\(me.uuidString).checkin.\(night.uuidString)"
+    }
+
+    /// Whether this is an after-dinner prompt for that night, whichever dish it's about.
+    static func isAfterDinner(_ id: String, night: UUID) -> Bool {
+        id.contains(".after.\(night.uuidString).")
     }
 
     static func followUp(of id: String) -> String { id + followUpSuffix }

@@ -165,6 +165,8 @@ struct DinnerClient: Sendable {
     var nights: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ through: CalendarDay) async throws -> [WeekNight]
     /// "Wasn't home": for yourself, or a profile nobody has claimed, on a night that's happened.
     var setNotHome: @Sendable (_ nightID: UUID, _ memberID: UUID) async throws -> Void
+    /// "Home tonight?" on tonight's night: for yourself, or a profile nobody has claimed.
+    var answerCheckIn: @Sendable (_ nightID: UUID, _ memberID: UUID, _ home: Bool) async throws -> Void = { _, _, _ in }
     /// Thanks for dinners on or after `since`.
     var thanks: @Sendable (_ householdID: UUID, _ since: CalendarDay) async throws -> [ChefThanks] = { _, _ in [] }
     /// "Thanks, chef", from your own profile.
@@ -247,6 +249,9 @@ extension DinnerClient {
                 try await client.rpc("set_not_home", params: [
                     "target_night": nightID.uuidString, "target_member": memberID.uuidString
                 ]).execute()
+            },
+            answerCheckIn: { nightID, memberID, home in
+                try await NotificationClient.live(client).answerCheckIn(nightID, memberID, home)
             },
             thanks: { householdID, since in
                 try await client.from("chef_thanks")

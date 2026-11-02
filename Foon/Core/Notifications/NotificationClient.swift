@@ -26,6 +26,8 @@ struct NotificationClient: Sendable {
     var weeks: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ through: CalendarDay) async throws -> [ReminderWeek]
     /// Sends log rows (`record_notifications`), at most 200 at a time. The server only ever files them under the caller.
     var record: @Sendable (_ householdID: UUID, _ entries: [NotificationLogEntry]) async throws -> Void
+    /// "Home" or "Not home" from the lock screen. The server takes it only for tonight.
+    var answerCheckIn: @Sendable (_ nightID: UUID, _ memberID: UUID, _ home: Bool) async throws -> Void = { _, _, _ in }
 }
 
 extension NotificationClient {
@@ -51,12 +53,28 @@ extension NotificationClient {
             record: { householdID, entries in
                 try await client.rpc("record_notifications", params: RecordParams(targetHousehold: householdID, entries: entries))
                     .execute()
+            },
+            answerCheckIn: { nightID, memberID, home in
+                try await client.rpc("answer_check_in", params: CheckInParams(targetNight: nightID, targetMember: memberID, home: home))
+                    .execute()
             }
         )
     }
 
     /// No server.
     static let preview = NotificationClient(weeks: { _, _, _ in [] }, record: { _, _ in })
+}
+
+private struct CheckInParams: Encodable, Sendable {
+    let targetNight: UUID
+    let targetMember: UUID
+    let home: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case targetNight = "target_night"
+        case targetMember = "target_member"
+        case home
+    }
 }
 
 private struct RecordParams: Encodable, Sendable {
@@ -91,7 +109,7 @@ private struct ReminderPlanRow: Decodable, Sendable {
 private struct ReminderNightRow: Decodable, Sendable {
     static let columns = """
         id, date, dinner_time, meal_id, quick_pick, leftovers_from, stash_item_id, meals(prep_steps), \
-        night_attendance(member_id, expected)
+        night_attendance(member_id, expected, checked_in_at)
         """
 
     /// One step that won't read shouldn't cost the rest, or the night.
@@ -142,6 +160,7 @@ private struct ReminderNightRow: Decodable, Sendable {
                       leftoversFrom: leftoversFrom, stashItemID: stashItemID, prepSteps: (meals?.prepSteps ?? []).compactMap(ReminderPrep.init),
                       attendance: Dictionary(nightAttendance.map { ($0.memberID, $0.expected) },
                                              uniquingKeysWith: { first, _ in first }),
+                      checkedIn: Set(nightAttendance.filter { $0.checkedInAt != nil }.map(\.memberID)),
                       ratedBy: Set(log?.reactions.map(\.memberID) ?? []), hasLog: log != nil, loggedMealID: log?.mealID)
     }
 }
