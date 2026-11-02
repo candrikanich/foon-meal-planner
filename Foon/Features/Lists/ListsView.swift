@@ -162,7 +162,7 @@ struct ListsView: View {
     }
 
     private func remove(_ entry: ListEntry) {
-        Task { await sync?.perform(.removeFromList(listItemID: entry.lineID)) }
+        Task { for change in ListBoard.remove(entry) { await sync?.perform(change) } }
     }
 
     /// Known items go on at once, offline too; a brand-new item needs a connection to be created first. Anything
@@ -203,6 +203,9 @@ struct ListEntryRow: View {
                         .font(.foonCaption)
                         .foregroundStyle(Palette.caution)
                 }
+                ForEach(entry.folded) { other in
+                    Text(alsoOn(other)).font(.foonCaption).foregroundStyle(.secondary)
+                }
             }
             Spacer(minLength: 8)
             if entry.list == .quick {
@@ -212,6 +215,16 @@ struct ListEntryRow: View {
         }
         .padding(.vertical, large ? 8 : 2)
         .accessibilityElement(children: .combine)
+    }
+
+    /// The item's other line, with its own amount: added to this row's, it could be the same need twice.
+    private func alsoOn(_ other: ListEntry) -> String {
+        switch (other.list, other.quantity) {
+        case (.weekly, let amount?): String(localized: "Also on the week's list: \(amount)", comment: "A row's other line and its amount")
+        case (.weekly, nil): String(localized: "Also on the week's list", comment: "A row's other line")
+        case (.quick, let amount?): String(localized: "Also on the quick list: \(amount)", comment: "A row's other line and its amount")
+        case (.quick, nil): String(localized: "Also on the quick list", comment: "A row's other line")
+        }
     }
 }
 

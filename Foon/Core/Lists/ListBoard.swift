@@ -16,8 +16,17 @@ struct ListEntry: Identifiable, Equatable, Sendable {
     let category: ItemCategory
     let checkedAt: Date?
     let keepOnHand: Bool
+    /// The item's line on the other list, shown in this row. An item has at most one open line per list, so a weekly line
+    /// and a tonight line for the same milk read as one milk.
+    var folded: [ListEntry] = []
 
-    var id: UUID { lineID }
+    /// The item: a row is one per item, and keeps its place when a tonight line takes the lead from a weekly one.
+    var id: UUID { itemID }
+
+    /// Every line this row stands for: checking it off or removing it acts on all of them.
+    var lineIDs: [UUID] { [lineID] + folded.map(\.lineID) }
+
+    var hasQuickLine: Bool { list == .quick || folded.contains { $0.list == .quick } }
 
     static func entries(lines: [CachedListItem], items: [CachedItem]) -> [ListEntry] {
         let itemsByID = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -107,10 +116,32 @@ enum ListBoard {
         let left: Int
     }
 
-    /// Open lines: tonight's quick items first, then the weekly list, then the rest of the quick list.
+    /// Open lines, one row per item: tonight's quick items first, then the weekly list, then the rest of the quick list.
     static func onTheList(_ entries: [ListEntry]) -> [ListEntry] {
-        entries.filter { $0.checkedAt == nil }.sorted { lhs, rhs in
+        oneRowPerItem(entries.filter { $0.checkedAt == nil }).sorted { lhs, rhs in
             (rank(lhs), lhs.name.lowercased()) < (rank(rhs), rhs.name.lowercased())
+        }
+    }
+
+    /// An item on both lists is one row: it takes the more urgent line's place, with every note, so it's bought once. Each
+    /// line keeps its own amount, shown apart: two sixes might be the same eggs or twelve, and only the shopper can tell. The
+    /// lines themselves stay apart, so undoing tonight's swap leaves the weekly list as it was.
+    static func oneRowPerItem(_ entries: [ListEntry]) -> [ListEntry] {
+        var order: [UUID] = []
+        var byItem: [UUID: [ListEntry]] = [:]
+        for entry in entries {
+            if byItem[entry.itemID] == nil { order.append(entry.itemID) }
+            byItem[entry.itemID, default: []].append(entry)
+        }
+        return order.compactMap { itemID in
+            guard let lines = byItem[itemID]?.sorted(by: { rank($0) < rank($1) }), let first = lines.first else { return nil }
+            guard lines.count > 1 else { return first }
+            let rest = Array(lines.dropFirst())
+            let note = rest.reduce(first.lineNote) { ListNotes.merged(existing: $0, incoming: $1.lineNote) }
+            return ListEntry(lineID: first.lineID, itemID: itemID, name: first.name, list: first.list, urgency: first.urgency,
+                             quantity: first.quantity, lineNote: note,
+                             itemNote: first.itemNote, category: first.category,
+                             checkedAt: lines.compactMap(\.checkedAt).max(), keepOnHand: first.keepOnHand, folded: rest)
         }
     }
 
@@ -125,31 +156,55 @@ enum ListBoard {
     /// was skipped for next time.
     static func store(_ entries: [ListEntry], tripStart: Date, skipped: Set<UUID> = [])
         -> (aisles: [Aisle], cart: [ListEntry], nextTime: [ListEntry]) {
-        let open = entries.filter { $0.checkedAt == nil && !skipped.contains($0.lineID) }
+        let rows = oneRowPerItem(entries.filter { $0.checkedAt == nil })
+        let isSkipped = { (row: ListEntry) in row.lineIDs.contains(where: skipped.contains) }
+        let open = rows.filter { !isSkipped($0) }
         let aisles = ItemCategory.storeOrder.compactMap { category -> Aisle? in
             let here = open.filter { $0.category == category }.sorted { $0.name.lowercased() < $1.name.lowercased() }
             return here.isEmpty ? nil : Aisle(category: category, entries: here)
         }
-        let cart = entries.filter { ($0.checkedAt ?? .distantPast) >= tripStart }
+        let cart = oneRowPerItem(entries.filter { ($0.checkedAt ?? .distantPast) >= tripStart })
             .sorted { ($0.checkedAt ?? .distantPast) > ($1.checkedAt ?? .distantPast) }
-        let nextTime = entries.filter { $0.checkedAt == nil && skipped.contains($0.lineID) }
+        let nextTime = rows.filter(isSkipped)
         return (aisles, cart, nextTime)
     }
 
     static func summary(_ entries: [ListEntry], tripStart: Date, skipped: Set<UUID> = []) -> Summary {
-        Summary(got: entries.filter { ($0.checkedAt ?? .distantPast) >= tripStart }.count,
-                left: entries.filter { $0.checkedAt == nil && !skipped.contains($0.lineID) }.count)
+        let board = store(entries, tripStart: tripStart, skipped: skipped)
+        return Summary(got: board.cart.count, left: board.aisles.reduce(0) { $0 + $1.entries.count })
     }
 
-    /// Checking off a line; a staple bought goes back to in stock at once, so it doesn't pop up as running low.
+    /// Checking off a row checks off every line in it; a staple bought goes back to in stock at once, so it doesn't pop up as
+    /// running low.
     static func gotIt(_ entry: ListEntry) -> [OfflineChange] {
-        [.setChecked(listItemID: entry.lineID, checked: true)]
+        entry.lineIDs.map { .setChecked(listItemID: $0, checked: true) }
             + (entry.keepOnHand ? [.setStock(itemID: entry.itemID, state: .in)] : [])
     }
 
-    /// "Couldn't find it": the item moves to the quick list for the next trip, with its amount and any allergy note.
+    /// Putting a cart row back reopens its latest line on each list. A list holds one open line per item, so an older one
+    /// bought this trip (milk bought, marked out again, bought again) stays bought.
+    static func putBack(_ entry: ListEntry) -> [OfflineChange] {
+        let latest = Dictionary(([entry] + entry.folded).map { ($0.list, $0) }) { lhs, rhs in
+            (lhs.checkedAt ?? .distantPast) >= (rhs.checkedAt ?? .distantPast) ? lhs : rhs
+        }
+        return entry.lineIDs.filter { id in latest.values.contains { $0.lineID == id } }
+            .map { .setChecked(listItemID: $0, checked: false) }
+    }
+
+    static func remove(_ entry: ListEntry) -> [OfflineChange] {
+        entry.lineIDs.map { .removeFromList(listItemID: $0) }
+    }
+
+    /// What "Couldn't find it" sets aside for next time: the row's lines when it's on the quick list already, or else the
+    /// quick line it's about to move to.
+    static func skippedLines(_ entry: ListEntry, newLineID: UUID) -> [UUID] {
+        entry.hasQuickLine ? entry.lineIDs : [newLineID]
+    }
+
+    /// "Couldn't find it": the item moves to the quick list for the next trip, with its amount and any allergy note. A row
+    /// with a quick line is already there; its weekly line stays put rather than lose its amount in the merge.
     static func couldntFind(_ entry: ListEntry, householdID: UUID, newLineID: UUID) -> [OfflineChange] {
-        guard entry.list != .quick else { return [] }
+        guard !entry.hasQuickLine else { return [] }
         return [
             .addToList(householdID: householdID, itemID: entry.itemID, list: .quick, urgency: .whenever,
                        source: .manual,

@@ -97,6 +97,90 @@ struct ListBoardTests {
         #expect(ListBoard.couldntFind(quick, householdID: household, newLineID: quickLine).isEmpty,
                 "already on the quick list")
     }
+
+    private func milk(_ list: ListKind, urgency: ListUrgency = .whenever, quantity: String? = nil, note: String? = nil,
+                      checkedAt: Date? = nil, item: UUID) -> ListEntry {
+        ListEntry(lineID: UUID(), itemID: item, name: "milk", list: list, urgency: urgency, quantity: quantity,
+                  lineNote: note, itemNote: nil, category: .dairyEggs, checkedAt: checkedAt, keepOnHand: true)
+    }
+
+    @Test func anItemOnBothListsIsOneRow() throws {
+        let item = UUID()
+        let weekly = milk(.weekly, quantity: "1 gallon", note: "Get dairy-free (Nora)", item: item)
+        let tonight = milk(.quick, urgency: .tonight, quantity: "2 cups", item: item)
+        let rows = ListBoard.onTheList([weekly, entry("Bread"), tonight])
+        #expect(rows.map(\.name) == ["milk", "Bread"], "it reads as tonight's")
+        let row = try #require(rows.first)
+        #expect(row.lineID == tonight.lineID)
+        #expect(Set(row.lineIDs) == [weekly.lineID, tonight.lineID])
+        #expect(row.quantity == "2 cups", "each line keeps its own amount")
+        #expect(row.folded.map(\.quantity) == ["1 gallon"])
+        #expect(row.id == item, "the row keeps its place when a tonight line takes the lead")
+        #expect(row.lineNote == "Get dairy-free (Nora)", "an allergy note on either line shows")
+    }
+
+    @Test func equalAmountsAreBothShown() throws {
+        // Monday's 6 eggs and tonight's frittata's 6 might be twelve: neither is dropped, and they aren't added up.
+        let item = UUID()
+        let row = try #require(ListBoard.onTheList([milk(.weekly, quantity: "6", item: item),
+                                                    milk(.quick, urgency: .tonight, quantity: "6", item: item)]).first)
+        #expect(row.quantity == "6")
+        #expect(row.folded.map(\.quantity) == ["6"])
+    }
+
+    @Test func puttingBackReopensOnlyTheLatestLineOnEachList() throws {
+        let item = UUID()
+        let first = milk(.quick, checkedAt: tripStart.addingTimeInterval(5), item: item)
+        let again = milk(.quick, checkedAt: tripStart.addingTimeInterval(60), item: item)
+        let weekly = milk(.weekly, checkedAt: tripStart.addingTimeInterval(30), item: item)
+        let row = try #require(ListBoard.store([first, again, weekly], tripStart: tripStart).cart.first)
+        let changes = ListBoard.putBack(row)
+        #expect(changes.count == 2, "a list holds one open line per item")
+        #expect(changes.contains(.setChecked(listItemID: again.lineID, checked: false)))
+        #expect(changes.contains(.setChecked(listItemID: weekly.lineID, checked: false)))
+    }
+
+    @Test func checkingOffOrRemovingTheRowActsOnBothLines() throws {
+        let item = UUID()
+        let weekly = milk(.weekly, item: item), tonight = milk(.quick, urgency: .tonight, item: item)
+        let row = try #require(ListBoard.onTheList([weekly, tonight]).first)
+        #expect(ListBoard.gotIt(row) == [.setChecked(listItemID: tonight.lineID, checked: true),
+                                         .setChecked(listItemID: weekly.lineID, checked: true),
+                                         .setStock(itemID: item, state: .in)])
+        #expect(ListBoard.putBack(row) == [.setChecked(listItemID: tonight.lineID, checked: false),
+                                           .setChecked(listItemID: weekly.lineID, checked: false)])
+        #expect(ListBoard.remove(row) == [.removeFromList(listItemID: tonight.lineID),
+                                          .removeFromList(listItemID: weekly.lineID)])
+    }
+
+    @Test func storeModeShowsTheItemOnceInTheAisleAndInTheCart() {
+        let item = UUID()
+        let open = [milk(.weekly, item: item), milk(.quick, urgency: .tonight, item: item)]
+        #expect(ListBoard.store(open, tripStart: tripStart).aisles.flatMap(\.entries).count == 1)
+        let bought = [milk(.weekly, checkedAt: tripStart.addingTimeInterval(5), item: item),
+                      milk(.quick, urgency: .tonight, checkedAt: tripStart.addingTimeInterval(5), item: item)]
+        #expect(ListBoard.store(bought, tripStart: tripStart).cart.count == 1)
+        #expect(ListBoard.summary(bought + [entry("Bread")], tripStart: tripStart) == ListBoard.Summary(got: 1, left: 1))
+    }
+
+    @Test func couldntFindARowWithAQuickLineSetsTheWholeRowAside() throws {
+        let item = UUID(), household = UUID(), newLine = UUID()
+        let weekly = milk(.weekly, quantity: "1 gallon", item: item), quick = milk(.quick, quantity: "2 cups", item: item)
+        let row = try #require(ListBoard.onTheList([weekly, quick]).first)
+        #expect(row.list == .weekly, "the weekly line ranks above a quick one that isn't for tonight")
+        #expect(ListBoard.couldntFind(row, householdID: household, newLineID: newLine).isEmpty,
+                "the weekly line keeps its amount rather than merging into the quick line's")
+        let skipped = Set(ListBoard.skippedLines(row, newLineID: newLine))
+        #expect(skipped == [weekly.lineID, quick.lineID])
+        let board = ListBoard.store([weekly, quick], tripStart: tripStart, skipped: skipped)
+        #expect(board.aisles.isEmpty)
+        #expect(board.nextTime.map(\.lineID) == [weekly.lineID])
+        #expect(ListBoard.skippedLines(entry("Beef"), newLineID: newLine) == [newLine])
+    }
+
+    @Test func differentItemsWithTheSameNameStayApart() {
+        #expect(ListBoard.onTheList([milk(.weekly, item: UUID()), milk(.quick, item: UUID())]).count == 2)
+    }
 }
 
 @MainActor

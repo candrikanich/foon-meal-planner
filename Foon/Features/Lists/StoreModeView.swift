@@ -119,7 +119,7 @@ struct StoreModeView: View {
     // MARK: - Actions
 
     private func check(_ entry: ListEntry, _ checked: Bool) {
-        let changes = checked ? ListBoard.gotIt(entry) : [.setChecked(listItemID: entry.lineID, checked: false)]
+        let changes = checked ? ListBoard.gotIt(entry) : ListBoard.putBack(entry)
         Task { for change in changes { await sync?.perform(change) } }
     }
 
@@ -128,7 +128,7 @@ struct StoreModeView: View {
         guard let sync, let householdID = household.household?.id else { return }
         let newLine = UUID()
         var updated = trip
-        updated.skipped.insert(entry.list == .quick ? entry.lineID : newLine)
+        updated.skipped.formUnion(ListBoard.skippedLines(entry, newLineID: newLine))
         // Before the wait: another tap or Finish trip can happen during it, and this would write over them afterward.
         savedTrip = updated.rawValue
         for change in ListBoard.couldntFind(entry, householdID: householdID, newLineID: newLine) {
