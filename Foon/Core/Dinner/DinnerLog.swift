@@ -158,6 +158,8 @@ struct DinnerClient: Sendable {
     var confirm: @Sendable (_ nightID: UUID) async throws -> UUID
     /// One tap: confirms the dinner and saves or changes a person's reaction. Returns the log's id.
     var react: @Sendable (_ nightID: UUID, _ memberID: UUID, _ kind: ReactionKind) async throws -> UUID
+    /// A word about the dish, on a reaction that's already saved. Leaves the rating alone.
+    var comment: @Sendable (_ logID: UUID, _ memberID: UUID, _ text: String) async throws -> Void = { _, _, _ in }
     var correct: @Sendable (_ logID: UUID, _ correction: DinnerCorrection) async throws -> Void
     /// The household's nights between two dates, whatever week they're in (last night may be last week's).
     var nights: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ through: CalendarDay) async throws -> [WeekNight]
@@ -210,6 +212,16 @@ extension DinnerClient {
                 try await client.rpc("react_to_dinner", params: [
                     "target_night": nightID.uuidString, "target_member": memberID.uuidString, "kind": kind.rawValue
                 ]).execute().value
+            },
+            comment: { logID, memberID, text in
+                let updated: [IDRow] = try await client.from("reactions")
+                    .update(["comment": text])
+                    .eq("meal_log_id", value: logID)
+                    .eq("member_id", value: memberID)
+                    .select("id")
+                    .execute()
+                    .value
+                guard !updated.isEmpty else { throw DinnerClientError.notAllowed }
             },
             correct: { logID, correction in
                 let updated: [IDRow] = try await client.from("meal_logs")

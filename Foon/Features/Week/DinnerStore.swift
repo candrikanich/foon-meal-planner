@@ -23,6 +23,8 @@ final class DinnerStore {
     /// Bumped when the server refuses a claim: this device is behind on the night, or the away dates, so This Week reads them.
     private(set) var claimRefusals = 0
     private(set) var errorMessage: String?
+    /// Nights this person just rated from their card, which offer a comment until they answer. Not saved: it asks once.
+    private var commentNights: Set<UUID> = []
     /// Nights with a write in flight, so their buttons don't fire twice.
     private(set) var saving: Set<UUID> = []
 
@@ -112,6 +114,39 @@ final class DinnerStore {
         await write(nightID, failure: String(localized: "Couldn't save that. Check your connection and try again.")) {
             [client] in _ = try await client.react(nightID, memberID, kind)
         }
+    }
+
+    /// The after-dinner card's tap: saves the reaction, then offers a comment. Pass the phone stays quick and doesn't.
+    func rate(nightID: UUID, memberID: UUID, _ kind: ReactionKind) async {
+        if await react(nightID: nightID, memberID: memberID, kind) {
+            commentNights.insert(nightID)
+        }
+    }
+
+    /// Dishes this person just rated, for the comment card.
+    func commentPrompts(me: UUID) -> [DinnerPrompts.Prompt] {
+        nights.compactMap { night in
+            guard commentNights.contains(night.id), let log = log(for: night.id), log.mealID != nil,
+                  log.reaction(of: me) != nil else { return nil }
+            return DinnerPrompts.Prompt(night: night, log: log)
+        }
+    }
+
+    func skipComment(nightID: UUID) {
+        commentNights.remove(nightID)
+        errorMessage = nil
+    }
+
+    /// Saves a word about the dish. Stays open if it didn't save, so what was typed isn't lost.
+    @discardableResult
+    func saveComment(nightID: UUID, memberID: UUID, typed: String) async -> Bool {
+        guard let log = log(for: nightID), let words = DinnerPrompts.comment(from: typed) else { return false }
+        let saved = await write(nightID, failure: String(localized: "Couldn't save that. Check your connection and try again."),
+                                refused: String(localized: "This rating is locked in now, so it can't take a comment.")) {
+            [client] in try await client.comment(log.id, memberID, words)
+        }
+        if saved { commentNights.remove(nightID) }
+        return saved
     }
 
     @discardableResult
