@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 /// The keep-on-hand list (docs/spec.md → Keep-on-hand list): each staple is in, low, or out, no counting, and anyone can say so.
-/// Low and out show under Staples running low on Lists, and go on the next weekly list. They notify no one.
+/// Out goes straight on the quick list; low shows under Staples running low on Lists. Both go on the next weekly list. They notify no one.
 struct KeepOnHandView: View {
     @Environment(SyncService.self) private var sync: SyncService?
     @Environment(HouseholdStore.self) private var household
@@ -51,7 +51,7 @@ struct KeepOnHandView: View {
                 }
             } footer: {
                 if !staples.isEmpty {
-                    Text("Low and out show under Staples running low on Lists, and go on the next weekly list.")
+                    Text("Out goes straight on the list. Low shows under Staples running low on Lists, and goes on the next weekly list.")
                 }
             }
         }
@@ -75,7 +75,7 @@ struct KeepOnHandView: View {
     }
 
     private func set(_ itemID: UUID, to state: StockState?) {
-        Task { await sync?.perform(.setStock(itemID: itemID, state: state)) }
+        Task { await sync?.setStock(itemID: itemID, state: state) }
     }
 
     /// The name as typed: a staple's name stays for good, and "7 Up" isn't seven of anything. Commas or new lines separate.

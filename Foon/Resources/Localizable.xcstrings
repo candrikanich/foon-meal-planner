@@ -1958,9 +1958,6 @@
     "Low" : {
 
     },
-    "Low and out show under Staples running low on Lists, and go on the next weekly list." : {
-
-    },
     "Made %@" : {
       "comment" : "Freezer stash: the date a dish was made"
     },
@@ -2383,6 +2380,9 @@
     },
     "Out every night" : {
       "comment" : "A member's usual schedule"
+    },
+    "Out goes straight on the list. Low shows under Staples running low on Lists, and goes on the next weekly list." : {
+
     },
     "Pantry" : {
 

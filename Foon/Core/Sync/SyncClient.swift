@@ -88,6 +88,10 @@ extension SyncClient {
                 case .removeFromList(let listItemID):
                     try await client.from("list_items").delete().eq("id", value: listItemID).execute()
                     return nil
+                case .removeStapleLine(let listItemID):
+                    try await client.from("list_items").delete().eq("id", value: listItemID)
+                        .eq("source", value: ListItemSource.staple.rawValue).is("checked_at", value: nil).execute()
+                    return nil
                 }
             },
             listChanges: { householdID in

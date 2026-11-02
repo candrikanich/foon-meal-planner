@@ -343,7 +343,7 @@ struct WeekView: View {
         isApproving = true
         defer { isApproving = false }
         // Pull right away so the cart badge and Lists show the new list without waiting for Realtime.
-        if await week.approveLatest(weeklyList) { await sync?.pull() }
+        if await week.approveLatest(weeklyList) { await sync?.pullAfterApproving() }
     }
 
     private func approveText(_ count: Int, update: Bool) -> String {

@@ -302,9 +302,22 @@ struct HouseholdClientLiveTests {
 
         // Lists: a brand-new item, and "couldn't find it" removing a weekly line.
         let towels = try await ItemClient.live(supabase).ensure(household.id, "Paper towels", .household)
+        let towelsLine = UUID()
         _ = try await SyncClient.live(supabase).send(.addToList(householdID: household.id, itemID: towels, list: .quick,
                                                                urgency: .whenever, source: .manual, note: nil,
-                                                               lineID: UUID()))
+                                                               lineID: towelsLine))
+        // Marking a staple back in only takes off what a staple put there.
+        _ = try await SyncClient.live(supabase).send(.removeStapleLine(listItemID: towelsLine))
+        let kept = try await SyncClient.live(supabase).fetchSnapshot(household.id, sunday)
+        #expect(kept.listItems.contains { $0.id == towelsLine }, "added by hand, so it stays")
+        let napkins = try await ItemClient.live(supabase).ensure(household.id, "Napkins", .household)
+        let napkinsLine = UUID()
+        _ = try await SyncClient.live(supabase).send(.addToList(householdID: household.id, itemID: napkins, list: .quick,
+                                                               urgency: .whenever, source: .staple, note: nil,
+                                                               lineID: napkinsLine))
+        _ = try await SyncClient.live(supabase).send(.removeStapleLine(listItemID: napkinsLine))
+        #expect(!(try await SyncClient.live(supabase).fetchSnapshot(household.id, sunday)).listItems.contains { $0.id == napkinsLine },
+                "a staple's line goes")
         let gone = try #require(weekly.first)
         await #expect(throws: (any Error).self, "no such item") {
             _ = try await SyncClient.live(supabase).send(.addToList(householdID: household.id, itemID: UUID(), list: .quick,

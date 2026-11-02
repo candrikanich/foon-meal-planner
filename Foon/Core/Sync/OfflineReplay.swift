@@ -13,6 +13,9 @@ enum OfflineChange: Codable, Equatable, Sendable {
     case setStock(itemID: UUID, state: StockState?)
     /// Takes a line off its list.
     case removeFromList(listItemID: UUID)
+    /// Takes a line off only if a staple put it there and it's still unbought. This phone may think a line is a staple's when the
+    /// server merged it into one someone added by hand, so the server decides.
+    case removeStapleLine(listItemID: UUID)
 
     /// The same change aimed at the line a server merge kept instead of the device's line.
     func repointed(_ aliases: [UUID: UUID]) -> OfflineChange {
@@ -21,6 +24,8 @@ enum OfflineChange: Codable, Equatable, Sendable {
             aliases[listItemID].map { .setChecked(listItemID: $0, checked: checked) } ?? self
         case .removeFromList(let listItemID):
             aliases[listItemID].map { .removeFromList(listItemID: $0) } ?? self
+        case .removeStapleLine(let listItemID):
+            aliases[listItemID].map { .removeStapleLine(listItemID: $0) } ?? self
         case .addToList(let householdID, let itemID, let list, let urgency, let source, let note, let lineID, let quantity, let planID, let replacing):
             replacing.flatMap { aliases[$0] }.map {
                 .addToList(householdID: householdID, itemID: itemID, list: list, urgency: urgency, source: source, note: note,

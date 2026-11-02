@@ -68,7 +68,7 @@ struct ItemSheet: View {
     private func makeStore() {
         let sync = sync
         let store = ItemStore(item: item, canRecategorize: canRecategorize, client: client, queueStock: sync.map { sync in
-            { state in await sync.perform(.setStock(itemID: item.id, state: state)) }
+            { state in await sync.setStock(itemID: item.id, state: state) }
         })
         if let cached = sync?.isKeptOnHand(item.id) { store.startFromCache(keepOnHand: cached, stock: sync?.stockState(item.id)) }
         self.store = store
