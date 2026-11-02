@@ -101,7 +101,11 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
   `failed` because that is the outbox's one "ended without sending" column (stale, called off by time, gave up); every
   rule that skips finished rows already skips it. send-push never sees one, so it isn't a delivery failure.
 - A row handed out and not finished (`attempts > 0`, unsent, not failed: a retry waiting, a run still sending, a crashed
-  run's hold) counts against what's left, so a new row can't take the same last slot.
+  run's hold) counts against what's left, so a new row can't take the same last slot. Only rows that still stand count, and
+  the over_budget update rechecks `failed is null and attempts = 0` on the row, so one another run just claimed isn't marked.
+- A digest row is a planner's once-a-day mark, so nothing deletes it early: consent withdrawal and
+  `members_drop_push_devices` (removal, leaving, a profile claimed) blank `args.name` and `about_member_id` instead, and a
+  digest to someone who leaves stays (their devices go, so an unsent one ends as `no_devices`).
 - No kind is exempt. Nothing about allergies or safety is a push, so a budget can't drop one.
 - Held for a later week: no. Everything a server push says is about now or a night this week.
 - The device: today it counts only what it scheduled itself (`ReminderCache`), so server pushes don't reduce its own budget

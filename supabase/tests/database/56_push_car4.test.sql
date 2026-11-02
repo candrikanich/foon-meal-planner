@@ -1,7 +1,7 @@
 -- Server push, car 4 (#40 part 2): server pushes share the device's weekly budget, counted from the log on either channel,
 -- most important first; and Engaged planners get one digest a day about new ideas that aren't theirs.
 begin;
-select plan(33);
+select plan(39);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -238,6 +238,8 @@ select results_eq(
      where o.sent_at is null order by m.first_name $$,
   $$ values ('Alice', '{"count": 1, "name": "Bob"}'::jsonb), ('Pam', '{"count": 1, "name": "Bob"}'::jsonb) $$,
   'count only what came since their last digest');
+select is(public.enqueue_request_digests(pg_temp.at_a_day(1, '20:00')), 0,
+  'and once a day by the run''s own clock: the digest is stamped with when it ran');
 
 -- Someone removed -------------------------------------------------------------------------------------------------------------------
 
@@ -247,6 +249,9 @@ insert into public.requests (household_id, requested_by_member_id, entered_by_me
 update public.members set status = 'removed', user_id = null where id = '00000000-0000-0000-0000-0000000000c2';
 select is(public.enqueue_request_digests(pg_temp.at_a_day(2, '19:45')), 0,
   'ideas from someone removed since don''t make a digest, so their name doesn''t go out');
+select results_eq($$ select args, about_member_id from public.push_outbox where member_id = '00000000-0000-0000-0000-0000000000c1' $$,
+  $$ values ('{"count": 1}'::jsonb, null::uuid) $$,
+  'the digest that named them stays, without their name, so Carol''s once a day still holds');
 
 -- A kid's consent withdrawn ---------------------------------------------------------------------------------------------------------
 
@@ -262,9 +267,27 @@ select public.anonymize_expired_profiles();
 select is((select count(*) from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a4'
              or args ->> 'name' = 'Nora'), 0::bigint,
   'a kid''s withdrawn consent takes their name out of the digests that named them, sent ones too');
-select is((select count(*) from public.push_outbox where kind = 'new_requests' and args = '{"count": 1}'), 2::bigint,
+select is((select count(*) from public.push_outbox where kind = 'new_requests' and args = '{"count": 1}'
+             and household_id = '00000000-0000-0000-0000-0000000000a0'), 2::bigint,
   'but the digests stay, so a planner''s once a day still holds');
-select is((select count(*) from public.push_outbox where kind = 'new_requests'), 6::bigint, 'and the others are untouched');
+select is((select count(*) from public.push_outbox where kind = 'new_requests'), 7::bigint,
+  'and the others are untouched: Alice''s and Pam''s two days, and Carol''s');
+
+-- A profile claimed mid-window ---------------------------------------------------------------------------------------------------
+
+insert into public.requests (household_id, requested_by_member_id, entered_by_member_id, title, status, created_at) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000a2',
+   'Waffles', 'open', pg_temp.at_a_day(3, '19:00'));
+select is(public.enqueue_request_digests(pg_temp.at_a_day(3, '19:45')), 2, 'Nora''s idea, passed to Bob''s phone');
+select is((select count(*) from public.push_outbox where args ->> 'name' = 'Nora'), 2::bigint, 'names her');
+insert into auth.users (id, email, aud, role) values
+  ('40000000-0000-0000-0000-000000000004', 'nora@example.com', 'authenticated', 'authenticated');
+update public.members set user_id = '40000000-0000-0000-0000-000000000004'
+where id = '00000000-0000-0000-0000-0000000000a4';
+select is((select count(*) from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a4'
+             or args ->> 'name' = 'Nora'), 0::bigint, 'when she claims her profile, the digests stop naming her');
+select is(public.enqueue_request_digests(pg_temp.at_a_day(3, '20:00')), 0,
+  'but stay, so the 8pm run doesn''t send the same news again');
 
 -- Clients ------------------------------------------------------------------------------------------------------------------------
 

@@ -105,12 +105,14 @@ begin
     select d.member_id,
            public.push_budget_left(d.member_id, now())
              - (select count(*)::int from public.push_outbox f
-                where f.member_id = d.member_id and f.sent_at is null and f.failed is null and f.attempts > 0) as left_over
+                where f.member_id = d.member_id and f.sent_at is null and f.failed is null and f.attempts > 0
+                  and public.push_outbox_stands(f.kind, f.claim_id, f.request_id, f.night_id)) as left_over
     from (select distinct member_id from due) d
   )
+  -- Checked again on the row itself: another run may have claimed it since `due` was read.
   update public.push_outbox o set failed = 'over_budget'
   from due join room on room.member_id = due.member_id
-  where o.id = due.id and due.place > room.left_over;
+  where o.id = due.id and due.place > room.left_over and o.failed is null and o.attempts = 0;
 
   return query
   with due as (
@@ -216,6 +218,23 @@ begin
 end;
 $$;
 
+
+-- As car 2's, except a digest: it's a planner's once-a-day mark, so one naming someone who leaves (or whose profile is
+-- claimed) stops naming them instead of going, and one sent to someone who leaves stays (their devices go, so an unsent one
+-- ends as no_devices). Everything else about them or to them goes, as before.
+create or replace function public.members_drop_push_devices()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  delete from public.push_devices where member_id = new.id;
+  update public.push_outbox set args = args - 'name', about_member_id = null
+  where kind = 'new_requests' and about_member_id = new.id;
+  delete from public.push_outbox
+  where kind <> 'new_requests' and (member_id = new.id or about_member_id = new.id);
+  return null;
+end;
+$$;
 
 -- New-ideas digest ------------------------------------------------------------------------------------------------------------------
 
