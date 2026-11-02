@@ -1,6 +1,6 @@
 -- A week that drops an item hands its line to another week that also listed it, rather than deleting that need (#209).
 begin;
-select plan(13);
+select plan(15);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -83,6 +83,21 @@ select public.approve_plan('00000000-0000-0000-0000-0000000003a2', '[]'::jsonb);
 select public.approve_plan('00000000-0000-0000-0000-0000000003a1', '[]'::jsonb);
 select is_empty($$ select 1 from public.list_items where item_id = '00000000-0000-0000-0000-0000000001a3' and checked_at is null $$,
   'another week''s note alone doesn''t keep a line no week needs');
+
+-- A line with a hand note that another week also listed goes to that week first, then stays by hand.
+select public.approve_plan('00000000-0000-0000-0000-0000000003a1',
+  '[{"item_id": "00000000-0000-0000-0000-0000000001a3"}]'::jsonb);
+select public.approve_plan('00000000-0000-0000-0000-0000000003a2',
+  '[{"item_id": "00000000-0000-0000-0000-0000000001a3"}]'::jsonb);
+select public.add_to_list('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a3', 'weekly',
+                          item_note => 'King Arthur');
+select public.approve_plan('00000000-0000-0000-0000-0000000003a1', '[]'::jsonb);
+select is((pg_temp.line('00000000-0000-0000-0000-0000000001a3')).plan_id, '00000000-0000-0000-0000-0000000003a2'::uuid,
+  'a hand-noted line another week needs goes to that week first');
+select public.approve_plan('00000000-0000-0000-0000-0000000003a2', '[]'::jsonb);
+select is((select count(*)::int from public.list_items where item_id = '00000000-0000-0000-0000-0000000001a3'
+            and checked_at is null and plan_id is null and note = 'King Arthur'), 1,
+  'and stays as a hand-added line with its note when that week drops it too');
 
 select is((public.add_to_list('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a4', 'quick',
                                item_note => 'brown')).hand_note, 'brown', 'a note added by hand is recorded as one');
