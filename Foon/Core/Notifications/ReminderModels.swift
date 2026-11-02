@@ -171,6 +171,8 @@ enum ReminderRoute: Equatable, Sendable {
     case rate(night: UUID, member: UUID)
     /// This Week's check-in card. The lock screen's Home and Not home answer for this person on this night.
     case checkIn(night: UUID, member: UUID)
+    /// The Lists tab: a server push about something added for tonight.
+    case lists
 }
 
 /// One notification to schedule. Its text is fixed words (`ReminderText`).

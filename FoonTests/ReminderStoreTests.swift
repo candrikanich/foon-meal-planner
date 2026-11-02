@@ -999,4 +999,11 @@ struct ReminderPresetWordingTests {
             == .week(CalendarDay(year: 2026, month: 11, day: 9)))
         #expect(ReminderResponse.pushRoute(action: "com.apple.UNNotificationDismissActionIdentifier", payload: payload) == nil)
     }
+
+    @Test func somethingForTonightOpensLists() {
+        let payload = ReminderPayload(userInfo: ["route": "list"])
+        #expect(payload?.route == .lists)
+        #expect(payload?.userInfo["route"] == "list")
+        #expect(ReminderResponse.pushRoute(action: "com.apple.UNNotificationDefaultActionIdentifier", payload: payload) == .lists)
+    }
 }
