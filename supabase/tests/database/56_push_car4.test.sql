@@ -1,7 +1,7 @@
 -- Server push, car 4 (#40 part 2): server pushes share the device's weekly budget, counted from the log on either channel,
 -- most important first; and Engaged planners get one digest a day about new ideas that aren't theirs.
 begin;
-select plan(27);
+select plan(30);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -221,6 +221,33 @@ select results_eq(
      where o.sent_at is null order by m.first_name $$,
   $$ values ('Alice', '{"count": 1, "name": "Bob"}'::jsonb), ('Pam', '{"count": 1, "name": "Bob"}'::jsonb) $$,
   'count only what came since their last digest');
+
+-- Someone removed -------------------------------------------------------------------------------------------------------------------
+
+update public.push_outbox set created_at = created_at - interval '1 day';
+update public.requests set created_at = created_at - interval '1 day';
+insert into public.requests (household_id, requested_by_member_id, entered_by_member_id, title, status, created_at) values
+  ('00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000c2',
+   'Gumbo', 'open', now() - interval '1 hour');
+update public.members set status = 'removed', user_id = null where id = '00000000-0000-0000-0000-0000000000c2';
+select is(public.enqueue_request_digests(pg_temp.at_a('19:45')), 0,
+  'ideas from someone removed since don''t make a digest, so their name doesn''t go out');
+
+-- A kid's consent withdrawn ---------------------------------------------------------------------------------------------------------
+
+insert into public.push_outbox (household_id, member_id, kind, about_member_id, args, not_before, sent_at) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a1', 'new_requests',
+   '00000000-0000-0000-0000-0000000000a4', '{"count": 1, "name": "Nora"}', now(), now()),
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'new_requests',
+   '00000000-0000-0000-0000-0000000000a4', '{"count": 1, "name": "Nora"}', now(), null);
+insert into public.consents (household_id, member_id, kind, granted_by, granted_at, revoked_at, text_version) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', 'parental',
+   'a0000000-0000-0000-0000-00000000000a', now() - interval '90 days', now() - interval '31 days', 'v1');
+select public.anonymize_expired_profiles();
+select is((select count(*) from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a4'), 0::bigint,
+  'a kid''s withdrawn consent takes along the digests that named them, sent ones too');
+select is((select count(*) from public.push_outbox where kind = 'new_requests'), 4::bigint,
+  'and leaves the others (Alice''s and Pam''s two days of digests)');
 
 -- Clients ------------------------------------------------------------------------------------------------------------------------
 
