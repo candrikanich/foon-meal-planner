@@ -33,6 +33,9 @@ struct RhythmFields: View {
                 ForEach(HouseholdSettings.NotificationPreset.allCases, id: \.self) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
+            if settings.notificationPreset != .light {
+                DatePicker("Ask who's home at", selection: time(\.checkInTime), displayedComponents: .hourAndMinute)
+            }
         } footer: {
             Text("\(settings.notificationPreset.summary) Each person's device asks before it sends anything. You can change this anytime in Family.")
         }

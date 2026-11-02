@@ -32,11 +32,15 @@ extension ReminderCenter {
     static let doneAction = "foon.reminder.done"
     static let snoozeAction = "foon.reminder.snooze"
     static let swapAction = "foon.reminder.swap"
+    static let checkInCategory = "foon.reminder.checkin"
+    static let homeAction = "foon.reminder.home"
+    static let notHomeAction = "foon.reminder.nothome"
 
     /// Done and Remind me in an hour don't open the app, and Swap does.
     /// Which set of actions a reminder offers. "Remind me in an hour" only if an hour from then is before dinner, so it can't be
     /// a button that does nothing.
     static func category(for reminder: PlannedReminder) -> String? {
+        if reminder.kind == .checkIn { return checkInCategory }
         guard reminder.kind == .prep else { return nil }
         let inTime = reminder.dinnerAt.map { reminder.fireAt.addingTimeInterval(ReminderResponse.snoozeDelay) < $0 } ?? true
         return inTime ? prepCategory : prepNoSnoozeCategory
@@ -50,7 +54,10 @@ extension ReminderCenter {
                                         options: [.foreground])
         let prep = UNNotificationCategory(identifier: prepCategory, actions: [done, snooze, swap], intentIdentifiers: [])
         let noSnooze = UNNotificationCategory(identifier: prepNoSnoozeCategory, actions: [done, swap], intentIdentifiers: [])
-        UNUserNotificationCenter.current().setNotificationCategories([prep, noSnooze])
+        let home = UNNotificationAction(identifier: homeAction, title: String(localized: "Home", comment: "Check-in action"))
+        let notHome = UNNotificationAction(identifier: notHomeAction, title: String(localized: "Not home", comment: "Check-in action"))
+        let checkIn = UNNotificationCategory(identifier: checkInCategory, actions: [home, notHome], intentIdentifiers: [])
+        UNUserNotificationCenter.current().setNotificationCategories([prep, noSnooze, checkIn])
     }
 
     static let system = ReminderCenter(
@@ -124,6 +131,10 @@ struct ReminderPayload: Equatable, Sendable {
             info["date"] = day.isoString
         case .dinnerCard:
             info["route"] = "dinner"
+        case .checkIn(let night, let member):
+            info["route"] = "checkin"
+            info["night"] = night.uuidString
+            info["member"] = member.uuidString
         }
         if let dinnerAt { info["dinner"] = String(dinnerAt.timeIntervalSince1970) }
         return info
@@ -144,6 +155,10 @@ struct ReminderPayload: Equatable, Sendable {
             route = .night(night, day)
         case "dinner":
             route = .dinnerCard
+        case "checkin":
+            guard let night = (userInfo["night"] as? String).flatMap(UUID.init(uuidString:)),
+                  let member = (userInfo["member"] as? String).flatMap(UUID.init(uuidString:)) else { return nil }
+            route = .checkIn(night: night, member: member)
         default:
             return nil
         }

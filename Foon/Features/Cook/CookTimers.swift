@@ -136,6 +136,16 @@ final class CookAlertPresenter: NSObject, UNUserNotificationCenterDelegate, Send
             )
         }
         ReminderDevice().add(outcome.answer)
+        if let checkIn = outcome.checkIn {
+            ReminderDevice().add(checkIn)
+            // First, since iOS can suspend the app during the write: don't ask later how a dinner they said they'd miss was.
+            if !checkIn.home {
+                let pending = await ReminderCenter.system.pendingIDs()
+                ReminderCenter.system.remove(pending.filter { ReminderID.isAfterDinner($0, night: checkIn.nightID) })
+            }
+            // Now, if it can, so it's on the server the next time a planner looks. The app's next run sends it otherwise.
+            await CheckInDelivery.send(device: ReminderDevice(), client: .live(SupabaseService.shared.client))
+        }
         if let route = outcome.route { ReminderRouter.shared.go(to: route) }
     }
 }

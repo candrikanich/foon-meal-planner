@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import Supabase
 import Synchronization
 
 /// Someone's answer to a notification, kept until the app can file it. It's written by the notification delegate, which can
@@ -12,11 +13,20 @@ struct ReminderAnswer: Codable, Equatable, Sendable {
     var snoozedUntil: Date?
 }
 
+/// "Home" or "Not home" from the lock screen, kept until the server has it. Tapped with no signal it must still land, or the
+/// planner goes on cooking for someone who said they're out.
+struct CheckInAnswer: Codable, Equatable, Sendable {
+    let nightID: UUID
+    let memberID: UUID
+    let home: Bool
+}
+
 /// What's kept on this device outside the cache: answers waiting to be filed, and each person's choice about reminders. System
 /// permission is shared with cook-mode timers, so a yes there isn't a yes to reminders: that's the opt-in, and it's per person.
 struct ReminderDevice: @unchecked Sendable {
     private let defaults: UserDefaults
     private static let answersKey = "foon.reminder.answers"
+    private static let checkInsKey = "foon.reminder.checkIns"
     private static let declinedKey = "foon.reminder.declined"
     private static let optedInKey = "foon.reminder.optedIn"
     /// Answers can be written and read from different threads.
@@ -47,6 +57,37 @@ struct ReminderDevice: @unchecked Sendable {
         Self.answersLock.withLock { _ in store(storedAnswers.filter { !filed.contains($0) }) }
     }
 
+    /// Oldest first, so a change of mind lands last.
+    var checkIns: [CheckInAnswer] {
+        Self.answersLock.withLock { _ in storedCheckIns }
+    }
+
+    private var storedCheckIns: [CheckInAnswer] {
+        defaults.data(forKey: Self.checkInsKey).flatMap { try? JSONDecoder().decode([CheckInAnswer].self, from: $0) } ?? []
+    }
+
+    func add(_ checkIn: CheckInAnswer) {
+        Self.answersLock.withLock { _ in
+            defaults.set(try? JSONEncoder().encode(Array((storedCheckIns + [checkIn]).suffix(20))), forKey: Self.checkInsKey)
+        }
+    }
+
+    /// Takes this one off, oldest first. A later answer for the same night stays, and is sent after it.
+    func removeCheckIn(_ sent: CheckInAnswer) {
+        Self.answersLock.withLock { _ in
+            var waiting = storedCheckIns
+            if let index = waiting.firstIndex(of: sent) { waiting.remove(at: index) }
+            defaults.set(try? JSONEncoder().encode(waiting), forKey: Self.checkInsKey)
+        }
+    }
+
+    func removeCheckIns(night: UUID, member: UUID) {
+        Self.answersLock.withLock { _ in
+            let waiting = storedCheckIns.filter { $0.nightID != night || $0.memberID != member }
+            defaults.set(try? JSONEncoder().encode(waiting), forKey: Self.checkInsKey)
+        }
+    }
+
     func isOptedIn(_ member: UUID) -> Bool {
         defaults.stringArray(forKey: Self.optedInKey)?.contains(member.uuidString) ?? false
     }
@@ -70,9 +111,32 @@ struct ReminderDevice: @unchecked Sendable {
 
     /// Signing out leaves nothing of this person's.
     func clear() {
-        Self.answersLock.withLock { _ in defaults.removeObject(forKey: Self.answersKey) }
+        Self.answersLock.withLock { _ in
+            defaults.removeObject(forKey: Self.answersKey)
+            defaults.removeObject(forKey: Self.checkInsKey)
+        }
         defaults.removeObject(forKey: Self.declinedKey)
         defaults.removeObject(forKey: Self.optedInKey)
+    }
+}
+
+/// Sends the lock screen's answers that are waiting, oldest first. One the server has an answer to goes too: it won't change its
+/// mind about yesterday's night, or a planner having them out. Anything else stays for next time, and so do the ones after it. That
+/// includes "not allowed", which is also what a phone sees with its session not back yet, so it's no reason to lose an answer.
+enum CheckInDelivery {
+    private static let finalRefusals: Set<String> = ["22023", "FD016", "P0002"]
+
+    static func send(device: ReminderDevice, client: NotificationClient) async {
+        for answer in device.checkIns {
+            do {
+                try await client.answerCheckIn(answer.nightID, answer.memberID, answer.home)
+            } catch let error as PostgrestError where error.code.map(finalRefusals.contains) == true {
+                // It's had its answer.
+            } catch {
+                return
+            }
+            device.removeCheckIn(answer)
+        }
     }
 }
 
@@ -104,6 +168,7 @@ enum ReminderResponse {
         /// Schedules this one again, as it was, at `answer.snoozedUntil`.
         let schedulesAgain: Bool
         let route: ReminderRoute?
+        var checkIn: CheckInAnswer? = nil
     }
 
     /// Nil for anything that isn't a reminder: cook-mode timers only open the app, as they always did.
@@ -121,6 +186,11 @@ enum ReminderResponse {
             let inTime = payload?.dinnerAt.map { until < $0 } ?? true
             return Outcome(answer: ReminderAnswer(id: base, response: "snoozed", at: now, snoozedUntil: inTime ? until : nil),
                            cancels: [followUp], schedulesAgain: inTime, route: nil)
+        case ReminderCenter.homeAction, ReminderCenter.notHomeAction:
+            guard case .checkIn(let night, let member) = payload?.route else { return nil }
+            let checkIn = CheckInAnswer(nightID: night, memberID: member, home: action == ReminderCenter.homeAction)
+            return Outcome(answer: ReminderAnswer(id: base, response: "done", at: now), cancels: [followUp],
+                           schedulesAgain: false, route: nil, checkIn: checkIn)
         case ReminderCenter.swapAction:
             var route = payload?.route
             if case .night(let night, let day) = route { route = .swap(night, day) }

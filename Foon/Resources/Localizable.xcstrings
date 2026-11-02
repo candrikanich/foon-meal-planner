@@ -114,6 +114,9 @@
         }
       }
     },
+    "%@ for dinner" : {
+      "comment" : "Check-in card: tonight's dish"
+    },
     "%@ has never been planned or cooked. This can't be undone." : {
 
     },
@@ -294,6 +297,9 @@
     },
     "%@ will cook tonight" : {
 
+    },
+    "%@ won't be home tonight." : {
+      "comment" : "Check-in news for a planner"
     },
     "%@ · %@" : {
       "localizations" : {
@@ -520,6 +526,9 @@
     "A plain summary, not the privacy policy. What you can export or delete is back on Family, under Your data." : {
 
     },
+    "A planner has you out tonight, so ask them to change it." : {
+
+    },
     "A removed meal" : {
 
     },
@@ -698,6 +707,9 @@
 
     },
     "Ask for a dish, a name, or a link (names up to 80 characters, notes up to 200)." : {
+
+    },
+    "Ask who's home at" : {
 
     },
     "At" : {
@@ -1175,7 +1187,7 @@
 
     },
     "Dismiss: %@" : {
-      "comment" : "Claim news: close the note\nRequest news: close the note"
+      "comment" : "Check-in news: close the note\nClaim news: close the note\nRequest news: close the note"
     },
     "Do the dishes" : {
       "comment" : "A dinner job"
@@ -1290,6 +1302,9 @@
     },
     "Everything's in the cart" : {
 
+    },
+    "Expect leftovers." : {
+      "comment" : "Check-in news: someone's out, so there'll be food left"
     },
     "Export household data" : {
 
@@ -1627,10 +1642,13 @@
 
     },
     "Home" : {
-
+      "comment" : "Check-in action\nCheck-in answer"
     },
     "Home every night" : {
       "comment" : "A member's usual schedule"
+    },
+    "Home tonight?" : {
+      "comment" : "Reminder title: the day-of check-in"
     },
     "Home: %@" : {
 
@@ -1663,6 +1681,9 @@
 
     },
     "I wasn't home" : {
+
+    },
+    "I'll be home" : {
 
     },
     "I'll cook %@" : {
@@ -1808,7 +1829,7 @@
     "Light" : {
 
     },
-    "Light, plus an after-dinner rating prompt. Kids get a few a week at most. A \"home tonight?\" check-in is on the way." : {
+    "Light, plus a \"home tonight?\" check-in and an after-dinner rating prompt. Kids get a few a week at most." : {
 
     },
     "Lists" : {
@@ -2104,6 +2125,9 @@
     },
     "Not for me" : {
 
+    },
+    "Not home" : {
+      "comment" : "Check-in action\nCheck-in answer"
     },
     "Not made yet" : {
 
@@ -2866,6 +2890,9 @@
     "Tap to rate dinner." : {
       "comment" : "Reminder body: rate the dish, never the cook"
     },
+    "Tap to see what's for dinner." : {
+      "comment" : "Reminder body: the day-of check-in"
+    },
     "Taste" : {
 
     },
@@ -3432,6 +3459,9 @@
 
     },
     "You cooked" : {
+
+    },
+    "You said you won't be home tonight." : {
 
     },
     "You shared %lld things with Foon" : {

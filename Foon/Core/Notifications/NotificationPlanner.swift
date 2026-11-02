@@ -68,7 +68,7 @@ enum NotificationPlanner {
         private var settings: HouseholdSettings { inputs.settings }
 
         func candidates() -> [Candidate] {
-            let first = timeToPlan() + prep() + afterDinner()
+            let first = timeToPlan() + prep() + afterDinner() + checkIn()
             return rules.followsUp ? first + first.compactMap(followUp) : first
         }
 
@@ -133,12 +133,30 @@ enum NotificationPlanner {
             }
         }
 
+        /// "Home tonight?", to whoever's expected, at the household's check-in time. Only with a dinner to come home to: not an
+        /// empty night, not Fend for yourselves, and not once dinner's logged or they've answered on any phone.
+        private func checkIn() -> [Candidate] {
+            guard rules.kinds.contains(.checkIn) else { return [] }
+            return plannableNights().compactMap { night -> Candidate? in
+                guard DayOfCheckIn.hasDinnerToAskAbout(mealID: night.mealID, quickPick: night.quickPick), !night.hasLog,
+                      night.attendance[me.id] == true, !night.checkedIn.contains(me.id), !me.isAway(today: night.date),
+                      let dinner = DinnerPrompts.moment(night.dinnerTime ?? settings.dinnerTime, on: night.date, calendar: calendar),
+                      let fire = DinnerPrompts.moment(settings.checkInTime, on: night.date, calendar: calendar)
+                else { return nil }
+                return Candidate(reminder: PlannedReminder(
+                    id: ReminderID.checkIn(me: me.id, night: night.id), kind: .checkIn, nightID: night.id, fireAt: fire,
+                    dinnerAt: dinner, title: ReminderText.checkInTitle, body: ReminderText.checkInBody,
+                    route: .checkIn(night: night.id, member: me.id)))
+            }
+        }
+
         /// One more an hour later, unless they've answered, and only after a first that went or is still to go: on its own
-        /// it would be a reminder that came too late to send. Never after dinner.
+        /// it would be a reminder that came too late to send. Never after dinner, and never for a check-in, where no answer
+        /// is an answer.
         private func followUp(_ first: Candidate) -> Candidate? {
             let reminder = first.reminder
             let known = history[reminder.id]
-            guard reminder.kind != .afterDinner, known?.respondedAt == nil,
+            guard reminder.kind != .afterDinner, reminder.kind != .checkIn, known?.respondedAt == nil,
                   let moved = settled(time: reminder.fireAt, for: reminder),
                   known?.sentAt != nil || moved > inputs.now else { return nil }
             return Candidate(reminder: PlannedReminder(
@@ -203,8 +221,9 @@ enum NotificationPlanner {
         }
 
         /// Out of quiet hours. A prep reminder goes just before them, or if that's gone by, when they end, as long as at least
-        /// half its lead time is left before dinner. Time to plan goes later, since the week will still need planning. An
-        /// after-dinner prompt, or a follow-up, just doesn't go: the card's still there.
+        /// half its lead time is left before dinner. Time to plan goes later, since the week will still need planning, and so
+        /// does a check-in, as long as that's before dinner. An after-dinner prompt, or a follow-up, just doesn't go: the card's
+        /// still there.
         private func settled(time: Date, for reminder: PlannedReminder, isFollowUp: Bool = false) -> Date? {
             var moved = time
             for _ in 0..<4 {
@@ -220,7 +239,7 @@ enum NotificationPlanner {
                               dinner.timeIntervalSince(quiet.end) >= dinner.timeIntervalSince(time) / 2 else { return nil }
                         moved = quiet.end
                     }
-                case .timeToPlan: moved = quiet.end
+                case .timeToPlan, .checkIn: moved = quiet.end
                 case .afterDinner: return nil
                 }
             }
@@ -263,6 +282,12 @@ enum ReminderText {
     static var afterDinnerTitle: String { String(localized: "How was dinner?", comment: "Reminder title") }
     static var afterDinnerBody: String {
         String(localized: "Tap to rate dinner.", comment: "Reminder body: rate the dish, never the cook")
+    }
+
+    /// Fixed words like the rest: the dish shows on the card, after a tap.
+    static var checkInTitle: String { String(localized: "Home tonight?", comment: "Reminder title: the day-of check-in") }
+    static var checkInBody: String {
+        String(localized: "Tap to see what's for dinner.", comment: "Reminder body: the day-of check-in")
     }
 
     /// Which dinner, from when the reminder goes: quiet hours can move one to another day.
