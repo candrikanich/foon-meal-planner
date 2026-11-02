@@ -12,6 +12,7 @@ struct RhythmChanges: Encodable, Equatable, Sendable {
     var leftoverNights: Int?
     var repeatWindowDays: Int?
     var notificationPreset: HouseholdSettings.NotificationPreset?
+    var checkInTime: String?
 
     private enum CodingKeys: String, CodingKey {
         case planningDay = "planning_day"
@@ -23,6 +24,7 @@ struct RhythmChanges: Encodable, Equatable, Sendable {
         case leftoverNights = "leftover_nights"
         case repeatWindowDays = "repeat_window_days"
         case notificationPreset = "notification_preset"
+        case checkInTime = "check_in_time"
     }
 
     init(from old: HouseholdSettings, to new: HouseholdSettings) {
@@ -38,6 +40,7 @@ struct RhythmChanges: Encodable, Equatable, Sendable {
         leftoverNights = changed(\.leftoverNights)
         repeatWindowDays = changed(\.repeatWindowDays)
         notificationPreset = changed(\.notificationPreset)
+        checkInTime = changed(\.checkInTime)
     }
 
     var isEmpty: Bool {
@@ -56,6 +59,7 @@ struct RhythmChanges: Encodable, Equatable, Sendable {
         if let leftoverNights { merged.leftoverNights = leftoverNights }
         if let repeatWindowDays { merged.repeatWindowDays = repeatWindowDays }
         if let notificationPreset { merged.notificationPreset = notificationPreset }
+        if let checkInTime { merged.checkInTime = checkInTime }
         return merged
     }
 }
