@@ -12,6 +12,7 @@ struct RootView: View {
     let ideasClient: IdeasClient
     let freezerClient: FreezerClient
     var notificationClient: NotificationClient = .preview
+    var pollClient: PollClient = .preview
 
     @ViewBuilder
     private var content: some View {
@@ -23,7 +24,7 @@ struct RootView: View {
         case .signedIn(let userID):
             HouseholdGate(userID: userID, client: householdClient, syncClient: syncClient, libraryClient: libraryClient,
                           weekClient: weekClient, dinnerClient: dinnerClient, ideasClient: ideasClient,
-                          freezerClient: freezerClient, notificationClient: notificationClient)
+                          freezerClient: freezerClient, notificationClient: notificationClient, pollClient: pollClient)
                 .id(userID)
         }
     }
@@ -60,10 +61,11 @@ struct HouseholdGate: View {
     let ideasClient: IdeasClient
     let freezerClient: FreezerClient
     let notificationClient: NotificationClient
+    let pollClient: PollClient
 
     init(userID: UUID, client: HouseholdClient, syncClient: SyncClient, libraryClient: LibraryClient,
          weekClient: WeekClient, dinnerClient: DinnerClient, ideasClient: IdeasClient, freezerClient: FreezerClient,
-         notificationClient: NotificationClient) {
+         notificationClient: NotificationClient, pollClient: PollClient) {
         _store = State(initialValue: HouseholdStore(userID: userID, client: client))
         self.syncClient = syncClient
         self.libraryClient = libraryClient
@@ -72,6 +74,7 @@ struct HouseholdGate: View {
         self.ideasClient = ideasClient
         self.freezerClient = freezerClient
         self.notificationClient = notificationClient
+        self.pollClient = pollClient
     }
 
     var body: some View {
@@ -93,7 +96,7 @@ struct HouseholdGate: View {
                 SyncGate(householdID: household.id, client: syncClient) {
                     RootTabView(householdID: household.id, libraryClient: libraryClient, weekClient: weekClient,
                                 dinnerClient: dinnerClient, ideasClient: ideasClient, freezerClient: freezerClient,
-                                notificationClient: notificationClient)
+                                notificationClient: notificationClient, pollClient: pollClient)
                 }
             case .failed:
                 ContentUnavailableView {

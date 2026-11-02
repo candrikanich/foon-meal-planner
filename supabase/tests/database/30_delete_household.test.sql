@@ -100,6 +100,12 @@ select public.use_freezer_item((select id from public.plan_nights where househol
                                 order by date desc limit 1),
                                (select id from public.freezer_stash limit 1), 'From the freezer');
 reset role;
+insert into public.polls (id, household_id, night_id, options, closes_at) values
+  ('00000000-0000-0000-0000-0000000009a1', '00000000-0000-0000-0000-0000000000a0',
+   (select id from public.plan_nights where household_id = '00000000-0000-0000-0000-0000000000a0' limit 1),
+   '[{"quick_pick":"takeout"}]', now());
+insert into public.poll_votes (poll_id, member_id, household_id, choice) values
+  ('00000000-0000-0000-0000-0000000009a1', '00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a0', 0);
 insert into public.meal_logs (id, household_id, night_id, meal_id, cooked_by_member_id) values
   ('00000000-0000-0000-0000-0000000003a1', '00000000-0000-0000-0000-0000000000a0',
    (select id from public.plan_nights where household_id = '00000000-0000-0000-0000-0000000000a0' limit 1),

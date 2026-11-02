@@ -40,6 +40,7 @@ struct WeekView: View {
                         ClaimNewsSection()
                         CheckInNewsSection(swap: { swappingNight = $0 })
                         CheckInSection()
+                        TonightPollSection()
                         DinnerPromptsSection()
                     }
                     Picker("Week", selection: $week.showingNextWeek) {
@@ -72,6 +73,7 @@ struct WeekView: View {
             .navigationTitle("This Week")
             .toolbar { cart }
             .refreshable { await load() }
+            .modifier(TonightPollRefresh())
             .sheet(item: Binding(get: { openNight.map(NightID.init) }, set: { openNight = $0?.id })) { night in
                 NightDetailView(nightID: night.id, canPlan: canPlan)
             }
