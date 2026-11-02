@@ -52,14 +52,11 @@ struct RootTabView: View {
         .environment(\.showTab) { selection = $0 }
         .modifier(ReminderRunner(store: reminders, week: week.week, logs: dinner.logs))
         .modifier(PivotRunner(week: week, library: library, dinner: dinner))
-        // This Week opens the night or the card once it's on screen, and takes the route. Lists needs nothing more.
+        // This Week opens the night or the card once it's on screen, and takes the route. Lists and Ideas need nothing more.
         .onChange(of: router.route, initial: true) { _, route in
-            if route == .lists {
-                selection = .lists
-                router.clear()
-            } else if route != nil {
-                selection = .week
-            }
+            guard let route else { return }
+            selection = route.tab
+            if route.tab != .week { router.clear() }
         }
         .sheet(item: $shared) { item in
             SharedItemSheet(item: item) { outcome in finishShared(item, outcome) }

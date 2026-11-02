@@ -34,6 +34,8 @@ struct NotificationClient: Sendable {
     var registerPush: @Sendable (_ token: String, _ environment: String) async throws -> Void = { _, _ in }
     /// Takes this device's token off the server, whoever it's filed under (`unregister_push_device`).
     var unregisterPush: @Sendable (_ token: String) async throws -> Void = { _ in }
+    /// When the server's pushes to this member went out since `since`, for the shared weekly budget.
+    var pushesSent: @Sendable (_ householdID: UUID, _ memberID: UUID, _ since: Date) async throws -> [Date] = { _, _, _ in [] }
 }
 
 extension NotificationClient {
@@ -80,12 +82,31 @@ extension NotificationClient {
             },
             unregisterPush: { token in
                 try await client.rpc("unregister_push_device", params: ["device_token": token]).execute()
+            },
+            pushesSent: { householdID, memberID, since in
+                let rows: [SentPushRow] = try await client.from("notification_log")
+                    .select("sent_at")
+                    .eq("household_id", value: householdID)
+                    .eq("member_id", value: memberID)
+                    .eq("channel", value: "push")
+                    .gte("sent_at", value: since)
+                    .execute()
+                    .value
+                return rows.map(\.sentAt)
             }
         )
     }
 
     /// No server.
     static let preview = NotificationClient(weeks: { _, _, _ in [] }, record: { _, _ in })
+}
+
+private struct SentPushRow: Decodable, Sendable {
+    let sentAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case sentAt = "sent_at"
+    }
 }
 
 private struct CheckInParams: Encodable, Sendable {

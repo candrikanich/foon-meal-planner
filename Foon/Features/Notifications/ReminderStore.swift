@@ -136,6 +136,8 @@ final class ReminderStore {
         await CheckInDelivery.send(device: device, client: client)
         await DinnerAnswerDelivery.send(device: device, client: client)
         let weeks = await fetchWeeks(settings: wanted.settings)
+        // Offline, the server's pushes can't be counted: the budget can run a few over until the next read.
+        let pushesSent = (try? await client.pushesSent(householdID, wanted.me.id, now().addingTimeInterval(-8 * 24 * 60 * 60))) ?? []
         guard !isStopped else { return }
         self.permission = permission
         hasDeclined = device.hasDeclined(wanted.me.id)
@@ -154,7 +156,7 @@ final class ReminderStore {
 
         let plan = NotificationPlanner.plan(NotificationPlanner.Inputs(
             me: wanted.me, members: wanted.members, settings: wanted.settings, snapshot: snapshot,
-            history: records(member: wanted.me.id, in: context).map(\.history), now: now()
+            history: records(member: wanted.me.id, in: context).map(\.history), pushesSent: pushesSent, now: now()
         ))
         hasRemindersToOffer = !plan.isEmpty && snapshot?.weeks.contains(where: \.isApproved) == true
 

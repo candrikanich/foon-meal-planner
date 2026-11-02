@@ -908,7 +908,8 @@ struct ReminderPresetWordingTests {
         let engaged = HouseholdSettings.NotificationPreset.engaged.summary
         #expect(engaged.contains("follow-up"))
         #expect(engaged.contains("tonight polls"))
-        #expect(engaged.contains("on the way"), "digests, the store run, and the recap aren't built")
+        #expect(engaged.contains("new ideas"))
+        #expect(engaged.contains("on the way"), "the store run and the recap aren't built")
     }
 }
 
@@ -1009,5 +1010,14 @@ struct ReminderPresetWordingTests {
         #expect(payload?.route == .lists)
         #expect(payload?.userInfo["route"] == "list")
         #expect(ReminderResponse.pushRoute(action: "com.apple.UNNotificationDefaultActionIdentifier", payload: payload) == .lists)
+    }
+
+    @Test func newIdeasOpenIdeas() {
+        let payload = ReminderPayload(userInfo: ["route": "ideas"])
+        #expect(payload?.route == .ideas)
+        #expect(payload?.userInfo["route"] == "ideas")
+        #expect(ReminderRoute.ideas.tab == .ideas)
+        #expect(ReminderRoute.lists.tab == .lists)
+        #expect(ReminderRoute.dinnerCard.tab == .week)
     }
 }
