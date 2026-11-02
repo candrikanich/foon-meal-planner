@@ -73,20 +73,20 @@ enum RecipeImportError: Error, Equatable {
 }
 
 /// Reads every row of a list the server caps per request (`max_rows`, 1000 here and not checked on hosted projects). Each page
-/// starts after the last row's id, so a row added or removed mid-read can't shift the others. Only an empty page means the end:
+/// starts after the last row's key, so a row added or removed mid-read can't shift the others. Only an empty page means the end:
 /// a short one might just be a lower cap, and stopping there would lose dishes, and their allergy flags, without a word.
 enum RowPages {
     static let size = 500
 
-    static func all<Row: Sendable>(size: Int = size, id: (Row) -> UUID,
-                                   page: (_ after: UUID?, _ size: Int) async throws -> [Row]) async throws -> [Row] {
+    static func all<Row, Key>(size: Int = size, key: (Row) -> Key,
+                              page: (_ after: Key?, _ size: Int) async throws -> [Row]) async throws -> [Row] {
         var rows: [Row] = []
-        var after: UUID?
+        var after: Key?
         while true {
             let next = try await page(after, size)
             guard let last = next.last else { return rows }
             rows += next
-            after = id(last)
+            after = key(last)
         }
     }
 }
@@ -96,7 +96,7 @@ extension LibraryClient {
         let photos = PhotoStorageClient.live(client)
         return LibraryClient(
             meals: { householdID in
-                let rows: [MealRow] = try await RowPages.all(id: \.id) { after, size in
+                let rows: [MealRow] = try await RowPages.all(key: \.id) { after, size in
                     var query = client.from("meals")
                         .select("""
                             id, household_id, catalog_meal_id, name, servings, tags, status, photo_path, made_by_member_id, \
@@ -111,11 +111,13 @@ extension LibraryClient {
                 return rows.map(\.meal)
             },
             history: { householdID in
-                try await client.from("meal_history")
-                    .select("meal_id, times_made, last_made")
-                    .eq("household_id", value: householdID)
-                    .execute()
-                    .value
+                try await RowPages.all(key: \MealHistory.mealID) { after, size in
+                    var query = client.from("meal_history")
+                        .select("meal_id, times_made, last_made")
+                        .eq("household_id", value: householdID)
+                    if let after { query = query.gt("meal_id", value: after) }
+                    return try await query.order("meal_id").limit(size).execute().value
+                }
             },
             catalog: {
                 let rows: [CatalogRow] = try await client.from("catalog_meals")
@@ -188,19 +190,26 @@ extension LibraryClient {
                     .value
                 guard !updated.isEmpty else { throw LibraryClientError.notAllowed }
             },
+            // One row per person per dish, so a family reaches the cap well before their library does.
             verdicts: { householdID in
-                try await client.from("meal_verdicts")
-                    .select("meal_id, member_id, reaction, reacted_on")
-                    .eq("household_id", value: householdID)
-                    .execute()
-                    .value
+                try await RowPages.all(key: { (row: MealVerdict) in (member: row.memberID, meal: row.mealID) }) { after, size in
+                    var query = client.from("meal_verdicts")
+                        .select("meal_id, member_id, reaction, reacted_on")
+                        .eq("household_id", value: householdID)
+                    if let after {
+                        query = query.or("member_id.gt.\(after.member),and(member_id.eq.\(after.member),meal_id.gt.\(after.meal))")
+                    }
+                    return try await query.order("member_id").order("meal_id").limit(size).execute().value
+                }
             },
             likes: { householdID in
-                try await client.from("meal_likes")
-                    .select("meal_id, likes")
-                    .eq("household_id", value: householdID)
-                    .execute()
-                    .value
+                try await RowPages.all(key: \MealLikes.mealID) { after, size in
+                    var query = client.from("meal_likes")
+                        .select("meal_id, likes")
+                        .eq("household_id", value: householdID)
+                    if let after { query = query.gt("meal_id", value: after) }
+                    return try await query.order("meal_id").limit(size).execute().value
+                }
             },
             comments: { householdID in
                 try await client.from("meal_comments")
