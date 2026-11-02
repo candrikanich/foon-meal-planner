@@ -248,8 +248,9 @@ private struct Planner {
     }
 
     private func leadHours(_ meal: LibraryMeal) -> Int {
-        let steps = meal.prepSteps.compactMap(\.leadHours).max() ?? 0
-        return meal.tags.contains(.thawFirst) ? max(steps, BuildMyWeek.Prep.thawFirstLeadHours) : steps
+        let settings = inputs.settings
+        let steps = meal.prepSteps.filter { settings.usesPrep(PrepKind(step: $0.step)) }.compactMap(\.leadHours).max() ?? 0
+        return settings.keepsMeatFrozen && meal.tags.contains(.thawFirst) ? max(steps, BuildMyWeek.Prep.thawFirstLeadHours) : steps
     }
 
     // MARK: Scoring

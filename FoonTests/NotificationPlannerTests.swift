@@ -133,6 +133,14 @@ private typealias F = PlannerFixture
         #expect(fires == [F.at(9, 18), F.at(10, 10)], "a step with no lead time has nothing to count from")
     }
 
+    @Test func aHouseholdThatBuysFreshGetsNoThawReminder() {
+        var fresh = F.settings
+        fresh.keepsMeatFrozen = false
+        let steps = [PrepStep(step: "Thaw the beef", leadHours: 24), PrepStep(step: "Start the slow cooker", leadHours: 8)]
+        let reminders = F.of(.prep, F.plan(settings: fresh, weeks: [F.week([F.night(10, steps: steps)])]))
+        #expect(reminders.map(\.fireAt) == [F.at(10, 10)])
+    }
+
     @Test func anUnapprovedWeekRemindsNobody() {
         let draft = F.week([F.night(10, steps: [F.thaw])], approved: false)
         #expect(F.of(.prep, F.plan(weeks: [draft])).isEmpty)
@@ -488,7 +496,7 @@ private typealias F = PlannerFixture
         let id = F.of(.prep, F.plan(settings: settings, weeks: [F.week([F.night(9, steps: [F.thaw])])], now: F.at(7, 8)))
         #expect(id.count == 1)
         let night = weeks[0].nights[0]
-        let key = ReminderID.prep(me: F.ann.id, night: night.id, meal: F.chili, step: 0)
+        let key = ReminderID.prep(me: F.ann.id, night: night.id, meal: F.chili, kind: .other, leadHours: 24)
         let sent = (0..<7).map { ReminderHistory(id: "earlier.\($0)", sentAt: F.at(8, 1 + $0)) }
             + [ReminderHistory(id: key, sentAt: F.at(8, 18), respondedAt: F.at(8, 18, 5), snoozedUntil: F.at(8, 19, 5))]
         let plan = F.plan(settings: settings, weeks: weeks, history: sent, now: F.at(8, 18, 10))
@@ -617,7 +625,7 @@ private typealias F = PlannerFixture
         var settings = F.settings
         settings.notificationPreset = .light
         let night = F.night(9, steps: [PrepStep(step: "Soak", leadHours: 24)])
-        let id = ReminderID.prep(me: F.ann.id, night: night.id, meal: F.chili, step: 0)
+        let id = ReminderID.prep(me: F.ann.id, night: night.id, meal: F.chili, kind: .other, leadHours: 24)
         let history = [ReminderHistory(id: id, sentAt: F.at(8, 18), respondedAt: F.at(8, 20, 30), snoozedUntil: F.at(8, 21, 30))]
         #expect(F.plan(settings: settings, weeks: [F.week([night])], history: history, now: F.at(8, 20, 30))
             .contains { $0.id == id && $0.fireAt == F.at(8, 21, 30) })
@@ -625,14 +633,14 @@ private typealias F = PlannerFixture
 
     @Test func aSnoozePastDinnerIsNoUse() {
         let night = F.night(9, steps: [PrepStep(step: "Soak", leadHours: 2)])
-        let id = ReminderID.prep(me: F.ann.id, night: night.id, meal: F.chili, step: 0)
+        let id = ReminderID.prep(me: F.ann.id, night: night.id, meal: F.chili, kind: .other, leadHours: 2)
         let history = [ReminderHistory(id: id, sentAt: F.at(9, 16), respondedAt: F.at(9, 17, 30), snoozedUntil: F.at(9, 18, 30))]
         #expect(!F.plan(weeks: [F.week([night])], history: history, now: F.at(9, 17, 30)).contains { $0.id == id })
     }
 
     @Test func aSnoozeOnADishThatChangedIsDropped() {
         var night = F.night(9, steps: [F.thaw])
-        let id = ReminderID.prep(me: F.ann.id, night: night.id, meal: F.chili, step: 0)
+        let id = ReminderID.prep(me: F.ann.id, night: night.id, meal: F.chili, kind: .other, leadHours: 24)
         night.mealID = UUID()
         let history = [ReminderHistory(id: id, sentAt: F.at(8, 18), respondedAt: F.at(8, 18, 5), snoozedUntil: F.at(8, 19, 5))]
         #expect(!F.plan(weeks: [F.week([night])], history: history, now: F.at(8, 18, 10)).contains { $0.id == id })
@@ -640,16 +648,66 @@ private typealias F = PlannerFixture
 
     @Test func aSnoozeThatsGoneByIsSpent() {
         let night = F.night(9, steps: [F.thaw])
-        let id = ReminderID.prep(me: F.ann.id, night: night.id, meal: F.chili, step: 0)
+        let id = ReminderID.prep(me: F.ann.id, night: night.id, meal: F.chili, kind: .other, leadHours: 24)
         let history = [ReminderHistory(id: id, sentAt: F.at(8, 18), respondedAt: F.at(8, 18, 5), snoozedUntil: F.at(8, 19, 5))]
         #expect(!F.plan(weeks: [F.week([night])], history: history, now: F.at(8, 19, 30)).contains { $0.id == id })
     }
 
     @Test func doneMeansDone() {
         let night = F.night(9, steps: [F.thaw])
-        let id = ReminderID.prep(me: F.ann.id, night: night.id, meal: F.chili, step: 0)
+        let id = ReminderID.prep(me: F.ann.id, night: night.id, meal: F.chili, kind: .other, leadHours: 24)
         let history = [ReminderHistory(id: id, sentAt: nil, respondedAt: F.at(8, 9, 30))]
         #expect(!F.plan(weeks: [F.week([night])], history: history).contains { $0.id == id })
+    }
+
+    // A planner can edit a dish's steps after its first reminder has gone (#45), so one step's history stays with that step.
+
+    private static let thawBeef = PrepStep(step: "Thaw the beef", leadHours: 24)
+    private static let slowCooker = PrepStep(step: "Start the slow cooker", leadHours: 8)
+
+    private func id(_ night: ReminderNight, _ kind: PrepKind, _ lead: Int, twin: Int = 0) -> String {
+        ReminderID.prep(me: F.ann.id, night: night.id, meal: F.chili, kind: kind, leadHours: lead, twin: twin)
+    }
+
+    @Test func removingAStepThatWentLeavesTheNextOneAlone() {
+        var night = F.night(9, steps: [Self.thawBeef, Self.slowCooker])
+        let history = [ReminderHistory(id: id(night, .thaw, 24), sentAt: F.at(8, 18), respondedAt: F.at(8, 18, 5))]
+        night.prepSteps = [Self.slowCooker].compactMap(ReminderPrep.init)
+        let plan = F.plan(weeks: [F.week([night])], history: history, now: F.at(8, 18, 10))
+        #expect(plan.contains { $0.id == id(night, .slowCooker, 8) && $0.fireAt == F.at(9, 10) })
+    }
+
+    @Test func aRemovedStepsSnoozeDoesntPassToTheNextOne() {
+        var night = F.night(9, steps: [Self.thawBeef, Self.slowCooker])
+        let history = [ReminderHistory(id: id(night, .thaw, 24), sentAt: F.at(8, 18), respondedAt: F.at(8, 18, 5),
+                                       snoozedUntil: F.at(8, 19, 5))]
+        night.prepSteps = [Self.slowCooker].compactMap(ReminderPrep.init)
+        let plan = F.plan(weeks: [F.week([night])], history: history, now: F.at(8, 18, 10))
+        #expect(!plan.contains { $0.fireAt == F.at(8, 19, 5) })
+        #expect(plan.contains { $0.id == id(night, .slowCooker, 8) && $0.fireAt == F.at(9, 10) })
+    }
+
+    @Test func changingAStepThatWentMakesANewReminder() {
+        var night = F.night(9, steps: [Self.thawBeef])
+        let history = [ReminderHistory(id: id(night, .thaw, 24), sentAt: F.at(8, 18), respondedAt: F.at(8, 18, 5))]
+        night.prepSteps = [PrepStep(step: "Marinate the beef", leadHours: 4)].compactMap(ReminderPrep.init)
+        let plan = F.plan(weeks: [F.week([night])], history: history, now: F.at(8, 18, 10))
+        #expect(plan.contains { $0.id == id(night, .marinate, 4) && $0.fireAt == F.at(9, 14) })
+    }
+
+    @Test func rewordingAStepThatWentDoesntSendItAgain() {
+        var night = F.night(9, steps: [Self.thawBeef])
+        let history = [ReminderHistory(id: id(night, .thaw, 24), sentAt: F.at(8, 18), respondedAt: F.at(8, 18, 5))]
+        night.prepSteps = [PrepStep(step: "Thaw the chicken", leadHours: 24)].compactMap(ReminderPrep.init)
+        #expect(F.of(.prep, F.plan(weeks: [F.week([night])], history: history, now: F.at(8, 18, 10))).isEmpty)
+    }
+
+    @Test func stepsThatMatchEachGetTheirOwnReminder() {
+        let same = PrepStep(step: "Soak", leadHours: 24)
+        let night = F.night(9, steps: [same, same])
+        let plan = F.plan(weeks: [F.week([night])], now: F.at(7, 8))
+        #expect(plan.contains { $0.id == id(night, .other, 24, twin: 0) })
+        #expect(plan.contains { $0.id == id(night, .other, 24, twin: 1) })
     }
 }
 

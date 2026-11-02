@@ -39,6 +39,19 @@ struct KitchenView: View {
                 Text("This Week counts back from dinner time. Set a dish's time to cook in its editor; without one, only quick and slow cooker dishes get an estimate.")
             }
 
+            Section {
+                Toggle("We keep meat frozen", isOn: Binding(
+                    get: { settings.keepsMeatFrozen },
+                    set: { keeps in
+                        var changed = settings
+                        changed.keepsMeatFrozen = keeps
+                        save(changed)
+                    }
+                ))
+            } footer: {
+                Text("Turn this off if you buy it fresh, and Foon skips thaw reminders and won't hold a dish back to give it time to thaw.")
+            }
+
             if let message = store.errorMessage {
                 Section { Text(message).foregroundStyle(.red) }
             }

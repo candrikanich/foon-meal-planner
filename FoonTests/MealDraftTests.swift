@@ -12,6 +12,44 @@ struct MealDraftTests {
         prepSteps: []
     )
 
+    @Test func prepStepsRoundTripTrimmedAndWithoutBlanks() throws {
+        var meal = tacos
+        meal.prepSteps = [PrepStep(step: "Thaw the beef", leadHours: 24)]
+        var draft = MealDraft(meal)
+        draft.prepLines.append(.init(step: "  Marinate ", leadHours: 4))
+        draft.prepLines.append(.init(step: "   ", leadHours: 8))
+        draft.prepLines.append(.init(step: "Chop ahead", leadHours: nil))
+        #expect(try draft.validated().prepSteps == [PrepStep(step: "Thaw the beef", leadHours: 24), PrepStep(step: "Marinate", leadHours: 4),
+                                                    PrepStep(step: "Chop ahead", leadHours: nil)])
+    }
+
+    @Test func prepStepLimitsMatchTheServer() {
+        var draft = MealDraft(tacos)
+        draft.prepLines = (0..<11).map { .init(step: "Step \($0)", leadHours: 1) }
+        #expect(throws: MealDraft.Problem.tooManyPrepSteps) { try draft.validated() }
+        draft.prepLines = [.init(step: String(repeating: "a", count: 121), leadHours: 1)]
+        #expect(throws: MealDraft.Problem.prepStepTooLong) { try draft.validated() }
+    }
+
+    @Test func aLeadTheServerWouldRefuseMeansNone() throws {
+        var draft = MealDraft(tacos)
+        draft.prepLines = [.init(step: "Dry-age", leadHours: 500), .init(step: "Soak", leadHours: 0)]
+        #expect(try draft.validated().prepSteps.map(\.leadHours) == [nil, nil])
+    }
+
+    @Test func removingEveryPrepStepSendsAnEmptyList() throws {
+        var meal = tacos
+        meal.prepSteps = [PrepStep(step: "Thaw the beef", leadHours: 24)]
+        var draft = MealDraft(meal)
+        draft.prepLines = []
+        #expect(try draft.validated().prepSteps.isEmpty)
+    }
+
+    @Test func aSavedLeadOffTheListStaysOffered() {
+        #expect(MealText.leadTimeChoices(including: nil) == [1, 2, 4, 8, 12, 24, 48])
+        #expect(MealText.leadTimeChoices(including: 36) == [1, 2, 4, 8, 12, 24, 36, 48])
+    }
+
     @Test func startsFromTheMeal() {
         let draft = MealDraft(tacos)
         #expect(draft.name == "Tacos")

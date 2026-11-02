@@ -334,13 +334,28 @@ struct KitchenSettingsTests {
         #expect(!back.showsStartCooking)
     }
 
+    @Test func meatIsFrozenUnlessTheHouseholdSaysOtherwise() throws {
+        #expect(HouseholdSettings().keepsMeatFrozen)
+        #expect(try JSONDecoder().decode(HouseholdSettings.self, from: Data("{}".utf8)).keepsMeatFrozen)
+        let off = Data(#"{"keeps_meat_frozen": false}"#.utf8)
+        var settings = try JSONDecoder().decode(HouseholdSettings.self, from: off)
+        #expect(!settings.keepsMeatFrozen)
+        #expect(try sentJSON(settings.kitchen)["keeps_meat_frozen"] as? Bool == false)
+        #expect(HouseholdSettings().withKitchen(of: settings).keepsMeatFrozen == false)
+        settings.keepsMeatFrozen = true
+        #expect(settings.usesPrep(.thaw))
+        settings.keepsMeatFrozen = false
+        #expect(!settings.usesPrep(.thaw))
+        #expect(settings.usesPrep(.marinate))
+    }
+
     @Test func turningEverythingBackOnIsSent() throws {
         // The server merges keys, so leaving this out would keep the old list.
         #expect((try sentJSON(HouseholdSettings().kitchen)["missing_equipment"] as? [String]) == [])
     }
 
     @Test func aKitchenSaveSendsOnlyItsOwnKeys() throws {
-        #expect(Set(try sentJSON(HouseholdSettings().kitchen).keys) == ["missing_equipment", "start_cooking_nudge"])
+        #expect(Set(try sentJSON(HouseholdSettings().kitchen).keys) == ["missing_equipment", "start_cooking_nudge", "keeps_meat_frozen"])
     }
 
     /// Settings saves merge whatever they send. A stale copy changing dinner time mustn't undo another planner's list.
@@ -352,6 +367,7 @@ struct KitchenSettingsTests {
         let keys = try #require(try JSONSerialization.jsonObject(with: encoded) as? [String: Any]).keys
         #expect(!keys.contains("missing_equipment"))
         #expect(!keys.contains("start_cooking_nudge"))
+        #expect(!keys.contains("keeps_meat_frozen"))
         #expect(keys.contains("dinner_time"))
     }
 

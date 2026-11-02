@@ -98,7 +98,8 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 
 - Name, ingredients (quantities optional), original serving count
 - Effort tags: quick (under 30 min), needs grill, needs advance prep, morning start (slow cooker), beginner-friendly
-- Prep steps with lead times: thaw (24 h), marinate (4 h or overnight), slow cooker start (8 h before dinner), chop ahead
+- Prep steps with lead times: thaw (24 h), marinate (4 h or overnight), slow cooker start (8 h before dinner), chop ahead. A planner edits them in the dish's editor under Prep ahead: up to 10 steps, with no reminder or a time from 1 hour to 2 days ahead. The editor offers steps by keyword, and only a tap saves one: thaw for what reads like meat, the Thaw first tag or a recipe step that says to thaw; marinate for "marinate" or "marinade"; slow cooker for that tag or those words. A kind the dish already has isn't offered. A step's reminder goes by its kind and lead time, so editing one step doesn't touch another's. Changing either makes it a new reminder, which goes out even if the old one already had; rewording a step without changing either doesn't. Saving a dish re-plans this phone's reminders.
+- **We keep meat frozen** (Family → Kitchen, on by default, decided 2026-11-02): turn it off if you buy it fresh, and thaw steps don't send reminders or show on cards, don't hold a dish back from an earlier night in Build my week, and aren't suggested. Neither does the Thaw first tag hold a dish back. The steps stay on the dish, in its detail, in case it goes back on. It only reads a step's words, so one that says "thaw" counts whatever's being thawed. It doesn't add a thaw reminder to a dish with no step.
 - History: last made, per-person reactions, comments, who cooked
 
 **Adding a meal**

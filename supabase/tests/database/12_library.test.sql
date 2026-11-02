@@ -26,7 +26,7 @@ insert into public.members (id, household_id, first_name, role, user_id) values
 
 insert into public.catalog_meals (id, slug, name, category, tags, servings, prep_steps) values
   ('00000000-0000-0000-0000-00000000ca01', 'test-tacos', 'Test tacos', 'Tex-Mex', '{quick,beginner}', 6,
-   '[{"step": "thaw", "hours": 24}]');
+   '[{"step": "thaw", "lead_hours": 24}]');
 insert into public.catalog_ingredients (catalog_meal_id, name, category, quantity_text, position) values
   ('00000000-0000-0000-0000-00000000ca01', 'ground beef', 'meat_seafood', '1 lb', 1),
   ('00000000-0000-0000-0000-00000000ca01', 'taco shells', 'pantry', null, 2),
@@ -44,7 +44,7 @@ grant select on copied to authenticated;
 select is((select name from copied), 'Test tacos', 'the copy takes the dish name');
 select is((select (servings, tags, catalog_meal_id, status)::text from copied),
   '(6,"{quick,beginner}",00000000-0000-0000-0000-00000000ca01,active)', 'servings, tags, and the catalog link carry over');
-select is((select prep_steps from copied), '[{"step": "thaw", "hours": 24}]'::jsonb, 'prep steps carry over');
+select is((select prep_steps from copied), '[{"step": "thaw", "lead_hours": 24}]'::jsonb, 'prep steps carry over');
 select results_eq(
   $$ select i.canonical_name, mi.quantity_text, mi.position::int
      from public.meal_ingredients mi join public.items i on i.id = mi.item_id

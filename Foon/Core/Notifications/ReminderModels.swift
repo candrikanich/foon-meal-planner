@@ -44,13 +44,16 @@ struct NotificationPrefs: Decodable, Equatable, Sendable {
 enum PrepKind: String, Codable, Sendable {
     case thaw, marinate, slowCooker, other
 
+    static let marinateWords = ["marinat", "marinad"]
+    static let slowCookerWords = ["slow cooker", "slow-cooker", "crock"]
+
     init(step: String) {
         let text = step.lowercased()
         if ["thaw", "defrost"].contains(where: text.contains) {
             self = .thaw
-        } else if text.contains("marinat") {
+        } else if Self.marinateWords.contains(where: text.contains) {
             self = .marinate
-        } else if ["slow cooker", "slow-cooker", "crock"].contains(where: text.contains) {
+        } else if Self.slowCookerWords.contains(where: text.contains) {
             self = .slowCooker
         } else {
             self = .other
@@ -183,7 +186,9 @@ struct PlannedReminder: Equatable, Identifiable, Sendable {
 
 /// Identifiers, all under one prefix so nothing here ever touches a cook-mode timer's (a bare UUID). Each carries the person,
 /// so what's left from someone else on this device never matches a plan, and the dish, so one that changed is a different
-/// reminder and what was sent for the old dish doesn't count against the new one.
+/// reminder and what was sent for the old dish doesn't count against the new one. A prep step goes by its kind and lead time,
+/// never its place in the list, so editing one step can't hand its history, or its wording, to another. `twin` tells apart
+/// steps that match on both. None of it is what the family typed, so rewording a step keeps its history.
 enum ReminderID {
     static let prefix = "foon.reminder."
     private static let followUpSuffix = ".again"
@@ -192,8 +197,8 @@ enum ReminderID {
         "\(prefix)\(me.uuidString).plan.\(week.isoString)"
     }
 
-    static func prep(me: UUID, night: UUID, meal: UUID, step: Int) -> String {
-        "\(prefix)\(me.uuidString).prep.\(night.uuidString).\(meal.uuidString).\(step)"
+    static func prep(me: UUID, night: UUID, meal: UUID, kind: PrepKind, leadHours: Int, twin: Int = 0) -> String {
+        "\(prefix)\(me.uuidString).prep.\(night.uuidString).\(meal.uuidString).\(kind.rawValue)-\(leadHours)-\(twin)"
     }
 
     static func afterDinner(me: UUID, night: UUID, meal: UUID) -> String {

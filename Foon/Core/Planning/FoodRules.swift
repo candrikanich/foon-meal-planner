@@ -117,6 +117,11 @@ enum FoodRuleMatcher {
         }
     }
 
+    /// Whether any of these lines reads like meat, for a dish still being typed.
+    static func looksLikeMeat(_ lines: [String]) -> Bool {
+        lines.contains { meat.isFound(in: Words($0)) }
+    }
+
     /// The rules this dish looks to break on that night.
     static func broken(by meal: LibraryMeal, on day: CalendarDay, rules: [FoodRule], library: [LibraryMeal]) -> [FoodRule] {
         rules.filter { $0.applies(on: day) && looksLikeIt($0.avoid, meal: meal, library: library) }

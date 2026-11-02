@@ -1,9 +1,11 @@
 import SwiftUI
 
 /// Edits a meal: name, servings, tags, who makes it, ingredients (typed or pasted naturally,
-/// with autocomplete from the library), recipe steps, and the source link.
+/// with autocomplete from the library), prep ahead, recipe steps, and the source link.
 struct MealEditorView: View {
     @Environment(LibraryStore.self) private var library
+    @Environment(HouseholdStore.self) private var household: HouseholdStore?
+    @Environment(ReminderStore.self) private var reminders: ReminderStore?
     @Environment(\.dismiss) private var dismiss
     let meal: LibraryMeal
 
@@ -61,6 +63,8 @@ struct MealEditorView: View {
 
                 sidesSection
 
+                prepSection
+
                 Section {
                     TextEditor(text: $draft.stepsText)
                         .frame(minHeight: 120)
@@ -98,7 +102,10 @@ struct MealEditorView: View {
                             isSaving = true
                             commitNewIngredients()
                             commitNewSide()
-                            if await library.save(draft, mealID: meal.id) { dismiss() }
+                            if await library.save(draft, mealID: meal.id) {
+                                replanReminders()
+                                dismiss()
+                            }
                             isSaving = false
                         }
                     }
@@ -106,6 +113,12 @@ struct MealEditorView: View {
                 }
             }
         }
+    }
+
+    /// Reminders are planned from a dish's prep steps, and a saved dish changes nothing `ReminderRunner` watches.
+    private func replanReminders() {
+        guard let reminders, let context = household?.reminderContext else { return }
+        Task { await reminders.replan(context) }
     }
 
     private var ingredientsSection: some View {
@@ -174,6 +187,46 @@ struct MealEditorView: View {
             Text("Sides")
         } footer: {
             Text("Optional. A side from your library brings its ingredients to the list.")
+        }
+    }
+
+    private var prepSuggestions: [PrepStep] {
+        PrepSuggestions.suggestions(
+            name: draft.name, ingredients: draft.lines.map(\.name), steps: draft.stepsText, tags: draft.tags,
+            existing: draft.prepLines.map(\.step),
+            keepsMeatFrozen: household?.household?.planningSettings.keepsMeatFrozen ?? true)
+    }
+
+    private var prepSection: some View {
+        Section {
+            ForEach($draft.prepLines) { $line in
+                VStack(alignment: .leading) {
+                    TextField("What to do", text: $line.step)
+                    Picker("When", selection: $line.leadHours) {
+                        Text("No reminder").tag(Int?.none)
+                        ForEach(MealText.leadTimeChoices(including: line.leadHours), id: \.self) { hours in
+                            Text(MealText.leadTime(hours: hours) ?? "").tag(Int?.some(hours))
+                        }
+                    }
+                }
+            }
+            .onDelete { draft.prepLines.remove(atOffsets: $0) }
+
+            ForEach(prepSuggestions, id: \.step) { suggestion in
+                Button {
+                    draft.prepLines.append(MealDraft.PrepLine(step: suggestion.step, leadHours: suggestion.leadHours))
+                } label: {
+                    Label(suggestion.step, systemImage: "text.badge.plus")
+                }
+                .accessibilityHint("Adds this prep step")
+            }
+            Button("Add a prep step", systemImage: "plus") {
+                draft.prepLines.append(MealDraft.PrepLine(step: "", leadHours: 24))
+            }
+        } header: {
+            Text("Prep ahead")
+        } footer: {
+            Text("Thawing, marinating, starting the slow cooker. Planners get a reminder this long before dinner.")
         }
     }
 

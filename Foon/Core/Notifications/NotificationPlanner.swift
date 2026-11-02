@@ -104,10 +104,13 @@ enum NotificationPlanner {
                       let dinner = DinnerPrompts.moment(night.dinnerTime ?? settings.dinnerTime, on: night.date,
                                                         calendar: calendar) else { return [] }
                 return night.prepSteps.enumerated().compactMap { index, step -> Candidate? in
-                    guard let fire = counted(back: step.leadHours, from: dinner) else { return nil }
+                    guard settings.usesPrep(step.kind), let fire = counted(back: step.leadHours, from: dinner) else { return nil }
+                    let twin = night.prepSteps[..<index].count { $0 == step }
                     // The title waits until `settled` knows when it goes.
                     return Candidate(reminder: PlannedReminder(
-                        id: ReminderID.prep(me: me.id, night: night.id, meal: meal, step: index), kind: .prep,
+                        id: ReminderID.prep(me: me.id, night: night.id, meal: meal, kind: step.kind, leadHours: step.leadHours,
+                                            twin: twin),
+                        kind: .prep,
                         nightID: night.id, fireAt: fire, dinnerAt: dinner, title: "", body: ReminderText.prepBody(step.kind),
                         route: .night(night.id, night.date)))
                 }

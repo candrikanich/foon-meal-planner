@@ -91,6 +91,24 @@ struct PrepStep: Codable, Equatable, Sendable {
     }
 }
 
+/// Prep steps as they come off the server. One that won't read shouldn't cost the others, or everything else being loaded.
+struct LenientPrepSteps: Decodable, Sendable {
+    private struct Entry: Decodable {
+        let step: PrepStep?
+
+        init(from decoder: Decoder) throws {
+            step = try? PrepStep(from: decoder)
+        }
+    }
+
+    let steps: [PrepStep]
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        steps = ((try? container.decode([Entry].self)) ?? []).compactMap(\.step)
+    }
+}
+
 /// Times made and last made, from the `meal_history` view.
 struct MealHistory: Decodable, Equatable, Sendable {
     let mealID: UUID
