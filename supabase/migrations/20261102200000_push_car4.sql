@@ -6,7 +6,7 @@
 -- 2. Digest: once a day at 7:30pm on the household's clock, Engaged planners hear about ideas added since their last digest
 --    (at most a day back), still open, and not their own. "Ben has 2 new dinner ideas." / "2 new dinner ideas." Never a dish.
 --    A pg_cron job every 15 minutes queues it between 7:30 and 9pm, once a planner a day. Not on an away day. Not for ideas
---    from someone removed; a kid whose consent is withdrawn takes along the digests naming them.
+--    from someone removed; a kid whose consent is withdrawn stops being named in digests.
 
 -- Budgets -------------------------------------------------------------------------------------------------------------------------
 
@@ -100,7 +100,12 @@ begin
       and (o.claimed_until is null or o.claimed_until < now())
       and public.push_outbox_stands(o.kind, o.claim_id, o.request_id, o.night_id)
   ), room as (
-    select d.member_id, public.push_budget_left(d.member_id, now()) as left_over
+    -- A row handed out and not yet finished (a retry waiting, a run still sending, or one that crashed) holds its place,
+    -- or a second row could take the same last slot and both would go.
+    select d.member_id,
+           public.push_budget_left(d.member_id, now())
+             - (select count(*)::int from public.push_outbox f
+                where f.member_id = d.member_id and f.sent_at is null and f.failed is null and f.attempts > 0) as left_over
     from (select distinct member_id from due) d
   )
   update public.push_outbox o set failed = 'over_budget'
@@ -133,7 +138,7 @@ $$;
 
 -- Retention -------------------------------------------------------------------------------------------------------------------------
 
--- As in 20261102190000_push_car3.sql, plus: a withdrawn kid's name goes out of the ideas digests that named them, sent ones too.
+-- As in 20261102190000_push_car3.sql, plus: the ideas digests that named a withdrawn kid stop naming them, sent ones too.
 create or replace function public.anonymize_expired_profiles()
 returns integer
 language plpgsql security definer set search_path = ''
@@ -182,10 +187,13 @@ begin
   -- A vote a kid cast themselves goes, and a poll stops saying they started it. One a parent tapped in for them stays until it ages out.
   delete from public.poll_votes where member_id = any (withdrawn) and entered_by_member_id = member_id;
   update public.polls set started_by = null where started_by = any (withdrawn);
-  -- The pushes about a poll they started, something they marked for tonight, or ideas they added (a digest naming them)
-  -- were about what they did themselves, sent ones too; and a line stops saying they marked it.
+  -- The pushes about a poll they started or something they marked for tonight were about what they did themselves, sent
+  -- ones too; and a line stops saying they marked it.
   delete from public.push_outbox
-  where kind in ('tonight_poll', 'urgent_item', 'new_requests') and about_member_id = any (withdrawn);
+  where kind in ('tonight_poll', 'urgent_item') and about_member_id = any (withdrawn);
+  -- A digest is also a planner's once-a-day mark, so it stays, just no longer naming them.
+  update public.push_outbox set args = args - 'name', about_member_id = null
+  where kind = 'new_requests' and about_member_id = any (withdrawn);
   update public.list_items set urgent_by = null where urgent_by = any (withdrawn);
   -- A poll is about one dinner, so it ages out like the log, for everyone, and its votes go with it.
   delete from public.polls where created_at < now() - interval '8 weeks';
@@ -230,12 +238,14 @@ begin
       continue;
     end if;
 
-    insert into public.push_outbox (household_id, member_id, kind, about_member_id, args, not_before, expires_at)
+    insert into public.push_outbox
+      (household_id, member_id, kind, about_member_id, args, not_before, expires_at, created_at)
     select house.id, m.id, 'new_requests', news.only_one,
            jsonb_build_object('count', news.count)
              || case when news.only_one is not null then jsonb_build_object('name', who.first_name) else '{}' end,
            public.push_not_before(house.tz, m.age_group = 'kid', at),
-           ((at at time zone house.tz)::date + time '21:00') at time zone house.tz
+           ((at at time zone house.tz)::date + time '21:00') at time zone house.tz,
+           at
     from public.members m
     cross join lateral (
       select coalesce(max(o.created_at), at - interval '1 day') as since

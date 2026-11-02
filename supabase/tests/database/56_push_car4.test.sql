@@ -1,7 +1,7 @@
 -- Server push, car 4 (#40 part 2): server pushes share the device's weekly budget, counted from the log on either channel,
 -- most important first; and Engaged planners get one digest a day about new ideas that aren't theirs.
 begin;
-select plan(30);
+select plan(33);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -15,6 +15,11 @@ $$;
 -- The Andersons' clock at a given time today.
 create function pg_temp.at_a(t time) returns timestamptz language sql as $$
   select (public.household_today('00000000-0000-0000-0000-0000000000a0') + t)
+         at time zone public.household_time_zone('00000000-0000-0000-0000-0000000000a0');
+$$;
+
+create function pg_temp.at_a_day(days int, t time) returns timestamptz language sql as $$
+  select (public.household_today('00000000-0000-0000-0000-0000000000a0') + days + t)
          at time zone public.household_time_zone('00000000-0000-0000-0000-0000000000a0');
 $$;
 
@@ -152,6 +157,20 @@ set local role service_role;
 select results_eq($$ select kind from public.claim_push_outbox(10) $$, $$ values ('urgent_item') $$,
   'a kid with one left gets the urgent item before an older no');
 select pg_temp.as_postgres();
+
+-- Alice has one left, and her Plan's set is waiting to be tried again.
+select pg_temp.log_sent('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a0', 11, now());
+update public.push_outbox set claimed_until = now() + interval '4 minutes'
+where id = '00000000-0000-0000-0000-0000000005a4';
+insert into public.push_outbox (id, household_id, member_id, kind, args, not_before) values
+  ('00000000-0000-0000-0000-0000000005a5', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a1',
+   'urgent_item', '{"name": "Bob"}', now() - interval '1 minute');
+set local role service_role;
+select is((select count(*) from public.claim_push_outbox(10)), 0::bigint,
+  'a push still being tried holds its place, so a new one can''t take the same last slot');
+select pg_temp.as_postgres();
+select is((select failed from public.push_outbox where id = '00000000-0000-0000-0000-0000000005a5'), 'over_budget',
+  'and the new one is over budget');
 delete from public.push_outbox;
 delete from public.notification_log;
 
@@ -209,13 +228,11 @@ select is((select count(*) from public.push_outbox o join public.members m on m.
 select is(public.enqueue_request_digests(pg_temp.at_a('20:00')), 0, 'once a planner a day');
 
 -- The next day, only what's new since the last one.
-update public.push_outbox set created_at = created_at - interval '1 day';
-update public.requests set created_at = created_at - interval '1 day';
 insert into public.requests (household_id, requested_by_member_id, entered_by_member_id, title, status, created_at) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000a2',
-   'Ramen', 'open', now() - interval '1 hour');
+   'Ramen', 'open', pg_temp.at_a_day(0, '22:00'));
 update public.push_outbox set sent_at = now();
-select is(public.enqueue_request_digests(pg_temp.at_a('19:45')), 2, 'the next day, the planners with something new');
+select is(public.enqueue_request_digests(pg_temp.at_a_day(1, '19:45')), 2, 'the next day, the planners with something new');
 select results_eq(
   $$ select m.first_name, o.args from public.push_outbox o join public.members m on m.id = o.member_id
      where o.sent_at is null order by m.first_name $$,
@@ -224,13 +241,11 @@ select results_eq(
 
 -- Someone removed -------------------------------------------------------------------------------------------------------------------
 
-update public.push_outbox set created_at = created_at - interval '1 day';
-update public.requests set created_at = created_at - interval '1 day';
 insert into public.requests (household_id, requested_by_member_id, entered_by_member_id, title, status, created_at) values
   ('00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000c2',
-   'Gumbo', 'open', now() - interval '1 hour');
+   'Gumbo', 'open', pg_temp.at_a_day(1, '22:00'));
 update public.members set status = 'removed', user_id = null where id = '00000000-0000-0000-0000-0000000000c2';
-select is(public.enqueue_request_digests(pg_temp.at_a('19:45')), 0,
+select is(public.enqueue_request_digests(pg_temp.at_a_day(2, '19:45')), 0,
   'ideas from someone removed since don''t make a digest, so their name doesn''t go out');
 
 -- A kid's consent withdrawn ---------------------------------------------------------------------------------------------------------
@@ -244,10 +259,12 @@ insert into public.consents (household_id, member_id, kind, granted_by, granted_
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', 'parental',
    'a0000000-0000-0000-0000-00000000000a', now() - interval '90 days', now() - interval '31 days', 'v1');
 select public.anonymize_expired_profiles();
-select is((select count(*) from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a4'), 0::bigint,
-  'a kid''s withdrawn consent takes along the digests that named them, sent ones too');
-select is((select count(*) from public.push_outbox where kind = 'new_requests'), 4::bigint,
-  'and leaves the others (Alice''s and Pam''s two days of digests)');
+select is((select count(*) from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a4'
+             or args ->> 'name' = 'Nora'), 0::bigint,
+  'a kid''s withdrawn consent takes their name out of the digests that named them, sent ones too');
+select is((select count(*) from public.push_outbox where kind = 'new_requests' and args = '{"count": 1}'), 2::bigint,
+  'but the digests stay, so a planner''s once a day still holds');
+select is((select count(*) from public.push_outbox where kind = 'new_requests'), 6::bigint, 'and the others are untouched');
 
 -- Clients ------------------------------------------------------------------------------------------------------------------------
 
