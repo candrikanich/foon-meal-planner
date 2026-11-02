@@ -29,7 +29,7 @@ struct DinnerPromptsSection: View {
                     ForEach(DinnerPrompts.rates(me) ? dinner.prompts(me: me.id, settings: settings, at: context.date) : []) { prompt in
                         DinnerCard(prompt: prompt, me: me, open: { sheet = $0 })
                     }
-                    ForEach(dinner.commentPrompts(me: me.id)) { prompt in
+                    ForEach(DinnerPrompts.rates(me) ? dinner.commentPrompts(me: me.id) : []) { prompt in
                         DinnerCommentCard(prompt: prompt, me: me)
                     }
                     ForEach(dinner.extras(me: me.id, settings: settings, at: context.date)) { prompt in

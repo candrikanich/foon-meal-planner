@@ -134,6 +134,7 @@ final class DinnerStore {
 
     func skipComment(nightID: UUID) {
         commentNights.remove(nightID)
+        errorMessage = nil
     }
 
     /// Saves a word about the dish. Stays open if it didn't save, so what was typed isn't lost.

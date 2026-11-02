@@ -115,8 +115,11 @@ struct DinnerStoreTests {
         struct Offline: Error {}
         let me = UUID()
         let tonight = night()
+        // Their rating from earlier is already on the log: only the failed tap can keep the card away.
+        let rated = Flag()
+        rated.value.withLock { $0 = true }
         let store = DinnerStore(householdID: UUID(), client: client(
-            logs: tonightsChili(me: me, rated: Flag()),
+            logs: tonightsChili(me: me, rated: rated),
             react: { _, _, _ in throw Offline() },
             nights: { _, _ in [tonight] }
         ), now: { self.noon })
@@ -170,6 +173,9 @@ struct DinnerStoreTests {
         #expect(await store.saveComment(nightID: nightID, memberID: me, typed: "Good") == false)
         #expect(store.errorMessage != nil)
         #expect(store.commentPrompts(me: me).count == 1)
+
+        store.skipComment(nightID: nightID)
+        #expect(store.errorMessage == nil, "Not now doesn't leave the failure on screen")
     }
 
     @Test func aCommentFitsWhatTheServerAccepts() throws {

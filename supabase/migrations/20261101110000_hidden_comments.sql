@@ -52,8 +52,7 @@ revoke all on public.meal_comments from anon, authenticated;
 grant select on public.meal_comments to authenticated;
 
 -- Writing a comment that's hidden: new words stay hidden, so changing it doesn't publish it, and null clears the words but
--- not the hiding, so clearing it and writing again doesn't publish it either. Fires only when an update names the comment column, so changing a rating leaves hidden text alone. Runs after
--- reactions_guard (triggers go by name), so a comment locked after 24 hours is refused before anything moves.
+-- not the hiding, so clearing it and writing again doesn't publish it either. Fires only when an update names the comment column, so changing a rating leaves hidden text alone.
 create function public.reactions_keep_comment_hidden()
 returns trigger
 language plpgsql security definer set search_path = ''
