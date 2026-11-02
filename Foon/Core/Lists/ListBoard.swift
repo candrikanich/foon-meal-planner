@@ -16,6 +16,8 @@ struct ListEntry: Identifiable, Equatable, Sendable {
     let category: ItemCategory
     let checkedAt: Date?
     let keepOnHand: Bool
+    /// The staple's stock as this phone has it.
+    var stock: StockState?
     /// The item's line on the other list, shown in this row. An item has at most one open line per list, so a weekly line
     /// and a tonight line for the same milk read as one milk.
     var folded: [ListEntry] = []
@@ -35,7 +37,7 @@ struct ListEntry: Identifiable, Equatable, Sendable {
             return ListEntry(lineID: line.id, itemID: line.itemID, name: item?.name ?? line.itemName, list: line.list,
                              urgency: line.urgency, quantity: line.quantity, lineNote: line.note, itemNote: item?.note,
                              category: item?.category ?? .other, checkedAt: line.checkedAt,
-                             keepOnHand: item?.keepOnHand ?? false)
+                             keepOnHand: item?.keepOnHand ?? false, stock: item?.stockState)
         }
     }
 }
@@ -141,7 +143,8 @@ enum ListBoard {
             return ListEntry(lineID: first.lineID, itemID: itemID, name: first.name, list: first.list, urgency: first.urgency,
                              quantity: first.quantity, lineNote: note,
                              itemNote: first.itemNote, category: first.category,
-                             checkedAt: lines.compactMap(\.checkedAt).max(), keepOnHand: first.keepOnHand, folded: rest)
+                             checkedAt: lines.compactMap(\.checkedAt).max(), keepOnHand: first.keepOnHand,
+                             stock: first.stock, folded: rest)
         }
     }
 
@@ -175,10 +178,10 @@ enum ListBoard {
     }
 
     /// Checking off a row checks off every line in it; a staple bought goes back to in stock at once, so it doesn't pop up as
-    /// running low.
+    /// running low. Every item asks: another phone may have made it a staple since this one last heard.
     static func gotIt(_ entry: ListEntry) -> [OfflineChange] {
         entry.lineIDs.map { .setChecked(listItemID: $0, checked: true) }
-            + (entry.keepOnHand ? [.setStock(itemID: entry.itemID, state: .in)] : [])
+            + [.restock(itemID: entry.itemID, ifWas: entry.keepOnHand ? entry.stock : nil)]
     }
 
     /// Putting a cart row back reopens its latest line on each list. A list holds one open line per item, so an older one

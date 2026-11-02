@@ -96,6 +96,73 @@ struct SyncServiceTests {
         #expect(try openLines(container, item: milkItem).map(\.id) == [milkLine], "someone added this one by hand")
     }
 
+    @Test func aRestockOnlyTouchesAStapleOnThisPhone() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let service = makeService(container: container, client: .fake(snapshot: { snapshot }, send: { _ in
+            throw URLError(.notConnectedToInternet)
+        }))
+        await service.pull()
+        await service.setStock(itemID: milkItem, state: .low)
+        await service.perform(.restock(itemID: milkItem, ifWas: .low))
+        #expect(service.stockState(milkItem) == .in)
+        await service.perform(.restock(itemID: eggsItem, ifWas: nil))
+        #expect(service.isKeptOnHand(eggsItem) == false, "not a staple here; the server says if it is one now")
+        #expect(service.stockState(eggsItem) == nil)
+    }
+
+    @Test func aRestockTheServerPassedOverShowsTheServersStock() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let pulls = Mutex(0)
+        let household = household, milkItem = milkItem, base = snapshot
+        // This phone saw milk low; by the time the check-off is sent, another phone has marked it out, so the server keeps out.
+        let client = SyncClient.fake(snapshot: {
+            let state: StockState = pulls.withLock { $0 += 1; return $0 } == 1 ? .low : .out
+            return SyncSnapshot(plan: base.plan, nights: [], listItems: base.listItems,
+                                items: base.items.map { $0.id == milkItem ? ItemRow(id: milkItem, householdID: household,
+                                                                                    canonicalName: "Milk", category: .dairyEggs,
+                                                                                    keepOnHand: true, stockState: state) : $0 })
+        }, send: { _ in })
+        let service = makeService(container: container, client: client)
+        await service.pull()
+        await service.perform(.restock(itemID: milkItem, ifWas: .low))
+        #expect(service.stockState(milkItem) == .out)
+    }
+
+    private func milkSnapshot(_ state: StockState) -> SyncSnapshot {
+        let base = snapshot
+        return SyncSnapshot(plan: base.plan, nights: [], listItems: base.listItems,
+                            items: base.items.map { $0.id == milkItem ? ItemRow(id: milkItem, householdID: household,
+                                                                                canonicalName: "Milk", category: .dairyEggs,
+                                                                                keepOnHand: true, stockState: state) : $0 })
+    }
+
+    @Test func aQueuedRestockDoesntHideStockAnotherPhoneChanged() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let pulls = Mutex(0)
+        let low = milkSnapshot(.low), out = milkSnapshot(.out)
+        let service = makeService(container: container, client: .fake(snapshot: {
+            pulls.withLock { $0 += 1; return $0 } == 1 ? low : out
+        }, send: { _ in throw URLError(.notConnectedToInternet) }))
+        await service.pull()
+        await service.perform(.restock(itemID: milkItem, ifWas: .low))
+        #expect(service.stockState(milkItem) == .in)
+        await service.pull()
+        #expect(service.stockState(milkItem) == .out, "the server will keep out, so this phone shows it while the restock waits")
+    }
+
+    @Test func checkingOffANonStapleDoesntPull() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let pulls = Mutex(0)
+        let base = snapshot
+        let service = makeService(container: container, client: .fake(snapshot: {
+            pulls.withLock { $0 += 1 }
+            return base
+        }, send: { _ in }))
+        await service.pull()
+        await service.perform(.restock(itemID: eggsItem, ifWas: nil))
+        #expect(pulls.withLock { $0 } == 1, "a pull per check-off would double the work in the store")
+    }
+
     @Test func turningKeepOnHandBackOnTakesNothingOff() async throws {
         let container = try SyncService.inMemoryContainer()
         let service = makeService(container: container, client: .fake(snapshot: { snapshot }, send: { _ in

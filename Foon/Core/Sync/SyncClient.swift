@@ -88,6 +88,12 @@ extension SyncClient {
                 case .removeFromList(let listItemID):
                     try await client.from("list_items").delete().eq("id", value: listItemID).execute()
                     return nil
+                case .restock(let itemID, let ifWas):
+                    var update = try client.from("items").update(["stock_state": StockState.in.rawValue])
+                        .eq("id", value: itemID).eq("keep_on_hand", value: true)
+                    if let ifWas { update = update.eq("stock_state", value: ifWas.rawValue) }
+                    try await update.execute()
+                    return nil
                 case .removeStapleLine(let listItemID):
                     try await client.from("list_items").delete().eq("id", value: listItemID)
                         .eq("source", value: ListItemSource.staple.rawValue).is("checked_at", value: nil).execute()

@@ -318,6 +318,22 @@ struct HouseholdClientLiveTests {
         _ = try await SyncClient.live(supabase).send(.removeStapleLine(listItemID: napkinsLine))
         #expect(!(try await SyncClient.live(supabase).fetchSnapshot(household.id, sunday)).listItems.contains { $0.id == napkinsLine },
                 "a staple's line goes")
+
+        // Restocking a bought item: only a staple, and only from the stock the shopper's phone saw (#201).
+        let sync = SyncClient.live(supabase)
+        func napkinStock() async throws -> StockState? {
+            try await sync.fetchSnapshot(household.id, sunday).items.first { $0.id == napkins }?.stockState
+        }
+        _ = try await sync.send(.restock(itemID: napkins, ifWas: nil))
+        #expect(try await napkinStock() == nil, "not a staple, so nothing changes")
+        _ = try await sync.send(.setStock(itemID: napkins, state: .out))
+        _ = try await sync.send(.restock(itemID: napkins, ifWas: .low))
+        #expect(try await napkinStock() == .out, "marked out since that phone saw it low")
+        _ = try await sync.send(.restock(itemID: napkins, ifWas: .out))
+        #expect(try await napkinStock() == .in)
+        _ = try await sync.send(.setStock(itemID: napkins, state: .low))
+        _ = try await sync.send(.restock(itemID: napkins, ifWas: nil))
+        #expect(try await napkinStock() == .in, "made a staple on another phone: restocked")
         let gone = try #require(weekly.first)
         await #expect(throws: (any Error).self, "no such item") {
             _ = try await SyncClient.live(supabase).send(.addToList(householdID: household.id, itemID: UUID(), list: .quick,
