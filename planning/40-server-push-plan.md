@@ -32,7 +32,8 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
   Verify on device: Chris approves on the Mac/iPad, phone buzzes.
 - **Car 2 (done, 2026-11-02):** check-in "won't be home tonight" → planners, and claims → planners (both already have
   in-app notes reading the same rows). Migration `20261102180000_push_car2.sql`, pgTAP `54_push_car2.test.sql`.
-- **Car 3:** urgent list item → adults, tonight poll → whoever's home, request made the plan.
+- **Car 3 (done, 2026-11-02, server half):** urgent list item → adults, tonight poll → whoever's home, request made
+  the plan. Migration `20261102190000_push_car3.sql`, pgTAP `55_push_car3.test.sql`. App half: a "list" tap route.
 - **Car 4:** budgets for server pushes (shared count with local reminders via `notification_log`), new-requests digest.
 
 ## Decided (2026-11-02, Chris)
@@ -59,6 +60,24 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
   it outright. `kick_push_sender` asks the same, so a waiting claim doesn't wake send-push every minute. Rows about a
   night are also stale once `night_dinner_at` (as the night is now) has passed, so moving dinner earlier still ends them.
 - send-push fails a row as `no_words` (not `unknown_kind`) when it knows the kind but the name or date is missing.
+
+## Decided for car 3 (2026-11-02)
+
+- The three kinds were already in both kind lists; no constraint change.
+- Urgent: `list_items.urgent_by` (no FK, stamped by a before trigger from `my_member_id`, so the app can't set it and a job
+  leaves it empty). Only `list = 'quick'`; a weekly line marked tonight doesn't send. Becoming urgent means an insert
+  with tonight, or an update whose old row wasn't an urgent quick line, so add_to_list merging "tonight" into an urgent
+  line sends nothing. Coalescing is per recipient across adders: while one is waiting, a second adder's line adds nothing,
+  and if the first adder's lines then go, the waiting row is called off and the second adder's isn't sent.
+- Urgent expiry: `household_dinner_tonight` (tonight's night's `night_dinner_at`, else settings dinner time, else 6pm),
+  and `night_id` is set to tonight's night when there is one so a moved dinner time still ends it. Adults only, so adult
+  quiet hours.
+- Poll: recipients mirror `vote_in_poll` (not removed, not eating separately, not marked out tonight), minus the starter
+  and the caller. Call-off on any `closes_at` that moves earlier (close_poll). A poll's push isn't held back once dinner's
+  logged; it lasts at most the poll.
+- Idea: on a later approval of the same week, ideas not told yet are told; one planned after approval is not (no trigger on
+  requests). The requester must have entered it themselves (`entered_by` null counts as theirs).
+- Payload for urgent: `{"route": "list"}` only, no other keys.
 
 ## Unresolved questions
 
