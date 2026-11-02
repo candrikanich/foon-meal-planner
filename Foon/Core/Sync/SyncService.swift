@@ -166,6 +166,8 @@ final class SyncService {
         }
         repointLines(report.aliases)
         try? context.save()
+        // This phone already shows what the server just refused, and nothing else will say so: the server didn't change.
+        if !report.rejected.isEmpty { requestedPull = true }
         pendingCount = pendingChanges().count
         isOffline = !report.remaining.isEmpty
     }
@@ -257,7 +259,7 @@ final class SyncService {
         case .removeFromList(let listItemID):
             if let line = listLine(lineAliases[listItemID] ?? listItemID) { context.delete(line) }
 
-        case .addToList(let household, let itemID, let list, let urgency, let source, let note, let lineID, let quantity, let planID):
+        case .addToList(let household, let itemID, let list, let urgency, let source, let note, let lineID, let quantity, let planID, let replacing):
             // Mirrors add_to_list: merge into the item's open line on that list; urgency only goes up.
             if let open = openLine(itemID: itemID, list: list) {
                 if urgency == .tonight { open.urgency = .tonight }
@@ -269,6 +271,7 @@ final class SyncService {
                     list: list, urgency: urgency, source: source, note: note, checkedAt: nil, quantity: quantity, planID: planID
                 ))
             }
+            if let replacing, let line = listLine(lineAliases[replacing] ?? replacing) { context.delete(line) }
         }
     }
 
