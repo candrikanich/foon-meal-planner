@@ -159,12 +159,14 @@ final class ReminderStore {
         hasRemindersToOffer = !plan.isEmpty && snapshot?.weeks.contains(where: \.isApproved) == true
 
         guard permission == .on, isOptedIn else {
+            await PushRegistration.forget(client: client, device: device)
             center.remove(pending)
             forgetUnsent(keeping: [], member: wanted.me.id, in: context)
             await upload(member: wanted.me.id, in: context)
             return
         }
 
+        center.askForPushToken()
         let planned = Set(plan.map(\.id))
         center.remove(pending.filter { !planned.contains($0) })
         forgetUnsent(keeping: planned, member: wanted.me.id, in: context)

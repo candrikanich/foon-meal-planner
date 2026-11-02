@@ -30,6 +30,10 @@ struct NotificationClient: Sendable {
     var answerCheckIn: @Sendable (_ nightID: UUID, _ memberID: UUID, _ home: Bool) async throws -> Void = { _, _, _ in }
     /// A reaction or "Wasn't home" from the after-dinner notification.
     var answerDinner: @Sendable (_ answer: DinnerAnswer) async throws -> Void = { _ in }
+    /// This device's APNs token, filed under whoever is signed in (`register_push_device`).
+    var registerPush: @Sendable (_ token: String, _ environment: String) async throws -> Void = { _, _ in }
+    /// Takes this device's token off the signed-in person (`unregister_push_device`).
+    var unregisterPush: @Sendable (_ token: String) async throws -> Void = { _ in }
 }
 
 extension NotificationClient {
@@ -69,6 +73,13 @@ extension NotificationClient {
                 case .wasntHome:
                     try await client.rpc("set_not_home", params: target).execute()
                 }
+            },
+            registerPush: { token, environment in
+                try await client.rpc("register_push_device",
+                                     params: ["device_token": token, "device_environment": environment]).execute()
+            },
+            unregisterPush: { token in
+                try await client.rpc("unregister_push_device", params: ["device_token": token]).execute()
             }
         )
     }

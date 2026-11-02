@@ -114,8 +114,14 @@ final class CookAlertPresenter: NSObject, UNUserNotificationCenterDelegate, Send
         let (id, action) = (request.identifier, response.actionIdentifier)
         let (title, body) = (request.content.title, request.content.body)
         let payload = ReminderPayload(userInfo: request.content.userInfo)
+        let isPush = request.trigger is UNPushNotificationTrigger
         nonisolated(unsafe) let finished = completionHandler
         Task { @MainActor in
+            if isPush {
+                if let route = ReminderResponse.pushRoute(action: action, payload: payload) { ReminderRouter.shared.go(to: route) }
+                finished()
+                return
+            }
             await Self.answer(id: id, action: action, payload: payload, title: title, body: body)
             finished()
         }

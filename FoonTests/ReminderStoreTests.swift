@@ -17,6 +17,7 @@ private final class SpyCenter: Sendable {
         var permissionAfterRequest: ReminderPermission?
         var clears = 0
         var addFails = false
+        var pushAsks = 0
     }
 
     let state = Mutex(State())
@@ -59,7 +60,8 @@ private final class SpyCenter: Sendable {
                     $0.clears += 1
                     $0.pending = []
                 }
-            }
+            },
+            askForPushToken: { self.state.withLock { $0.pushAsks += 1 } }
         )
     }
 
@@ -79,6 +81,7 @@ private final class SpyServer: Sendable {
         /// What the server had heard, each time a week was read.
         var checkIns: [Bool] = []
         var checkInsAtRead: [[Bool]] = []
+        var unregistered: [String] = []
     }
 
     let state = Mutex(State())
@@ -100,6 +103,12 @@ private final class SpyServer: Sendable {
             },
             answerCheckIn: { _, _, home in
                 self.state.withLock { $0.checkIns.append(home) }
+            },
+            unregisterPush: { token in
+                try self.state.withLock {
+                    if $0.offline { throw URLError(.notConnectedToInternet) }
+                    $0.unregistered.append(token)
+                }
             }
         )
     }
@@ -893,5 +902,67 @@ struct ReminderPresetWordingTests {
         let engaged = HouseholdSettings.NotificationPreset.engaged.summary
         #expect(engaged.contains("follow-up"))
         #expect(engaged.contains("on the way"))
+    }
+}
+
+/// Server push (#40 part 2): the device's token is on the server only while this person has reminders on.
+@MainActor
+struct PushTokenTests {
+    @Test func remindersOnAskForAToken() async throws {
+        let test = try Harness()
+        test.server.set(weeks: [test.week()])
+        await test.store().replan(test.wanted())
+        #expect(test.center.state.withLock { $0.pushAsks } == 1)
+    }
+
+    @Test func remindersOffOrNotAllowedNeverAsk() async throws {
+        let off = try Harness(optedIn: false)
+        off.server.set(weeks: [off.week()])
+        await off.store().replan(off.wanted())
+        let denied = try Harness()
+        denied.center.set(permission: .off)
+        denied.server.set(weeks: [denied.week()])
+        await denied.store().replan(denied.wanted())
+        #expect(off.center.state.withLock { $0.pushAsks } == 0)
+        #expect(denied.center.state.withLock { $0.pushAsks } == 0)
+    }
+
+    @Test func turningRemindersOffTakesTheTokenOffTheServer() async throws {
+        let test = try Harness()
+        test.server.set(weeks: [test.week()])
+        test.device.pushToken = "abc123"
+        let store = test.store()
+        await store.turnOff(for: test.wanted())
+        #expect(test.server.state.withLock { $0.unregistered } == ["abc123"])
+        #expect(test.device.pushToken == nil)
+        await store.replan(test.wanted())
+        #expect(test.server.state.withLock { $0.unregistered } == ["abc123"], "once is enough")
+    }
+
+    @Test func noSignalKeepsTheTokenToTakeOffNextTime() async throws {
+        let test = try Harness(optedIn: false)
+        test.device.pushToken = "abc123"
+        test.server.set(offline: true)
+        await test.store().replan(test.wanted())
+        #expect(test.device.pushToken == "abc123")
+    }
+
+    @Test func signingOutDoesntLoseTheToken() throws {
+        let test = try Harness()
+        test.device.pushToken = "abc123"
+        test.device.clear()
+        #expect(test.device.pushToken == "abc123", "sign-out takes it off the server itself, first")
+    }
+
+    @Test func tokensAreLowercaseHex() {
+        #expect(PushRegistration.hex(Data([0x0a, 0xff, 0x00])) == "0aff00")
+    }
+
+    @Test func tappingAPushOpensWhereItSays() {
+        let payload = ReminderPayload(userInfo: ["route": "week", "date": "2026-11-09"])
+        #expect(payload?.route == .week(CalendarDay(year: 2026, month: 11, day: 9)))
+        #expect(ReminderResponse.pushRoute(action: "com.apple.UNNotificationDefaultActionIdentifier", payload: payload)
+            == .week(CalendarDay(year: 2026, month: 11, day: 9)))
+        #expect(ReminderResponse.pushRoute(action: "com.apple.UNNotificationDismissActionIdentifier", payload: payload) == nil)
     }
 }

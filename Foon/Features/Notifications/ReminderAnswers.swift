@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import Supabase
 import Synchronization
+import UserNotifications
 
 /// Someone's answer to a notification, kept until the app can file it. It's written by the notification delegate, which can
 /// run with the app in the background and none of its screens or stores around.
@@ -158,6 +159,15 @@ struct ReminderDevice: @unchecked Sendable {
     }
 
     /// Signing out leaves nothing of this person's.
+    /// This device's APNs token as last sent to the server (#40 part 2). `clear` leaves it: sign-out takes it off the server
+    /// first, and a token that's still filed under someone needs to be known to be taken off.
+    var pushToken: String? {
+        get { defaults.string(forKey: Self.pushTokenKey) }
+        nonmutating set { defaults.set(newValue, forKey: Self.pushTokenKey) }
+    }
+
+    private static let pushTokenKey = "foon.push.token"
+
     func clear() {
         Self.answersLock.withLock { _ in
             defaults.removeObject(forKey: Self.answersKey)
@@ -293,6 +303,13 @@ enum ReminderResponse {
             return Outcome(answer: ReminderAnswer(id: base, response: "opened", at: now), cancels: [followUp],
                            schedulesAgain: false, route: payload?.route)
         }
+    }
+
+    /// A server push (#40 part 2) has no reminder record and no buttons yet: opening it goes where it says. Nothing for
+    /// anything else, which a cook-mode timer is.
+    static func pushRoute(action: String, payload: ReminderPayload?) -> ReminderRoute? {
+        guard action == UNNotificationDefaultActionIdentifier else { return nil }
+        return payload?.route
     }
 
     private static func dinnerOutcome(base: String, answer: DinnerAnswer.Answer, payload: ReminderPayload?,
