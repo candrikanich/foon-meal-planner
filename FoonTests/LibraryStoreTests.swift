@@ -522,7 +522,7 @@ struct RowPagesTests {
     private func read(_ total: Int, size: Int, serverCap: Int = .max) async throws -> (rows: [UUID], asked: [UUID?]) {
         let ids = (0..<total).map { _ in UUID() }
         var asked: [UUID?] = []
-        let rows = try await RowPages.all(size: size, id: { $0 }, page: { after, size in
+        let rows = try await RowPages.all(size: size, key: { $0 }, page: { after, size in
             asked.append(after)
             let start = after.flatMap { ids.firstIndex(of: $0) }.map { $0 + 1 } ?? 0
             return Array(ids[start...].prefix(min(size, serverCap)))
@@ -548,10 +548,23 @@ struct RowPagesTests {
         #expect(try await read(10, size: 5).asked.count == 3)
     }
 
+    /// Verdicts page on two columns: one person's rows can straddle a page, and the next person's still come.
+    @Test func aKeyOfTwoColumnsReadsEveryRow() async throws {
+        struct Row: Equatable { let member: Int, meal: Int }
+        let rows = (0..<3).flatMap { member in (0..<4).map { Row(member: member, meal: $0) } }
+        let read = try await RowPages.all(size: 5, key: { (row: Row) in row }, page: { after, size in
+            Array(rows.drop { row in
+                guard let after else { return false }
+                return row.member < after.member || (row.member == after.member && row.meal <= after.meal)
+            }.prefix(size))
+        })
+        #expect(read == rows)
+    }
+
     @Test func aFailedPageFailsTheRead() async {
         struct Failed: Error {}
         await #expect(throws: Failed.self) {
-            _ = try await RowPages.all(size: 2, id: { $0 }, page: { after, _ -> [UUID] in
+            _ = try await RowPages.all(size: 2, key: { $0 }, page: { after, _ -> [UUID] in
                 guard after == nil else { throw Failed() }
                 return [UUID(), UUID()]
             })
