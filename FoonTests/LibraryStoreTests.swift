@@ -113,7 +113,90 @@ struct LibraryStoreTests {
         #expect(await store.delete(tacos))
         #expect(store.visibleEntries.isEmpty)
         #expect(!store.canDelete(tacos))
+        await store.deleteCleanup?.value
         #expect(removed.withLock { $0 } == ["household/meals/tacos.jpg"])
+    }
+
+    @Test func aSlowPhotoRemovalDoesntHoldUpTheDelete() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let gate = AsyncStream<Void>.makeStream()
+        var client = LibraryClient.fake(meals: { _ in [tacos] })
+        client.deleteUnused = { _ in "household/meals/tacos.jpg" }
+        client.removePhoto = { _ in for await _ in gate.stream { break } }
+        let store = LibraryStore(householdID: household, client: client)
+        await store.load(members: [])
+        #expect(await store.delete(tacos), "returns with the photo still going")
+        gate.continuation.yield()
+        await store.deleteCleanup?.value
+    }
+
+    @Test func aReadFromBeforeTheDeleteDoesntBringTheDishBack() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let gate = AsyncStream<Void>.makeStream()
+        let deleted = Mutex(false), holding = Mutex(false), held = Mutex(false)
+        var client = LibraryClient.fake(meals: { _ in
+            let snapshot = deleted.withLock { $0 } ? [] : [tacos]
+            if holding.withLock({ $0 }) {
+                held.withLock { $0 = true }
+                holding.withLock { $0 = false }
+                for await _ in gate.stream { break }
+            }
+            return snapshot
+        })
+        client.deleteUnused = { _ in
+            deleted.withLock { $0 = true }
+            return "household/meals/tacos.jpg"
+        }
+        // The old read lands while the photo is going, the moment nothing else is out to notice it.
+        let landed = AsyncStream<Void>.makeStream()
+        client.removePhoto = { _ in
+            gate.continuation.yield()
+            for await _ in landed.stream { break }
+        }
+        let store = LibraryStore(householdID: household, client: client)
+        await store.load(members: [])
+        holding.withLock { $0 = true }
+        async let stale: Void = store.refreshReactions(members: [])
+        while !held.withLock({ $0 }) { await Task.yield() }
+        async let deleting = store.delete(tacos)
+        await stale
+        landed.continuation.yield()
+        #expect(await deleting)
+        await store.deleteCleanup?.value
+        #expect(store.meals.isEmpty)
+    }
+
+    @Test func aDishPlannedAfterLoadingIsNoLongerOffered() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let planned = Mutex(false)
+        var client = LibraryClient.fake(meals: { _ in [tacos] })
+        client.unusedMeals = { _ in planned.withLock { $0 } ? [] : [tacos.id] }
+        let store = LibraryStore(householdID: household, client: client)
+        await store.load(members: [])
+        #expect(store.canDelete(tacos))
+        planned.withLock { $0 = true }
+        await store.refreshUnused()
+        #expect(!store.canDelete(tacos))
+    }
+
+    @Test(arguments: [
+        ("P0002", "isn't in your library"),
+        ("42501", "Only planners")
+    ])
+    func aRefusedDeleteSaysWhyAndReadsAgain(code: String, words: String) async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let reads = Mutex(0)
+        var client = LibraryClient.fake(meals: { _ in [tacos] })
+        client.unusedMeals = { _ in
+            reads.withLock { $0 += 1; return $0 } == 1 ? [tacos.id] : []
+        }
+        client.deleteUnused = { _ in throw PostgrestError(code: code, message: "refused") }
+        let store = LibraryStore(householdID: household, client: client)
+        await store.load(members: [])
+        #expect(await !store.delete(tacos))
+        #expect(!store.canDelete(tacos))
+        #expect(store.errorMessage?.contains(words) == true)
+        #expect(store.errorMessage?.contains("connection") == false)
     }
 
     @Test func aPhotoThatWontGoDoesntUndoTheDelete() async {

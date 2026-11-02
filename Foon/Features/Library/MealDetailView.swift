@@ -18,6 +18,7 @@ struct MealDetailView: View {
     @State private var planning: LibraryMeal?
     @State private var bringingBack: LibraryMeal?
     @State private var deleting: LibraryMeal?
+    @State private var isDeleted = false
     @State private var editingNote: NoteTarget?
     @State private var cooking: LibraryMeal?
     @State private var photoItem: PhotosPickerItem?
@@ -30,10 +31,17 @@ struct MealDetailView: View {
     var body: some View {
         if let entry = library.entry(mealID) {
             content(entry)
+        } else if isDeleted {
+            // On its way off screen: this person just deleted it, so it isn't "not found".
+            Palette.cream
         } else {
             ContentUnavailableView("Meal not found", systemImage: "fork.knife",
                                    description: Text("It may have been removed on another device."))
         }
+    }
+
+    private func refreshUnused() {
+        Task { await library.refreshUnused() }
     }
 
     private func content(_ entry: LibraryEntry) -> some View {
@@ -89,17 +97,21 @@ struct MealDetailView: View {
         ), titleVisibility: .visible, presenting: deleting) { meal in
             Button("Delete", role: .destructive) {
                 Task {
-                    guard await library.delete(meal) else { return }
+                    isDeleted = true
+                    guard await library.delete(meal) else {
+                        isDeleted = false
+                        return
+                    }
                     dismiss()
-                    await ideas?.load()
+                    await ideas?.dishDeleted(meal.id)
                 }
             }
             Button("Cancel", role: .cancel) {}
         } message: { meal in
             Text("\(meal.name) has never been planned or cooked. This can't be undone.")
         }
-        .sheet(item: $planning) { meal in PlanItSheet(meal: meal) }
-        .sheet(item: $editingNote) { target in ServingNoteEditor(target: target) }
+        .sheet(item: $planning, onDismiss: refreshUnused) { meal in PlanItSheet(meal: meal) }
+        .sheet(item: $editingNote, onDismiss: refreshUnused) { target in ServingNoteEditor(target: target) }
         #if os(iOS)
         .fullScreenCover(item: $cooking) { meal in
             CookModeView(meal: meal, servingNotes: cookingNotes(meal), notesAreTonight: isTonight(meal))

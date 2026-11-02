@@ -65,13 +65,13 @@ struct LibraryView: View {
                 get: { deleting != nil }, set: { if !$0 { deleting = nil } }
             ), titleVisibility: .visible, presenting: deleting) { meal in
                 Button("Delete", role: .destructive) {
-                    Task { if await library.delete(meal) { await ideas?.load() } }
+                    Task { if await library.delete(meal) { await ideas?.dishDeleted(meal.id) } }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: { meal in
                 Text("\(meal.name) has never been planned or cooked. This can't be undone.")
             }
-            .sheet(item: $planning) { meal in PlanItSheet(meal: meal) }
+            .sheet(item: $planning, onDismiss: { Task { await library.refreshUnused() } }) { meal in PlanItSheet(meal: meal) }
             .sheet(isPresented: $browsingCatalog) {
                 CatalogBrowserView(canAdd: canEdit)
             }
