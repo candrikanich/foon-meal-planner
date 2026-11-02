@@ -131,9 +131,9 @@ select ok(public.is_household_member('00000000-0000-0000-0000-0000000000a0'), 'i
 select ok(not public.is_household_planner('00000000-0000-0000-0000-0000000000a0'), 'is_household_planner is false for a member');
 select lives_ok(
   $$ update public.members
-     set avatar = 'fox', attendance_defaults = '{"mon": false}', notification_prefs = '{"preset": "light"}'
+     set avatar = 'fox', attendance_defaults = '{"mon": false}'
      where id = '00000000-0000-0000-0000-0000000000a2' $$,
-  'a member edits their own avatar, schedule, and notification prefs');
+  'a member edits their own avatar and schedule (notification settings go through set_member_preset, see 58)');
 select throws_ok(
   $$ update public.members set role = 'planner' where id = '00000000-0000-0000-0000-0000000000a2' $$,
   '42501', null, 'a member cannot change their own role');
