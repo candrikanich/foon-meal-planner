@@ -243,15 +243,15 @@ extension LibraryText {
     }
 
     /// The Allergy flags filter lists what's flagged; this says what it can't vouch for, so the list doesn't read as
-    /// complete. Counts a dish with no ingredients, and one whose side has none.
+    /// complete. Counts a dish with no ingredients, one whose side has none, and one whose side can't be found.
     static func uncheckedFilterNote(filter: LibraryFilter?, unchecked: Int) -> String? {
         filter == .allergyFlags && unchecked > 0 ? uncheckedNote(unchecked) : nil
     }
 
     private static func uncheckedNote(_ count: Int) -> String {
         count == 1
-            ? String(localized: "1 meal can't be fully checked for allergies: it or a side has no ingredients yet.")
-            : String(localized: "\(count) meals can't be fully checked for allergies: they or their sides have no ingredients yet.")
+            ? String(localized: "1 meal can't be fully checked for allergies. Open it to see why.")
+            : String(localized: "\(count) meals can't be fully checked for allergies. Open them to see why.")
     }
 
     static func emptyState(filter: LibraryFilter?, searching: Bool, unchecked: Int = 0) -> EmptyState {

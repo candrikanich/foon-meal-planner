@@ -245,9 +245,36 @@ struct UncheckedAllergyNoteTests {
     @Test func sidesThatCantBeMissingIngredientsSayNothing() {
         let retired = LibraryMeal.fixture(name: "Liver", status: .retired)
         var meal = cooked
-        meal.sides = [.meal(retired.id), .item(itemID: UUID(), name: "salsa"), .meal(UUID())]
+        meal.sides = [.meal(retired.id), .item(itemID: UUID(), name: "salsa")]
         #expect(note(meal, library: [meal, retired], members: allergies) == nil,
-                "a retired side isn't served, a simple side is its own ingredient, an unknown one isn't known")
+                "a retired side isn't served, and a simple side is its own ingredient")
+    }
+
+    @Test func aSideThatIsntInTheLibraryCantBeChecked() throws {
+        var meal = cooked
+        meal.sides = [.meal(UUID())]
+        let said = try #require(note(meal, library: [meal], members: allergies))
+        #expect(said.contains("allergies can't be checked"))
+    }
+
+    @Test func aFamilyWithNoAllergiesDoesntHearAboutAMissingSide() {
+        var meal = cooked
+        meal.sides = [.meal(UUID())]
+        #expect(note(meal, library: [meal], members: []) == nil)
+    }
+
+    @Test func aBareSideIsStillNamedWhenAnotherIsMissing() throws {
+        let bread = LibraryMeal.fixture(name: "Cornbread")
+        var meal = cooked
+        meal.sides = [.meal(UUID()), .meal(bread.id)]
+        let said = try #require(note(meal, library: [meal, bread], members: allergies))
+        #expect(said.contains("Cornbread"), "that's the one the family can fix")
+    }
+
+    @Test func aMissingSideReachesTheWholeCheck() {
+        var meal = cooked
+        meal.sides = [.meal(UUID())]
+        #expect(AllergyMatcher.check(meal: meal, library: [meal], members: allergies).note != nil)
     }
 }
 
@@ -598,7 +625,7 @@ struct UncheckedCountTests {
     @Test func theFilterSaysSoEvenWithSomethingFlagged() throws {
         let one = try #require(LibraryText.uncheckedFilterNote(filter: .allergyFlags, unchecked: 1))
         #expect(one.contains("1 meal"))
-        #expect(one.contains("it or a side"), "true of a bare dish and of one whose side is bare")
+        #expect(!one.contains("no ingredients"), "a side that can't be found has its ingredients; the dish says which it is")
         let some = try #require(LibraryText.uncheckedFilterNote(filter: .allergyFlags, unchecked: 5))
         #expect(some.contains("5 meals"))
         #expect(LibraryText.uncheckedFilterNote(filter: .allergyFlags, unchecked: 0) == nil)

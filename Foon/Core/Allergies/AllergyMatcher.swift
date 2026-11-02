@@ -109,7 +109,8 @@ enum AllergyMatcher {
         return standard + custom
     }
 
-    /// A dish or a side with no ingredients can't set off a flag, and no flag mustn't read as safe. Only said when someone
+    /// A dish or a side with no ingredients can't set off a flag, and neither can a side that isn't in the library, and no
+    /// flag mustn't read as safe. A bare side comes first: it has a name, and the family can fix it. Only said when someone
     /// at the table has allergies to check: a family with none recorded never hears about it.
     static func uncheckedNote(meal: LibraryMeal, library: [LibraryMeal], members: [MemberAllergies]) -> String? {
         guard members.contains(where: \.hasAllergies) else { return nil }
@@ -117,7 +118,10 @@ enum AllergyMatcher {
             return String(localized: "No ingredients yet, so allergies can't be checked")
         }
         let bareSides = ShoppingLines.sideMeals(of: meal, library: library).filter(\.ingredients.isEmpty).map(\.name)
-        guard !bareSides.isEmpty else { return nil }
+        guard !bareSides.isEmpty else {
+            return ShoppingLines.hasUnknownSide(meal, library: library)
+                ? String(localized: "Couldn't find a side for this dish, so allergies can't be checked") : nil
+        }
         let names = bareSides.formatted(.list(type: .and))
         return String(localized: "No ingredients for \(names) yet, so allergies can't be checked",
                       comment: "A note on a dish: side dishes with no ingredients")

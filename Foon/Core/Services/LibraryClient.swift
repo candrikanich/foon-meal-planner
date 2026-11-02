@@ -72,21 +72,42 @@ enum RecipeImportError: Error, Equatable {
     }
 }
 
+/// Reads every row of a list the server caps per request (`max_rows`, 1000 here and not checked on hosted projects). Each page
+/// starts after the last row's id, so a row added or removed mid-read can't shift the others. Only an empty page means the end:
+/// a short one might just be a lower cap, and stopping there would lose dishes, and their allergy flags, without a word.
+enum RowPages {
+    static let size = 500
+
+    static func all<Row: Sendable>(size: Int = size, id: (Row) -> UUID,
+                                   page: (_ after: UUID?, _ size: Int) async throws -> [Row]) async throws -> [Row] {
+        var rows: [Row] = []
+        var after: UUID?
+        while true {
+            let next = try await page(after, size)
+            guard let last = next.last else { return rows }
+            rows += next
+            after = id(last)
+        }
+    }
+}
+
 extension LibraryClient {
     static func live(_ client: SupabaseClient) -> LibraryClient {
         let photos = PhotoStorageClient.live(client)
         return LibraryClient(
             meals: { householdID in
-                let rows: [MealRow] = try await client.from("meals")
-                    .select("""
-                        id, household_id, catalog_meal_id, name, servings, tags, status, photo_path, made_by_member_id, \
-                        created_at, steps, source_url, prep_steps, cook_minutes, \
-                        meal_ingredients(item_id, position, quantity_text, items(canonical_name, category, note, keep_on_hand)), \
-                        meal_sides!meal_sides_meal_fkey(position, side_meal_id, item_id, items(canonical_name))
-                        """)
-                    .eq("household_id", value: householdID)
-                    .execute()
-                    .value
+                let rows: [MealRow] = try await RowPages.all(id: \.id) { after, size in
+                    var query = client.from("meals")
+                        .select("""
+                            id, household_id, catalog_meal_id, name, servings, tags, status, photo_path, made_by_member_id, \
+                            created_at, steps, source_url, prep_steps, cook_minutes, \
+                            meal_ingredients(item_id, position, quantity_text, items(canonical_name, category, note, keep_on_hand)), \
+                            meal_sides!meal_sides_meal_fkey(position, side_meal_id, item_id, items(canonical_name))
+                            """)
+                        .eq("household_id", value: householdID)
+                    if let after { query = query.gt("id", value: after) }
+                    return try await query.order("id").limit(size).execute().value
+                }
                 return rows.map(\.meal)
             },
             history: { householdID in

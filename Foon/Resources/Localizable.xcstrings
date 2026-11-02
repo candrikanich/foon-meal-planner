@@ -387,7 +387,7 @@
     "%lld me-toos" : {
 
     },
-    "%lld meals can't be fully checked for allergies: they or their sides have no ingredients yet." : {
+    "%lld meals can't be fully checked for allergies. Open them to see why." : {
 
     },
     "%lld months ago" : {
@@ -460,7 +460,7 @@
     "1 me-too" : {
 
     },
-    "1 meal can't be fully checked for allergies: it or a side has no ingredients yet." : {
+    "1 meal can't be fully checked for allergies. Open it to see why." : {
 
     },
     "1 night still open" : {
@@ -938,6 +938,9 @@
 
     },
     "Couldn't export your household. Check your connection and try again." : {
+
+    },
+    "Couldn't find a side for this dish, so allergies can't be checked" : {
 
     },
     "Couldn't find it" : {
