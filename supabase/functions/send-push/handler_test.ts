@@ -174,6 +174,22 @@ Deno.test("a tonight poll opens This Week, where the vote card is", async () => 
   }]);
 });
 
+Deno.test("the ideas digest opens Ideas", async () => {
+  const payloads: ApnsPayload[] = [];
+  const digest: OutboxRow = { ...row([sandbox], "new_requests"), week_start: null, args: { count: 3 } };
+  const { deps } = fakeDeps([digest], {}, {
+    deliver: (_device, payload) => {
+      payloads.push(payload);
+      return Promise.resolve("delivered");
+    },
+  });
+  await handleSendPush(request(), deps);
+  assertEquals(payloads, [{
+    aps: { alert: { title: "3 new dinner ideas.", body: "Tap to see them." }, sound: "default" },
+    route: "ideas",
+  }]);
+});
+
 Deno.test("a push whose words can't be made fails without a post", async () => {
   const nameless = fakeDeps([{ ...row([sandbox], "not_home"), args: null }]);
   await handleSendPush(request(), nameless.deps);

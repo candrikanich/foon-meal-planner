@@ -27,7 +27,8 @@ export type Route =
   | { route: "week"; date: string }
   | { route: "night"; night: string; date: string }
   | { route: "list" }
-  | { route: "dinner" };
+  | { route: "dinner" }
+  | { route: "ideas" };
 
 export type ApnsPayload = { aps: { alert: Alert; sound: "default" } } & Partial<Route>;
 
@@ -83,6 +84,11 @@ export function weekdayOf(date: string | null): string | null {
   return Number.isNaN(day.getTime()) ? null : weekdays[day.getUTCDay()];
 }
 
+function ideaCount(args: Record<string, unknown>): number | null {
+  const count = args.count;
+  return typeof count === "number" && Number.isInteger(count) && count > 0 ? count : null;
+}
+
 function firstName(args: Record<string, unknown>): string | null {
   const name = typeof args.name === "string" ? args.name.trim() : "";
   return name === "" ? null : name;
@@ -109,6 +115,17 @@ const words: Record<string, (args: Record<string, unknown>, nightDate: string | 
   tonight_poll: (args) => {
     const name = firstName(args);
     return name ? { title: `${name} started a vote on dinner.`, body: "Tap to vote." } : null;
+  },
+  // A planner's digest of new ideas: how many, and who when it's one person. Never a dish.
+  new_requests: (args) => {
+    const count = ideaCount(args);
+    if (!count) return null;
+    const name = firstName(args);
+    const body = count === 1 ? "Tap to see it." : "Tap to see them.";
+    if (name) {
+      return { title: count === 1 ? `${name} has a new dinner idea.` : `${name} has ${count} new dinner ideas.`, body };
+    }
+    return { title: count === 1 ? "1 new dinner idea." : `${count} new dinner ideas.`, body };
   },
   // To whoever asked, so no name, and never the dish.
   request_planned: (_args, nightDate) => {

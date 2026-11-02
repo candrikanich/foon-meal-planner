@@ -128,13 +128,14 @@ Deno.test("a claim says the night's weekday from its date, never tonight or tomo
 Deno.test("the known kinds are exactly the ones with words", () => {
   assertEquals([...knownKinds].sort(), [
     "claim",
+    "new_requests",
     "not_home",
     "plan_set",
     "request_planned",
     "tonight_poll",
     "urgent_item",
   ]);
-  for (const kind of knownKinds) assert(alertFor(kind, { name: "Ben" }, "2026-11-05"));
+  for (const kind of knownKinds) assert(alertFor(kind, { name: "Ben", count: 1 }, "2026-11-05"));
   for (const kind of ["something_new", "weekly_recap", "constructor", "toString", ""]) {
     assert(!knownKinds.has(kind));
     assertEquals(alertFor(kind, { name: "Ben" }, "2026-11-05"), null);
@@ -163,6 +164,20 @@ Deno.test("your idea made the plan says the weekday, never the dish", () => {
   });
   assertEquals(alertFor("request_planned", { name: "Ben", dish: "Crab legs" }, "2026-11-06")?.title, "Your idea made Friday.");
   assertEquals(alertFor("request_planned", {}, null), null);
+});
+
+Deno.test("the ideas digest counts, names one person, and never a dish", () => {
+  assertEquals(alertFor("new_requests", { count: 2 }), { title: "2 new dinner ideas.", body: "Tap to see them." });
+  assertEquals(alertFor("new_requests", { count: 1 }), { title: "1 new dinner idea.", body: "Tap to see it." });
+  assertEquals(alertFor("new_requests", { count: 2, name: "Ben" }), {
+    title: "Ben has 2 new dinner ideas.",
+    body: "Tap to see them.",
+  });
+  assertEquals(alertFor("new_requests", { count: 1, name: "Ben", dish: "Crab legs" })?.title, "Ben has a new dinner idea.");
+  assertEquals(alertFor("new_requests", {}), null);
+  assertEquals(alertFor("new_requests", { count: 0 }), null);
+  assertEquals(alertFor("new_requests", { count: "2" }), null);
+  assertEquals(alertFor("new_requests", { count: 1.5 }), null);
 });
 
 Deno.test("only the name is read from args", () => {
