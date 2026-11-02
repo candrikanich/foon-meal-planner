@@ -20,14 +20,18 @@ enum MemberPresetRules {
         return Preset.allCases.filter { rank($0) <= rank(family) }
     }
 
+    /// Their own preset as it counts, or nil when they follow the family's: nothing saved, or a kid's above the family's,
+    /// which the family's caps. What the picker checks and the row says.
+    static func selected(for member: Member, family: Preset) -> Preset? {
+        guard let own = member.notificationPrefs?.preset,
+              ReminderRules.preset(member: member, household: family) == own else { return nil }
+        return own
+    }
+
     /// What Family shows: their own, or "Same as family (Balanced)".
     static func title(for member: Member, family: Preset) -> String {
-        guard let own = member.notificationPrefs?.preset else {
-            return String(localized: "Same as family (\(family.title))", comment: "A person's notifications follow the household's preset")
-        }
-        return ReminderRules.preset(member: member, household: family) == own
-            ? own.title
-            : String(localized: "Same as family (\(family.title))", comment: "A person's notifications follow the household's preset")
+        selected(for: member, family: family)?.title
+            ?? String(localized: "Same as family (\(family.title))", comment: "A person's notifications follow the household's preset")
     }
 
     private static func rank(_ preset: Preset) -> Int { Preset.allCases.firstIndex(of: preset) ?? 0 }

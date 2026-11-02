@@ -581,6 +581,9 @@
     "A kid's can be quieter than the family's, never louder. Quiet hours and the weekly limit still apply." : {
 
     },
+    "A kid's notifications can't be more than the family's." : {
+
+    },
     "A last name or a nickname. Everyone you invite will see it." : {
 
     },
@@ -3310,6 +3313,9 @@
 
     },
     "They're marked out tonight, and the vote is for whoever's home." : {
+
+    },
+    "They're no longer in the family." : {
 
     },
     "They're signed out of the household on their own device now, and stay in the family on yours. If you don't consent again within 30 days, what they added themselves is erased." : {

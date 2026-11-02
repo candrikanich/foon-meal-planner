@@ -564,9 +564,12 @@ final class HouseholdStore {
             }
             return true
         } catch {
-            errorMessage = (error as? PostgrestError)?.code == "42501"
-                ? String(localized: "People set their own notifications; a parent sets a kid's.")
-                : String(localized: "Couldn't save notifications. Check your connection and try again.")
+            errorMessage = switch (error as? PostgrestError)?.code {
+            case "42501": String(localized: "People set their own notifications; a parent sets a kid's.")
+            case "22023": String(localized: "A kid's notifications can't be more than the family's.")
+            case "P0002": String(localized: "They're no longer in the family.")
+            default: String(localized: "Couldn't save notifications. Check your connection and try again.")
+            }
             return false
         }
     }

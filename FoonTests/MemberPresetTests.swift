@@ -54,6 +54,14 @@ struct MemberPresetTests {
             == "Same as family (Balanced)", "a kid's above the family's is the family's")
     }
 
+    @Test func theChecksFollowWhatCounts() {
+        #expect(MemberPresetRules.selected(for: person("Ben"), family: .balanced) == nil)
+        #expect(MemberPresetRules.selected(for: person("Ben", preset: .light), family: .balanced) == .light)
+        #expect(MemberPresetRules.selected(for: person("Kim", kid: true, preset: .engaged), family: .balanced) == nil,
+                "a kid's above the family's checks Same as family, as the row says")
+        #expect(MemberPresetRules.selected(for: person("Kim", kid: true, preset: .balanced), family: .balanced) == .balanced)
+    }
+
     @Test func theDevicePlansByTheirOwn() {
         let ben = person("Ben", preset: .engaged)
         #expect(ReminderRules(member: ben, settings: HouseholdSettings()).weeklyBudget == 16)
@@ -97,5 +105,20 @@ struct MemberPresetTests {
         #expect(!(await store.setPreset(.engaged, for: ben)))
         #expect(store.errorMessage == "People set their own notifications; a parent sets a kid's.")
         #expect(store.members.first?.notificationPrefs?.preset == nil)
+    }
+
+    @Test(arguments: [
+        ("22023", "A kid's notifications can't be more than the family's."),
+        ("P0002", "They're no longer in the family."),
+        ("08006", "Couldn't save notifications. Check your connection and try again.")
+    ])
+    func eachRefusalSaysWhy(code: String, says message: String) async {
+        let ben = Member.fixture(householdID: household.id, firstName: "Ben", userID: me)
+        var client = HouseholdClient.fake(myHousehold: { [household] in household }, members: { _ in [ben] })
+        client.setMemberPreset = { _, _ in throw PostgrestError(code: code, message: "no") }
+        let store = HouseholdStore(userID: me, client: client)
+        await store.load()
+        #expect(!(await store.setPreset(.light, for: ben)))
+        #expect(store.errorMessage == message)
     }
 }

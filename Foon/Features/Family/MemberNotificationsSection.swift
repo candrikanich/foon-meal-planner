@@ -37,8 +37,9 @@ struct MemberPresetPicker: View {
     let family: HouseholdSettings.NotificationPreset
     @State private var saving = false
 
+    /// As it counts: a kid's saved above the family's checks Same as family, as the row says.
     private var current: HouseholdSettings.NotificationPreset? {
-        store.members.first { $0.id == member.id }?.notificationPrefs?.preset
+        MemberPresetRules.selected(for: store.members.first { $0.id == member.id } ?? member, family: family)
     }
 
     var body: some View {
@@ -85,15 +86,28 @@ struct MemberPresetPicker: View {
 }
 
 #Preview("Their own") {
+    let store = HouseholdStore.preview()
     NavigationStack {
         List { MemberNotificationsSection(member: Member.sampleFamily[0]) }
     }
-    .environment(HouseholdStore.preview())
+    .environment(store)
+    .task { await store.load() }
 }
 
-#Preview("Choices") {
+#Preview("A kid, set by a parent") {
+    let store = HouseholdStore.preview()
     NavigationStack {
-        MemberPresetPicker(member: Member.sampleFamily[0], family: .balanced)
+        List { MemberNotificationsSection(member: Member.sampleFamily[4]) }
     }
-    .environment(HouseholdStore.preview())
+    .environment(store)
+    .task { await store.load() }
+}
+
+#Preview("Choices for a kid") {
+    let store = HouseholdStore.preview()
+    NavigationStack {
+        MemberPresetPicker(member: Member.sampleFamily[4], family: .balanced)
+    }
+    .environment(store)
+    .task { await store.load() }
 }
