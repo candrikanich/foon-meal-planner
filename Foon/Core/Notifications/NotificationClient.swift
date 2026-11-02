@@ -32,7 +32,7 @@ struct NotificationClient: Sendable {
     var answerDinner: @Sendable (_ answer: DinnerAnswer) async throws -> Void = { _ in }
     /// This device's APNs token, filed under whoever is signed in (`register_push_device`).
     var registerPush: @Sendable (_ token: String, _ environment: String) async throws -> Void = { _, _ in }
-    /// Takes this device's token off the signed-in person (`unregister_push_device`).
+    /// Takes this device's token off the server, whoever it's filed under (`unregister_push_device`).
     var unregisterPush: @Sendable (_ token: String) async throws -> Void = { _ in }
 }
 

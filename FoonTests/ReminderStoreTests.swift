@@ -104,6 +104,9 @@ private final class SpyServer: Sendable {
             answerCheckIn: { _, _, home in
                 self.state.withLock { $0.checkIns.append(home) }
             },
+            registerPush: { _, _ in
+                try self.state.withLock { if $0.offline { throw URLError(.notConnectedToInternet) } }
+            },
             unregisterPush: { token in
                 try self.state.withLock {
                     if $0.offline { throw URLError(.notConnectedToInternet) }
@@ -952,6 +955,36 @@ struct PushTokenTests {
         test.device.pushToken = "abc123"
         test.device.clear()
         #expect(test.device.pushToken == "abc123", "sign-out takes it off the server itself, first")
+    }
+
+    @MainActor @Test func signingOutLetsTheNextPersonRegisterEvenWithNoSignal() async throws {
+        let test = try Harness()
+        test.device.pushToken = "abc123"
+        test.server.set(offline: true)
+        PushRegistration.hasAsked = true
+        await PushRegistration.forget(client: test.server.client, device: test.device)
+        #expect(!PushRegistration.hasAsked)
+        #expect(test.device.pushToken == "abc123")
+    }
+
+    @MainActor @Test func aSlowServerNeverHoldsUpSigningOut() async throws {
+        let test = try Harness()
+        test.device.pushToken = "abc123"
+        var client = test.server.client
+        client.unregisterPush = { _ in try await Task.sleep(for: .seconds(60)) }
+        let started = ContinuousClock.now
+        await PushRegistration.forget(client: client, device: test.device, waiting: .milliseconds(50))
+        #expect(ContinuousClock.now - started < .seconds(5))
+        #expect(test.device.pushToken == "abc123")
+    }
+
+    @MainActor @Test func aTokenThatDidntReachTheServerIsAskedForAgain() async throws {
+        let test = try Harness()
+        test.server.set(offline: true)
+        PushRegistration.hasAsked = true
+        await PushRegistration.received(Data([0xab]), client: test.server.client, device: test.device)
+        #expect(!PushRegistration.hasAsked)
+        #expect(test.device.pushToken == "ab")
     }
 
     @Test func tokensAreLowercaseHex() {

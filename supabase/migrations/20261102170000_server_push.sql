@@ -23,6 +23,9 @@ create table public.push_devices (
   household_id uuid not null,
   token text not null unique check (token ~ '^[0-9a-f]{64,200}$'),
   environment text not null check (environment in ('sandbox', 'production')),
+  -- The sign-in that registered it. Once that's gone (signed out, "Sign out everywhere", revoked) the device is forgotten
+  -- before anything is sent, whether or not the phone ever got to say so.
+  session_id uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   -- Cascade: erasing a household deletes its members, and a device is nothing without its person.
@@ -64,11 +67,12 @@ begin
     raise exception 'not in a household' using errcode = '42501';
   end if;
 
-  insert into public.push_devices (user_id, member_id, household_id, token, environment)
-  values (me.user_id, me.id, me.household_id, normalized, device_environment)
+  insert into public.push_devices (user_id, member_id, household_id, token, environment, session_id)
+  values (me.user_id, me.id, me.household_id, normalized, device_environment,
+          nullif((select auth.jwt()) ->> 'session_id', '')::uuid)
   on conflict (token) do update
     set user_id = excluded.user_id, member_id = excluded.member_id, household_id = excluded.household_id,
-        environment = excluded.environment, updated_at = now();
+        environment = excluded.environment, session_id = excluded.session_id, updated_at = now();
 
   -- Reinstalls leave old tokens behind until Apple says they're gone. Ten is more phones, iPads and Macs than anyone has.
   delete from public.push_devices
@@ -77,13 +81,14 @@ begin
 end;
 $$;
 
--- Signing out and turning reminders off. Only the caller's own token: knowing someone else's isn't enough to silence them.
+-- Signing out and turning reminders off. By token alone: whoever holds a token can already take it over by registering it,
+-- and the next person on a phone whose last sign-out had no signal needs to clear what was left under someone else.
 create function public.unregister_push_device(device_token text)
 returns void
 language sql security definer set search_path = ''
 as $$
   delete from public.push_devices
-  where token = lower(btrim(device_token)) and user_id = (select auth.uid());
+  where token = lower(btrim(device_token));
 $$;
 
 revoke execute on function public.register_push_device(text, text) from public, anon;
@@ -133,14 +138,15 @@ create table public.push_provider_tokens (
 revoke all on public.push_provider_tokens from anon, authenticated;
 alter table public.push_provider_tokens enable row level security;
 
--- Someone removed, leaving, or unlinked from a profile takes their devices and what's waiting for them along.
+-- Someone removed, leaving, or unlinked from a profile takes their devices and their outbox rows along, sent ones too: a
+-- sent row is as much a record of what they were sent as their notification_log rows, which go the same way.
 create function public.members_drop_push_devices()
 returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 begin
   delete from public.push_devices where member_id = new.id;
-  delete from public.push_outbox where member_id = new.id and sent_at is null;
+  delete from public.push_outbox where member_id = new.id;
   return null;
 end;
 $$;
@@ -224,7 +230,8 @@ create trigger plans_enqueue_plan_set after update of approved_at on public.plan
 
 -- Sending (service role only) -------------------------------------------------------------------------------------------------
 
--- Hands send-push up to `batch_size` due rows with their person's devices, and holds them for two minutes. A row more than a
+-- Forgets devices whose sign-in has ended, then hands send-push up to `batch_size` due rows with their person's devices,
+-- and holds them for two minutes. A row more than a
 -- day late (the sender was down) isn't news any more and is given up.
 create function public.claim_push_outbox(batch_size int)
 returns table (id uuid, kind text, week_start date, attempts int, devices jsonb)
@@ -232,6 +239,11 @@ language plpgsql security definer set search_path = ''
 as $$
 #variable_conflict use_column
 begin
+  delete from public.push_devices d
+  where d.session_id is not null
+    and not exists (select 1 from auth.sessions s
+                    where s.id = d.session_id and (s.not_after is null or s.not_after > now()));
+
   update public.push_outbox o set failed = 'stale'
   where o.sent_at is null and o.failed is null and o.not_before < now() - interval '1 day';
 
@@ -280,7 +292,10 @@ begin
     from public.members m where m.id = pending.member_id and m.status <> 'removed';
   elsif outcome = 'retry' then
     update public.push_outbox
-    set claimed_until = null, failed = case when attempts >= 5 then 'gave_up' end
+    -- Backs off (2, 4, 6, 8 minutes) so one bad stretch at Apple, or a full batch claimed again and again in one run,
+    -- can't use up all five tries in seconds.
+    set claimed_until = case when attempts < 5 then now() + attempts * interval '2 minutes' end,
+        failed = case when attempts >= 5 then 'gave_up' end
     where id = target;
   else
     update public.push_outbox set claimed_until = null, failed = left(coalesce(outcome, 'unknown'), 40) where id = target;

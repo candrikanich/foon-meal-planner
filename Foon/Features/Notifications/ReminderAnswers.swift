@@ -158,7 +158,6 @@ struct ReminderDevice: @unchecked Sendable {
         defaults.set(on ? others + [member.uuidString] : others, forKey: key)
     }
 
-    /// Signing out leaves nothing of this person's.
     /// This device's APNs token as last sent to the server (#40 part 2). `clear` leaves it: sign-out takes it off the server
     /// first, and a token that's still filed under someone needs to be known to be taken off.
     var pushToken: String? {
@@ -168,6 +167,7 @@ struct ReminderDevice: @unchecked Sendable {
 
     private static let pushTokenKey = "foon.push.token"
 
+    /// Signing out leaves nothing of this person's.
     func clear() {
         Self.answersLock.withLock { _ in
             defaults.removeObject(forKey: Self.answersKey)

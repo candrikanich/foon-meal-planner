@@ -31,23 +31,39 @@ enum PushRegistration {
         #endif
     }
 
-    @MainActor private static var hasAsked = false
+    @MainActor static var hasAsked = false
 
-    /// The system gave a token: on the server it goes, under whoever is signed in. Best effort: the next launch tries again.
+    /// The system gave a token: on the server it goes, under whoever is signed in. No signal: ask again on the next re-plan.
+    @MainActor
     static func received(_ token: Data, client: NotificationClient, device: ReminderDevice = ReminderDevice()) async {
         let hex = hex(token)
         device.pushToken = hex
-        try? await client.registerPush(hex, environment)
+        if (try? await client.registerPush(hex, environment)) == nil { hasAsked = false }
     }
 
-    /// Reminders off, or signing out: this device stops getting this person's pushes. Kept for next time if there's no signal.
+    /// Reminders off, or signing out: this device stops getting this person's pushes. Kept for next time if there's no
+    /// signal, and never holds up signing out for long: the server also stops sending once that sign-in is gone.
     @MainActor
-    static func forget(client: NotificationClient, device: ReminderDevice = ReminderDevice()) async {
-        guard let token = device.pushToken else { return }
-        guard (try? await client.unregisterPush(token)) != nil else { return }
-        device.pushToken = nil
-        // Turned back on later, in this launch: ask again, so the token goes back on the server.
+    static func forget(client: NotificationClient, device: ReminderDevice = ReminderDevice(),
+                       waiting limit: Duration = .seconds(5)) async {
+        // Whoever turns reminders on next, in this launch, gets the token put back on the server under them.
         hasAsked = false
+        guard let token = device.pushToken else { return }
+        guard await within(limit, { try await client.unregisterPush(token) }) else { return }
+        device.pushToken = nil
+    }
+
+    private static func within(_ limit: Duration, _ work: @escaping @Sendable () async throws -> Void) async -> Bool {
+        await withTaskGroup(of: Bool.self) { group in
+            group.addTask { (try? await work()) != nil }
+            group.addTask {
+                try? await Task.sleep(for: limit)
+                return false
+            }
+            let first = await group.next() ?? false
+            group.cancelAll()
+            return first
+        }
     }
 }
 

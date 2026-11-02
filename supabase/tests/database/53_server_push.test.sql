@@ -1,10 +1,16 @@
 -- Server push, car 1 (#40 part 2): device tokens are their owner's alone, the outbox is the server's alone, Plan's set goes to
 -- everyone with a device but the approver, once a plan, and quiet hours hold a push until they end.
 begin;
-select plan(42);
+select plan(45);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
+         set_config('role', 'authenticated', true);
+$$;
+
+create function pg_temp.as_session(uid uuid, session uuid) returns void language sql as $$
+  select set_config('request.jwt.claims',
+                    json_build_object('sub', uid, 'role', 'authenticated', 'session_id', session)::text, true),
          set_config('role', 'authenticated', true);
 $$;
 
@@ -59,8 +65,11 @@ select throws_ok($$ insert into public.push_devices (user_id, member_id, househo
 
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select is((select count(*) from public.push_devices), 0::bigint, 'another member, even a planner, can''t read it');
-select lives_ok($$ select public.unregister_push_device(repeat('ab', 32)) $$, 'unregistering someone else''s token runs');
+select public.unregister_push_device(repeat('ab', 32));
 select public.register_push_device(repeat('a1', 32), 'production');
+select pg_temp.as_postgres();
+select is((select count(*) from public.push_devices where token = repeat('ab', 32)), 0::bigint,
+  'whoever holds a token can take it off, as they could already take it over: the next person on a phone clears the last');
 
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
 select is((select count(*) from public.push_devices), 0::bigint, 'another household can''t read it');
@@ -76,9 +85,6 @@ select public.register_push_device(repeat('b2', 32), 'sandbox');
 select public.unregister_push_device(repeat('b2', 32));
 select is((select count(*) from public.push_devices), 1::bigint, 'unregistering removes the caller''s own token');
 
-select pg_temp.as_postgres();
-select is((select count(*) from public.push_devices where token = repeat('ab', 32)), 1::bigint,
-  'and someone else unregistering it didn''t');
 
 select pg_temp.as_user('e0000000-0000-0000-0000-00000000000e');
 select public.register_push_device(repeat('e5', 32), 'sandbox');
@@ -182,6 +188,15 @@ select ok((select sent_at is not null from public.push_outbox where id = '000000
 select results_eq($$ select member_id, type, channel from public.notification_log $$,
   $$ values ('00000000-0000-0000-0000-0000000000a2'::uuid, 'plan_set', 'push') $$, 'and logged as a push');
 
+select pg_temp.as_postgres();
+insert into public.push_outbox (id, household_id, member_id, kind, not_before, attempts, claimed_until) values
+  ('00000000-0000-0000-0000-0000000005a6', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2',
+   'plan_set', now(), 2, now() + interval '2 minutes');
+set local role service_role;
+select public.complete_push_outbox('00000000-0000-0000-0000-0000000005a6', 'retry');
+select ok((select failed is null and claimed_until >= now() + interval '4 minutes'
+           from public.push_outbox where id = '00000000-0000-0000-0000-0000000005a6'),
+  'a failed try waits longer each time before the next, so a bad stretch can''t use up every try at once');
 select public.complete_push_outbox('00000000-0000-0000-0000-0000000005a3', 'retry');
 select is((select failed from public.push_outbox where id = '00000000-0000-0000-0000-0000000005a3'), 'gave_up',
   'a fifth failed try gives up');
@@ -190,12 +205,38 @@ select public.forget_push_devices(array[repeat('ab', 32)]);
 select is((select count(*) from public.push_devices where token = repeat('ab', 32)), 0::bigint,
   'a token Apple says is dead is forgotten');
 
+-- A device lasts as long as the sign-in that registered it -------------------------------------------------------------------
+
+select pg_temp.as_postgres();
+insert into auth.sessions (id, user_id) values
+  ('5e550000-0000-0000-0000-0000000000f1', 'a0000000-0000-0000-0000-00000000000a'),
+  ('5e550000-0000-0000-0000-0000000000f2', 'a0000000-0000-0000-0000-00000000000a');
+select pg_temp.as_session('a0000000-0000-0000-0000-00000000000a', '5e550000-0000-0000-0000-0000000000f1');
+select public.register_push_device(repeat('f1', 32), 'production');
+select pg_temp.as_session('a0000000-0000-0000-0000-00000000000a', '5e550000-0000-0000-0000-0000000000f2');
+select public.register_push_device(repeat('f2', 32), 'production');
+select pg_temp.as_postgres();
+select is((select session_id from public.push_devices where token = repeat('f1', 32)),
+  '5e550000-0000-0000-0000-0000000000f1'::uuid, 'a device remembers the sign-in that registered it');
+delete from auth.sessions where id = '5e550000-0000-0000-0000-0000000000f1';  -- "Sign out everywhere", or a lost phone
+set local role service_role;
+select count(*) from public.claim_push_outbox(0);
+select pg_temp.as_postgres();
+select results_eq($$ select token from public.push_devices where user_id = 'a0000000-0000-0000-0000-00000000000a'
+                    order by token $$,
+  $$ values (repeat('a1', 32)), (repeat('f2', 32)) $$,
+  'once that sign-in ends, the device is forgotten before anything is sent, whatever the phone did');
+
 -- Leaving takes devices along ---------------------------------------------------------------------------------------------
 
 select pg_temp.as_user('d0000000-0000-0000-0000-00000000000d');
 select public.register_push_device(repeat('d4', 32), 'sandbox');
 select pg_temp.as_postgres();
+insert into public.push_outbox (household_id, member_id, kind, not_before, sent_at) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', 'plan_set', now(), now());
 update public.members set status = 'removed', user_id = null where id = '00000000-0000-0000-0000-0000000000a4';
+select is((select count(*) from public.push_outbox where member_id = '00000000-0000-0000-0000-0000000000a4'), 0::bigint,
+  'and what they were sent, like their log');
 select is((select count(*) from public.push_devices where token = repeat('e5', 32)), 0::bigint,
   'someone removed from the family loses their devices');
 delete from auth.users where id = 'd0000000-0000-0000-0000-00000000000d';
