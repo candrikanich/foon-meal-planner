@@ -453,7 +453,7 @@ The plan produces one weekly list; pivots and running-out moments produce the qu
 
 Few, actionable, and answerable from the lock screen. Every notification asks for one tap or saves someone from remembering something.
 
-**Away dates pause them (#52).** Nothing is sent about a night inside the household's away dates (Attendance → Away dates), and Time to plan and Requests open skip a week that's all away. On-device reminders read `HouseholdSettings.isAway(on:)`, and server pushes (not built yet) will ask `public.household_away_on(household, date)`.
+**Away dates pause them (#52).** Nothing is sent about a night inside the household's away dates (Attendance → Away dates), and Time to plan and Requests open skip a week that's all away. On-device reminders read `HouseholdSettings.isAway(on:)`, and server pushes ask `public.household_away_on(household, date)`.
 
 | Notification | Who | When | If ignored |
 | --- | --- | --- | --- |
@@ -494,6 +494,13 @@ Few, actionable, and answerable from the lock screen. Every notification asks fo
 - **On the device:** reminders tied to a person's own plan and clock are local notifications, scheduled from the offline cache. These are prep reminders, the day-of check-in, the after-dinner prompt, Time to plan, and cook-mode timers. They work offline, and each member's budget and quiet hours are applied on their own device.
 - **Server push:** anything another person triggers comes through APNs from Edge Functions. These are Plan's set, urgent list items, new requests, claims, the tonight poll, heading to the store, and "your request made the plan."
 - **Log:** `notification_log` records what was sent and what was answered, from both paths, for ignore handling.
+
+**Server push (#40 part 2, car 1).** The server half is built; nothing goes out until the app half ships, because no device has registered yet.
+- **Devices:** a phone registers its APNs token when reminders are on there (`register_push_device`), and signing out or turning reminders off removes it. A token belongs to whoever registered it last. Each person sees only their own. Deleting an account, being removed, leaving, and a profile being unlinked take their devices with them.
+- **Plan's set:** the first time a week is approved, everyone with a device hears about it, except whoever approved it. On every preset. Not for a week that's over or all away, and only once a week, so approving again or Update the list doesn't send it twice.
+- **Words:** fixed, like every reminder's: "This week's dinners are set." and "Tap to see the week." A tap opens the week. A server push may name a family member by first name, never a dish (decided 2026-11-02).
+- **Quiet hours:** the same as on-device reminders, on the household's clock. A push held by them goes when they end. One more than a day late isn't sent.
+- **Sending:** what's due waits in `push_outbox`, which no app can read or write. Every minute something's due, pg_cron calls the `send-push` Edge Function, which signs one APNs token with the Apple key and sends to each device by its environment. A token Apple says is gone is deleted. A push any device took is logged in `notification_log` (channel push). One no device took is tried up to five times.
 
 **Notification presets** (decided 2026-10-30). Onboarding's "Your rhythm" step picks one for the household; the screen describes the selected one. Each is a starting point that later settings tune per person.
 

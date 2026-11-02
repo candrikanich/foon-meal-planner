@@ -2,6 +2,8 @@
 // The app sends a fresh authorization code (the person confirms with Apple). We trade it for a refresh token,
 // then revoke that, which ends Foon's link to their Apple ID. The private key stays in Edge Function secrets.
 
+import { signES256 } from "../_shared/es256.ts";
+
 export interface AppleConfig {
   teamId: string;
   keyId: string;
@@ -22,35 +24,14 @@ export function appleConfigFromEnv(get: (key: string) => string | undefined): Ap
   return { teamId, keyId, clientId, privateKey };
 }
 
-function base64url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
-
-function pemBody(pem: string): Uint8Array<ArrayBuffer> {
-  const body = pem.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, "").replace(/\s+/g, "");
-  return new Uint8Array(Array.from(atob(body), (c) => c.charCodeAt(0)));
-}
-
-// The short-lived ES256 JWT Apple takes as a client secret. Web Crypto signs in the raw r||s form JWS wants.
-export async function clientSecret(config: AppleConfig, now: Date = new Date()): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "pkcs8",
-    pemBody(config.privateKey),
-    { name: "ECDSA", namedCurve: "P-256" },
-    false,
-    ["sign"],
-  );
+// The short-lived ES256 JWT Apple takes as a client secret.
+export function clientSecret(config: AppleConfig, now: Date = new Date()): Promise<string> {
   const issuedAt = Math.floor(now.getTime() / 1000);
-  const encode = (value: unknown) => base64url(new TextEncoder().encode(JSON.stringify(value)));
-  const signingInput = `${encode({ alg: "ES256", kid: config.keyId })}.${
-    encode({ iss: config.teamId, iat: issuedAt, exp: issuedAt + 300, aud: appleAuth, sub: config.clientId })
-  }`;
-  const signature = await crypto.subtle.sign(
-    { name: "ECDSA", hash: "SHA-256" },
-    key,
-    new TextEncoder().encode(signingInput),
+  return signES256(
+    { kid: config.keyId },
+    { iss: config.teamId, iat: issuedAt, exp: issuedAt + 300, aud: appleAuth, sub: config.clientId },
+    config.privateKey,
   );
-  return `${signingInput}.${base64url(new Uint8Array(signature))}`;
 }
 
 // The code came from a different Apple ID than the one the account signed up with (a shared Mac, say). Revoking it
