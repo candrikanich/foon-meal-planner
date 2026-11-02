@@ -48,6 +48,8 @@ targets:
     entitlements:
       path: Foon/App/Foon.entitlements
       properties:
+        # Server push (#40 part 2). Development here; an App Store or TestFlight export signs it for production.
+        aps-environment: development
         com.apple.developer.applesignin: [Default]
         com.apple.security.application-groups: [group.com.andrikanich.foon]
     info:

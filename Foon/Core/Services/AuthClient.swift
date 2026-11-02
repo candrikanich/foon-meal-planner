@@ -64,6 +64,8 @@ extension AuthClient {
                 }
             },
             signOut: {
+                // While the session still works: this device stops getting this person's pushes.
+                await PushRegistration.forget(client: .live(client))
                 // The SDK clears the local session before calling the server, so a network failure
                 // afterwards still leaves this device signed out. Nothing for the user to retry.
                 try? await client.auth.signOut(scope: .local)
@@ -87,6 +89,7 @@ extension AuthClient {
                 // reachable first; otherwise other devices could stay signed in while this one looks done.
                 do {
                     _ = try await client.auth.user()
+                    await PushRegistration.forget(client: .live(client))
                     try await client.auth.signOut(scope: .global)
                     return true
                 } catch {

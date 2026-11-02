@@ -27,6 +27,8 @@ struct ReminderCenter: Sendable {
     /// What's showing in Notification Center, and taking some of it away.
     var deliveredIDs: @Sendable () async -> [String] = { [] }
     var removeDelivered: @Sendable (_ ids: [String]) -> Void = { _ in }
+    /// Asks for an APNs token (server push), which arrives through the app delegate.
+    var askForPushToken: @Sendable @MainActor () -> Void = {}
 }
 
 extension ReminderCenter {
@@ -126,7 +128,8 @@ extension ReminderCenter {
         },
         removeDelivered: { ids in
             UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ids)
-        }
+        },
+        askForPushToken: { PushRegistration.ask() }
     )
 
     static let none = ReminderCenter(

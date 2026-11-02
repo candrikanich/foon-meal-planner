@@ -453,7 +453,7 @@ The plan produces one weekly list; pivots and running-out moments produce the qu
 
 Few, actionable, and answerable from the lock screen. Every notification asks for one tap or saves someone from remembering something.
 
-**Away dates pause them (#52).** Nothing is sent about a night inside the household's away dates (Attendance → Away dates), and Time to plan and Requests open skip a week that's all away. On-device reminders read `HouseholdSettings.isAway(on:)`, and server pushes (not built yet) will ask `public.household_away_on(household, date)`.
+**Away dates pause them (#52).** Nothing is sent about a night inside the household's away dates (Attendance → Away dates), and Time to plan and Requests open skip a week that's all away. On-device reminders read `HouseholdSettings.isAway(on:)`, and server pushes ask `public.household_away_on(household, date)`.
 
 | Notification | Who | When | If ignored |
 | --- | --- | --- | --- |
@@ -494,6 +494,13 @@ Few, actionable, and answerable from the lock screen. Every notification asks fo
 - **On the device:** reminders tied to a person's own plan and clock are local notifications, scheduled from the offline cache. These are prep reminders, the day-of check-in, the after-dinner prompt, Time to plan, and cook-mode timers. They work offline, and each member's budget and quiet hours are applied on their own device.
 - **Server push:** anything another person triggers comes through APNs from Edge Functions. These are Plan's set, urgent list items, new requests, claims, the tonight poll, heading to the store, and "your request made the plan."
 - **Log:** `notification_log` records what was sent and what was answered, from both paths, for ignore handling.
+
+**Server push (#40 part 2, car 1).** iPhone and iPad only for now; the Mac comes later.
+- **Devices:** a phone registers its APNs token when reminders are on there and the system allows them (`register_push_device`), once a launch. Each device is tied to the sign-in that registered it: once the server ends that sign-in (Sign out everywhere, a revoked or expired session, or a sign-out that reached it) it forgets the device before sending anything, whatever the phone managed to say. Signing out or turning reminders off also removes it straight away; signing out never waits more than about five seconds for that. With no signal, whoever uses the phone next clears it. Debug builds register for Apple's sandbox, TestFlight and App Store builds for production, so test push on a TestFlight build (a Release build run from Xcode holds a sandbox token and gets nothing). A token belongs to whoever registered it last, and whoever holds it can take it off. Each person sees only their own. Deleting an account, being removed, leaving, and a profile being unlinked take their devices with them.
+- **Plan's set:** the first time a week is approved, everyone with a device hears about it, except whoever approved it. On every preset. Not for a week that's over or all away, and only once a week, so approving again or Update the list doesn't send it twice.
+- **Words:** fixed, like every reminder's: "This week's dinners are set." and "Tap to see the week." A tap opens that week on This Week. There are no buttons yet. A push shows while Foon is open, like a reminder. A server push may name a family member by first name, never a dish (decided 2026-11-02).
+- **Quiet hours:** the same as on-device reminders, on the household's clock. A push held by them goes when they end. One more than a day late isn't sent.
+- **Sending:** what's due waits in `push_outbox`, which no app can read or write. Every minute something's due, pg_cron calls the `send-push` Edge Function, which signs one APNs token with the Apple key and sends to each device by its environment. A token Apple says is gone is deleted. A push any device took is logged in `notification_log` (channel push). One no device took is tried up to five times, waiting longer after each try (2, 4, 6, 8 minutes). Someone leaving the family takes their outbox rows along, sent ones too, like their log.
 
 **Notification presets** (decided 2026-10-30). Onboarding's "Your rhythm" step picks one for the household; the screen describes the selected one. Each is a starting point that later settings tune per person.
 
