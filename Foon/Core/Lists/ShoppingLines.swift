@@ -42,6 +42,15 @@ enum ShoppingLines {
         }
     }
 
+    /// A side dish that isn't in the library at all, which isn't the same as a retired one: nobody can say what's in it.
+    static func hasUnknownSide(_ meal: LibraryMeal, library: [LibraryMeal]) -> Bool {
+        let known = Set(library.map(\.id))
+        return meal.sides.contains { side in
+            guard case .meal(let id) = side else { return false }
+            return !known.contains(id)
+        }
+    }
+
     private static func ingredients(of meal: LibraryMeal) -> [ShoppingLine] {
         meal.ingredients.map {
             ShoppingLine(itemID: $0.itemID, name: $0.name, quantity: $0.quantityText, forMeal: meal.name)

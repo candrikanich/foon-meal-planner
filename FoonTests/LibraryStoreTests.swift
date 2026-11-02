@@ -517,3 +517,44 @@ extension LibraryClient {
                       itemNames: itemNames, setPhoto: setPhoto, importRecipe: importRecipe)
     }
 }
+
+struct RowPagesTests {
+    private func read(_ total: Int, size: Int, serverCap: Int = .max) async throws -> (rows: [UUID], asked: [UUID?]) {
+        let ids = (0..<total).map { _ in UUID() }
+        var asked: [UUID?] = []
+        let rows = try await RowPages.all(size: size, id: { $0 }, page: { after, size in
+            asked.append(after)
+            let start = after.flatMap { ids.firstIndex(of: $0) }.map { $0 + 1 } ?? 0
+            return Array(ids[start...].prefix(min(size, serverCap)))
+        })
+        #expect(rows == ids, "every row, in order, once")
+        return (rows, asked)
+    }
+
+    @Test func anEmptyListAsksOnce() async throws {
+        #expect(try await read(0, size: 5).asked == [nil])
+    }
+
+    @Test func aLongListKeepsReadingFromTheLastRow() async throws {
+        let read = try await read(12, size: 5)
+        #expect(read.asked == [nil, read.rows[4], read.rows[9], read.rows[11]])
+    }
+
+    @Test func aServerCapBelowThePageSizeLosesNothing() async throws {
+        #expect(try await read(12, size: 5, serverCap: 2).rows.count == 12)
+    }
+
+    @Test func aListThatEndsOnAPageBoundaryStillEnds() async throws {
+        #expect(try await read(10, size: 5).asked.count == 3)
+    }
+
+    @Test func aFailedPageFailsTheRead() async {
+        struct Failed: Error {}
+        await #expect(throws: Failed.self) {
+            _ = try await RowPages.all(size: 2, id: { $0 }, page: { after, _ -> [UUID] in
+                guard after == nil else { throw Failed() }
+                return [UUID(), UUID()]
+            })
+        }
+    }
+}
