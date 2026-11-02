@@ -217,9 +217,9 @@ final class LibraryStore {
             errorMessage = nil
             // A read that went out before the delete would bring the dish back, so it's read again after.
             let readOut = readsOut > 0
-            deleteCleanup = Task { [client, members] in
+            deleteCleanup = Task { [client] in
+                if readOut { await reload() }
                 if let photo { try? await client.removePhoto(photo) }
-                if readOut { await load(members: members) }
             }
             return true
         } catch LibraryClientError.inUse {
