@@ -1,6 +1,6 @@
 -- "Couldn't find it" moves a line to the quick list in one step, from the line as it is now (#196).
 begin;
-select plan(17);
+select plan(21);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -25,7 +25,9 @@ insert into public.items (id, household_id, canonical_name, category) values
   ('00000000-0000-0000-0000-0000000001a1', '00000000-0000-0000-0000-0000000000a0', 'milk', 'dairy_eggs'),
   ('00000000-0000-0000-0000-0000000001a2', '00000000-0000-0000-0000-0000000000a0', 'beef', 'meat_seafood'),
   ('00000000-0000-0000-0000-0000000001a3', '00000000-0000-0000-0000-0000000000a0', 'eggs', 'dairy_eggs'),
-  ('00000000-0000-0000-0000-0000000001a4', '00000000-0000-0000-0000-0000000000a0', 'flour', 'pantry');
+  ('00000000-0000-0000-0000-0000000001a4', '00000000-0000-0000-0000-0000000000a0', 'flour', 'pantry'),
+  ('00000000-0000-0000-0000-0000000001a5', '00000000-0000-0000-0000-0000000000a0', 'rice', 'pantry'),
+  ('00000000-0000-0000-0000-0000000001b1', '00000000-0000-0000-0000-0000000000b0', 'rice', 'pantry');
 insert into public.list_items (id, household_id, item_id, list, note, quantity) values
   -- Milk gained an allergy note after the phone last looked.
   ('00000000-0000-0000-0000-0000000002a1', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a1',
@@ -37,7 +39,9 @@ insert into public.list_items (id, household_id, item_id, list, note, quantity) 
   ('00000000-0000-0000-0000-0000000002a4', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a4',
    'weekly', 'Gluten-free (Ty)', null),
   ('00000000-0000-0000-0000-0000000002a5', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a4',
-   'quick', 'For Sunday', null);
+   'quick', 'For Sunday', null),
+  ('00000000-0000-0000-0000-0000000002a6', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a5',
+   'weekly', 'Get nut-free (Nora)', null);
 
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 
@@ -89,6 +93,17 @@ select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
 select throws_ok($$ select public.move_to_quick_list('00000000-0000-0000-0000-0000000002a2', '00000000-0000-0000-0000-0000000000a0',
   '00000000-0000-0000-0000-0000000001a2', 'Mine now', '00000000-0000-0000-0000-0000000003a6') $$, '42501', null,
   'another household can''t move a line');
+
+-- Carol's own household and item, with the other family's line: she gets a line of her own, and learns and changes nothing.
+select lives_ok($$ select public.move_to_quick_list('00000000-0000-0000-0000-0000000002a6', '00000000-0000-0000-0000-0000000000b0',
+  '00000000-0000-0000-0000-0000000001b1', 'Mine now', '00000000-0000-0000-0000-0000000003a7') $$, 'naming another family''s line does nothing to it');
+select is((select note from public.list_items where id = '00000000-0000-0000-0000-0000000003a7'), 'Mine now',
+  'their note isn''t copied');
+reset role;
+select is((select note from public.list_items where id = '00000000-0000-0000-0000-0000000002a6'), 'Get nut-free (Nora)',
+  'their line keeps its note');
+select is((select list::text from public.list_items where id = '00000000-0000-0000-0000-0000000002a6'), 'weekly',
+  'and stays where it was');
 
 select * from finish();
 rollback;

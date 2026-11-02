@@ -161,7 +161,7 @@ private struct StockPatch: Encodable, Sendable {
     }
 }
 
-private struct MoveToQuickListParams: Encodable, Sendable {
+struct MoveToQuickListParams: Encodable, Sendable {
     let targetLine: UUID
     let targetHousehold: UUID
     let targetItem: UUID
@@ -176,6 +176,17 @@ private struct MoveToQuickListParams: Encodable, Sendable {
         case itemNote = "item_note"
         case lineID = "line_id"
         case itemQuantity = "item_quantity"
+    }
+
+    // PostgREST matches functions by argument names, so every argument is sent, null included.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(targetLine, forKey: .targetLine)
+        try container.encode(targetHousehold, forKey: .targetHousehold)
+        try container.encode(targetItem, forKey: .targetItem)
+        try container.encode(itemNote, forKey: .itemNote)
+        try container.encode(lineID, forKey: .lineID)
+        try container.encode(itemQuantity, forKey: .itemQuantity)
     }
 }
 

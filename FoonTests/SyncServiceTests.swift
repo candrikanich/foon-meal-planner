@@ -35,6 +35,16 @@ struct SyncServiceTests {
                    note: nil, lineID: line, replacing: milkLine)
     }
 
+    /// PostgREST finds the function by its argument names: leave out one that has no default and the call fails.
+    @Test func aMoveNamesEveryArgumentEvenWithNoNote() throws {
+        let params = MoveToQuickListParams(targetLine: UUID(), targetHousehold: UUID(), targetItem: UUID(),
+                                           itemNote: nil, lineID: UUID(), itemQuantity: nil)
+        let body = try JSONSerialization.jsonObject(with: JSONEncoder().encode(params)) as? [String: Any]
+        #expect(Set(body?.keys.map { $0 } ?? []) == ["target_line", "target_household", "target_item", "item_note", "line_id",
+                                                     "item_quantity"])
+        #expect(body?["item_note"] is NSNull)
+    }
+
     @Test func aMoveShowsAtOnceOffline() async throws {
         let container = try SyncService.inMemoryContainer()
         let service = makeService(container: container, client: .fake(snapshot: { snapshot }, send: { _ in
