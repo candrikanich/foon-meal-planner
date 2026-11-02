@@ -898,13 +898,17 @@ struct ReminderPresetWordingTests {
         let light = HouseholdSettings.NotificationPreset.light.summary
         #expect(light.contains("time to plan"))
         #expect(light.contains("prep reminders"))
-        #expect(light.contains("on the way"), "the plan's set and urgent items need server push")
+        #expect(light.contains("the plan's set"))
+        #expect(light.contains("for tonight"))
+        #expect(!light.contains("on the way"), "everything Light sends is built")
         let balanced = HouseholdSettings.NotificationPreset.balanced.summary
         #expect(balanced.contains("after-dinner"))
         #expect(balanced.contains("check-in"))
+        #expect(balanced.contains("won't be home"))
         let engaged = HouseholdSettings.NotificationPreset.engaged.summary
         #expect(engaged.contains("follow-up"))
-        #expect(engaged.contains("on the way"))
+        #expect(engaged.contains("tonight polls"))
+        #expect(engaged.contains("on the way"), "digests, the store run, and the recap aren't built")
     }
 }
 
@@ -998,5 +1002,12 @@ struct ReminderPresetWordingTests {
         #expect(ReminderResponse.pushRoute(action: "com.apple.UNNotificationDefaultActionIdentifier", payload: payload)
             == .week(CalendarDay(year: 2026, month: 11, day: 9)))
         #expect(ReminderResponse.pushRoute(action: "com.apple.UNNotificationDismissActionIdentifier", payload: payload) == nil)
+    }
+
+    @Test func somethingForTonightOpensLists() {
+        let payload = ReminderPayload(userInfo: ["route": "list"])
+        #expect(payload?.route == .lists)
+        #expect(payload?.userInfo["route"] == "list")
+        #expect(ReminderResponse.pushRoute(action: "com.apple.UNNotificationDefaultActionIdentifier", payload: payload) == .lists)
     }
 }

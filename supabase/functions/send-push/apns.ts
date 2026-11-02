@@ -23,7 +23,11 @@ export interface Alert {
 }
 
 // The routes local reminders use (ReminderPayload in ReminderCenter.swift), so a tap opens the same place.
-export type Route = { route: "week"; date: string } | { route: "night"; night: string; date: string };
+export type Route =
+  | { route: "week"; date: string }
+  | { route: "night"; night: string; date: string }
+  | { route: "list" }
+  | { route: "dinner" };
 
 export type ApnsPayload = { aps: { alert: Alert; sound: "default" } } & Partial<Route>;
 
@@ -96,6 +100,20 @@ const words: Record<string, (args: Record<string, unknown>, nightDate: string | 
     const name = firstName(args);
     const weekday = weekdayOf(nightDate);
     return name && weekday ? { title: `${name} will cook ${weekday}.`, body: "Tap to see the night." } : null;
+  },
+  // Never the item: whoever's out can check the list.
+  urgent_item: (args) => {
+    const name = firstName(args);
+    return name ? { title: `${name} added something for tonight.`, body: "Tap to see the list." } : null;
+  },
+  tonight_poll: (args) => {
+    const name = firstName(args);
+    return name ? { title: `${name} started a vote on dinner.`, body: "Tap to vote." } : null;
+  },
+  // To whoever asked, so no name, and never the dish.
+  request_planned: (_args, nightDate) => {
+    const weekday = weekdayOf(nightDate);
+    return weekday ? { title: `Your idea made ${weekday}.`, body: "Tap to see the night." } : null;
   },
 };
 

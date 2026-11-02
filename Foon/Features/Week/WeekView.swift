@@ -124,6 +124,7 @@ struct WeekView: View {
 
     /// Where a tapped notification goes. A night the week no longer has says so in its own sheet.
     private func open(_ route: ReminderRoute) {
+        if route == .lists { return }  // Lists takes it.
         router?.clear()
         let nextWeek = WeekMath.start(of: settings.today(), weekStart: settings.weekStart, calendar: settings.dayCalendar)
             .adding(days: 7, calendar: settings.dayCalendar)
@@ -138,6 +139,8 @@ struct WeekView: View {
             if canPlan { swappingNight = night } else { openNight = night }
         case .dinnerCard, .rate, .checkIn:
             week.showingNextWeek = false
+        case .lists:
+            break
         }
     }
 
