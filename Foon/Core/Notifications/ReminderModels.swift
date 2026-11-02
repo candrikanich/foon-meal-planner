@@ -20,8 +20,9 @@ enum ReminderKind: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// `members.notification_prefs`, where each person's own settings live. Nothing writes it yet: per-member overrides are
-/// #47, and they go here and in `ReminderRules`. Never fails: a value this version can't read means no override.
+/// `members.notification_prefs`, where each person's own settings live: their own preset, set through
+/// `set_member_preset` (MemberPresetRules), read here by `ReminderRules` and on the server by `member_preset`. Never fails:
+/// a value this version can't read means no override.
 struct NotificationPrefs: Decodable, Equatable, Sendable {
     var preset: HouseholdSettings.NotificationPreset?
 

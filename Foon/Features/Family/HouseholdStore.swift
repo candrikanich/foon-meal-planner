@@ -547,6 +547,30 @@ final class HouseholdStore {
         return await save(draft, editing: member)
     }
 
+    func canSetPreset(_ member: Member) -> Bool {
+        MemberPresetRules.canSet(member, me: me, isParent: canManagePeople)
+    }
+
+    /// Someone's own notification preset; nil follows the family's. Returns whether it saved.
+    func setPreset(_ preset: HouseholdSettings.NotificationPreset?, for member: Member) async -> Bool {
+        errorMessage = nil
+        do {
+            try await client.setMemberPreset(member.id, preset)
+            members = members.map { candidate in
+                guard candidate.id == member.id else { return candidate }
+                var updated = candidate
+                updated.notificationPrefs = NotificationPrefs(preset: preset)
+                return updated
+            }
+            return true
+        } catch {
+            errorMessage = (error as? PostgrestError)?.code == "42501"
+                ? String(localized: "People set their own notifications; a parent sets a kid's.")
+                : String(localized: "Couldn't save notifications. Check your connection and try again.")
+            return false
+        }
+    }
+
     /// Parents invite profiles nobody has claimed yet.
     func canInvite(_ member: Member) -> Bool {
         canManagePeople && member.userID == nil && member.status != .removed

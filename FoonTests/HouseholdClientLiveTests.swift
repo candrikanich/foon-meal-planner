@@ -1119,6 +1119,21 @@ struct HouseholdClientLiveTests {
         return data as Data
     }
 
+    @Test func anAdultSetsTheirOwnNotificationPresetAndCanFollowTheFamilyAgain() async throws {
+        let households = try await Self.signedUpClient()
+        let household = try await households.createHousehold("Preset family", nil, "Ann", HouseholdSettings())
+        let ann = try #require(try await households.members(household.id).first)
+        try await households.setMemberPreset(ann.id, .engaged)
+        #expect(try await households.members(household.id).first?.notificationPrefs?.preset == .engaged)
+        try await households.setMemberPreset(ann.id, nil)
+        #expect(try await households.members(household.id).first?.notificationPrefs?.preset == nil)
+        do {
+            _ = try await households.updateMember(ann.id, MemberChanges(avatar: "🦊"))
+        } catch {
+            Issue.record("the rest of their own profile still saves: \(error)")
+        }
+    }
+
     @Test func anAdultHeadsToTheStoreOnceAtATimeAndItsLinesCarryTheirTime() async throws {
         let supabase = Self.newSupabaseClient()
         try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com", password: Self.password)

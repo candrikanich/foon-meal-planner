@@ -65,6 +65,9 @@ struct HouseholdClient: Sendable {
     /// The Family tab's "This month" counts for these days, both included, as the caller's row-level security allows.
     var familyStats: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ to: CalendarDay) async throws -> FamilyStats
         = { _, _, _ in FamilyStats() }
+    /// Someone's own notification preset (`set_member_preset`); nil follows the household's.
+    var setMemberPreset: @Sendable (_ memberID: UUID, _ preset: HouseholdSettings.NotificationPreset?) async throws -> Void
+        = { _, _ in }
 }
 
 /// Why Delete household didn't go through.
@@ -287,8 +290,29 @@ extension HouseholdClient {
                 try await client.rpc("family_stats", params: FamilyStatsParams(
                     targetHousehold: householdID, fromDate: from, toDate: to
                 )).execute().value
+            },
+            setMemberPreset: { memberID, preset in
+                try await client.rpc("set_member_preset", params: MemberPresetParams(targetMember: memberID, preset: preset))
+                    .execute()
             }
         )
+    }
+}
+
+/// Sends `preset` even when it's nil (follow the household): PostgREST finds the function by its argument names.
+struct MemberPresetParams: Encodable, Sendable {
+    let targetMember: UUID
+    let preset: HouseholdSettings.NotificationPreset?
+
+    private enum CodingKeys: String, CodingKey {
+        case targetMember = "target_member"
+        case preset
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(targetMember, forKey: .targetMember)
+        try container.encode(preset, forKey: .preset)
     }
 }
 

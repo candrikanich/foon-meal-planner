@@ -140,3 +140,4 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
 5. Car 4: should urgent items and Plan's set be exempt from budgets rather than first in line? Today a person at budget
    misses an urgent item.
 6. Car 4: should the server read per-person presets once #47 writes them, so the server and the device agree on a budget?
+   Defaulted yes (#47 car 6 part A): `member_preset` reads each person's own, for every preset-dependent push and the budget.

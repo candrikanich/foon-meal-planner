@@ -35,6 +35,7 @@ struct MemberDetailView: View {
             MemberAboutSection(member: member, today: today,
                                invited: store.invitedMemberIDs.contains(member.id), isYou: member.userID == store.userID)
             MemberScheduleSection(member: member, today: today, canEdit: store.editScope(for: member).schedule)
+            MemberNotificationsSection(member: member)
             if library.hasLoaded {
                 if library.lastLoadFailed { staleNotice }
                 MemberAllergySection(member: member, allergies: library.allergies.first { $0.memberID == member.id },

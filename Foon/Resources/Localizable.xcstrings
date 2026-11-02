@@ -578,6 +578,9 @@
     "A kid removed from the family becomes \"Former member\" after 12 months, and their ratings stay as anonymous history." : {
 
     },
+    "A kid's can be quieter than the family's, never louder. Quiet hours and the weekly limit still apply." : {
+
+    },
     "A last name or a nickname. Everyone you invite will see it." : {
 
     },
@@ -1149,6 +1152,9 @@
 
     },
     "Couldn't save %@. Check your connection and try again." : {
+
+    },
+    "Couldn't save notifications. Check your connection and try again." : {
 
     },
     "Couldn't save that. Check your connection and try again." : {
@@ -2502,6 +2508,9 @@
     "Pause planning while you're all away, and switch everyone's usual nights home when the season changes." : {
 
     },
+    "People set their own notifications; a parent sets a kid's." : {
+
+    },
     "People write their own notes; parents can write anyone's." : {
 
     },
@@ -2716,6 +2725,9 @@
     },
     "Rushed" : {
 
+    },
+    "Same as family (%@)" : {
+      "comment" : "A person's notifications follow the household's preset"
     },
     "Sandwiches" : {
       "comment" : "Dish category in a variety note"
