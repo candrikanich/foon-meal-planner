@@ -2,7 +2,7 @@
 -- device, never to whoever said it or entered it, only on Balanced and Engaged, never for an away night, once, and not after
 -- dinner. Taking it back calls off what hasn't gone.
 begin;
-select plan(36);
+select plan(51);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -32,8 +32,8 @@ insert into public.households (id, name, owner) values
   ('00000000-0000-0000-0000-0000000000a0', 'Andersons', 'a0000000-0000-0000-0000-00000000000a'),
   ('00000000-0000-0000-0000-0000000000b0', 'Carters', 'c0000000-0000-0000-0000-00000000000c');
 
--- A clock where it's about noon now, whenever the tests run, so tonight's 11pm dinner is still ahead and nobody's in the
--- 9pm to 7am quiet hours.
+-- A clock for both households where it's about noon now, whenever the tests run, so tonight's dinner is still ahead and
+-- nobody's in the 9pm to 7am quiet hours.
 update public.households
 set settings = settings || jsonb_build_object('time_zone',
   (select case when k >= 0 then 'Etc/GMT+' || k else 'Etc/GMT-' || -k end
@@ -330,6 +330,135 @@ update public.members set status = 'removed', user_id = null where id = '0000000
 select is((select count(*) from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a2'), 0::bigint,
   'someone removed takes along what was waiting about them, so their name doesn''t go out');
 select is((select count(*) from public.push_outbox), 0::bigint, 'and nothing else is left');
+
+-- A claim that no longer stands -------------------------------------------------------------------------------------------------
+
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.claim_night('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a1');
+select pg_temp.as_postgres();
+select results_eq($$ select * from pg_temp.queued('claim') $$, $$ values ('Pam', 'Alice') $$, 'Alice will cook tonight');
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.answer_check_in('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a1', false);
+select pg_temp.as_postgres();
+select is((select count(*) from pg_temp.queued('claim')), 0::bigint,
+  'the cook saying Not home calls off "will cook", so it can''t follow "won''t be home"');
+select results_eq($$ select * from pg_temp.queued('not_home') $$, $$ values ('Pam', 'Alice') $$,
+  'and the planners hear the no instead');
+
+select pg_temp.as_user('e0000000-0000-0000-0000-00000000000e');
+select public.claim_night('00000000-0000-0000-0000-0000000004a2', '00000000-0000-0000-0000-0000000000a4');
+select pg_temp.as_postgres();
+update public.plan_nights set quick_pick = 'takeout' where id = '00000000-0000-0000-0000-0000000004a2';
+set local role service_role;
+select count(*) from public.claim_push_outbox(0);
+select pg_temp.as_postgres();
+select results_eq(
+  $$ select distinct failed from public.push_outbox where kind = 'claim' and night_id = '00000000-0000-0000-0000-0000000004a2' $$,
+  $$ values ('on_hold') $$, 'a claim on a night that''s become a quick pick is on hold, so it isn''t sent');
+update public.plan_nights set quick_pick = null where id = '00000000-0000-0000-0000-0000000004a2';
+
+-- Dinner moving earlier ---------------------------------------------------------------------------------------------------------
+
+update public.plan_nights set dinner_time = '00:01' where id = '00000000-0000-0000-0000-0000000004a1';
+set local role service_role;
+select count(*) from public.claim_push_outbox(0);
+select pg_temp.as_postgres();
+select results_eq(
+  $$ select distinct failed from public.push_outbox where kind = 'not_home' and night_id = '00000000-0000-0000-0000-0000000004a1' $$,
+  $$ values ('stale') $$, 'moving dinner earlier than now, after it was queued, still ends it at dinner');
+update public.plan_nights set dinner_time = '23:00' where id = '00000000-0000-0000-0000-0000000004a1';
+
+-- Away dates ----------------------------------------------------------------------------------------------------------------------
+
+select pg_temp.as_user('90000000-0000-0000-0000-000000000009');
+select public.answer_check_in('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a6', false);
+select pg_temp.as_postgres();
+select is((select count(*) from pg_temp.queued('not_home')), 2::bigint, 'Quinn won''t be home');
+select public.write_away_dates('00000000-0000-0000-0000-0000000000a0', '[]',
+  jsonb_build_array(jsonb_build_object('from', public.household_today('00000000-0000-0000-0000-0000000000a0'),
+                                       'to', public.household_today('00000000-0000-0000-0000-0000000000a0'))));
+select is((select count(*) from pg_temp.queued('not_home')), 0::bigint,
+  'away dates marking everyone out tonight call off the queued no');
+
+-- Retention ---------------------------------------------------------------------------------------------------------------------
+
+update public.night_claims set released_at = now() where night_id = '00000000-0000-0000-0000-0000000004a3' and released_at is null;
+insert into public.night_claims (household_id, night_id, member_id, entered_by_member_id) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000004a3', '00000000-0000-0000-0000-0000000000a3',
+   '00000000-0000-0000-0000-0000000000a3');
+select is((select count(*) from pg_temp.queued('claim') where about = 'Nora'), 2::bigint, 'Nora will cook');
+update public.push_outbox set sent_at = now()
+where about_member_id = '00000000-0000-0000-0000-0000000000a3' and member_id = '00000000-0000-0000-0000-0000000000a1';
+insert into public.consents (household_id, member_id, kind, granted_by, granted_at, revoked_at, text_version) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'parental',
+   'a0000000-0000-0000-0000-00000000000a', now() - interval '90 days', now() - interval '31 days', 'v1');
+select public.anonymize_expired_profiles();
+select is((select count(*) from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a3'), 0::bigint,
+  'a kid''s withdrawn consent erases their own offers, and the pushes about them go too, sent ones included');
+
+insert into public.push_outbox (household_id, member_id, kind, night_id, about_member_id, args, not_before, sent_at) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a1', 'claim',
+   '00000000-0000-0000-0000-0000000004a3', '00000000-0000-0000-0000-0000000000a4', '{"name": "Eve"}', now(), now()),
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', 'not_home',
+   '00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a4', '{"name": "Eve"}', now(), null);
+select public.delete_account_data('e0000000-0000-0000-0000-00000000000e');
+select is((select count(*) from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a4'), 0::bigint,
+  'an adult deleting their account takes what was queued or sent about them');
+
+-- Quiet hours past dinner ---------------------------------------------------------------------------------------------------------
+
+-- A household where it's the middle of the quiet hours now (10pm, or 3am when UTC can't reach 10pm), with dinner still ahead.
+insert into auth.users (id, email, aud, role) values
+  ('70000000-0000-0000-0000-000000000007', 'gus@example.com', 'authenticated', 'authenticated'),
+  ('80000000-0000-0000-0000-000000000008', 'hal@example.com', 'authenticated', 'authenticated');
+insert into public.households (id, name, owner, settings) values
+  ('00000000-0000-0000-0000-0000000000d0', 'Grays', '70000000-0000-0000-0000-000000000007',
+   jsonb_build_object('time_zone',
+     (select case when k >= 0 then 'Etc/GMT+' || k else 'Etc/GMT-' || -k end
+      from (select extract(hour from now() at time zone 'UTC')::int
+                   - case when extract(hour from now() at time zone 'UTC')::int >= 8 then 22 else 3 end as k) offset_hours)));
+insert into public.members (id, household_id, first_name, role, guardian, age_group, user_id) values
+  ('00000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-0000000000d0', 'Gus', 'planner', true, 'adult',
+   '70000000-0000-0000-0000-000000000007'),
+  ('00000000-0000-0000-0000-0000000000d2', '00000000-0000-0000-0000-0000000000d0', 'Hal', 'member', false, 'adult',
+   '80000000-0000-0000-0000-000000000008');
+insert into public.plans (id, household_id, week_start) values
+  ('00000000-0000-0000-0000-0000000003d1', '00000000-0000-0000-0000-0000000000d0',
+   public.household_today('00000000-0000-0000-0000-0000000000d0'));
+insert into public.plan_nights (id, household_id, plan_id, date, dinner_time) values
+  ('00000000-0000-0000-0000-0000000004d1', '00000000-0000-0000-0000-0000000000d0', '00000000-0000-0000-0000-0000000003d1',
+   public.household_today('00000000-0000-0000-0000-0000000000d0'),
+   make_time(extract(hour from now() at time zone public.household_time_zone('00000000-0000-0000-0000-0000000000d0'))::int
+             + 1, 30, 0));
+select pg_temp.as_user('70000000-0000-0000-0000-000000000007');
+select public.register_push_device(repeat('d1', 32), 'sandbox');
+select pg_temp.as_user('80000000-0000-0000-0000-000000000008');
+select public.claim_night('00000000-0000-0000-0000-0000000004d1', '00000000-0000-0000-0000-0000000000d2');
+select pg_temp.as_postgres();
+select ok(public.night_dinner_at('00000000-0000-0000-0000-0000000004d1') > now(), 'dinner is still ahead');
+select is((select count(*) from public.push_outbox where household_id = '00000000-0000-0000-0000-0000000000d0'), 0::bigint,
+  'but quiet hours would hold a claim past dinner, so nothing is queued');
+select pg_temp.as_user('80000000-0000-0000-0000-000000000008');
+select public.answer_check_in('00000000-0000-0000-0000-0000000004d1', '00000000-0000-0000-0000-0000000000d2', false);
+select pg_temp.as_postgres();
+select is((select count(*) from public.push_outbox where household_id = '00000000-0000-0000-0000-0000000000d0'), 0::bigint,
+  'nor a no');
+
+-- Dinner time across daylight saving --------------------------------------------------------------------------------------------
+
+update public.households set settings = settings || '{"time_zone": "America/New_York"}'
+where id = '00000000-0000-0000-0000-0000000000b0';
+insert into public.plans (id, household_id, week_start) values
+  ('00000000-0000-0000-0000-0000000003b2', '00000000-0000-0000-0000-0000000000b0', '2026-10-26');
+insert into public.plan_nights (id, household_id, plan_id, date, dinner_time) values
+  ('00000000-0000-0000-0000-0000000004b2', '00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000003b2',
+   '2026-10-31', '18:00'),
+  ('00000000-0000-0000-0000-0000000004b3', '00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000003b2',
+   '2026-11-01', '18:00');
+select is(public.night_dinner_at('00000000-0000-0000-0000-0000000004b2'), '2026-10-31 22:00+00'::timestamptz,
+  'New York''s 6pm the day before the clocks go back is 10pm UTC');
+select is(public.night_dinner_at('00000000-0000-0000-0000-0000000004b3'), '2026-11-01 23:00+00'::timestamptz,
+  'and 11pm UTC on the day they do');
 
 select * from finish();
 rollback;

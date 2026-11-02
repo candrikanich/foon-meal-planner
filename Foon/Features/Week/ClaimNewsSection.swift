@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// "Ben will cook Thursday" at the top of This Week, for planners (docs/spec.md → Claim a night). Dismissed per device, like
-/// request news. Push comes in M2 car 6, from the same rows in `night_claims`.
+/// request news. Server push (#40 car 2) sends the same news from the same rows in `night_claims`.
 struct ClaimNewsSection: View {
     @Environment(DinnerStore.self) private var dinner
     @Environment(HouseholdStore.self) private var household

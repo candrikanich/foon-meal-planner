@@ -53,6 +53,11 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
 - Recipients exclude the person the news is about and whoever tapped it (passing the phone), plus, for a claim, whoever
   entered it.
 - A push already being sent when it's called off still goes (the row is deleted and complete finds nothing).
+  The same goes for a row in flight when its subject is removed, leaves, or deletes their account: it still goes out.
+- A claim row is given up as `on_hold` at claim time if the claim no longer stands (released, the cook can't cook that
+  night per `can_cook_night`, or the night is a quick pick); the cook saying Not home deletes it outright. Rows about a
+  night are also stale once `night_dinner_at` (as the night is now) has passed, so moving dinner earlier still ends them.
+- send-push fails a row as `no_words` (not `unknown_kind`) when it knows the kind but the name or date is missing.
 
 ## Unresolved questions
 

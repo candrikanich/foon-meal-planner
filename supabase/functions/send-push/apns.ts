@@ -84,6 +84,8 @@ function firstName(args: Record<string, unknown>): string | null {
   return name === "" ? null : name;
 }
 
+export const knownKinds: ReadonlySet<string> = new Set(["plan_set", "not_home", "claim"]);
+
 // The words are fixed: a server push may name a family member by first name, never a dish (decided 2026-11-02). The name
 // is read from args and nothing else is.
 export function alertFor(kind: string, args: Record<string, unknown> = {}, nightDate: string | null = null): Alert | null {

@@ -6,11 +6,15 @@
 --    It's news until dinner: a row not sent by the night's dinner time is given up as stale. Taking the no back, or a
 --    planner's later write to that attendance (which wipes checked_in_at), calls off a row not sent yet.
 -- 2. Will cook: a claim made on a night still ahead, not an away night, on Balanced or Engaged. Planners with a device hear,
---    except whoever entered it (and the cook). Once a claim. Taken back before it's sent, it's called off. It's news until
---    that night's dinner too. The words say the weekday, never "tonight" or "tomorrow", since quiet hours can hold it.
+--    except whoever entered it (and the cook). Once a claim. Taken back before it's sent, it's called off, and so is one that
+--    no longer stands when it's due: the cook says Not home or is marked out, or the night becomes a quick pick (on hold).
+--    It's news until that night's dinner too. The words say the weekday, never "tonight" or "tomorrow", since quiet hours
+--    can hold it.
 -- 3. args holds the first name and nothing else; the words are built in send-push from the kind and the name. Never a dish.
 -- 4. push_outbox gains expires_at (general: past it, a row not sent is stale), about_member_id (who the news is about, so
 --    once-only and call-off can find it) and claim_id. claim_push_outbox also hands over the night and its date, and args.
+--    Rows about a night are also given up once that night's dinner time has passed as it is now, so moving dinner earlier
+--    after a row is queued still ends it at dinner.
 
 -- Kinds -----------------------------------------------------------------------------------------------------------------------
 
@@ -37,6 +41,7 @@ alter table public.push_outbox
 
 create index push_outbox_about_idx on public.push_outbox (night_id, about_member_id, kind);
 create index push_outbox_claim_idx on public.push_outbox (claim_id);
+create index push_outbox_about_member_idx on public.push_outbox (about_member_id);
 
 -- Someone removed, leaving, or unlinked also takes along what was waiting about them, so their name doesn't go out after.
 create or replace function public.members_drop_push_devices()
@@ -102,6 +107,11 @@ begin
     end if;
     return null;
   end if;
+
+  -- Someone who won't be home isn't cooking: their claim is on hold, so "will cook" mustn't go out after "won't be home".
+  delete from public.push_outbox
+  where kind = 'claim' and night_id = new.plan_night_id and about_member_id = new.member_id
+    and sent_at is null and failed is null;
 
   if exists (select 1 from public.push_outbox
              where kind = 'not_home' and night_id = new.plan_night_id and about_member_id = new.member_id) then
@@ -227,7 +237,16 @@ begin
 
   update public.push_outbox o set failed = 'stale'
   where o.sent_at is null and o.failed is null
-    and (o.not_before < now() - interval '1 day' or o.expires_at <= now());
+    and (o.not_before < now() - interval '1 day' or o.expires_at <= now()
+         or (o.kind in ('not_home', 'claim') and public.night_dinner_at(o.night_id) <= now()));
+
+  -- A claim that doesn't stand as it is now isn't news: taken back, the cook out or gone, or the night a quick pick.
+  update public.push_outbox o set failed = 'on_hold'
+  where o.kind = 'claim' and o.sent_at is null and o.failed is null
+    and not exists (
+      select 1 from public.night_claims c join public.plan_nights n on n.id = c.night_id
+      where c.id = o.claim_id and c.released_at is null and n.quick_pick is null
+        and public.can_cook_night(c.member_id, c.night_id));
 
   return query
   with due as (

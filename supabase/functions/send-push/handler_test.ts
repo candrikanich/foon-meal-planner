@@ -133,7 +133,11 @@ Deno.test("a push about a night opens that night, with the name from args", asyn
 Deno.test("a push whose words can't be made fails without a post", async () => {
   const nameless = fakeDeps([{ ...row([sandbox], "not_home"), args: null }]);
   await handleSendPush(request(), nameless.deps);
-  assertEquals(nameless.steps, ["complete row-1 unknown_kind"]);
+  assertEquals(nameless.steps, ["complete row-1 no_words"]);
+  const dateless = fakeDeps([{ ...row([sandbox], "claim"), args: { name: "Ben" }, night_date: null }]);
+  const response = await handleSendPush(request(), dateless.deps);
+  assertEquals(dateless.steps, ["complete row-1 no_words"]);
+  assertEquals((await response.json()).no_words, 1);
 });
 
 Deno.test("a database error stops the run and says so", async () => {

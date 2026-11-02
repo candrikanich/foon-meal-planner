@@ -6,6 +6,7 @@ import {
   apnsHost,
   cachedProviderToken,
   deliver,
+  knownKinds,
   payloadFor,
   providerToken,
   weekdayOf,
@@ -122,6 +123,10 @@ Deno.test("a claim says the night's weekday from its date, never tonight or tomo
   assertEquals(alertFor("claim", { name: "Ben" }, null), null);
   assertEquals(alertFor("claim", { name: "Ben" }, "Thursday"), null);
   assertEquals(alertFor("claim", {}, "2026-11-05"), null);
+});
+
+Deno.test("every kind it has words for is known", () => {
+  for (const kind of knownKinds) assert(alertFor(kind, { name: "Ben" }, "2026-11-05"));
 });
 
 Deno.test("only the name is read from args", () => {

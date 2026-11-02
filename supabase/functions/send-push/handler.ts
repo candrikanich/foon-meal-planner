@@ -1,7 +1,7 @@
 // send-push: pg_cron pokes it every minute something's due, with a shared secret. It claims due outbox rows, sends each to
 // its person's devices, forgets the tokens Apple says are dead, and marks each row sent (and logged), to retry, or failed.
 
-import { alertFor, type ApnsPayload, type DeliveryResult, type Device, payloadFor, type Route } from "./apns.ts";
+import { alertFor, type ApnsPayload, knownKinds, type DeliveryResult, type Device, payloadFor, type Route } from "./apns.ts";
 
 export interface OutboxRow {
   id: string;
@@ -17,7 +17,8 @@ export interface OutboxRow {
   devices: Device[];
 }
 
-export type Outcome = "sent" | "retry" | "no_devices" | "unknown_kind";
+// no_words: a kind it knows, but the name or the night's date it needs is missing.
+export type Outcome = "sent" | "retry" | "no_devices" | "unknown_kind" | "no_words";
 
 export interface SendPushDeps {
   cronSecret: string | undefined;
@@ -54,7 +55,7 @@ export async function handleSendPush(req: Request, deps: SendPushDeps): Promise<
     return json(500, { error: "not_configured" });
   }
 
-  const totals: Record<Outcome, number> = { sent: 0, retry: 0, no_devices: 0, unknown_kind: 0 };
+  const totals: Record<Outcome, number> = { sent: 0, retry: 0, no_devices: 0, unknown_kind: 0, no_words: 0 };
   try {
     const jwt = await deps.providerToken();
     for (let batch = 0; batch < maxBatches; batch++) {
@@ -80,9 +81,10 @@ function routeFor(row: OutboxRow): Route | null {
 }
 
 async function send(row: OutboxRow, jwt: string, deps: SendPushDeps): Promise<Outcome> {
-  // Also when the words can't be made (no name, or the night is gone): nothing half-worded goes out.
+  if (!knownKinds.has(row.kind)) return "unknown_kind";
+  // Nothing half-worded goes out: no name, or the night is gone.
   const alert = alertFor(row.kind, row.args ?? {}, row.night_date);
-  if (!alert) return "unknown_kind";
+  if (!alert) return "no_words";
   if (row.devices.length === 0) return "no_devices";
 
   const payload = payloadFor(alert, routeFor(row));
