@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import type { DeliveryResult, Device } from "./apns.ts";
+import type { ApnsPayload, DeliveryResult, Device } from "./apns.ts";
 import { handleSendPush, type OutboxRow, type SendPushDeps } from "./handler.ts";
 
 const sandbox: Device = { token: "ab".repeat(32), environment: "sandbox" };
@@ -49,6 +49,9 @@ const row = (devices: Device[], kind = "plan_set"): OutboxRow => ({
   id: "row-1",
   kind,
   week_start: "2026-11-01",
+  night_id: null,
+  night_date: null,
+  args: {},
   attempts: 1,
   devices,
 });
@@ -100,6 +103,37 @@ Deno.test("a kind this sender doesn't know, or a person with no device, fails wi
   const deviceless = fakeDeps([row([])]);
   await handleSendPush(request(), deviceless.deps);
   assertEquals(deviceless.steps, ["complete row-1 no_devices"]);
+});
+
+Deno.test("a push about a night opens that night, with the name from args", async () => {
+  const payloads: ApnsPayload[] = [];
+  const claim: OutboxRow = {
+    ...row([sandbox], "claim"),
+    week_start: null,
+    night_id: "night-1",
+    night_date: "2026-11-05",
+    args: { name: "Ben" },
+  };
+  const { deps, steps } = fakeDeps([claim], {}, {
+    deliver: (_device, payload) => {
+      payloads.push(payload);
+      return Promise.resolve("delivered");
+    },
+  });
+  await handleSendPush(request(), deps);
+  assertEquals(payloads, [{
+    aps: { alert: { title: "Ben will cook Thursday.", body: "Tap to see the night." }, sound: "default" },
+    route: "night",
+    night: "night-1",
+    date: "2026-11-05",
+  }]);
+  assertEquals(steps, ["complete row-1 sent"]);
+});
+
+Deno.test("a push whose words can't be made fails without a post", async () => {
+  const nameless = fakeDeps([{ ...row([sandbox], "not_home"), args: null }]);
+  await handleSendPush(request(), nameless.deps);
+  assertEquals(nameless.steps, ["complete row-1 unknown_kind"]);
 });
 
 Deno.test("a database error stops the run and says so", async () => {

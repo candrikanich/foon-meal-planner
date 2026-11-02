@@ -8,6 +8,7 @@ import {
   deliver,
   payloadFor,
   providerToken,
+  weekdayOf,
 } from "./apns.ts";
 
 async function testConfig(): Promise<{ config: ApnsConfig; publicKey: CryptoKey }> {
@@ -89,7 +90,7 @@ Deno.test("each device goes to its own environment's host", () => {
 Deno.test("Plan's set has fixed words and opens the week", () => {
   const alert = alertFor("plan_set")!;
   assertEquals(alert, { title: "This week's dinners are set.", body: "Tap to see the week." });
-  assertEquals(payloadFor(alert, "2026-11-01"), {
+  assertEquals(payloadFor(alert, { route: "week", date: "2026-11-01" }), {
     aps: { alert, sound: "default" },
     route: "week",
     date: "2026-11-01",
@@ -98,8 +99,43 @@ Deno.test("Plan's set has fixed words and opens the week", () => {
   assertEquals(alertFor("something_new"), null);
 });
 
+Deno.test("won't be home names the person, first name only, and opens the night", () => {
+  const alert = alertFor("not_home", { name: "Ben" }, "2026-11-05")!;
+  assertEquals(alert, { title: "Ben won't be home tonight.", body: "Tap to see tonight." });
+  assertEquals(payloadFor(alert, { route: "night", night: "n-1", date: "2026-11-05" }), {
+    aps: { alert, sound: "default" },
+    route: "night",
+    night: "n-1",
+    date: "2026-11-05",
+  });
+  assertEquals(alertFor("not_home", {}), null);
+  assertEquals(alertFor("not_home", { name: "  " }), null);
+  assertEquals(alertFor("not_home", { name: 7 }), null);
+});
+
+Deno.test("a claim says the night's weekday from its date, never tonight or tomorrow", () => {
+  assertEquals(alertFor("claim", { name: "Ben" }, "2026-11-05"), {
+    title: "Ben will cook Thursday.",
+    body: "Tap to see the night.",
+  });
+  assertEquals(alertFor("claim", { name: "Ben" }, "2026-11-08")?.title, "Ben will cook Sunday.");
+  assertEquals(alertFor("claim", { name: "Ben" }, null), null);
+  assertEquals(alertFor("claim", { name: "Ben" }, "Thursday"), null);
+  assertEquals(alertFor("claim", {}, "2026-11-05"), null);
+});
+
+Deno.test("only the name is read from args", () => {
+  assertEquals(alertFor("not_home", { name: "Ben", dish: "Chili" })?.title, "Ben won't be home tonight.");
+});
+
+Deno.test("weekdays come from the calendar date, whatever the server's zone", () => {
+  assertEquals(weekdayOf("2026-11-02"), "Monday");
+  assertEquals(weekdayOf("2026-12-31"), "Thursday");
+  assertEquals(weekdayOf("2026-1-1"), null);
+});
+
 const device = { token: "ab".repeat(32), environment: "sandbox" as const };
-const payload = payloadFor(alertFor("plan_set")!, "2026-11-01");
+const payload = payloadFor(alertFor("plan_set")!, { route: "week", date: "2026-11-01" });
 
 Deno.test("a push is posted with the topic, type and provider token", async () => {
   const calls: { url: string; init: RequestInit }[] = [];

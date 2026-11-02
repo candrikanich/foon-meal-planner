@@ -1,13 +1,18 @@
 // send-push: pg_cron pokes it every minute something's due, with a shared secret. It claims due outbox rows, sends each to
 // its person's devices, forgets the tokens Apple says are dead, and marks each row sent (and logged), to retry, or failed.
 
-import { alertFor, type ApnsPayload, type DeliveryResult, type Device, payloadFor } from "./apns.ts";
+import { alertFor, type ApnsPayload, type DeliveryResult, type Device, payloadFor, type Route } from "./apns.ts";
 
 export interface OutboxRow {
   id: string;
   kind: string;
   // The plan's week, for the tap's route; null when the row isn't about a plan.
   week_start: string | null;
+  // The night it's about, and its date, for the words and the tap; null when the row isn't about a night.
+  night_id: string | null;
+  night_date: string | null;
+  // Only what the fixed words need: a first name.
+  args: Record<string, unknown> | null;
   attempts: number;
   devices: Device[];
 }
@@ -69,12 +74,18 @@ export async function handleSendPush(req: Request, deps: SendPushDeps): Promise<
   return json(200, totals);
 }
 
+function routeFor(row: OutboxRow): Route | null {
+  if (row.night_id && row.night_date) return { route: "night", night: row.night_id, date: row.night_date };
+  return row.week_start ? { route: "week", date: row.week_start } : null;
+}
+
 async function send(row: OutboxRow, jwt: string, deps: SendPushDeps): Promise<Outcome> {
-  const alert = alertFor(row.kind);
+  // Also when the words can't be made (no name, or the night is gone): nothing half-worded goes out.
+  const alert = alertFor(row.kind, row.args ?? {}, row.night_date);
   if (!alert) return "unknown_kind";
   if (row.devices.length === 0) return "no_devices";
 
-  const payload = payloadFor(alert, row.week_start);
+  const payload = payloadFor(alert, routeFor(row));
   const results = await Promise.all(row.devices.map((device) => deps.deliver(device, payload, jwt)));
   const dead = row.devices.filter((_, i) => results[i] === "dead_token").map((device) => device.token);
   if (dead.length > 0) await deps.forgetDevices(dead);
