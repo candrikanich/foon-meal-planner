@@ -10,6 +10,7 @@ struct RootTabView: View {
     @State private var freezer: FreezerStore
     @State private var activity: PlanActivityStore
     @State private var reminders: ReminderStore
+    @State private var polls: PollStore
     private let router = ReminderRouter.shared
     @Environment(\.scenePhase) private var scenePhase
     /// What the Share Sheet extension saved, the one being handled, and any put off with Not now until the next launch.
@@ -18,7 +19,8 @@ struct RootTabView: View {
     @State private var postponedShares: Set<UUID> = []
 
     init(householdID: UUID, libraryClient: LibraryClient, weekClient: WeekClient, dinnerClient: DinnerClient,
-         ideasClient: IdeasClient, freezerClient: FreezerClient, notificationClient: NotificationClient = .preview) {
+         ideasClient: IdeasClient, freezerClient: FreezerClient, notificationClient: NotificationClient = .preview,
+         pollClient: PollClient = .preview) {
         _library = State(initialValue: LibraryStore(householdID: householdID, client: libraryClient))
         _week = State(initialValue: WeekStore(householdID: householdID, client: weekClient))
         _dinner = State(initialValue: DinnerStore(householdID: householdID, client: dinnerClient))
@@ -26,6 +28,7 @@ struct RootTabView: View {
         _freezer = State(initialValue: FreezerStore(householdID: householdID, client: freezerClient))
         _activity = State(initialValue: PlanActivityStore(householdID: householdID, client: weekClient))
         _reminders = State(initialValue: ReminderStore(householdID: householdID, client: notificationClient))
+        _polls = State(initialValue: PollStore(client: pollClient))
     }
 
     var body: some View {
@@ -44,6 +47,7 @@ struct RootTabView: View {
         .environment(freezer)
         .environment(activity)
         .environment(reminders)
+        .environment(polls)
         .environment(router)
         .environment(\.showTab) { selection = $0 }
         .modifier(ReminderRunner(store: reminders, week: week.week, logs: dinner.logs))

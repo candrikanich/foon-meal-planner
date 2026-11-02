@@ -11,8 +11,11 @@ struct NightDetailView: View {
     let canPlan: Bool
     @Environment(IdeasStore.self) private var ideas: IdeasStore?
     @Environment(PlanActivityStore.self) private var activity: PlanActivityStore?
+    @Environment(PollStore.self) private var polls: PollStore?
     @State private var swapping = false
     @State private var choosingLeftovers = false
+    @State private var startingPoll = false
+    @State private var pollStarted = false
 
     private static let efforts: [NightEffort] = [.normal, .rushed, .full, .event]
 
@@ -25,6 +28,21 @@ struct NightDetailView: View {
                     .navigationTitle(DayCardText.dayLabel(for: night.date, today: week.todayDay))
             } else {
                 ContentUnavailableView("Night not found", systemImage: "calendar")
+            }
+        }
+    }
+
+    /// Tonight, before dinner's logged, with at least two people to ask. One poll at a time: an open one is on This Week.
+    @ViewBuilder
+    private func pollSection(_ night: WeekNight) -> some View {
+        if polls != nil, night.date == week.todayDay, !dinnerStore.logs.contains(where: { $0.nightID == night.id }),
+           polls?.poll(for: night.id)?.isOpen(at: .now) != true,
+           PollRules.voters(on: night, members: household.visibleMembers).count >= 2 {
+            Section {
+                Button("Vote on dinner", systemImage: "checklist") { startingPoll = true }
+                    .tint(Palette.paprika)
+            } footer: {
+                Text("Plans fell through? Start a quick vote on what's for dinner.")
             }
         }
     }
@@ -44,6 +62,8 @@ struct NightDetailView: View {
             } header: {
                 Text(DayCardText.dateLabel(for: night.date))
             }
+
+            pollSection(night)
 
             NightClaimSection(night: night, canPlan: canPlan)
 
@@ -109,6 +129,13 @@ struct NightDetailView: View {
         }
         .sheet(isPresented: $swapping) {
             SwapSheet(nightID: nightID)
+        }
+        // Up here and not with its button, which goes when someone else's poll opens: the 30-second refresh keeps running behind
+        // the sheet, and it would close on whoever's still choosing. This screen leaves once the sheet has, so the vote is in view.
+        .sheet(isPresented: $startingPoll, onDismiss: {
+            if pollStarted { dismiss() }
+        }) {
+            StartPollSheet(nightID: nightID) { pollStarted = true }
         }
         // Again when the swap sheet closes, by when its write has landed. The pick shows before it does.
         .task(id: swapping) {

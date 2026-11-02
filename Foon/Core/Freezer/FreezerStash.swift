@@ -80,8 +80,8 @@ extension FreezerClient {
     }
 }
 
-/// What's offered and what's said about the stash, kept pure. The swap sheet reads `offers` today; the tonight poll (#43)
-/// reads the same function for tonight, so what it offers will be what Swap offers.
+/// What's offered and what's said about the stash, kept pure. The swap sheet and the tonight poll both read `offers`, so
+/// what a poll offers is what Swap offers.
 enum FreezerStash {
     /// An item that can go on a night, with the flags to show. Allergies are never a filter: they're flagged, and the
     /// planner decides.

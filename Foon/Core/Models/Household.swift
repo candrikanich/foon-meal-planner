@@ -54,7 +54,7 @@ struct Member: Decodable, Equatable, Identifiable, Sendable {
 
     /// Babies and toddlers, mostly (docs/spec.md → Outliers): they aren't asked to rate dinners, their old ratings stop
     /// counting, and they don't count toward me-toos. They stay home on attendance, so allergy flags and serving notes
-    /// still count them. The tonight poll (#43) isn't built yet: when it is, this is who it leaves out of the votes.
+    /// still count them, and they don't vote in the tonight poll.
     var eatsSeparately: Bool {
         get { separately == true }
         set { separately = newValue }

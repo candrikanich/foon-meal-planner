@@ -77,6 +77,9 @@
     "%@ and anything else planned for those nights come off, locked nights included, and don't come back if you change your mind." : {
 
     },
+    "%@ can't be planned any more. Use Swap to pick something else." : {
+
+    },
     "%@ cleared %@" : {
       "localizations" : {
         "en" : {
@@ -128,6 +131,9 @@
     },
     "%@ is on the list" : {
 
+    },
+    "%@ it is." : {
+      "comment" : "Tonight poll: the winner is now tonight's dinner"
     },
     "%@ last night?" : {
       "comment" : "After-dinner card: the dish, then the question"
@@ -301,6 +307,9 @@
     "%@ won't be home tonight." : {
       "comment" : "Check-in news for a planner"
     },
+    "%@ won." : {
+      "comment" : "Tonight poll closed with one winner"
+    },
     "%@ · %@" : {
       "localizations" : {
         "en" : {
@@ -396,6 +405,9 @@
     "%lld meals can't be fully checked for allergies. Open them to see why." : {
 
     },
+    "%lld minutes" : {
+      "comment" : "How long a tonight poll runs"
+    },
     "%lld months ago" : {
       "comment" : "Freezer stash: how long ago"
     },
@@ -435,6 +447,9 @@
     },
     "%lld to buy" : {
 
+    },
+    "%lld votes" : {
+      "comment" : "Tonight poll, VoiceOver: votes for an option"
     },
     "%lld weeks ago" : {
       "comment" : "Freezer stash: how long ago"
@@ -496,6 +511,9 @@
     "A demo family with dinners and a planned week, to look around first." : {
 
     },
+    "A dish" : {
+      "comment" : "Poll option whose name couldn't be read"
+    },
     "A doubled or freezer night changed what to buy. Update the list." : {
 
     },
@@ -524,6 +542,9 @@
 
     },
     "A plain summary, not the privacy policy. What you can export or delete is back on Family, under Your data." : {
+
+    },
+    "A planner can make it tonight's dinner." : {
 
     },
     "A planner has you out tonight, so ask them to change it." : {
@@ -1279,6 +1300,9 @@
     "Effort: %@" : {
 
     },
+    "End the poll" : {
+
+    },
     "Engaged" : {
 
     },
@@ -1312,7 +1336,7 @@
     "Everyone in the family sees these. Foon flags dishes, and you still check labels." : {
 
     },
-    "Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, ratings and comments, and who cooked. Planners can see the reminder log; everyone else, only their own." : {
+    "Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, votes on dinner, ratings and comments, and who cooked. Planners can see the reminder log; everyone else, only their own." : {
 
     },
     "Everyone's here. You can invite people later from Family." : {
@@ -1808,6 +1832,9 @@
     "It'll still stay off nights when anyone who said Not for me is home, and another Not for me retires it again." : {
 
     },
+    "It's a tie: %@." : {
+      "comment" : "Tonight poll closed with a tie"
+    },
     "It's already your idea." : {
 
     },
@@ -1968,6 +1995,12 @@
 
     },
     "Made once, last on %@" : {
+
+    },
+    "Make %@ tonight's dinner" : {
+      "comment" : "Tonight poll: a planner puts the winner on tonight"
+    },
+    "Make it tonight's dinner" : {
 
     },
     "Makes leftovers" : {
@@ -2161,6 +2194,9 @@
     },
     "No week yet" : {
 
+    },
+    "Nobody voted." : {
+      "comment" : "Tonight poll closed with no votes"
     },
     "Nobody's home" : {
       "comment" : "Reason chip: everyone is out that night"
@@ -2405,7 +2441,7 @@
     "Plan activity" : {
 
     },
-    "Plan activity and the reminder log are deleted after eight weeks." : {
+    "Plan activity, votes on dinner, and the reminder log are deleted after eight weeks." : {
 
     },
     "Plan it" : {
@@ -2427,6 +2463,9 @@
 
     },
     "Planning mix" : {
+
+    },
+    "Plans fell through? Start a quick vote on what's for dinner." : {
 
     },
     "Plans it anyway" : {
@@ -2783,6 +2822,9 @@
     "Someone else just said they'd cook that night." : {
 
     },
+    "Someone just started a poll for tonight." : {
+
+    },
     "Someone who eats separately isn't in the rotation." : {
 
     },
@@ -2794,6 +2836,9 @@
     },
     "Something new" : {
       "comment" : "Reason chip: a dish the family hasn't tried"
+    },
+    "Something on this poll has changed. Close this and try again." : {
+
     },
     "Sort" : {
 
@@ -2811,6 +2856,9 @@
 
     },
     "Staples you never want to run out of. Anyone can mark them low or out." : {
+
+    },
+    "Start" : {
 
     },
     "Start cooking" : {
@@ -3137,10 +3185,16 @@
     "They eat separately, so they don't rate dinners." : {
 
     },
+    "They eat separately, so they don't vote." : {
+
+    },
     "They lose access right away. Their ratings and history stay." : {
 
     },
     "They're down as out that night. A planner can change who's home." : {
+
+    },
+    "They're marked out tonight, and the vote is for whoever's home." : {
 
     },
     "They're signed out of the household on their own device now, and stay in the family on yours. If you don't consent again within 30 days, what they added themselves is erased." : {
@@ -3192,6 +3246,12 @@
 
     },
     "This is the sample family. Delete it and set up your own; you keep your account." : {
+
+    },
+    "This one's for whoever's home tonight." : {
+
+    },
+    "This poll has closed." : {
 
     },
     "This rating is locked in now, so it can't take a comment." : {
@@ -3246,6 +3306,9 @@
 
     },
     "Tonight" : {
+
+    },
+    "Tonight's dinner is already logged." : {
 
     },
     "Tonight's dinner stays, in case you've eaten it. Swap it off if you won't be home." : {
@@ -3368,6 +3431,26 @@
     "View the original recipe" : {
 
     },
+    "Vote on dinner" : {
+
+    },
+    "Voting as" : {
+
+    },
+    "Voting closes in" : {
+
+    },
+    "Voting until %@. %lld of %lld voted." : {
+      "comment" : "Tonight poll: when it closes, and how many of those home have voted",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Voting until %1$@. %2$lld of %3$lld voted."
+          }
+        }
+      }
+    },
     "Waiting" : {
 
     },
@@ -3446,6 +3529,9 @@
     "What your household skips, and when." : {
 
     },
+    "What's for dinner tonight?" : {
+
+    },
     "When" : {
 
     },
@@ -3507,6 +3593,9 @@
 
     },
     "Who's home" : {
+
+    },
+    "Whoever's home tonight can vote. No vote counts as abstaining. A planner makes the winner tonight's dinner." : {
 
     },
     "Will add" : {
@@ -3625,7 +3714,7 @@
     "Your meals" : {
 
     },
-    "Your meals and meal photos, plans, lists, ideas, ratings, comments, serving notes, and who cooked." : {
+    "Your meals and meal photos, plans, lists, ideas, votes on dinner, ratings, comments, serving notes, and who cooked." : {
 
     },
     "Your planner hasn't planned this week yet. Tell them what you'd like." : {
