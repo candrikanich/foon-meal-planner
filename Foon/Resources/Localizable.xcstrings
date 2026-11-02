@@ -897,6 +897,9 @@
     "Can't do it tonight? Just trade. Foon doesn't keep score." : {
 
     },
+    "Can't have it (%@)" : {
+      "comment" : "Weekly list note on an item that is the allergen itself (eggs), then who"
+    },
     "Can't undo that one. Swap it instead." : {
 
     },

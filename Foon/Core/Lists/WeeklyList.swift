@@ -143,8 +143,9 @@ enum WeeklyList {
             return compact
         }
 
-        /// One note per flag, except that an item which is the allergen itself is simply not for them: one "Not for Nora, Owen"
-        /// covers every allergen it is (mixed nuts are both peanuts and tree nuts).
+        /// One note per flag, except that an item which is the allergen itself has nothing to get instead: one
+        /// "Can't have it (Nora, Owen)" covers every allergen it is (mixed nuts are both peanuts and tree nuts). The names
+        /// stay in parentheses like every other note, since notes are compared as substrings: "(Ann)" is never inside "(Anna)".
         private var notes: [String] {
             let isItself: (AllergyFlag.Trigger) -> Bool = { trigger in
                 guard case .allergen(let allergen) = trigger else { return false }
@@ -154,9 +155,9 @@ enum WeeklyList {
             let rest = flags.filter { !isItself($0.trigger) }.map(Self.note)
             guard !notFor.isEmpty else { return rest }
             let who = notFor.sorted().joined(separator: ", ")
-            let notForNote = String(localized: "Not for \(who)",
-                                    comment: "Weekly list allergy note on an item that is the allergen itself (eggs), then who")
-            return [notForNote] + rest
+            let cantHave = String(localized: "Can't have it (\(who))",
+                                  comment: "Weekly list note on an item that is the allergen itself (eggs), then who")
+            return [cantHave] + rest
         }
 
         private static func compact(_ what: [String], who: String) -> String {

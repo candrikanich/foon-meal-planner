@@ -106,7 +106,7 @@ struct WeeklyListTests {
         let allergies = [MemberAllergies(memberID: nora, firstName: "Nora", allergens: [allergen])]
         let dish = meal("Dish", [(UUID(), item, nil)])
         let lines = WeeklyList.build(nights: [night(dish, home: [nora])], library: [dish], allergies: allergies)
-        #expect(lines.first?.note == "Not for Nora")
+        #expect(lines.first?.note == "Can't have it (Nora)")
     }
 
     @Test func thingsMadeWithItStillSayWhatToGet() {
@@ -123,7 +123,19 @@ struct WeeklyListTests {
                          MemberAllergies(memberID: owen, firstName: "Owen", allergens: [.treeNuts])]
         let dish = meal("Trail mix", [(UUID(), "mixed nuts", nil)])
         let lines = WeeklyList.build(nights: [night(dish, home: [nora, owen])], library: [dish], allergies: allergies)
-        #expect(lines.first?.note == "Not for Nora, Owen")
+        #expect(lines.first?.note == "Can't have it (Nora, Owen)")
+    }
+
+    @Test func oneNamesNoteNeverCoversAnothersWhoseNameStartsTheSame() {
+        let note: (String) -> String? = { name in
+            let allergies = [MemberAllergies(memberID: UUID(), firstName: name, allergens: [.eggs])]
+            let dish = meal("Omelet", [(UUID(), "eggs", nil)])
+            let home = Set(allergies.map(\.memberID))
+            return WeeklyList.build(nights: [WeeklyList.Night(mealID: dish.id, home: home)], library: [dish],
+                                    allergies: allergies).first?.note
+        }
+        #expect(!ListNotes.covers(note("Anna"), note("Ann")))
+        #expect(!ListNotes.covers("Can't have it for Ann's lunchbox", note("Ann")))
     }
 
     @Test func customAllergiesAskToCheck() {
