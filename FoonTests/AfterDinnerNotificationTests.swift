@@ -1,0 +1,230 @@
+import Foundation
+import Supabase
+import Testing
+@testable import Foon
+
+/// Rating dinner from the after-dinner notification, without opening the app (#122).
+@Suite struct AfterDinnerAnswerTests {
+    private let night = UUID()
+    private let member = UUID()
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private var payload: ReminderPayload { ReminderPayload(route: .rate(night: night, member: member), dinnerAt: nil) }
+
+    private func outcome(_ action: String, payload: ReminderPayload? = nil) -> ReminderResponse.Outcome? {
+        ReminderResponse.outcome(id: ReminderID.afterDinner(me: member, night: night, meal: UUID()), action: action,
+                                 payload: payload ?? self.payload, now: now)
+    }
+
+    @Test func eachReactionSavesWithoutOpeningTheApp() throws {
+        for kind in ReactionKind.allCases {
+            let answered = try #require(outcome(ReminderCenter.reactAction(kind)))
+            #expect(answered.dinner == DinnerAnswer(nightID: night, memberID: member, answer: .reaction(kind), at: now))
+            #expect(answered.route == nil)
+            #expect(answered.answer.response == "done")
+        }
+    }
+
+    @Test func wasntHomeSaysSoWithoutOpeningTheApp() throws {
+        let answered = try #require(outcome(ReminderCenter.wasntHomeAction))
+        #expect(answered.dinner?.answer == .wasntHome)
+        #expect(answered.route == nil)
+    }
+
+    @Test func somethingElseOpensTheCardWithoutAnswering() throws {
+        let opened = try #require(outcome(ReminderCenter.somethingElseAction))
+        #expect(opened.dinner == nil)
+        #expect(opened.route == .rate(night: night, member: member))
+    }
+
+    @Test func tappingItOpensTheCard() throws {
+        let tapped = try #require(outcome("com.apple.UNNotificationDefaultActionIdentifier"))
+        #expect(tapped.dinner == nil)
+        #expect(tapped.route == .rate(night: night, member: member))
+    }
+
+    @Test func aPromptFromBeforeTheButtonsCantBeAnsweredFromThem() {
+        // Scheduled by an older build: it carries no night or person, so a button has nothing to answer.
+        #expect(outcome(ReminderCenter.reactAction(.good), payload: ReminderPayload(route: .dinnerCard, dinnerAt: nil)) == nil)
+    }
+
+    @Test func itsPayloadSurvivesTheTrip() {
+        #expect(ReminderPayload(userInfo: payload.userInfo) == payload)
+        #expect(ReminderPayload(userInfo: ["route": "rate", "night": night.uuidString]) == nil)
+        #expect(ReminderPayload(userInfo: ["route": "dinner"])?.route == .dinnerCard)
+    }
+
+    @Test func itHasItsOwnButtons() {
+        let reminder = PlannedReminder(id: "x", kind: .afterDinner, nightID: night, fireAt: now, dinnerAt: nil, title: "",
+                                       body: "", route: .rate(night: night, member: member))
+        #expect(ReminderCenter.category(for: reminder) == ReminderCenter.afterDinnerCategory)
+        let old = PlannedReminder(id: "x", kind: .afterDinner, nightID: night, fireAt: now, dinnerAt: nil, title: "", body: "",
+                                  route: .dinnerCard)
+        #expect(ReminderCenter.category(for: old) == nil)
+        #expect(ReactionKind.allCases.map { ReminderCenter.reaction(fromAction: ReminderCenter.reactAction($0)) }
+            == ReactionKind.allCases)
+        #expect(ReminderCenter.reaction(fromAction: ReminderCenter.wasntHomeAction) == nil)
+    }
+}
+
+@Suite @MainActor struct DinnerAnswerDeliveryTests {
+    private actor Sent {
+        var answers: [DinnerAnswer.Answer] = []
+        func add(_ answer: DinnerAnswer.Answer) { answers.append(answer) }
+    }
+
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private func device() -> ReminderDevice {
+        ReminderDevice(defaults: UserDefaults(suiteName: "dinner.\(UUID().uuidString)")!)
+    }
+
+    private func answer(_ answer: DinnerAnswer.Answer, ago: TimeInterval = 60) -> DinnerAnswer {
+        DinnerAnswer(nightID: UUID(), memberID: UUID(), answer: answer, at: now.addingTimeInterval(-ago))
+    }
+
+    private func client(_ work: @escaping @Sendable (DinnerAnswer.Answer) async throws -> Void) -> NotificationClient {
+        var client = NotificationClient.preview
+        client.answerDinner = { try await work($0.answer) }
+        return client
+    }
+
+    @Test func theyGoInOrderAndComeOffTheList() async {
+        let device = device(), sent = Sent()
+        device.add(answer(.reaction(.good)))
+        device.add(answer(.wasntHome))
+        await DinnerAnswerDelivery.send(device: device, client: client { await sent.add($0) }, now: now)
+        #expect(await sent.answers == [.reaction(.good), .wasntHome])
+        #expect(device.dinnerAnswers.isEmpty)
+    }
+
+    @Test func noSignalKeepsThemForNextTime() async {
+        let device = device(), first = answer(.reaction(.favorite)), second = answer(.wasntHome)
+        device.add(first)
+        device.add(second)
+        let tries = Sent()
+        await DinnerAnswerDelivery.send(device: device, client: client { answer in
+            await tries.add(answer)
+            throw URLError(.notConnectedToInternet)
+        }, now: now)
+        #expect(device.dinnerAnswers == [first, second])
+        #expect(await tries.answers.count == 1, "no signal for one is no signal for all")
+    }
+
+    @Test func aFinalNoComesOffTheListAndTheRestStillGo() async {
+        let device = device(), sent = Sent()
+        device.add(answer(.reaction(.notForMe)))
+        device.add(answer(.reaction(.good)))
+        await DinnerAnswerDelivery.send(device: device, client: client { answer in
+            if answer == .reaction(.notForMe) { throw PostgrestError(code: "FD004", message: "they eat separately") }
+            await sent.add(answer)
+        }, now: now)
+        #expect(await sent.answers == [.reaction(.good)])
+        #expect(device.dinnerAnswers.isEmpty)
+    }
+
+    @Test func notAllowedIsntFinalUntilItsTooOld() async {
+        let device = device(), sent = Sent()
+        let waiting = answer(.reaction(.good)), stale = answer(.reaction(.favorite), ago: DinnerAnswer.keptFor + 1)
+        device.add(stale)
+        device.add(waiting)
+        await DinnerAnswerDelivery.send(device: device, client: client { answer in
+            await sent.add(answer)
+            throw PostgrestError(code: "42501", message: "permission denied")
+        }, now: now)
+        #expect(await sent.answers == [.reaction(.good)], "the old one isn't even tried")
+        #expect(device.dinnerAnswers == [waiting])
+    }
+
+    @Test func theServersOtherFinalNosComeOffTheList() async {
+        for code in ["22023", "P0002"] {
+            let device = device()
+            device.add(answer(.wasntHome))
+            await DinnerAnswerDelivery.send(device: device, client: client { _ in
+                throw PostgrestError(code: code, message: "no")
+            }, now: now)
+            #expect(device.dinnerAnswers.isEmpty, "\(code)")
+        }
+    }
+
+    @Test func oneThatCantGoHoldsBackOnlyItsOwnNight() async {
+        // A rating past its 24 hours is refused as "not allowed" until it's a week old; it mustn't hold up every other night.
+        let device = device(), sent = Sent(), night = UUID(), me = UUID()
+        let locked = DinnerAnswer(nightID: night, memberID: me, answer: .reaction(.notForMe), at: now)
+        let sameNight = DinnerAnswer(nightID: night, memberID: me, answer: .reaction(.good), at: now)
+        let otherNight = answer(.reaction(.favorite))
+        device.add(locked)
+        device.add(sameNight)
+        device.add(otherNight)
+        await DinnerAnswerDelivery.send(device: device, client: client { answer in
+            if answer == .reaction(.notForMe) { throw PostgrestError(code: "42501", message: "reactions lock after 24 hours") }
+            await sent.add(answer)
+        }, now: now)
+        #expect(await sent.answers == [.reaction(.favorite)], "the later answer for the same night waits its turn")
+        #expect(device.dinnerAnswers == [locked, sameNight])
+    }
+
+    @Test func signingOutLeavesNoneWaiting() {
+        let device = device()
+        device.add(answer(.wasntHome))
+        device.clear()
+        #expect(device.dinnerAnswers.isEmpty)
+    }
+}
+
+@MainActor
+struct DinnerCardReplacesWaitingAnswerTests {
+    @Test func rateOnTheCardDropsTheLockScreensOlderAnswerForThatNight() async {
+        let device = ReminderDevice(defaults: UserDefaults(suiteName: "dinnercard.\(UUID().uuidString)")!)
+        let night = UUID(), me = UUID()
+        let other = DinnerAnswer(nightID: UUID(), memberID: me, answer: .wasntHome, at: .now)
+        device.add(DinnerAnswer(nightID: night, memberID: me, answer: .reaction(.notForMe), at: .now))
+        device.add(other)
+        let client = DinnerClient(logs: { _, _ in [] }, confirm: { _ in UUID() }, react: { _, _, _ in UUID() },
+                                  correct: { _, _ in }, nights: { _, _, _ in [] }, setNotHome: { _, _ in })
+        let store = DinnerStore(householdID: UUID(), client: client, waiting: device)
+        #expect(await store.react(nightID: night, memberID: me, .favorite))
+        #expect(device.dinnerAnswers == [other])
+        device.add(DinnerAnswer(nightID: night, memberID: me, answer: .reaction(.good), at: .now))
+        #expect(await store.notHome(nightID: night, memberID: me))
+        #expect(device.dinnerAnswers == [other], "and so does the card's Wasn't home")
+    }
+}
+
+/// Taking back a prompt that's been answered, so its buttons can't write over the answer.
+@Suite struct AnsweredAfterDinnerTests {
+    private let me = UUID()
+    private let meal = UUID()
+
+    private func night(_ change: (inout ReminderNight) -> Void = { _ in }) -> ReminderNight {
+        var night = ReminderNight(id: UUID(), date: CalendarDay(year: 2026, month: 11, day: 2), mealID: meal,
+                                  attendance: [me: true])
+        change(&night)
+        return night
+    }
+
+    private func prompt(_ night: ReminderNight, meal: UUID? = nil) -> String {
+        ReminderID.afterDinner(me: me, night: night.id, meal: meal ?? self.meal)
+    }
+
+    @Test func anUnansweredPromptStays() {
+        let open = night()
+        #expect(ReminderID.answeredAfterDinner([prompt(open)], me: me, nights: [open]).isEmpty)
+    }
+
+    @Test func ratedMarkedOutOrADifferentDishIsTakenBack() {
+        let rated = night { $0.ratedBy = [me] }
+        let out = night { $0.attendance = [me: false] }
+        let other = night { $0.hasLog = true; $0.loggedMealID = UUID() }
+        let swapped = night()
+        let delivered = [prompt(rated), prompt(out), prompt(other), prompt(swapped, meal: UUID())]
+        #expect(ReminderID.answeredAfterDinner(delivered, me: me, nights: [rated, out, other, swapped]) == delivered)
+    }
+
+    @Test func otherNotificationsAndUnknownNightsAreLeftAlone() {
+        let rated = night { $0.ratedBy = [me] }
+        let unknown = night()
+        let delivered = [ReminderID.checkIn(me: me, night: rated.id), prompt(unknown), UUID().uuidString]
+        #expect(ReminderID.answeredAfterDinner(delivered, me: me, nights: [rated]).isEmpty)
+    }
+}

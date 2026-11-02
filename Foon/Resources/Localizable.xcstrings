@@ -3532,10 +3532,10 @@
 
     },
     "Wasn't home" : {
-
+      "comment" : "After-dinner action"
     },
     "We had something else" : {
-
+      "comment" : "After-dinner action"
     },
     "We keep meat frozen" : {
 

@@ -23,7 +23,7 @@ struct RootTabView: View {
          pollClient: PollClient = .preview) {
         _library = State(initialValue: LibraryStore(householdID: householdID, client: libraryClient))
         _week = State(initialValue: WeekStore(householdID: householdID, client: weekClient))
-        _dinner = State(initialValue: DinnerStore(householdID: householdID, client: dinnerClient))
+        _dinner = State(initialValue: DinnerStore(householdID: householdID, client: dinnerClient, waiting: ReminderDevice()))
         _ideas = State(initialValue: IdeasStore(householdID: householdID, client: ideasClient))
         _freezer = State(initialValue: FreezerStore(householdID: householdID, client: freezerClient))
         _activity = State(initialValue: PlanActivityStore(householdID: householdID, client: weekClient))

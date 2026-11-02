@@ -165,8 +165,10 @@ enum ReminderRoute: Equatable, Sendable {
     case week(CalendarDay)
     case night(UUID, CalendarDay)
     case swap(UUID, CalendarDay)
-    /// This Week's after-dinner cards.
+    /// This Week's after-dinner cards. What a prompt scheduled before #122 carries.
     case dinnerCard
+    /// This Week's after-dinner card for this person's night. The notification's reactions and Wasn't home answer it.
+    case rate(night: UUID, member: UUID)
     /// This Week's check-in card. The lock screen's Home and Not home answer for this person on this night.
     case checkIn(night: UUID, member: UUID)
 }
@@ -222,4 +224,19 @@ enum ReminderID {
     }
 
     static func isReminder(_ id: String) -> Bool { id.hasPrefix(prefix) }
+
+    /// After-dinner prompts still in Notification Center that are no longer the question: rated (on any phone), marked out,
+    /// or about a dish that isn't what was planned or logged. Their buttons would write over an answer, so they're taken back.
+    /// A night the snapshot doesn't hold is left alone.
+    static func answeredAfterDinner(_ delivered: [String], me: UUID, nights: [ReminderNight]) -> [String] {
+        delivered.filter { id in
+            guard let night = nights.first(where: { isAfterDinner(id, night: $0.id) }) else { return false }
+            guard id.hasPrefix("\(prefix)\(me.uuidString).") else { return false }
+            let stillAsked = night.mealID.map { meal in
+                id == afterDinner(me: me, night: night.id, meal: meal) && night.attendance[me] == true
+                    && !night.ratedBy.contains(me) && (!night.hasLog || night.loggedMealID == meal)
+            } ?? false
+            return !stillAsked
+        }
+    }
 }

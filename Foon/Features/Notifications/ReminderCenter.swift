@@ -24,6 +24,9 @@ struct ReminderCenter: Sendable {
     /// Sign-out and a gone household: nothing pending, nothing left in Notification Center. Cook mode's timers go too: they
     /// can't outlive the screen that started them.
     var removeEverything: @Sendable () -> Void
+    /// What's showing in Notification Center, and taking some of it away.
+    var deliveredIDs: @Sendable () async -> [String] = { [] }
+    var removeDelivered: @Sendable (_ ids: [String]) -> Void = { _ in }
 }
 
 extension ReminderCenter {
@@ -35,12 +38,22 @@ extension ReminderCenter {
     static let checkInCategory = "foon.reminder.checkin"
     static let homeAction = "foon.reminder.home"
     static let notHomeAction = "foon.reminder.nothome"
+    static let afterDinnerCategory = "foon.reminder.afterdinner"
+    static let wasntHomeAction = "foon.reminder.wasnthome"
+    static let somethingElseAction = "foon.reminder.somethingelse"
+
+    static func reactAction(_ kind: ReactionKind) -> String { "foon.reminder.react.\(kind.rawValue)" }
+
+    static func reaction(fromAction action: String) -> ReactionKind? {
+        ReactionKind.allCases.first { reactAction($0) == action }
+    }
 
     /// Done and Remind me in an hour don't open the app, and Swap does.
     /// Which set of actions a reminder offers. "Remind me in an hour" only if an hour from then is before dinner, so it can't be
     /// a button that does nothing.
     static func category(for reminder: PlannedReminder) -> String? {
         if reminder.kind == .checkIn { return checkInCategory }
+        if reminder.kind == .afterDinner, case .rate = reminder.route { return afterDinnerCategory }
         guard reminder.kind == .prep else { return nil }
         let inTime = reminder.dinnerAt.map { reminder.fireAt.addingTimeInterval(ReminderResponse.snoozeDelay) < $0 } ?? true
         return inTime ? prepCategory : prepNoSnoozeCategory
@@ -57,7 +70,18 @@ extension ReminderCenter {
         let home = UNNotificationAction(identifier: homeAction, title: String(localized: "Home", comment: "Check-in action"))
         let notHome = UNNotificationAction(identifier: notHomeAction, title: String(localized: "Not home", comment: "Check-in action"))
         let checkIn = UNNotificationCategory(identifier: checkInCategory, actions: [home, notHome], intentIdentifiers: [])
-        UNUserNotificationCenter.current().setNotificationCategories([prep, noSnooze, checkIn])
+        // The spec's order. Each reaction and Wasn't home saves without opening the app; something else needs the swap sheet.
+        let reactions = ReactionKind.allCases.map { UNNotificationAction(identifier: reactAction($0), title: $0.title) }
+        let somethingElse = UNNotificationAction(identifier: somethingElseAction,
+                                                 title: String(localized: "We had something else", comment: "After-dinner action"),
+                                                 options: [.foreground])
+        // One tap, like the check-in's Not home, but it marks them out for good, so it's shown as the drastic one.
+        let wasntHome = UNNotificationAction(identifier: wasntHomeAction,
+                                             title: String(localized: "Wasn't home", comment: "After-dinner action"),
+                                             options: [.destructive])
+        let afterDinner = UNNotificationCategory(identifier: afterDinnerCategory, actions: reactions + [somethingElse, wasntHome],
+                                                 intentIdentifiers: [])
+        UNUserNotificationCenter.current().setNotificationCategories([prep, noSnooze, checkIn, afterDinner])
     }
 
     static let system = ReminderCenter(
@@ -96,6 +120,12 @@ extension ReminderCenter {
             let center = UNUserNotificationCenter.current()
             center.removeAllPendingNotificationRequests()
             center.removeAllDeliveredNotifications()
+        },
+        deliveredIDs: {
+            await UNUserNotificationCenter.current().deliveredNotifications().map(\.request.identifier)
+        },
+        removeDelivered: { ids in
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ids)
         }
     )
 
@@ -131,6 +161,10 @@ struct ReminderPayload: Equatable, Sendable {
             info["date"] = day.isoString
         case .dinnerCard:
             info["route"] = "dinner"
+        case .rate(let night, let member):
+            info["route"] = "rate"
+            info["night"] = night.uuidString
+            info["member"] = member.uuidString
         case .checkIn(let night, let member):
             info["route"] = "checkin"
             info["night"] = night.uuidString
@@ -155,10 +189,10 @@ struct ReminderPayload: Equatable, Sendable {
             route = .night(night, day)
         case "dinner":
             route = .dinnerCard
-        case "checkin":
+        case "checkin", "rate":
             guard let night = (userInfo["night"] as? String).flatMap(UUID.init(uuidString:)),
                   let member = (userInfo["member"] as? String).flatMap(UUID.init(uuidString:)) else { return nil }
-            route = .checkIn(night: night, member: member)
+            route = kind == "rate" ? .rate(night: night, member: member) : .checkIn(night: night, member: member)
         default:
             return nil
         }

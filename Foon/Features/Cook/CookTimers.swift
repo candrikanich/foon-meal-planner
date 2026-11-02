@@ -146,6 +146,10 @@ final class CookAlertPresenter: NSObject, UNUserNotificationCenterDelegate, Send
             // Now, if it can, so it's on the server the next time a planner looks. The app's next run sends it otherwise.
             await CheckInDelivery.send(device: ReminderDevice(), client: .live(SupabaseService.shared.client))
         }
+        if let dinner = outcome.dinner {
+            ReminderDevice().add(dinner)
+            await DinnerAnswerDelivery.send(device: ReminderDevice(), client: .live(SupabaseService.shared.client))
+        }
         if let route = outcome.route { ReminderRouter.shared.go(to: route) }
     }
 }

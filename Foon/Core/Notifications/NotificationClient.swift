@@ -28,6 +28,8 @@ struct NotificationClient: Sendable {
     var record: @Sendable (_ householdID: UUID, _ entries: [NotificationLogEntry]) async throws -> Void
     /// "Home" or "Not home" from the lock screen. The server takes it only for tonight.
     var answerCheckIn: @Sendable (_ nightID: UUID, _ memberID: UUID, _ home: Bool) async throws -> Void = { _, _, _ in }
+    /// A reaction or "Wasn't home" from the after-dinner notification.
+    var answerDinner: @Sendable (_ answer: DinnerAnswer) async throws -> Void = { _ in }
 }
 
 extension NotificationClient {
@@ -57,6 +59,16 @@ extension NotificationClient {
             answerCheckIn: { nightID, memberID, home in
                 try await client.rpc("answer_check_in", params: CheckInParams(targetNight: nightID, targetMember: memberID, home: home))
                     .execute()
+            },
+            answerDinner: { answer in
+                let target = ["target_night": answer.nightID.uuidString, "target_member": answer.memberID.uuidString]
+                switch answer.answer {
+                case .reaction(let kind):
+                    try await client.rpc("react_to_dinner", params: target.merging(["kind": kind.rawValue]) { old, _ in old })
+                        .execute()
+                case .wasntHome:
+                    try await client.rpc("set_not_home", params: target).execute()
+                }
             }
         )
     }
