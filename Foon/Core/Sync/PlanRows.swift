@@ -95,10 +95,13 @@ struct ListItemRow: Decodable, Equatable, Sendable {
     var quantity: String? = nil
     /// The week it was written for: a weekly line's plan, or the dish a pivot line was for. Nil on anything added by hand.
     var planID: UUID? = nil
+    /// When it went on the list, so store mode can mark what was added during a store run.
+    var createdAt: Date? = nil
 
     enum CodingKeys: String, CodingKey {
         case id, list, urgency, source, note, quantity
         case planID = "plan_id"
+        case createdAt = "created_at"
         case householdID = "household_id"
         case itemID = "item_id"
         case checkedAt = "checked_at"

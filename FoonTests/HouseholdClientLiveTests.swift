@@ -1119,6 +1119,27 @@ struct HouseholdClientLiveTests {
         return data as Data
     }
 
+    @Test func anAdultHeadsToTheStoreOnceAtATimeAndItsLinesCarryTheirTime() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com", password: Self.password)
+        let household = try await HouseholdClient.live(supabase).createHousehold("Store family", nil, "Ann", HouseholdSettings())
+        let runs = StoreRunClient.live(supabase)
+
+        #expect(try await runs.latest(household.id) == nil)
+        let started = try await runs.start(household.id)
+        #expect(started.isOpen(at: .now))
+        #expect(started.minutesLeft(at: started.startedAt) == 10)
+        #expect(try await runs.start(household.id) == started, "starting again while one is open hands back that one")
+        #expect(try await runs.latest(household.id) == started)
+
+        let milk = try await ItemClient.live(supabase).ensure(household.id, "Milk", .dairyEggs)
+        let sync = SyncClient.live(supabase)
+        _ = try await sync.send(.addToList(householdID: household.id, itemID: milk, list: .quick, urgency: .whenever,
+                                           source: .manual, note: nil, lineID: UUID()))
+        let line = try #require(try await sync.fetchSnapshot(household.id, CalendarDay(Date())).listItems.first)
+        #expect(started.added(line.createdAt), "a line put on during the run reads as just added")
+    }
+
     private static let password = "local-test-password-1"
 
     private static func newSupabaseClient() -> SupabaseClient {

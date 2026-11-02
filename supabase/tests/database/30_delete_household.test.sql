@@ -132,6 +132,8 @@ insert into public.push_devices (user_id, member_id, household_id, token, enviro
 insert into public.push_outbox (household_id, member_id, kind, plan_id, not_before) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'plan_set',
    (select id from public.plans where household_id = '00000000-0000-0000-0000-0000000000a0' limit 1), now());
+insert into public.store_runs (household_id, started_by, ends_at) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', now() + interval '10 minutes');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 
 -- Clients never call it, not even the owner: it goes through the Edge Function, which removes photos first.

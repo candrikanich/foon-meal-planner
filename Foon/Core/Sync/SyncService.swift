@@ -290,7 +290,7 @@ final class SyncService {
             context.insert(CachedListItem(
                 id: row.id, householdID: household, itemID: row.itemID, itemName: names[row.itemID] ?? "Item",
                 list: row.list, urgency: row.urgency, source: row.source, note: row.note, checkedAt: row.checkedAt,
-                quantity: row.quantity, planID: row.planID
+                quantity: row.quantity, planID: row.planID, createdAt: row.createdAt
             ))
         }
     }
@@ -345,7 +345,8 @@ final class SyncService {
             } else {
                 context.insert(CachedListItem(
                     id: lineID, householdID: household, itemID: itemID, itemName: item(itemID)?.name ?? "Item",
-                    list: list, urgency: urgency, source: source, note: note, checkedAt: nil, quantity: quantity, planID: planID
+                    list: list, urgency: urgency, source: source, note: note, checkedAt: nil, quantity: quantity, planID: planID,
+                    createdAt: .now
                 ))
             }
             if let replacing, let line = listLine(lineAliases[replacing] ?? replacing) { context.delete(line) }

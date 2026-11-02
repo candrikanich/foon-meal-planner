@@ -62,9 +62,13 @@ final class CachedListItem {
     var checkedAt: Date?
     var quantity: String?
     var planID: UUID?
+    /// When it went on the list: the server's time once pulled, this phone's for a line added here and not yet pulled.
+    var createdAt: Date?
 
     init(id: UUID, householdID: UUID, itemID: UUID, itemName: String, list: ListKind, urgency: ListUrgency,
-         source: ListItemSource, note: String?, checkedAt: Date?, quantity: String? = nil, planID: UUID? = nil) {
+         source: ListItemSource, note: String?, checkedAt: Date?, quantity: String? = nil, planID: UUID? = nil,
+         createdAt: Date? = nil) {
+        self.createdAt = createdAt
         self.quantity = quantity
         self.planID = planID
         self.id = id

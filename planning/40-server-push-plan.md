@@ -38,6 +38,10 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
   `notification_log`), new-requests digest. Migration `20261102200000_push_car4.sql`, pgTAP `56_push_car4.test.sql`.
   App half: count your own `channel = 'push'` log rows in the budget, and an "ideas" tap route.
 
+- **#51 Heading to the store (2026-11-02):** `store_runs` + `start_store_run` (any adult, one open run per household,
+  10 minutes), push kind `heading_to_store` (already in both kind lists) to everyone else with a device on Engaged, rank
+  0 for budgets, route "list". Migration `20261102210000_store_run.sql`, pgTAP `57_store_run.test.sql`.
+
 ## Decided (2026-11-02, Chris)
 
 - Words: a server push may name the family member (first name only), never the dish.

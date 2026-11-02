@@ -128,6 +128,7 @@ Deno.test("a claim says the night's weekday from its date, never tonight or tomo
 Deno.test("the known kinds are exactly the ones with words", () => {
   assertEquals([...knownKinds].sort(), [
     "claim",
+    "heading_to_store",
     "new_requests",
     "not_home",
     "plan_set",
@@ -178,6 +179,12 @@ Deno.test("the ideas digest counts, names one person, and never a dish", () => {
   assertEquals(alertFor("new_requests", { count: 0 }), null);
   assertEquals(alertFor("new_requests", { count: "2" }), null);
   assertEquals(alertFor("new_requests", { count: 1.5 }), null);
+});
+
+Deno.test("heading to the store names who's going, and opens the list", () => {
+  const alert = alertFor("heading_to_store", { name: "Ben", item: "Milk" })!;
+  assertEquals(alert, { title: "Ben's at the store.", body: "Add anything in the next 10 minutes." });
+  assertEquals(alertFor("heading_to_store", {}), null);
 });
 
 Deno.test("only the name is read from args", () => {
