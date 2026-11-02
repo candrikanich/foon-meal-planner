@@ -39,6 +39,9 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
     var otherMissingEquipment: [String] = []
     /// Whether cards say when to start cooking. Saved with `kitchen`, like the list.
     var showsStartCooking = true
+    /// Whether dinner starts with a thaw here. Off means bought fresh: thaw steps don't remind, show on cards, or hold a dish
+    /// back from tonight. Saved with `kitchen`.
+    var keepsMeatFrozen = true
     /// What the household skips, and when. Read here, but written only through `set_food_rule`, which merges on the server,
     /// so it isn't encoded: a stale copy saved with other settings can't undo another planner's rule.
     var foodRules: [FoodRule] = []
@@ -76,17 +79,24 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
     struct Kitchen: Encodable, Equatable, Sendable {
         let missingEquipment: [String]
         let showsStartCooking: Bool
+        let keepsMeatFrozen: Bool
 
         private enum CodingKeys: String, CodingKey {
             case missingEquipment = "missing_equipment"
             case showsStartCooking = "start_cooking_nudge"
+            case keepsMeatFrozen = "keeps_meat_frozen"
         }
     }
 
     var kitchen: Kitchen {
         Kitchen(missingEquipment: KitchenEquipment.allCases.filter(missingEquipment.contains).map(\.rawValue)
                     + otherMissingEquipment,
-                showsStartCooking: showsStartCooking)
+                showsStartCooking: showsStartCooking, keepsMeatFrozen: keepsMeatFrozen)
+    }
+
+    /// Whether this step counts: a thaw doesn't for a household that buys it fresh.
+    func usesPrep(_ kind: PrepKind) -> Bool {
+        keepsMeatFrozen || kind != .thaw
     }
 
     /// These settings, with the kitchen's values from `other`.
@@ -95,6 +105,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         merged.missingEquipment = other.missingEquipment
         merged.otherMissingEquipment = other.otherMissingEquipment
         merged.showsStartCooking = other.showsStartCooking
+        merged.keepsMeatFrozen = other.keepsMeatFrozen
         return merged
     }
 
@@ -132,6 +143,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         case awayDates = "away_dates"
         case missingEquipment = "missing_equipment"
         case showsStartCooking = "start_cooking_nudge"
+        case keepsMeatFrozen = "keeps_meat_frozen"
         case foodRules = "food_rules"
         case dinnerJobs = "dinner_jobs"
     }
@@ -192,6 +204,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         missingEquipment = Set(missing.compactMap(KitchenEquipment.init(rawValue:)))
         otherMissingEquipment = missing.filter { KitchenEquipment(rawValue: $0) == nil }
         showsStartCooking = (try? container.decodeIfPresent(Bool.self, forKey: .showsStartCooking)).flatMap { $0 } ?? true
+        keepsMeatFrozen = (try? container.decodeIfPresent(Bool.self, forKey: .keepsMeatFrozen)).flatMap { $0 } ?? true
         foodRules = ((try? container.decodeIfPresent([FoodRule.Lenient].self, forKey: .foodRules)) ?? nil)?
             .compactMap(\.rule) ?? []
         dinnerJobs = ((try? container.decodeIfPresent(DinnerJobSettings.self, forKey: .dinnerJobs)) ?? nil) ?? DinnerJobSettings()

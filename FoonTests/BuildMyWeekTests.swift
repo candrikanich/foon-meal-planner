@@ -323,6 +323,19 @@ struct BuildMyWeekTests {
         }
     }
 
+    @Test func aHouseholdThatBuysFreshDoesntHoldADishBackToThaw() {
+        let roast = LibraryMeal.fixture(name: "Pot roast", tags: [.thawFirst])
+        let steak = LibraryMeal.fixture(name: "Steak", prepSteps: [PrepStep(step: "Thaw the steak", leadHours: 24)])
+        let kebabs = LibraryMeal.fixture(name: "Kebabs", prepSteps: [PrepStep(step: "Marinate", leadHours: 24)])
+        var fresh = plain
+        fresh.keepsMeatFrozen = false
+        let first = Array(week().prefix(1))
+        let picks = Set((UInt64(0)..<30).map { BuildMyWeek.draft(inputs(nights: first, meals: [roast, steak, kebabs], settings: fresh), seed: $0)[0].pick })
+        #expect(picks.contains(.meal(roast.id)))
+        #expect(picks.contains(.meal(steak.id)))
+        #expect(!picks.contains(.meal(kebabs.id)), "A marinade still takes the time it takes")
+    }
+
     @Test func advancePrepNeedsEnoughHoursBeforeDinner() {
         let thaw = LibraryMeal.fixture(name: "Pot roast", tags: [.thawFirst])
         let overnight = LibraryMeal.fixture(name: "Kebabs", prepSteps: [PrepStep(step: "Marinate", leadHours: 12)])
