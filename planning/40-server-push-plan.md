@@ -23,8 +23,8 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
    410 / BadDeviceToken / Unregistered → delete that device. Writes `notification_log` (channel push).
    Started every minute by pg_cron through pg_net, with the function URL and a shared secret in Vault.
 4. **App.** `aps-environment` entitlement (development; App Store export switches it to production), register for
-   remote notifications once reminders are on, send the token, tag the environment by build (`#if DEBUG` →
-   sandbox). Tapping a push opens the same routes local reminders use. Mac: same entitlement on the Mac target later.
+   remote notifications once reminders are on, send the token, tag the environment from the embedded
+   provisioning profile (development → sandbox, anything else → production). Tapping a push opens the same routes local reminders use. Mac: the Mac target has the same entitlement under its own key (`com.apple.developer.aps-environment`), and a Mac app delegate takes the token.
 
 ## Cars
 
