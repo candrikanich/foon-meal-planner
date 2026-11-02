@@ -189,21 +189,31 @@ enum CheckInDelivery {
     }
 }
 
-/// Sends the after-dinner notification's answers that are waiting, oldest first, the same way as check-ins. One the server has
-/// refused for good goes, and so does one too old to land. "Not allowed" stays, as a session not back yet looks the same; it goes
-/// once it's too old.
+/// Sends the after-dinner notification's answers that are waiting, oldest first. One the server has refused for good goes, and
+/// so does one too old to land. "Not allowed" stays, as a session not back yet looks the same, but so does a rating past its
+/// 24 hours, so it goes once it's too old. Order only matters for one person's night: one that can't go yet holds back the later
+/// answers for that night, and no others.
 enum DinnerAnswerDelivery {
-    private static let finalRefusals: Set<String> = ["22023", "P0002", "FD004", "FD016"]
+    private static let finalRefusals: Set<String> = ["22023", "P0002", "FD004"]
+
+    private struct Key: Hashable {
+        let night: UUID
+        let member: UUID
+    }
 
     static func send(device: ReminderDevice, client: NotificationClient, now: Date = .now) async {
+        var held: Set<Key> = []
         for answer in device.dinnerAnswers {
+            let key = Key(night: answer.nightID, member: answer.memberID)
+            if held.contains(key) { continue }
             if now.timeIntervalSince(answer.at) < DinnerAnswer.keptFor {
                 do {
                     try await client.answerDinner(answer)
                 } catch let error as PostgrestError where error.code.map(finalRefusals.contains) == true {
                     // It's had its answer.
                 } catch {
-                    return
+                    held.insert(key)
+                    continue
                 }
             }
             device.removeDinnerAnswer(answer)

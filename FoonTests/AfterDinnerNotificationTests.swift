@@ -54,7 +54,7 @@ import Testing
         #expect(ReminderPayload(userInfo: ["route": "dinner"])?.route == .dinnerCard)
     }
 
-    @Test func itHasItsOwnButtonsInTheSpecsOrder() {
+    @Test func itHasItsOwnButtons() {
         let reminder = PlannedReminder(id: "x", kind: .afterDinner, nightID: night, fireAt: now, dinnerAt: nil, title: "",
                                        body: "", route: .rate(night: night, member: member))
         #expect(ReminderCenter.category(for: reminder) == ReminderCenter.afterDinnerCategory)
@@ -119,13 +119,44 @@ import Testing
     }
 
     @Test func notAllowedIsntFinalUntilItsTooOld() async {
-        let device = device(), waiting = answer(.reaction(.good)), stale = answer(.reaction(.good), ago: DinnerAnswer.keptFor + 1)
+        let device = device(), sent = Sent()
+        let waiting = answer(.reaction(.good)), stale = answer(.reaction(.favorite), ago: DinnerAnswer.keptFor + 1)
         device.add(stale)
         device.add(waiting)
-        await DinnerAnswerDelivery.send(device: device, client: client { _ in
+        await DinnerAnswerDelivery.send(device: device, client: client { answer in
+            await sent.add(answer)
             throw PostgrestError(code: "42501", message: "permission denied")
         }, now: now)
-        #expect(device.dinnerAnswers == [waiting], "the old one goes without being sent; the new one waits")
+        #expect(await sent.answers == [.reaction(.good)], "the old one isn't even tried")
+        #expect(device.dinnerAnswers == [waiting])
+    }
+
+    @Test func theServersOtherFinalNosComeOffTheList() async {
+        for code in ["22023", "P0002"] {
+            let device = device()
+            device.add(answer(.wasntHome))
+            await DinnerAnswerDelivery.send(device: device, client: client { _ in
+                throw PostgrestError(code: code, message: "no")
+            }, now: now)
+            #expect(device.dinnerAnswers.isEmpty, "\(code)")
+        }
+    }
+
+    @Test func oneThatCantGoHoldsBackOnlyItsOwnNight() async {
+        // A rating past its 24 hours is refused as "not allowed" until it's a week old; it mustn't hold up every other night.
+        let device = device(), sent = Sent(), night = UUID(), me = UUID()
+        let locked = DinnerAnswer(nightID: night, memberID: me, answer: .reaction(.notForMe), at: now)
+        let sameNight = DinnerAnswer(nightID: night, memberID: me, answer: .reaction(.good), at: now)
+        let otherNight = answer(.reaction(.favorite))
+        device.add(locked)
+        device.add(sameNight)
+        device.add(otherNight)
+        await DinnerAnswerDelivery.send(device: device, client: client { answer in
+            if answer == .reaction(.notForMe) { throw PostgrestError(code: "42501", message: "reactions lock after 24 hours") }
+            await sent.add(answer)
+        }, now: now)
+        #expect(await sent.answers == [.reaction(.favorite)], "the later answer for the same night waits its turn")
+        #expect(device.dinnerAnswers == [locked, sameNight])
     }
 
     @Test func signingOutLeavesNoneWaiting() {
@@ -149,5 +180,46 @@ struct DinnerCardReplacesWaitingAnswerTests {
         let store = DinnerStore(householdID: UUID(), client: client, waiting: device)
         #expect(await store.react(nightID: night, memberID: me, .favorite))
         #expect(device.dinnerAnswers == [other])
+        device.add(DinnerAnswer(nightID: night, memberID: me, answer: .reaction(.good), at: .now))
+        #expect(await store.notHome(nightID: night, memberID: me))
+        #expect(device.dinnerAnswers == [other], "and so does the card's Wasn't home")
+    }
+}
+
+/// Taking back a prompt that's been answered, so its buttons can't write over the answer.
+@Suite struct AnsweredAfterDinnerTests {
+    private let me = UUID()
+    private let meal = UUID()
+
+    private func night(_ change: (inout ReminderNight) -> Void = { _ in }) -> ReminderNight {
+        var night = ReminderNight(id: UUID(), date: CalendarDay(year: 2026, month: 11, day: 2), mealID: meal,
+                                  attendance: [me: true])
+        change(&night)
+        return night
+    }
+
+    private func prompt(_ night: ReminderNight, meal: UUID? = nil) -> String {
+        ReminderID.afterDinner(me: me, night: night.id, meal: meal ?? self.meal)
+    }
+
+    @Test func anUnansweredPromptStays() {
+        let open = night()
+        #expect(ReminderID.answeredAfterDinner([prompt(open)], me: me, nights: [open]).isEmpty)
+    }
+
+    @Test func ratedMarkedOutOrADifferentDishIsTakenBack() {
+        let rated = night { $0.ratedBy = [me] }
+        let out = night { $0.attendance = [me: false] }
+        let other = night { $0.hasLog = true; $0.loggedMealID = UUID() }
+        let swapped = night()
+        let delivered = [prompt(rated), prompt(out), prompt(other), prompt(swapped, meal: UUID())]
+        #expect(ReminderID.answeredAfterDinner(delivered, me: me, nights: [rated, out, other, swapped]) == delivered)
+    }
+
+    @Test func otherNotificationsAndUnknownNightsAreLeftAlone() {
+        let rated = night { $0.ratedBy = [me] }
+        let unknown = night()
+        let delivered = [ReminderID.checkIn(me: me, night: rated.id), prompt(unknown), UUID().uuidString]
+        #expect(ReminderID.answeredAfterDinner(delivered, me: me, nights: [rated]).isEmpty)
     }
 }

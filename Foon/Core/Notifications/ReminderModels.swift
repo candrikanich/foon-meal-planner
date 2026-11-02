@@ -224,4 +224,19 @@ enum ReminderID {
     }
 
     static func isReminder(_ id: String) -> Bool { id.hasPrefix(prefix) }
+
+    /// After-dinner prompts still in Notification Center that are no longer the question: rated (on any phone), marked out,
+    /// or about a dish that isn't what was planned or logged. Their buttons would write over an answer, so they're taken back.
+    /// A night the snapshot doesn't hold is left alone.
+    static func answeredAfterDinner(_ delivered: [String], me: UUID, nights: [ReminderNight]) -> [String] {
+        delivered.filter { id in
+            guard let night = nights.first(where: { isAfterDinner(id, night: $0.id) }) else { return false }
+            guard id.hasPrefix("\(prefix)\(me.uuidString).") else { return false }
+            let stillAsked = night.mealID.map { meal in
+                id == afterDinner(me: me, night: night.id, meal: meal) && night.attendance[me] == true
+                    && !night.ratedBy.contains(me) && (!night.hasLog || night.loggedMealID == meal)
+            } ?? false
+            return !stillAsked
+        }
+    }
 }

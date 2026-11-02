@@ -142,6 +142,9 @@ final class ReminderStore {
         isOptedIn = device.isOptedIn(wanted.me.id)
         if let weeks { saveSnapshot(weeks, in: context) }
         let snapshot = loadSnapshot(in: context)?.applying(device.checkIns)
+        if let nights = snapshot?.weeks.flatMap(\.nights) {
+            center.removeDelivered(ReminderID.answeredAfterDinner(await center.deliveredIDs(), me: wanted.me.id, nights: nights))
+        }
 
         let pending = await center.pendingIDs().filter(ReminderID.isReminder)
         guard !isStopped else { return }

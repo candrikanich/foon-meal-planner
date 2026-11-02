@@ -24,6 +24,9 @@ struct ReminderCenter: Sendable {
     /// Sign-out and a gone household: nothing pending, nothing left in Notification Center. Cook mode's timers go too: they
     /// can't outlive the screen that started them.
     var removeEverything: @Sendable () -> Void
+    /// What's showing in Notification Center, and taking some of it away.
+    var deliveredIDs: @Sendable () async -> [String] = { [] }
+    var removeDelivered: @Sendable (_ ids: [String]) -> Void = { _ in }
 }
 
 extension ReminderCenter {
@@ -72,8 +75,10 @@ extension ReminderCenter {
         let somethingElse = UNNotificationAction(identifier: somethingElseAction,
                                                  title: String(localized: "We had something else", comment: "After-dinner action"),
                                                  options: [.foreground])
+        // One tap, like the check-in's Not home, but it marks them out for good, so it's shown as the drastic one.
         let wasntHome = UNNotificationAction(identifier: wasntHomeAction,
-                                             title: String(localized: "Wasn't home", comment: "After-dinner action"))
+                                             title: String(localized: "Wasn't home", comment: "After-dinner action"),
+                                             options: [.destructive])
         let afterDinner = UNNotificationCategory(identifier: afterDinnerCategory, actions: reactions + [somethingElse, wasntHome],
                                                  intentIdentifiers: [])
         UNUserNotificationCenter.current().setNotificationCategories([prep, noSnooze, checkIn, afterDinner])
@@ -115,6 +120,12 @@ extension ReminderCenter {
             let center = UNUserNotificationCenter.current()
             center.removeAllPendingNotificationRequests()
             center.removeAllDeliveredNotifications()
+        },
+        deliveredIDs: {
+            await UNUserNotificationCenter.current().deliveredNotifications().map(\.request.identifier)
+        },
+        removeDelivered: { ids in
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ids)
         }
     )
 
