@@ -47,6 +47,24 @@ struct AllergenKeywords: Sendable {
         ("soy", [.soy]), ("sesame", [.sesame]),
     ]
 
+    /// Items that are the allergen itself, with nothing free of it to buy instead: "Get egg-free" makes no sense on eggs.
+    /// Milk, wheat, and fish aren't here: dairy-free milk and gluten-free flour exist, and fish already says "Skip fish".
+    static let itself: [Allergen: [String]] = [
+        .eggs: ["egg", "egg white", "egg yolk", "yolk"],
+        .peanuts: ["peanut", "nut", "mixed nut"],
+        .treeNuts: ["nut", "mixed nut", "tree nut", "almond", "walnut", "pecan", "cashew", "pistachio", "hazelnut", "filbert",
+                    "macadamia", "chestnut", "pine nut", "brazil nut", "macadamia nut", "cashew nut", "pistachio nut"],
+        .soy: ["soybean", "soy bean", "edamame", "tofu", "tempeh", "natto"],
+        .sesame: ["sesame", "sesame seed", "benne seed"],
+    ]
+
+    /// Words that say how it's sold, not what it is: "2 large eggs" and "roasted salted peanuts" are still the thing itself.
+    static let itselfDescriptors: Set<String> = [
+        "large", "extra", "jumbo", "medium", "small", "whole", "fresh", "frozen", "raw", "roasted", "salted", "unsalted",
+        "toasted", "chopped", "sliced", "slivered", "shelled", "organic", "free", "range", "cage", "pasture", "raised",
+        "brown", "hard", "boiled", "dry", "firm", "silken", "dozen",
+    ]
+
     private static let veganFree = ["vegan", "plant based"]
 
     /// "Non-dairy" is not a free-from label: US rules let non-dairy creamers and toppings contain caseinate.

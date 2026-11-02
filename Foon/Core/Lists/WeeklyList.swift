@@ -128,7 +128,7 @@ enum WeeklyList {
         /// names each allergen ("Check: dairy, kiwi, … (Nora +2)"). Allergies are flagged, never dropped.
         private var allergyNote: String? {
             guard !flags.isEmpty else { return nil }
-            let full = flags.map(Self.note).joined(separator: "; ")
+            let full = notes.joined(separator: "; ")
             if full.unicodeScalars.count <= 140 { return full }
             let names = flags.reduce(into: Set<String>()) { $0.formUnion($1.names) }.sorted()
             let who = names.count <= 1 ? names.joined()
@@ -141,6 +141,22 @@ enum WeeklyList {
                 compact = Self.compact(what, who: who)
             }
             return compact
+        }
+
+        /// One note per flag, except that an item which is the allergen itself is simply not for them: one "Not for Nora, Owen"
+        /// covers every allergen it is (mixed nuts are both peanuts and tree nuts).
+        private var notes: [String] {
+            let isItself: (AllergyFlag.Trigger) -> Bool = { trigger in
+                guard case .allergen(let allergen) = trigger else { return false }
+                return AllergyMatcher.isItself(name, allergen)
+            }
+            let notFor = flags.filter { isItself($0.trigger) }.reduce(into: Set<String>()) { $0.formUnion($1.names) }
+            let rest = flags.filter { !isItself($0.trigger) }.map(Self.note)
+            guard !notFor.isEmpty else { return rest }
+            let who = notFor.sorted().joined(separator: ", ")
+            let notForNote = String(localized: "Not for \(who)",
+                                    comment: "Weekly list allergy note on an item that is the allergen itself (eggs), then who")
+            return [notForNote] + rest
         }
 
         private static func compact(_ what: [String], who: String) -> String {
