@@ -98,10 +98,11 @@ def show(number):
             where = c.get("fileSource") or {}
             print(f"    {c['issueType']}: {c['message']} {where.get('path', '')}:{where.get('lineNumber', '')}")
     for build in get(f"/v1/ciBuildRuns/{run['id']}/builds")["data"]:
-        b = build["attributes"]
-        beta = get(f"/v1/builds/{build['id']}/buildBetaDetail")["data"]["attributes"]
-        print(f"  App Store Connect build {b['version']}: {b['processingState']}, internal testing "
-              f"{beta['internalBuildState']}, expires {b.get('expirationDate')}")
+        # While a build is still running, these can come back without attributes.
+        b = build.get("attributes") or {}
+        beta = get(f"/v1/builds/{build['id']}/buildBetaDetail")["data"].get("attributes") or {}
+        print(f"  App Store Connect build {b.get('version', '?')}: {b.get('processingState', 'not ready')}, internal testing "
+              f"{beta.get('internalBuildState', 'not ready')}, expires {b.get('expirationDate')}")
 
 
 def logs(number, directory):
