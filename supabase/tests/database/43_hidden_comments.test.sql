@@ -1,7 +1,7 @@
 -- Hidden comments are really hidden (#149): selecting reactions.comment gets a non-planner no hidden text, whichever way
 -- they ask, and everything that clears a comment clears the hidden text too.
 begin;
-select plan(31);
+select plan(35);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -117,6 +117,20 @@ select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select is((select comment from public.meal_comments where id = (select id from bobs)), 'Still too spicy',
   'changing the rating doesn''t touch the words');
 
+-- Clearing it and writing again doesn't get around the planner: the words are gone, and it stays hidden.
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+update public.reactions set comment = null where id = (select id from bobs);
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select is((select comment from public.hidden_comments where reaction_id = (select id from bobs)), null,
+  'the author can clear their words');
+select is((select count(*)::int from public.hidden_comments where reaction_id = (select id from bobs)), 1,
+  'but not the hiding');
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+update public.reactions set comment = 'Still too spicy' where id = (select id from bobs);
+select pg_temp.as_user('f0000000-0000-0000-0000-00000000000f');
+select is((select comment from public.reactions where id = (select id from bobs)), null,
+  'so writing again doesn''t publish it');
+
 -- The length limit holds on both sides of hiding.
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 select throws_ok(format($$ update public.reactions set comment = repeat('x', 141) where id = %L $$, (select id from bobs)),
@@ -144,12 +158,18 @@ update public.members set eats_separately = false where id = '00000000-0000-0000
 -- Retention: everything that clears a comment clears the hidden text, through the same update as ever.
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select public.set_comment_hidden(id, true) from public.reactions where member_id = '00000000-0000-0000-0000-0000000000a7';
+-- Anyone in the family can write for a profile nobody has claimed, and that doesn't get around it either.
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+update public.reactions set comment = null where member_id = '00000000-0000-0000-0000-0000000000a7';
+update public.reactions set comment = 'Owen again' where member_id = '00000000-0000-0000-0000-0000000000a7';
+select is((select comment from public.reactions where member_id = '00000000-0000-0000-0000-0000000000a7'), null,
+  'clearing and rewriting for an unclaimed profile stays hidden too');
 select pg_temp.as_admin();
 update public.members set status = 'removed' where id = '00000000-0000-0000-0000-0000000000a7';
 update public.members set removed_at = now() - interval '13 months' where id = '00000000-0000-0000-0000-0000000000a7';
 select public.anonymize_expired_profiles();
-select is((select count(*)::int from public.hidden_comments h join public.reactions r on r.id = h.reaction_id
-           where r.member_id = '00000000-0000-0000-0000-0000000000a7'), 0, 'a removed kid''s hidden comment goes with their name');
+select is((select h.comment from public.hidden_comments h join public.reactions r on r.id = h.reaction_id
+           where r.member_id = '00000000-0000-0000-0000-0000000000a7'), null, 'a removed kid''s hidden words go with their name');
 
 -- A withdrawn kid's own rating is erased, and its hidden text with it.
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');

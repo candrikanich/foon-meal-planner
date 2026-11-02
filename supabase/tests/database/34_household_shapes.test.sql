@@ -390,7 +390,7 @@ select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select public.set_comment_hidden((select id from the_comment), true);
 select pg_temp.as_admin();
 select public.delete_account_data('b0000000-0000-0000-0000-00000000000b');
-select is((select count(*)::int from public.hidden_comments where reaction_id = (select id from the_comment)), 0,
+select is((select comment from public.hidden_comments where reaction_id = (select id from the_comment)), null,
   'deleting an account clears a hidden comment too');
 
 select * from finish();

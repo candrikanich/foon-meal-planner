@@ -3,13 +3,14 @@
 -- only planners can. Nothing's deleted: showing it again moves the text back.
 --
 -- Everything that clears or erases a comment keeps working unchanged. Setting reactions.comment to null clears a hidden
--- comment's text too (the trigger), and deleting a reaction takes its hidden text with it (the cascade). So retention,
+-- comment's text too (the trigger), and deleting a reaction takes its hidden row with it (the cascade). So retention,
 -- deleting an account and deleting a household need no new code, here or in any later copy of those functions.
 
 create table public.hidden_comments (
   reaction_id uuid primary key references public.reactions (id) on delete cascade,
   household_id uuid not null references public.households (id),
-  comment text not null check (char_length(btrim(comment)) between 1 and 140),
+  -- Null once its text is cleared. The row stays, so what's written next is still hidden.
+  comment text check (char_length(btrim(comment)) between 1 and 140),
   hidden_at timestamptz not null default now()
 );
 
@@ -50,18 +51,14 @@ as
 revoke all on public.meal_comments from anon, authenticated;
 grant select on public.meal_comments to authenticated;
 
--- Writing a comment that's hidden: new text stays hidden, so changing it doesn't publish it, and null clears it.
--- Fires only when an update names the comment column, so changing a rating leaves hidden text alone. Runs after
+-- Writing a comment that's hidden: new words stay hidden, so changing it doesn't publish it, and null clears the words but
+-- not the hiding, so clearing it and writing again doesn't publish it either. Fires only when an update names the comment column, so changing a rating leaves hidden text alone. Runs after
 -- reactions_guard (triggers go by name), so a comment locked after 24 hours is refused before anything moves.
 create function public.reactions_keep_comment_hidden()
 returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  if new.comment is null then
-    delete from public.hidden_comments where reaction_id = new.id;
-    return new;
-  end if;
   update public.hidden_comments set comment = new.comment where reaction_id = new.id;
   if found then
     new.comment := null;
