@@ -62,6 +62,9 @@ struct HouseholdClient: Sendable {
     /// Makes a saved schedule everyone's usual one.
     var applyAttendanceTemplate: @Sendable (_ templateID: UUID) async throws -> Void = { _ in }
     var deleteAttendanceTemplate: @Sendable (_ templateID: UUID) async throws -> Void = { _ in }
+    /// The Family tab's "This month" counts for these days, both included, as the caller's row-level security allows.
+    var familyStats: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ to: CalendarDay) async throws -> FamilyStats
+        = { _, _, _ in FamilyStats() }
 }
 
 /// Why Delete household didn't go through.
@@ -279,6 +282,11 @@ extension HouseholdClient {
                     .execute()
                     .value
                 if deleted.isEmpty { throw AttendanceTemplateError.notDeleted }
+            },
+            familyStats: { householdID, from, to in
+                try await client.rpc("family_stats", params: FamilyStatsParams(
+                    targetHousehold: householdID, fromDate: from, toDate: to
+                )).execute().value
             }
         )
     }
@@ -391,6 +399,19 @@ private struct AwayDatesParams: Encodable, Sendable {
         case targetHousehold = "target_household"
         case firstNight = "first_night"
         case lastNight = "last_night"
+    }
+}
+
+/// Every argument is sent: PostgREST picks the function by its argument names.
+private struct FamilyStatsParams: Encodable, Sendable {
+    let targetHousehold: UUID
+    let fromDate: CalendarDay
+    let toDate: CalendarDay
+
+    enum CodingKeys: String, CodingKey {
+        case targetHousehold = "target_household"
+        case fromDate = "from_date"
+        case toDate = "to_date"
     }
 }
 
