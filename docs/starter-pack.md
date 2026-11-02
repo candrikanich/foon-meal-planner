@@ -84,16 +84,16 @@ About 70 common family dinners across 12 categories, plus 5 quick picks. Familie
 | Homemade mac and cheese | 40 |
 | Baked ziti | 60 |
 | Lasagna | 90 |
-| Enchiladas | 50 |
+| Enchiladas | 60 |
 | Burgers | 30 |
 | Grilled chicken | 40 |
 | Kebabs | 45 |
-| Steak night | 35 |
+| Steak night | 45 |
 | Potato soup | 45 |
-| Sheet pan chicken and veggies | 45 |
+| Sheet-pan chicken and veggies | 45 |
 | Baked chicken thighs and potatoes | 60 |
-| Chicken Parmesan | 50 |
-| Pork chops and applesauce | 30 |
+| Chicken parmesan | 55 |
+| Pork chops and applesauce | 45 |
 | Pork tenderloin | 45 |
 | Ham and scalloped potatoes | 90 |
 | Meatloaf and mashed potatoes | 75 |

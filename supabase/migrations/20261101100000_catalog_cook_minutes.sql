@@ -1,6 +1,6 @@
 -- Real cook times for starter dishes (#146), so the start-cooking nudge covers them. Only dishes with no fair guess get one:
--- quick and slow cooker dishes keep their estimates. The seed runs after migrations, so a fresh database gets the times from
--- there (supabase/seed/catalog.sql, the same list) and a hosted one from here, before the backfill needs them.
+-- quick and slow cooker dishes keep their estimates. A fresh database gets the times from the seed (supabase/seed/catalog.sql,
+-- the same list), which runs after migrations. A hosted one gets them only from here, since the seed doesn't run there again.
 alter table public.catalog_meals
   add column cook_minutes smallint check (cook_minutes between 1 and 1440);
 
@@ -11,16 +11,16 @@ from (values
   ('homemade-mac-and-cheese', 40),
   ('baked-ziti', 60),
   ('lasagna', 90),
-  ('enchiladas', 50),
+  ('enchiladas', 60),
   ('burgers', 30),
   ('grilled-chicken', 40),
   ('kebabs', 45),
-  ('steak-night', 35),
+  ('steak-night', 45),
   ('potato-soup', 45),
   ('sheet-pan-chicken-and-veggies', 45),
   ('baked-chicken-thighs-and-potatoes', 60),
-  ('chicken-parmesan', 50),
-  ('pork-chops-and-applesauce', 30),
+  ('chicken-parmesan', 55),
+  ('pork-chops-and-applesauce', 45),
   ('pork-tenderloin', 45),
   ('ham-and-scalloped-potatoes', 90),
   ('meatloaf-and-mashed-potatoes', 75),
@@ -31,7 +31,8 @@ from (values
 ) as times (slug, minutes)
 where dish.slug = times.slug;
 
--- A function so a test can reach it. A time someone set, on a copy they've since changed, is left alone.
+-- A function so a test can reach it. A time someone set is left alone, and so is a copy they've made quick or slow cooker
+-- (by tag or by name, as DishTraits reads it): it has an estimate that fits, and a real time would beat it.
 create function public.backfill_catalog_cook_minutes()
 returns void
 language sql set search_path = ''
@@ -41,7 +42,9 @@ as $$
   from public.catalog_meals dish
   where meal.catalog_meal_id = dish.id
     and meal.cook_minutes is null
-    and dish.cook_minutes is not null;
+    and dish.cook_minutes is not null
+    and not (meal.tags && '{quick,slow_cooker}'::public.meal_tag[])
+    and meal.name !~* 'slow ?cook|crock ?pot';
 $$;
 
 revoke execute on function public.backfill_catalog_cook_minutes() from public, anon, authenticated;

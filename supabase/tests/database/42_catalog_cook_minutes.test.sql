@@ -1,6 +1,6 @@
 -- Starter dishes' cook times (#146): the seeded list, copies picking it up, and the backfill for copies already made.
 begin;
-select plan(13);
+select plan(16);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -53,12 +53,25 @@ insert into public.meals (id, household_id, name) values
   ('00000000-0000-0000-0000-0000000002a3', '00000000-0000-0000-0000-0000000000a0', 'Grandma''s lasagna');
 insert into public.meals (id, household_id, catalog_meal_id, name) values
   ('00000000-0000-0000-0000-0000000002a4', '00000000-0000-0000-0000-0000000000a0', pg_temp.dish('sausage-and-noodles'), 'Noodles');
+-- Copies a family has made quick or slow cooker: the estimate fits them, and a real time would beat it.
+insert into public.meals (id, household_id, catalog_meal_id, name, tags) values
+  ('00000000-0000-0000-0000-0000000002a5', '00000000-0000-0000-0000-0000000000a0', pg_temp.dish('pork-tenderloin'),
+   'Pork tenderloin', '{slow_cooker}'),
+  ('00000000-0000-0000-0000-0000000002a6', '00000000-0000-0000-0000-0000000000a0', pg_temp.dish('homemade-mac-and-cheese'),
+   'Mac', '{quick}');
+insert into public.meals (id, household_id, catalog_meal_id, name) values
+  ('00000000-0000-0000-0000-0000000002a7', '00000000-0000-0000-0000-0000000000a0', pg_temp.dish('potato-soup'),
+   'Crockpot potato soup');
 
 select public.backfill_catalog_cook_minutes();
 select is(pg_temp.minutes('00000000-0000-0000-0000-0000000002a1'), 90, 'a copy with no time gets the catalog''s');
 select is(pg_temp.minutes('00000000-0000-0000-0000-0000000002a2'), 120, 'a time someone set stays');
 select is(pg_temp.minutes('00000000-0000-0000-0000-0000000002a3'), null, 'a family''s own dish is left alone');
 select is(pg_temp.minutes('00000000-0000-0000-0000-0000000002a4'), null, 'a copy of a dish with no catalog time stays empty');
+
+select is(pg_temp.minutes('00000000-0000-0000-0000-0000000002a5'), null, 'a copy tagged slow cooker keeps its estimate');
+select is(pg_temp.minutes('00000000-0000-0000-0000-0000000002a6'), null, 'a copy tagged quick keeps its estimate');
+select is(pg_temp.minutes('00000000-0000-0000-0000-0000000002a7'), null, 'a copy named for the slow cooker keeps its estimate');
 
 -- Only the migration runs it -----------------------------------------------------------------
 select ok(not has_function_privilege('authenticated', 'public.backfill_catalog_cook_minutes()', 'execute'),
