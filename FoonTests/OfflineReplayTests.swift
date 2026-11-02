@@ -82,6 +82,11 @@ struct OfflineReplayTests {
         #expect(move.repointed([line: kept]) == move, "the new line's own id isn't what's replaced")
     }
 
+    @Test func aStapleLinesRemovalFollowsAServerMerge() {
+        let device = UUID(), kept = UUID()
+        #expect(OfflineChange.removeStapleLine(listItemID: device).repointed([device: kept]) == .removeStapleLine(listItemID: kept))
+    }
+
     @Test func anAddQueuedBeforeReplacingExistedStillDecodes() throws {
         let household = UUID(), item = UUID(), line = UUID()
         let old = OfflineChange.addToList(householdID: household, itemID: item, list: .quick, urgency: .whenever, source: .manual,

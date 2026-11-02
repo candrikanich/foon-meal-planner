@@ -119,6 +119,38 @@ final class SyncService {
         return lineAliases[lineID] ?? lineID
     }
 
+    /// Marking a staple. Out means it has to be bought, so it goes on the quick list unless it's on a list already. Back in
+    /// before anyone bought it, a staple line still open on the quick list comes off; lines added any other way stay.
+    /// Turning keep on hand back on also says in, and that takes nothing off.
+    func setStock(itemID: UUID, state: StockState?) async {
+        // Read before any wait: a pull during one replaces the cached lines.
+        let was = stockState(itemID)
+        let open = openLines(itemID: itemID)
+        let listed = !open.isEmpty
+        let stapleLines = open.filter(Self.isOpenStapleLine).map(\.id)
+        await perform(.setStock(itemID: itemID, state: state))
+        switch state {
+        case .out where !listed:
+            await addToList(itemID: itemID, list: .quick, source: .staple)
+        case .in where was == .out || was == .low:
+            for id in stapleLines { await perform(.removeStapleLine(listItemID: id)) }
+        default:
+            break
+        }
+    }
+
+    /// After approving: a staple the weekly list now has comes off the quick list, so it's listed once.
+    func dropStapleLinesOnTheWeeklyList() async {
+        let open = (try? context.fetch(FetchDescriptor<CachedListItem>(predicate: #Predicate { $0.checkedAt == nil }))) ?? []
+        let weekly = Set(open.filter { $0.list == .weekly }.map(\.itemID))
+        let covered = open.filter { Self.isOpenStapleLine($0) && weekly.contains($0.itemID) }.map(\.id)
+        for id in covered { await perform(.removeStapleLine(listItemID: id)) }
+    }
+
+    private static func isOpenStapleLine(_ line: CachedListItem) -> Bool {
+        line.list == .quick && line.checkedAt == nil && line.sourceRaw == ListItemSource.staple.rawValue
+    }
+
     /// Whether the cached item is a staple, including changes still queued. Nil when it isn't cached.
     func isKeptOnHand(_ itemID: UUID) -> Bool? {
         item(itemID)?.keepOnHand
@@ -167,7 +199,11 @@ final class SyncService {
         repointLines(report.aliases)
         try? context.save()
         // This phone already shows what the server just refused, and nothing else will say so: the server didn't change.
-        if !report.rejected.isEmpty { requestedPull = true }
+        // So does a staple line the server kept, because someone had added it another way.
+        let keptMaybe = entries.contains { entry in
+            if case .removeStapleLine = entry.change { report.sent.contains(entry.sequence) } else { false }
+        }
+        if !report.rejected.isEmpty || keptMaybe { requestedPull = true }
         pendingCount = pendingChanges().count
         isOffline = !report.remaining.isEmpty
     }
@@ -259,6 +295,9 @@ final class SyncService {
         case .removeFromList(let listItemID):
             if let line = listLine(lineAliases[listItemID] ?? listItemID) { context.delete(line) }
 
+        case .removeStapleLine(let listItemID):
+            if let line = listLine(lineAliases[listItemID] ?? listItemID), Self.isOpenStapleLine(line) { context.delete(line) }
+
         case .addToList(let household, let itemID, let list, let urgency, let source, let note, let lineID, let quantity, let planID, let replacing):
             // Mirrors add_to_list: merge into the item's open line on that list; urgency only goes up.
             if let open = openLine(itemID: itemID, list: list) {
@@ -280,6 +319,12 @@ final class SyncService {
         return try? context.fetch(FetchDescriptor<CachedListItem>(predicate: #Predicate {
             $0.itemID == itemID && $0.listRaw == listRaw && $0.checkedAt == nil
         })).first
+    }
+
+    private func openLines(itemID: UUID) -> [CachedListItem] {
+        (try? context.fetch(FetchDescriptor<CachedListItem>(predicate: #Predicate {
+            $0.itemID == itemID && $0.checkedAt == nil
+        }))) ?? []
     }
 
     private func listLine(_ id: UUID) -> CachedListItem? {
