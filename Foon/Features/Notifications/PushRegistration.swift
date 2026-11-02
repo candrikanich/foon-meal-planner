@@ -10,13 +10,14 @@ import AppKit
 /// whose it is from the session, so nothing here names a member.
 enum PushRegistration {
     /// Which APNs servers the token belongs to, read from the signed profile: a build run from Xcode is development-signed
-    /// whatever its configuration, while App Store and TestFlight builds carry no profile and sign for production.
+    /// whatever its configuration. App Store and TestFlight builds carry no profile (iOS) or a distribution one (Mac), and
+    /// sign for production: a profile being there doesn't mean sandbox.
     static var environment: String {
         apsEnvironment(fromProfile: embeddedProfile())
     }
 
     /// `profile` is the CMS-signed provisioning profile; the plist inside it holds the entitlements the build was signed with.
-    /// No readable profile means an App Store or TestFlight build (a simulator can't get a token at all).
+    /// No readable profile means an iOS App Store or TestFlight build (a simulator can't get a token at all).
     static func apsEnvironment(fromProfile profile: Data?) -> String {
         let open = Data("<?xml".utf8), close = Data("</plist>".utf8)
         guard let profile, let start = profile.range(of: open),
