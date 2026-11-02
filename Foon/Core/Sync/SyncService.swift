@@ -207,9 +207,12 @@ final class SyncService {
         repointLines(report.aliases)
         try? context.save()
         // This phone already shows what the server just refused, and nothing else will say so: the server didn't change.
-        // So does a staple line the server kept, because someone had added it another way.
+        // So does a staple line the server kept, because someone had added it another way, and a restock it passed over.
         let keptMaybe = entries.contains { entry in
-            if case .removeStapleLine = entry.change { report.sent.contains(entry.sequence) } else { false }
+            switch entry.change {
+            case .removeStapleLine, .restock: report.sent.contains(entry.sequence)
+            default: false
+            }
         }
         if !report.rejected.isEmpty || keptMaybe { requestedPull = true }
         pendingCount = pendingChanges().count
@@ -307,6 +310,10 @@ final class SyncService {
 
         case .removeFromList(let listItemID):
             if let line = listLine(lineAliases[listItemID] ?? listItemID) { context.delete(line) }
+
+        case .restock(let itemID, _):
+            guard let item = item(itemID), item.keepOnHand else { return }
+            item.stockState = .in
 
         case .removeStapleLine(let listItemID):
             if let line = listLine(lineAliases[listItemID] ?? listItemID), Self.isOpenStapleLine(line) { context.delete(line) }

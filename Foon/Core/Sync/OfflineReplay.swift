@@ -16,6 +16,10 @@ enum OfflineChange: Codable, Equatable, Sendable {
     /// Takes a line off only if a staple put it there and it's still unbought. This phone may think a line is a staple's when the
     /// server merged it into one someone added by hand, so the server decides.
     case removeStapleLine(listItemID: UUID)
+    /// Bought: a staple goes back to in stock. `ifWas` is the stock this phone saw when it was checked off, so a low or out
+    /// marked on another phone since, while this one was offline in the store, stays (#201). Nil when this phone didn't know
+    /// it's a staple: it's restocked if it is one by then. The server decides, so for anything else nothing happens.
+    case restock(itemID: UUID, ifWas: StockState?)
 
     /// The same change aimed at the line a server merge kept instead of the device's line.
     func repointed(_ aliases: [UUID: UUID]) -> OfflineChange {

@@ -78,12 +78,15 @@ struct ListBoardTests {
             == ListBoard.Summary(got: 0, left: 1))
     }
 
-    @Test func gettingAStapleRestocksIt() {
-        let cereal = entry("Cereal", keepOnHand: true)
+    @Test func gettingAStapleRestocksItFromTheStockThisPhoneSaw() {
+        var cereal = entry("Cereal", keepOnHand: true)
+        cereal.stock = .low
         #expect(ListBoard.gotIt(cereal) == [.setChecked(listItemID: cereal.lineID, checked: true),
-                                            .setStock(itemID: cereal.itemID, state: .in)])
+                                            .restock(itemID: cereal.itemID, ifWas: .low)])
         let milk = entry("Milk")
-        #expect(ListBoard.gotIt(milk) == [.setChecked(listItemID: milk.lineID, checked: true)])
+        #expect(ListBoard.gotIt(milk) == [.setChecked(listItemID: milk.lineID, checked: true),
+                                          .restock(itemID: milk.itemID, ifWas: nil)],
+                "another phone may have made it a staple; the server decides")
     }
 
     @Test func couldntFindItMovesTheItemToTheQuickList() {
@@ -146,7 +149,7 @@ struct ListBoardTests {
         let row = try #require(ListBoard.onTheList([weekly, tonight]).first)
         #expect(ListBoard.gotIt(row) == [.setChecked(listItemID: tonight.lineID, checked: true),
                                          .setChecked(listItemID: weekly.lineID, checked: true),
-                                         .setStock(itemID: item, state: .in)])
+                                         .restock(itemID: item, ifWas: nil)])
         #expect(ListBoard.putBack(row) == [.setChecked(listItemID: tonight.lineID, checked: false),
                                            .setChecked(listItemID: weekly.lineID, checked: false)])
         #expect(ListBoard.remove(row) == [.removeFromList(listItemID: tonight.lineID),
