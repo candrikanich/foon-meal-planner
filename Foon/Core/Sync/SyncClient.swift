@@ -66,7 +66,14 @@ extension SyncClient {
                         .eq("id", value: listItemID)
                         .execute()
                     return nil
-                case .addToList(let householdID, let itemID, let list, let urgency, let source, let note, let lineID, let quantity, let planID):
+                case .addToList(let householdID, let itemID, let list, let urgency, let source, let note, let lineID, let quantity, let planID, let replacing):
+                    if let replacing {
+                        let line: LineID = try await client.rpc("move_to_quick_list", params: MoveToQuickListParams(
+                            targetLine: replacing, targetHousehold: householdID, targetItem: itemID,
+                            itemNote: note, lineID: lineID, itemQuantity: quantity
+                        )).select("id").single().execute().value
+                        return line.id == lineID ? nil : line.id
+                    }
                     let line: LineID = try await client.rpc("add_to_list", params: AddToListParams(
                         targetHousehold: householdID, targetItem: itemID, targetList: list,
                         itemUrgency: urgency, itemSource: source, itemNote: note, lineID: lineID, itemQuantity: quantity, itemPlan: planID
@@ -151,6 +158,35 @@ private struct StockPatch: Encodable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(stockState, forKey: .stockState)
         try container.encode(keepOnHand, forKey: .keepOnHand)
+    }
+}
+
+struct MoveToQuickListParams: Encodable, Sendable {
+    let targetLine: UUID
+    let targetHousehold: UUID
+    let targetItem: UUID
+    let itemNote: String?
+    let lineID: UUID
+    let itemQuantity: String?
+
+    enum CodingKeys: String, CodingKey {
+        case targetLine = "target_line"
+        case targetHousehold = "target_household"
+        case targetItem = "target_item"
+        case itemNote = "item_note"
+        case lineID = "line_id"
+        case itemQuantity = "item_quantity"
+    }
+
+    // PostgREST matches functions by argument names, so every argument is sent, null included.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(targetLine, forKey: .targetLine)
+        try container.encode(targetHousehold, forKey: .targetHousehold)
+        try container.encode(targetItem, forKey: .targetItem)
+        try container.encode(itemNote, forKey: .itemNote)
+        try container.encode(lineID, forKey: .lineID)
+        try container.encode(itemQuantity, forKey: .itemQuantity)
     }
 }
 

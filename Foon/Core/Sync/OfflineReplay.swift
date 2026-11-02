@@ -5,11 +5,13 @@ import PostgREST
 /// Store mode first: check-offs, adding to a list, and tapping a staple low or out.
 enum OfflineChange: Codable, Equatable, Sendable {
     case setChecked(listItemID: UUID, checked: Bool)
-    /// `lineID` is the id the device gave the new line, so later changes to it reach the same row.
+    /// `lineID` is the id the device gave the new line, so later changes to it reach the same row. `replacing` is a line this one
+    /// takes over from ("couldn't find it"). It's part of the add so the server does both or neither (`move_to_quick_list`):
+    /// when it refuses, the original line stays, with any allergy note on it.
     case addToList(householdID: UUID, itemID: UUID, list: ListKind, urgency: ListUrgency, source: ListItemSource,
-                   note: String?, lineID: UUID, quantity: String? = nil, planID: UUID? = nil)
+                   note: String?, lineID: UUID, quantity: String? = nil, planID: UUID? = nil, replacing: UUID? = nil)
     case setStock(itemID: UUID, state: StockState?)
-    /// Takes a line off its list ("couldn't find it" moves it to the quick list).
+    /// Takes a line off its list.
     case removeFromList(listItemID: UUID)
 
     /// The same change aimed at the line a server merge kept instead of the device's line.
@@ -19,6 +21,11 @@ enum OfflineChange: Codable, Equatable, Sendable {
             aliases[listItemID].map { .setChecked(listItemID: $0, checked: checked) } ?? self
         case .removeFromList(let listItemID):
             aliases[listItemID].map { .removeFromList(listItemID: $0) } ?? self
+        case .addToList(let householdID, let itemID, let list, let urgency, let source, let note, let lineID, let quantity, let planID, let replacing):
+            replacing.flatMap { aliases[$0] }.map {
+                .addToList(householdID: householdID, itemID: itemID, list: list, urgency: urgency, source: source, note: note,
+                           lineID: lineID, quantity: quantity, planID: planID, replacing: $0)
+            } ?? self
         default:
             self
         }
@@ -71,7 +78,7 @@ enum OfflineReplay {
                 report.sent.append(entry.sequence)
             case .merged(let existing):
                 report.sent.append(entry.sequence)
-                if case .addToList(_, _, _, _, _, _, let lineID, _, _) = change, lineID != existing {
+                if case .addToList(_, _, _, _, _, _, let lineID, _, _, _) = change, lineID != existing {
                     report.aliases[lineID] = existing
                 }
             case .rejected:

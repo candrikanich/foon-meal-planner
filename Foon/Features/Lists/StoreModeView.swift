@@ -128,23 +128,18 @@ struct StoreModeView: View {
         guard let sync, let householdID = household.household?.id else { return }
         let newLine = UUID()
         var updated = trip
-        if entry.list == .quick {
-            updated.skipped.insert(entry.lineID)
-        } else {
-            updated.skipped.insert(newLine)
-            for change in ListBoard.couldntFind(entry, householdID: householdID, newLineID: newLine) {
-                await sync.perform(change)
-            }
-        }
+        updated.skipped.insert(entry.list == .quick ? entry.lineID : newLine)
+        // Before the wait: another tap or Finish trip can happen during it, and this would write over them afterward.
         savedTrip = updated.rawValue
+        for change in ListBoard.couldntFind(entry, householdID: householdID, newLineID: newLine) {
+            await sync.perform(change)
+        }
     }
 
+    /// Staples went back to in stock as they were checked off, so one marked low or out since stays that way.
     private func finish() async {
         let current = trip
         let summary = ListBoard.summary(entries, tripStart: current.start, skipped: current.skipped)
-        for change in ListBoard.finishTrip(entries, tripStart: current.start) {
-            await sync?.perform(change)
-        }
         savedTrip = ""
         finished = summary
     }

@@ -52,14 +52,6 @@ struct ListBoardTests {
         #expect(ListBoard.summary(entries, tripStart: tripStart) == ListBoard.Summary(got: 1, left: 2))
     }
 
-    @Test func finishingATripRestocksTheStaplesBought() {
-        let cereal = entry("Cereal", checkedAt: tripStart.addingTimeInterval(5), keepOnHand: true)
-        let milk = entry("Milk", checkedAt: tripStart.addingTimeInterval(5))
-        let rice = entry("Rice", keepOnHand: true)
-        #expect(ListBoard.finishTrip([cereal, milk, rice], tripStart: tripStart)
-            == [.setStock(itemID: cereal.itemID, state: .in)])
-    }
-
     @Test func aTripSurvivesBeingSavedAndReopened() throws {
         var trip = ShoppingTrip(start: tripStart)
         trip.skipped.insert(UUID())
@@ -99,9 +91,8 @@ struct ListBoardTests {
         let household = UUID(), quickLine = UUID()
         #expect(ListBoard.couldntFind(beef, householdID: household, newLineID: quickLine) == [
             .addToList(householdID: household, itemID: beef.itemID, list: .quick, urgency: .whenever, source: .manual,
-                       note: String(localized: "Couldn't find it last trip"), lineID: quickLine),
-            .removeFromList(listItemID: beef.lineID)
-        ])
+                       note: String(localized: "Couldn't find it last trip"), lineID: quickLine, replacing: beef.lineID)
+        ], "one change, so a refused add can't still remove the line")
         let quick = entry("Saffron", list: .quick)
         #expect(ListBoard.couldntFind(quick, householdID: household, newLineID: quickLine).isEmpty,
                 "already on the quick list")

@@ -73,6 +73,24 @@ struct OfflineReplayTests {
         #expect(report.failedAttempt == 1)
     }
 
+    @Test func aLineBeingReplacedFollowsAServerMerge() {
+        let device = UUID(), kept = UUID(), line = UUID(), household = UUID(), item = UUID()
+        let move = OfflineChange.addToList(householdID: household, itemID: item, list: .quick, urgency: .whenever, source: .manual,
+                                           note: nil, lineID: line, replacing: device)
+        #expect(move.repointed([device: kept]) == .addToList(householdID: household, itemID: item, list: .quick, urgency: .whenever,
+                                                             source: .manual, note: nil, lineID: line, replacing: kept))
+        #expect(move.repointed([line: kept]) == move, "the new line's own id isn't what's replaced")
+    }
+
+    @Test func anAddQueuedBeforeReplacingExistedStillDecodes() throws {
+        let household = UUID(), item = UUID(), line = UUID()
+        let old = OfflineChange.addToList(householdID: household, itemID: item, list: .quick, urgency: .whenever, source: .manual,
+                                          note: nil, lineID: line)
+        let encoded = try JSONEncoder().encode(old)
+        #expect(!String(decoding: encoded, as: UTF8.self).contains("replacing"))
+        #expect(try JSONDecoder().decode(OfflineChange.self, from: encoded) == old)
+    }
+
     @Test func classifiesErrors() {
         #expect(OfflineReplay.classify(URLError(.notConnectedToInternet)) == .offline)
         #expect(OfflineReplay.classify(URLError(.timedOut)) == .offline)

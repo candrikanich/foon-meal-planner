@@ -218,7 +218,7 @@ struct ListNotesTests {
     @Test func couldntFindItKeepsTheAllergyNoteAndAmount() throws {
         let entry = ListEntry(lineID: UUID(), itemID: UUID(), name: "Milk", list: .weekly, urgency: .whenever, quantity: "1 cup",
                               lineNote: "Get dairy-free (Nora)", itemNote: nil, category: .other, checkedAt: nil, keepOnHand: false)
-        guard case .addToList(_, _, _, _, _, let note, _, let quantity, _) = try #require(ListBoard.couldntFind(entry, householdID: UUID(), newLineID: UUID()).first) else {
+        guard case .addToList(_, _, _, _, _, let note, _, let quantity, _, _) = try #require(ListBoard.couldntFind(entry, householdID: UUID(), newLineID: UUID()).first) else {
             Issue.record("expected an add")
             return
         }

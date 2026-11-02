@@ -306,9 +306,19 @@ struct HouseholdClientLiveTests {
                                                                urgency: .whenever, source: .manual, note: nil,
                                                                lineID: UUID()))
         let gone = try #require(weekly.first)
-        _ = try await SyncClient.live(supabase).send(.removeFromList(listItemID: gone.id))
+        await #expect(throws: (any Error).self, "no such item") {
+            _ = try await SyncClient.live(supabase).send(.addToList(householdID: household.id, itemID: UUID(), list: .quick,
+                                                                    urgency: .whenever, source: .manual, note: nil,
+                                                                    lineID: UUID(), replacing: gone.id))
+        }
+        let refused = try await SyncClient.live(supabase).fetchSnapshot(household.id, sunday)
+        #expect(refused.listItems.contains { $0.id == gone.id }, "a refused move leaves the line where it was")
+        _ = try await SyncClient.live(supabase).send(.addToList(householdID: household.id, itemID: gone.itemID, list: .quick,
+                                                               urgency: .whenever, source: .manual, note: nil,
+                                                               lineID: UUID(), replacing: gone.id))
         let after = try await SyncClient.live(supabase).fetchSnapshot(household.id, sunday)
         #expect(!after.listItems.contains { $0.id == gone.id })
+        #expect(after.listItems.contains { $0.itemID == gone.itemID && $0.list == .quick })
         #expect(after.listItems.contains { $0.itemID == towels && $0.list == .quick })
         #expect(after.items.first { $0.id == towels }?.category == .household)
 

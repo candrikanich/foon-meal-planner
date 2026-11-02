@@ -147,13 +147,6 @@ enum ListBoard {
             + (entry.keepOnHand ? [.setStock(itemID: entry.itemID, state: .in)] : [])
     }
 
-    /// Finishing a trip: staples bought go back to in stock.
-    static func finishTrip(_ entries: [ListEntry], tripStart: Date) -> [OfflineChange] {
-        let bought = entries.filter { $0.keepOnHand && ($0.checkedAt ?? .distantPast) >= tripStart }
-        return Array(Set(bought.map(\.itemID))).sorted { $0.uuidString < $1.uuidString }
-            .map { .setStock(itemID: $0, state: .in) }
-    }
-
     /// "Couldn't find it": the item moves to the quick list for the next trip, with its amount and any allergy note.
     static func couldntFind(_ entry: ListEntry, householdID: UUID, newLineID: UUID) -> [OfflineChange] {
         guard entry.list != .quick else { return [] }
@@ -161,8 +154,7 @@ enum ListBoard {
             .addToList(householdID: householdID, itemID: entry.itemID, list: .quick, urgency: .whenever,
                        source: .manual,
                        note: ListNotes.merged(existing: entry.lineNote, incoming: String(localized: "Couldn't find it last trip")),
-                       lineID: newLineID, quantity: entry.quantity),
-            .removeFromList(listItemID: entry.lineID)
+                       lineID: newLineID, quantity: entry.quantity, replacing: entry.lineID)
         ]
     }
 

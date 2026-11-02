@@ -1,4 +1,5 @@
 import Foundation
+import PostgREST
 import SwiftData
 import Synchronization
 import Testing
@@ -27,6 +28,48 @@ struct SyncServiceTests {
     private func makeService(container: ModelContainer, client: SyncClient) -> SyncService {
         SyncService(householdID: household, context: container.mainContext, client: client,
                     today: { CalendarDay(year: 2026, month: 11, day: 3) })
+    }
+
+    private func moveMilk(to line: UUID) -> OfflineChange {
+        .addToList(householdID: household, itemID: eggsItem, list: .quick, urgency: .whenever, source: .manual,
+                   note: nil, lineID: line, replacing: milkLine)
+    }
+
+    /// PostgREST finds the function by its argument names: leave out one that has no default and the call fails.
+    @Test func aMoveNamesEveryArgumentEvenWithNoNote() throws {
+        let params = MoveToQuickListParams(targetLine: UUID(), targetHousehold: UUID(), targetItem: UUID(),
+                                           itemNote: nil, lineID: UUID(), itemQuantity: nil)
+        let body = try JSONSerialization.jsonObject(with: JSONEncoder().encode(params)) as? [String: Any]
+        #expect(Set(body?.keys.map { $0 } ?? []) == ["target_line", "target_household", "target_item", "item_note", "line_id",
+                                                     "item_quantity"])
+        #expect(body?["item_note"] is NSNull)
+    }
+
+    @Test func aMoveShowsAtOnceOffline() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let service = makeService(container: container, client: .fake(snapshot: { snapshot }, send: { _ in
+            throw URLError(.notConnectedToInternet)
+        }))
+        await service.pull()
+        let line = UUID()
+        await service.perform(moveMilk(to: line))
+        #expect(try container.mainContext.fetch(FetchDescriptor<CachedListItem>()).map(\.id) == [line])
+        #expect(service.pendingCount == 1)
+    }
+
+    @Test func aRefusedChangeBringsBackWhatTheServerHas() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let sent = Mutex<[OfflineChange]>([])
+        let service = makeService(container: container, client: .fake(snapshot: { snapshot }, send: { change in
+            sent.withLock { $0.append(change) }
+            throw PostgrestError(code: "23503", message: "refused")
+        }))
+        await service.pull()
+        await service.perform(moveMilk(to: UUID()))
+        #expect(sent.withLock { $0.count } == 1, "one change: nothing else goes to the server to remove the line")
+        #expect(service.pendingCount == 0, "the server refused it, so there's no retry")
+        #expect(try container.mainContext.fetch(FetchDescriptor<CachedListItem>()).map(\.id) == [milkLine],
+                "and the line is back without waiting for anything else to pull")
     }
 
     @Test func pullCachesTheWeekAndTheList() async throws {
