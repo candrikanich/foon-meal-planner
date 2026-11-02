@@ -1,7 +1,8 @@
 -- Starter catalog (#10). Source of truth for the list: docs/starter-pack.md.
--- Idempotent: dishes upsert by slug and each dish's ingredient list is replaced, so hosted
--- environments pick up catalog changes with `supabase db push --include-seed`. Library meals
+-- Idempotent: dishes upsert by slug and each dish's ingredient list is replaced. Library meals
 -- reference catalog dishes by id, which an upsert never changes.
+-- `supabase db push --include-seed` only runs this file once per database: a later edit updates its
+-- recorded hash without running it. So a catalog change also needs a migration to reach hosted ones.
 -- Ingredients are 'name|item_category|quantity' (quantity optional), listed in recipe order.
 -- Plain ingredient names (milk, eggs, flour tortillas) keep allergy keyword matching accurate.
 
@@ -97,6 +98,34 @@ on conflict (slug) do update set
   sort_order = excluded.sort_order,
   image_path = excluded.image_path,
   prep_steps = excluded.prep_steps;
+
+-- Start-to-table minutes where a tag can't give a fair guess. Quick and slow cooker dishes keep their estimates (#146).
+update public.catalog_meals dish
+set cook_minutes = times.minutes::smallint
+from (values
+  ('pasta-with-sauce-and-meatballs', 45),
+  ('homemade-mac-and-cheese', 40),
+  ('baked-ziti', 60),
+  ('lasagna', 90),
+  ('enchiladas', 60),
+  ('burgers', 30),
+  ('grilled-chicken', 40),
+  ('kebabs', 45),
+  ('steak-night', 45),
+  ('potato-soup', 45),
+  ('sheet-pan-chicken-and-veggies', 45),
+  ('baked-chicken-thighs-and-potatoes', 60),
+  ('chicken-parmesan', 55),
+  ('pork-chops-and-applesauce', 45),
+  ('pork-tenderloin', 45),
+  ('ham-and-scalloped-potatoes', 90),
+  ('meatloaf-and-mashed-potatoes', 75),
+  ('shepherds-pie', 75),
+  ('crab-cakes', 30),
+  ('fish-and-chips-night', 45),
+  ('homemade-pizza-night', 60)
+) as times (slug, minutes)
+where dish.slug = times.slug;
 
 delete from public.catalog_ingredients;
 

@@ -76,6 +76,32 @@ About 70 common family dinners across 12 categories, plus 5 quick picks. Familie
 | Fish sticks and fries | Freezer and backup | Backup, Quick, Beginner | No |
 | Chicken nuggets and tots | Freezer and backup | Backup, Quick, Beginner | Yes |
 
+**Cook times.** Start-to-table minutes for the dishes where a tag can't give a fair guess. Quick and slow cooker dishes use an estimate instead, and a family can set their own time on any dish.
+
+| Dish | Minutes |
+| --- | --- |
+| Pasta with sauce and meatballs | 45 |
+| Homemade mac and cheese | 40 |
+| Baked ziti | 60 |
+| Lasagna | 90 |
+| Enchiladas | 60 |
+| Burgers | 30 |
+| Grilled chicken | 40 |
+| Kebabs | 45 |
+| Steak night | 45 |
+| Potato soup | 45 |
+| Sheet-pan chicken and veggies | 45 |
+| Baked chicken thighs and potatoes | 60 |
+| Chicken parmesan | 55 |
+| Pork chops and applesauce | 45 |
+| Pork tenderloin | 45 |
+| Ham and scalloped potatoes | 90 |
+| Meatloaf and mashed potatoes | 75 |
+| Shepherd's pie | 75 |
+| Crab cakes | 30 |
+| Fish and chips night | 45 |
+| Homemade pizza night | 60 |
+
 **Quick picks** (not dishes; always available on the swap sheet and in polls): Leftovers · Takeout · Eat out · Fend for yourselves · Freezer raid (any mix of Backup items in stock).
 
 **Copy-and-tweak examples.** A family's "Golden Mac and Cheese" starts from Homemade mac and cheese, renamed, with Mom's photo and made-by label.
