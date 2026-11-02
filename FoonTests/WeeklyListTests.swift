@@ -99,6 +99,45 @@ struct WeeklyListTests {
         #expect(WeeklyList.shoppingAdvice(allergen) == note)
     }
 
+    @Test(arguments: [("eggs", Allergen.eggs), ("2 large eggs", .eggs), ("egg whites", .eggs), ("peanuts", .peanuts),
+                      ("roasted salted peanuts", .peanuts), ("walnuts", .treeNuts), ("sesame seeds", .sesame),
+                      ("edamame", .soy), ("tofu", .soy)])
+    func anItemThatIsTheAllergenIsNotForThem(item: String, allergen: Allergen) {
+        let allergies = [MemberAllergies(memberID: nora, firstName: "Nora", allergens: [allergen])]
+        let dish = meal("Dish", [(UUID(), item, nil)])
+        let lines = WeeklyList.build(nights: [night(dish, home: [nora])], library: [dish], allergies: allergies)
+        #expect(lines.first?.note == "Can't have it (Nora)")
+    }
+
+    @Test func thingsMadeWithItStillSayWhatToGet() {
+        let allergies = [MemberAllergies(memberID: nora, firstName: "Nora", allergens: [.eggs, .peanuts, .milk])]
+        let dish = meal("Dish", [(UUID(), "mayonnaise", nil), (UUID(), "peanut butter", nil), (UUID(), "frozen meatballs", nil),
+                                 (UUID(), "milk", nil)])
+        let lines = WeeklyList.build(nights: [night(dish, home: [nora])], library: [dish], allergies: allergies)
+        #expect(lines.map(\.note) == ["Get egg-free (Nora)", "Get peanut-free (Nora)",
+                                      "Get dairy-free (Nora); Get egg-free (Nora)", "Get dairy-free (Nora)"])
+    }
+
+    @Test func mixedNutsAreNotForAnyoneWithEitherNutAllergyOnce() {
+        let allergies = [MemberAllergies(memberID: nora, firstName: "Nora", allergens: [.peanuts]),
+                         MemberAllergies(memberID: owen, firstName: "Owen", allergens: [.treeNuts])]
+        let dish = meal("Trail mix", [(UUID(), "mixed nuts", nil)])
+        let lines = WeeklyList.build(nights: [night(dish, home: [nora, owen])], library: [dish], allergies: allergies)
+        #expect(lines.first?.note == "Can't have it (Nora, Owen)")
+    }
+
+    @Test func oneNamesNoteNeverCoversAnothersWhoseNameStartsTheSame() {
+        let note: (String) -> String? = { name in
+            let allergies = [MemberAllergies(memberID: UUID(), firstName: name, allergens: [.eggs])]
+            let dish = meal("Omelet", [(UUID(), "eggs", nil)])
+            let home = Set(allergies.map(\.memberID))
+            return WeeklyList.build(nights: [WeeklyList.Night(mealID: dish.id, home: home)], library: [dish],
+                                    allergies: allergies).first?.note
+        }
+        #expect(!ListNotes.covers(note("Anna"), note("Ann")))
+        #expect(!ListNotes.covers("Can't have it for Ann's lunchbox", note("Ann")))
+    }
+
     @Test func customAllergiesAskToCheck() {
         let allergies = [MemberAllergies(memberID: nora, firstName: "Nora", customTexts: ["kiwi"])]
         let fruit = meal("Fruit salad", [(UUID(), "kiwi", nil)])

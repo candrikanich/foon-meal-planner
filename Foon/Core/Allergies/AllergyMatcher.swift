@@ -87,6 +87,18 @@ enum AllergyMatcher {
         allergens(in: Words(ingredientName))
     }
 
+    /// Whether the item is the allergen itself ("eggs", "2 large eggs"), not something made with it ("mayonnaise").
+    static func isItself(_ itemName: String, _ allergen: Allergen) -> Bool {
+        let core = Words(itemName).tokens.filter { word in
+            !word.text.allSatisfy(\.isNumber) && word.forms.isDisjoint(with: AllergenKeywords.itselfDescriptors)
+        }
+        return compiledItself[allergen, default: []].contains { phrase in
+            phrase.count == core.count && zip(core, phrase).allSatisfy { $0.matches($1) }
+        }
+    }
+
+    private static let compiledItself = AllergenKeywords.itself.mapValues { $0.map { Words($0).tokens } }
+
     /// One flag per allergen or custom text that the dish contains and someone at the table can't have.
     /// Flags come in chip order, then custom text alphabetically; members by first name; ingredients in meal order.
     /// A category word typed under Other ("dairy") also puts that member on the real allergen's flag.
