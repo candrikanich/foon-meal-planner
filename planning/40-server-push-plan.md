@@ -30,8 +30,8 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
 
 - **Car 1:** tokens + outbox + sender + one trigger, **Plan's set** (everyone but the approver, every preset).
   Verify on device: Chris approves on the Mac/iPad, phone buzzes.
-- **Car 2:** check-in "won't be home tonight" → planners, and claims → planners (both already have in-app notes
-  reading the same rows).
+- **Car 2 (done, 2026-11-02):** check-in "won't be home tonight" → planners, and claims → planners (both already have
+  in-app notes reading the same rows). Migration `20261102180000_push_car2.sql`, pgTAP `54_push_car2.test.sql`.
 - **Car 3:** urgent list item → adults, tonight poll → whoever's home, request made the plan.
 - **Car 4:** budgets for server pushes (shared count with local reminders via `notification_log`), new-requests digest.
 
@@ -39,6 +39,26 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
 
 - Words: a server push may name the family member (first name only), never the dish.
 - App ID: Push Notifications is on for `com.andrikanich.foon` (saved 2026-11-02, no SSL certificates: token auth with the key).
+
+## Decided for car 2 (2026-11-02)
+
+- New kind `not_home` on both `push_outbox` and `notification_log`. The app never reads log types back, so older apps are
+  unaffected.
+- `push_outbox` gains `expires_at` (general: a row not sent by then is stale), `about_member_id` (once-only, call-off,
+  and removal) and `claim_id`. `claim_push_outbox` also returns `night_id`, `night_date` and `args`.
+- Both expire at that night's dinner time (`night_dinner_at`: the night's time, else the household's, else 6pm, on the
+  household's clock). A row quiet hours would hold past dinner isn't queued.
+- Presets read the household's `notification_preset` only (missing/unknown = Balanced, as the app reads it). Per-member
+  presets (#47) aren't consulted yet.
+- Recipients exclude the person the news is about and whoever tapped it (passing the phone), plus, for a claim, whoever
+  entered it.
+- A push already being sent when it's called off still goes (the row is deleted and complete finds nothing).
+  The same goes for a row in flight when its subject is removed, leaves, or deletes their account: it still goes out.
+- A claim row goes only if it still stands when it's due (`push_outbox_stands`: not released, `can_cook_night`, no quick
+  pick, dinner not logged); otherwise it waits until dinner, then is dropped as stale. The cook saying Not home deletes
+  it outright. `kick_push_sender` asks the same, so a waiting claim doesn't wake send-push every minute. Rows about a
+  night are also stale once `night_dinner_at` (as the night is now) has passed, so moving dinner earlier still ends them.
+- send-push fails a row as `no_words` (not `unknown_kind`) when it knows the kind but the name or date is missing.
 
 ## Unresolved questions
 

@@ -22,12 +22,10 @@ export interface Alert {
   body: string;
 }
 
-export interface ApnsPayload {
-  aps: { alert: Alert; sound: "default" };
-  // The routes local reminders use (ReminderPayload in ReminderCenter.swift), so a tap opens the same place.
-  route?: "week";
-  date?: string;
-}
+// The routes local reminders use (ReminderPayload in ReminderCenter.swift), so a tap opens the same place.
+export type Route = { route: "week"; date: string } | { route: "night"; night: string; date: string };
+
+export type ApnsPayload = { aps: { alert: Alert; sound: "default" } } & Partial<Route>;
 
 export type DeliveryResult = "delivered" | "dead_token" | "retry";
 
@@ -70,19 +68,46 @@ export async function cachedProviderToken(
   return token;
 }
 
-// The words are fixed: a server push may name a family member by first name, never a dish (decided 2026-11-02).
-export function alertFor(kind: string): Alert | null {
-  switch (kind) {
-    case "plan_set":
-      return { title: "This week's dinners are set.", body: "Tap to see the week." };
-    default:
-      return null;
-  }
+const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+// A night's weekday from its date alone. Never "tonight" or "tomorrow": quiet hours can hold a push past the day it was
+// written on.
+export function weekdayOf(date: string | null): string | null {
+  const parts = date?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!parts) return null;
+  const day = new Date(Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3])));
+  return Number.isNaN(day.getTime()) ? null : weekdays[day.getUTCDay()];
 }
 
-export function payloadFor(alert: Alert, weekStart: string | null): ApnsPayload {
+function firstName(args: Record<string, unknown>): string | null {
+  const name = typeof args.name === "string" ? args.name.trim() : "";
+  return name === "" ? null : name;
+}
+
+// The words are fixed: a server push may name a family member by first name, never a dish (decided 2026-11-02). The name
+// is read from args and nothing else is. A kind is known exactly when it has words here.
+const words: Record<string, (args: Record<string, unknown>, nightDate: string | null) => Alert | null> = {
+  plan_set: () => ({ title: "This week's dinners are set.", body: "Tap to see the week." }),
+  not_home: (args) => {
+    const name = firstName(args);
+    return name ? { title: `${name} won't be home tonight.`, body: "Tap to see tonight." } : null;
+  },
+  claim: (args, nightDate) => {
+    const name = firstName(args);
+    const weekday = weekdayOf(nightDate);
+    return name && weekday ? { title: `${name} will cook ${weekday}.`, body: "Tap to see the night." } : null;
+  },
+};
+
+export const knownKinds: ReadonlySet<string> = new Set(Object.keys(words));
+
+export function alertFor(kind: string, args: Record<string, unknown> = {}, nightDate: string | null = null): Alert | null {
+  return Object.hasOwn(words, kind) ? words[kind](args, nightDate) : null;
+}
+
+export function payloadFor(alert: Alert, route: Route | null): ApnsPayload {
   const payload: ApnsPayload = { aps: { alert, sound: "default" } };
-  return weekStart ? { ...payload, route: "week", date: weekStart } : payload;
+  return route ? { ...payload, ...route } : payload;
 }
 
 const deadReasons = new Set(["BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic"]);
