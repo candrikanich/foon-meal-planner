@@ -3461,10 +3461,10 @@
     "Your Apple sign-in: an account ID, an email, which can be Apple's private relay address, and your first name if Apple shares it." : {
 
     },
-    "Your account is deleted. This can't be undone." : {
+    "Your account and your comments are deleted. Your profile and ratings stay in the family, and your parents manage them." : {
 
     },
-    "Your account is deleted. Your profile stays in the family, and your parents manage it." : {
+    "Your account is deleted. This can't be undone." : {
 
     },
     "Your data" : {

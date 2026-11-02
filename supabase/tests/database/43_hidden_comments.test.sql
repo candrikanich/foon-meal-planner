@@ -1,7 +1,7 @@
 -- Hidden comments are really hidden (#149): selecting reactions.comment gets a non-planner no hidden text, whichever way
 -- they ask, and everything that clears a comment clears the hidden text too.
 begin;
-select plan(35);
+select plan(40);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -16,11 +16,14 @@ insert into auth.users (id, email, aud, role) values
   ('a0000000-0000-0000-0000-00000000000a', 'alice@example.com', 'authenticated', 'authenticated'),
   ('b0000000-0000-0000-0000-00000000000b', 'bob@example.com', 'authenticated', 'authenticated'),
   ('c0000000-0000-0000-0000-00000000000c', 'carol@example.com', 'authenticated', 'authenticated'),
-  ('f0000000-0000-0000-0000-00000000000f', 'kira@example.com', 'authenticated', 'authenticated');
+  ('f0000000-0000-0000-0000-00000000000f', 'kira@example.com', 'authenticated', 'authenticated'),
+  ('e0000000-0000-0000-0000-00000000000e', 'nell@example.com', 'authenticated', 'authenticated'),
+  ('d0000000-0000-0000-0000-00000000000d', 'pia@example.com', 'authenticated', 'authenticated');
 insert into public.households (id, name, owner) values
   ('00000000-0000-0000-0000-0000000000a0', 'Andersons', 'a0000000-0000-0000-0000-00000000000a'),
   ('00000000-0000-0000-0000-0000000000b0', 'Carters', 'c0000000-0000-0000-0000-00000000000c');
--- Alice plans. Bob's a member. Kira's a kid with her own phone. Owen's a kid with no account. Carol runs another household.
+-- Alice plans. Bob's a member. Kira, Nell and Pia are kids with their own phones. Owen's a kid with no account.
+-- Carol runs another household.
 insert into public.members (id, household_id, first_name, role, guardian, age_group, user_id) values
   ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a0', 'Alice', 'planner', true, 'adult',
    'a0000000-0000-0000-0000-00000000000a'),
@@ -29,6 +32,10 @@ insert into public.members (id, household_id, first_name, role, guardian, age_gr
   ('00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-0000000000a0', 'Kira', 'member', false, 'kid',
    'f0000000-0000-0000-0000-00000000000f'),
   ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000a0', 'Owen', 'member', false, 'kid', null),
+  ('00000000-0000-0000-0000-0000000000a8', '00000000-0000-0000-0000-0000000000a0', 'Nell', 'member', false, 'kid',
+   'e0000000-0000-0000-0000-00000000000e'),
+  ('00000000-0000-0000-0000-0000000000a9', '00000000-0000-0000-0000-0000000000a0', 'Pia', 'member', false, 'kid',
+   'd0000000-0000-0000-0000-00000000000d'),
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b0', 'Carol', 'planner', true, 'adult',
    'c0000000-0000-0000-0000-00000000000c');
 insert into public.meals (id, household_id, name) values
@@ -183,6 +190,31 @@ select public.anonymize_expired_profiles();
 select is((select count(*)::int from public.reactions where member_id = '00000000-0000-0000-0000-0000000000a5'), 0,
   'a withdrawn kid''s own rating is erased');
 select is((select count(*)::int from public.hidden_comments h where h.comment = 'Yum'), 0, 'and its hidden text');
+
+-- A kid deleting their own account: the profile and rating stay, and their words go, hidden ones too.
+select pg_temp.as_user('e0000000-0000-0000-0000-00000000000e');
+select public.react_to_dinner('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a8', 'good');
+update public.reactions set comment = 'Mine was cold' where member_id = '00000000-0000-0000-0000-0000000000a8';
+select pg_temp.as_user('d0000000-0000-0000-0000-00000000000d');
+select public.react_to_dinner('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a9', 'good');
+update public.reactions set comment = 'Ask me about it' where member_id = '00000000-0000-0000-0000-0000000000a9';
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.set_comment_hidden(id, true) from public.reactions where member_id = '00000000-0000-0000-0000-0000000000a9';
+select pg_temp.as_admin();
+select public.delete_account_data('e0000000-0000-0000-0000-00000000000e');
+select public.delete_account_data('d0000000-0000-0000-0000-00000000000d');
+select results_eq(
+  $$ select first_name, user_id from public.members where id = '00000000-0000-0000-0000-0000000000a8' $$,
+  $$ values ('Nell', null::uuid) $$,
+  'a kid who deletes their account stays in the family as a profile');
+select is((select comment from public.reactions where member_id = '00000000-0000-0000-0000-0000000000a8'), null,
+  'without their comment');
+select is((select reaction::text from public.reactions where member_id = '00000000-0000-0000-0000-0000000000a8'), 'good',
+  'and with their rating');
+select is((select h.comment from public.hidden_comments h join public.reactions r on r.id = h.reaction_id
+           where r.member_id = '00000000-0000-0000-0000-0000000000a9'), null, 'a hidden comment''s words go too');
+select is((select count(*)::int from public.meal_comments where member_id = '00000000-0000-0000-0000-0000000000a8'), 0,
+  'and the family has no comment of theirs left to read');
 
 -- Deleting the household takes whatever's left.
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
