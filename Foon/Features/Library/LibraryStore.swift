@@ -85,12 +85,32 @@ final class LibraryStore {
     private var favorites: Set<UUID> { Set(reactions.favorites.values.flatMap { $0 }) }
 
     var visibleEntries: [LibraryEntry] {
-        LibraryQuery.apply(entries(meals), filter: filter, sort: sort, search: search)
+        LibraryQuery.apply(allEntries, filter: filter, sort: sort, search: search)
     }
 
     /// Dishes in rotation whose allergies can't be checked yet.
     var uncheckedCount: Int {
-        entries(meals).filter { $0.meal.status.isInRotation && $0.uncheckedNote != nil }.count
+        allEntries.filter { $0.meal.status.isInRotation && $0.uncheckedNote != nil }.count
+    }
+
+    /// Everything an entry is worked out from. Add to this if `entries(_:)` ever reads anything else, or a tile keeps old flags.
+    private struct EntryInputs: Equatable {
+        let meals: [LibraryMeal]
+        let history: [MealHistory]
+        let allergies: [MemberAllergies]
+        let reactions: ReactionSummary
+    }
+
+    /// Worked out again only when an input changes, not on each render: the Library screen reads this several times per render,
+    /// and it means checking every dish, sides included, against everyone's allergies.
+    @ObservationIgnored private var cachedEntries: (inputs: EntryInputs, entries: [LibraryEntry])?
+
+    private var allEntries: [LibraryEntry] {
+        let inputs = EntryInputs(meals: meals, history: history, allergies: allergies, reactions: reactions)
+        if let cachedEntries, cachedEntries.inputs == inputs { return cachedEntries.entries }
+        let worked = entries(meals)
+        cachedEntries = (inputs, worked)
+        return worked
     }
 
     private func entries(_ shown: [LibraryMeal]) -> [LibraryEntry] {

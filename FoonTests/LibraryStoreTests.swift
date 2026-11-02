@@ -558,3 +558,117 @@ struct RowPagesTests {
         }
     }
 }
+
+/// Entries are kept until an input changes, so each input has to change what the grid shows.
+@MainActor
+struct LibraryEntriesKeepUpTests {
+    final class Server: @unchecked Sendable {
+        var meals: [LibraryMeal] = []
+        var allergies: [AllergyRow] = []
+        var history: [MealHistory] = []
+        var verdicts: [MealVerdict] = []
+    }
+
+    private let nora = Member.fixture(firstName: "Nora", ageGroup: .kid)
+    private let mac = LibraryMeal.fixture(name: "Mac", ingredients: ["pasta"])
+    private let server = Server()
+
+    private func loaded() async -> LibraryStore {
+        let server = server
+        var client = LibraryClient.fake(meals: { _ in server.meals }, history: { _ in server.history },
+                                        allergies: { _ in server.allergies })
+        client.verdicts = { _ in server.verdicts }
+        let store = LibraryStore(householdID: Household.sample.id, client: client)
+        server.meals = [mac]
+        await store.load(members: [nora])
+        return store
+    }
+
+    private func tile(_ store: LibraryStore, _ meal: LibraryMeal) -> LibraryEntry? {
+        store.visibleEntries.first { $0.meal.id == meal.id }
+    }
+
+    @Test func aNewAllergyFlagsATileAlreadyRead() async {
+        let store = await loaded()
+        var milky = mac
+        milky.ingredients = LibraryMeal.fixture(ingredients: ["milk"]).ingredients
+        server.meals = [milky]
+        await store.load(members: [nora])
+        #expect(tile(store, mac)?.flags.isEmpty == true, "read once with no allergies")
+
+        server.allergies = [AllergyRow(memberID: nora.id, allergen: .milk, customText: nil)]
+        await store.load(members: [nora])
+        #expect(tile(store, mac)?.flags.count == 1)
+    }
+
+    @Test func aRemovedAllergyClearsTheFlag() async {
+        let milky = LibraryMeal.fixture(name: "Mac", ingredients: ["milk"])
+        server.allergies = [AllergyRow(memberID: nora.id, allergen: .milk, customText: nil)]
+        let store = await loaded()
+        server.meals = [milky]
+        await store.load(members: [nora])
+        #expect(tile(store, milky)?.flags.count == 1)
+
+        server.allergies = []
+        await store.load(members: [nora])
+        #expect(tile(store, milky)?.flags.isEmpty == true)
+    }
+
+    @Test func aSideGettingAnIngredientFlagsTheDishItGoesWith() async {
+        server.allergies = [AllergyRow(memberID: nora.id, allergen: .milk, customText: nil)]
+        let store = await loaded()
+        let bread = LibraryMeal.fixture(name: "Cornbread", ingredients: ["cornmeal"])
+        var withBread = mac
+        withBread.sides = [.meal(bread.id)]
+        server.meals = [withBread, bread]
+        await store.load(members: [nora])
+        #expect(tile(store, withBread)?.flags.isEmpty == true)
+
+        var milkyBread = bread
+        milkyBread.ingredients = LibraryMeal.fixture(ingredients: ["milk"]).ingredients
+        server.meals = [withBread, milkyBread]
+        await store.load(members: [nora])
+        #expect(tile(store, withBread)?.flags.count == 1, "the dish itself didn't change, only its side")
+    }
+
+    @Test func historyAndVerdictsReachTheTile() async {
+        let store = await loaded()
+        #expect(tile(store, mac)?.history == nil)
+        #expect(tile(store, mac)?.isFavorite == false)
+
+        server.history = [MealHistory(mealID: mac.id, timesMade: 2, lastMade: CalendarDay(year: 2037, month: 1, day: 1))]
+        server.verdicts = [MealVerdict(mealID: mac.id, memberID: nora.id, kind: .favorite,
+                                       reactedOn: CalendarDay(year: 2037, month: 1, day: 1))]
+        await store.load(members: [nora])
+        #expect(tile(store, mac)?.history?.timesMade == 2)
+        #expect(tile(store, mac)?.isFavorite == true)
+    }
+
+    @Test func aLastUncheckedDishLeavesTheCount() async {
+        server.allergies = [AllergyRow(memberID: nora.id, allergen: .milk, customText: nil)]
+        let store = await loaded()
+        let bare = LibraryMeal.fixture(name: "Chili")
+        server.meals = [bare]
+        await store.load(members: [nora])
+        #expect(store.uncheckedCount == 1)
+
+        var filled = bare
+        filled.ingredients = LibraryMeal.fixture(ingredients: ["beans"]).ingredients
+        server.meals = [filled]
+        await store.load(members: [nora])
+        #expect(store.uncheckedCount == 0)
+    }
+
+    /// A kept answer must still tell SwiftUI what it depends on, or a screen wouldn't redraw on the next change.
+    @Test func aReadAnsweredFromWhatsKeptStillRedrawsOnAChange() async {
+        let store = await loaded()
+        _ = store.visibleEntries
+        final class Fired: @unchecked Sendable { var value = false }
+        let fired = Fired()
+        withObservationTracking { _ = store.visibleEntries } onChange: { fired.value = true }
+
+        server.allergies = [AllergyRow(memberID: nora.id, allergen: .milk, customText: nil)]
+        await store.load(members: [nora])
+        #expect(fired.value)
+    }
+}
