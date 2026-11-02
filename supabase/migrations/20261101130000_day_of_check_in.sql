@@ -6,7 +6,8 @@
 --
 -- checked_in_at says the person answered, and `expected` holds what they said, so "said they won't be home" is
 -- expected = false with checked_in_at set. That's what a planner's note on This Week reads, and server push can read the
--- same rows later. Any other change to `expected` clears it, since the row no longer says what they said.
+-- same rows later. Any other write to `expected` clears it, even one that leaves it the same: the planner has spoken since, so
+-- the row no longer says what they said, and it can't be taken back as their own.
 
 alter table public.night_attendance add column checked_in_at timestamptz;
 
@@ -15,7 +16,7 @@ returns trigger
 language plpgsql
 as $$
 begin
-  if new.expected is distinct from old.expected and new.checked_in_at is not distinct from old.checked_in_at then
+  if new.checked_in_at is not distinct from old.checked_in_at then
     new.checked_in_at := null;
   end if;
   return new;
@@ -49,9 +50,12 @@ begin
 
   select * into held from public.night_attendance where plan_night_id = night.id and member_id = target_member for update;
   -- A planner has them out, and they didn't say so themselves: that's the planner's to change. Someone who said not home
-  -- can change their mind.
-  if home and held.id is not null and not held.expected and held.checked_in_at is null then
-    raise exception 'a planner has them out tonight' using errcode = 'FD016';
+  -- can change their mind. Agreeing changes nothing and stamps nothing, or the stamp would make the planner's no theirs to undo.
+  if held.id is not null and not held.expected and held.checked_in_at is null then
+    if home then
+      raise exception 'a planner has them out tonight' using errcode = 'FD016';
+    end if;
+    return;
   end if;
 
   insert into public.night_attendance (household_id, plan_night_id, member_id, expected, checked_in_at)

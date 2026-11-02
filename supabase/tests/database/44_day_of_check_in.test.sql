@@ -1,6 +1,6 @@
 -- The day-of check-in (#41): for yourself (or a profile nobody has claimed), for tonight only.
 begin;
-select plan(17);
+select plan(22);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -71,6 +71,14 @@ select results_eq(
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 select throws_ok($$ select public.answer_check_in('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a2', true) $$,
   'FD016', null, 'and "home" doesn''t overrule the planner');
+select lives_ok($$ select public.answer_check_in('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a2', false) $$,
+  'saying "not home" first is fine');
+select results_eq(
+  $$ select expected, checked_in_at is null from public.night_attendance
+     where plan_night_id = '00000000-0000-0000-0000-0000000004a1' and member_id = '00000000-0000-0000-0000-0000000000a2' $$,
+  $$ values (false, true) $$, 'but stamps nothing, since it''s still the planner''s no');
+select throws_ok($$ select public.answer_check_in('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a2', true) $$,
+  'FD016', null, 'so it can''t be a way round them');
 
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
 select throws_ok($$ select public.answer_check_in('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a3', false) $$,
@@ -93,6 +101,17 @@ select lives_ok($$ select public.answer_check_in('00000000-0000-0000-0000-000000
   'a late "not home" lands on a dinner already logged');
 select is((select cooked_by_member_id from public.meal_logs where id = '00000000-0000-0000-0000-0000000005a1'), null::uuid,
   'and they didn''t cook a dinner they weren''t home for');
+
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+update public.night_attendance set expected = false
+where plan_night_id = '00000000-0000-0000-0000-0000000004a1' and member_id = '00000000-0000-0000-0000-0000000000a2';
+select results_eq(
+  $$ select expected, checked_in_at is null from public.night_attendance
+     where plan_night_id = '00000000-0000-0000-0000-0000000004a1' and member_id = '00000000-0000-0000-0000-0000000000a2' $$,
+  $$ values (false, true) $$, 'a planner marking out someone who already said no makes it the planner''s no');
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select throws_ok($$ select public.answer_check_in('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a2', true) $$,
+  'FD016', null, 'so they can''t take that one back either');
 
 select * from finish();
 rollback;
