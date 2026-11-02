@@ -6,8 +6,10 @@
 --
 -- checked_in_at says the person answered, and `expected` holds what they said, so "said they won't be home" is
 -- expected = false with checked_in_at set. That's what a planner's note on This Week reads, and server push can read the
--- same rows later. Any other write to `expected` clears it, even one that leaves it the same: the planner has spoken since, so
--- the row no longer says what they said, and it can't be taken back as their own.
+-- same rows later. Any other write to `expected` clears it, even one that leaves it the same, so the row no longer says what
+-- they said and it can't be taken back as their own. Usually that's a planner. It's also "Wasn't home" (set_not_home), which
+-- comes after dinner and isn't stamped: a stamp would put "won't be home tonight" in front of a planner once dinner's over, and
+-- a late Home can't then undo what they said about the dinner since. Neither path gives anyone more than they had.
 
 alter table public.night_attendance add column checked_in_at timestamptz;
 
@@ -49,11 +51,11 @@ begin
   end if;
 
   select * into held from public.night_attendance where plan_night_id = night.id and member_id = target_member for update;
-  -- A planner has them out, and they didn't say so themselves: that's the planner's to change. Someone who said not home
-  -- can change their mind. Agreeing changes nothing and stamps nothing, or the stamp would make the planner's no theirs to undo.
+  -- They're out, and not by a check-in: a planner's no, or their own "Wasn't home". Someone who said not home here can change
+  -- their mind. Agreeing changes nothing and stamps nothing, or the stamp would make a planner's no theirs to undo.
   if held.id is not null and not held.expected and held.checked_in_at is null then
     if home then
-      raise exception 'a planner has them out tonight' using errcode = 'FD016';
+      raise exception 'they''re marked out tonight, and not by a check-in' using errcode = 'FD016';
     end if;
     return;
   end if;

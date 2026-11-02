@@ -1,6 +1,6 @@
 -- The day-of check-in (#41): for yourself (or a profile nobody has claimed), for tonight only.
 begin;
-select plan(22);
+select plan(24);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -112,6 +112,12 @@ select results_eq(
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 select throws_ok($$ select public.answer_check_in('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a2', true) $$,
   'FD016', null, 'so they can''t take that one back either');
+
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select lives_ok($$ select public.set_not_home('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a3') $$,
+  '"Wasn''t home" for Nora, after dinner, on top of her check-in');
+select throws_ok($$ select public.answer_check_in('00000000-0000-0000-0000-0000000004a1', '00000000-0000-0000-0000-0000000000a3', true) $$,
+  'FD016', null, 'a late Home doesn''t undo it, and a planner can still put her back');
 
 select * from finish();
 rollback;
