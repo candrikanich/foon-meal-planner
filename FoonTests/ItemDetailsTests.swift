@@ -143,34 +143,65 @@ struct ItemStoreTests {
     }
 
     @Test func keepOnHandIsQueuedEvenWhenTheNoteCannotBeSaved() async {
-        let queued = Mutex<[Bool]>([])
+        let queued = Mutex<[StockState?]>([])
         let store = ItemStore(item: toothpaste, canRecategorize: false,
                               client: ItemClient(update: { _, _ in throw URLError(.notConnectedToInternet) }),
                               queueStock: { keep in queued.withLock { $0.append(keep) } })
         store.keepOnHand = true
         store.note = "mint"
         #expect(!(await store.save()))
-        #expect(queued.withLock { $0 } == [true], "the stock change works offline, so it goes through")
+        #expect(queued.withLock { $0 } == [.in], "the stock change works offline, so it goes through")
         #expect(store.errorMessage == "Keep on hand is saved. The note needs a connection; try again.")
         #expect(!(await store.save()))
-        #expect(queued.withLock { $0 } == [true], "a retry doesn't queue it twice")
+        #expect(queued.withLock { $0 } == [.in], "a retry doesn't queue it twice")
     }
 
     @Test func keepOnHandAloneNeedsNoConnection() async {
-        let queued = Mutex<[Bool]>([])
+        let queued = Mutex<[StockState?]>([])
         let store = ItemStore(item: toothpaste, canRecategorize: false,
                               client: ItemClient(update: { _, _ in Issue.record("should not be called") }),
                               queueStock: { keep in queued.withLock { $0.append(keep) } })
         store.keepOnHand = true
         #expect(await store.save())
-        #expect(queued.withLock { $0 } == [true])
+        #expect(queued.withLock { $0 } == [.in])
+    }
+
+    @Test func markingAStapleLowIsQueued() async {
+        let queued = Mutex<[StockState?]>([])
+        let store = ItemStore(item: toothpaste, canRecategorize: false, client: .preview,
+                              queueStock: { state in queued.withLock { $0.append(state) } })
+        store.startFromCache(keepOnHand: true, stock: .in)
+        store.stockState = .low
+        #expect(await store.save())
+        #expect(queued.withLock { $0 } == [.low])
+    }
+
+    @Test func savingANoteLeavesALowStapleLow() async {
+        let queued = Mutex<[StockState?]>([])
+        let store = ItemStore(item: toothpaste, canRecategorize: false, client: ItemClient(update: { _, _ in }),
+                              queueStock: { state in queued.withLock { $0.append(state) } })
+        store.startFromCache(keepOnHand: true, stock: .low)
+        store.note = "mint"
+        #expect(await store.save())
+        #expect(queued.withLock { $0 }.isEmpty)
+    }
+
+    @Test func stoppingKeepingAStapleClearsItsStock() async {
+        let queued = Mutex<[StockState?]>([])
+        let store = ItemStore(item: toothpaste, canRecategorize: false, client: .preview,
+                              queueStock: { state in queued.withLock { $0.append(state) } })
+        store.startFromCache(keepOnHand: true, stock: .out)
+        store.keepOnHand = false
+        #expect(await store.save())
+        #expect(queued.withLock { $0 } == [nil])
     }
 
     @Test func theSheetStartsFromTheOfflineCachesStock() {
         let store = ItemStore(item: toothpaste, canRecategorize: false, client: .preview, queueStock: { _ in })
-        store.startFromCache(keepOnHand: true)
+        store.startFromCache(keepOnHand: true, stock: .low)
         #expect(store.keepOnHand)
         #expect(store.item.keepOnHand, "the cache is the baseline, so nothing is queued unless it changes")
+        #expect(store.stockState == .low)
     }
 
     @Test func aFailedSaveSaysSo() async {

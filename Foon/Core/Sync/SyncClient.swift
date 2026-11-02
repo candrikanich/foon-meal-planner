@@ -43,7 +43,7 @@ extension SyncClient {
 
                 let dayAgo = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-86_400))
                 let listItems: [ListItemRow] = try await client.from("list_items")
-                    .select("id, household_id, item_id, list, urgency, source, note, quantity, checked_at")
+                    .select("id, household_id, item_id, list, urgency, source, note, quantity, plan_id, checked_at")
                     .eq("household_id", value: householdID)
                     .or("checked_at.is.null,checked_at.gte.\(dayAgo)")
                     .execute()
@@ -66,10 +66,10 @@ extension SyncClient {
                         .eq("id", value: listItemID)
                         .execute()
                     return nil
-                case .addToList(let householdID, let itemID, let list, let urgency, let source, let note, let lineID):
+                case .addToList(let householdID, let itemID, let list, let urgency, let source, let note, let lineID, let quantity, let planID):
                     let line: LineID = try await client.rpc("add_to_list", params: AddToListParams(
                         targetHousehold: householdID, targetItem: itemID, targetList: list,
-                        itemUrgency: urgency, itemSource: source, itemNote: note, lineID: lineID
+                        itemUrgency: urgency, itemSource: source, itemNote: note, lineID: lineID, itemQuantity: quantity, itemPlan: planID
                     )).select("id").single().execute().value
                     return line.id == lineID ? nil : line.id
                 case .setStock(let itemID, let state):
@@ -162,6 +162,8 @@ private struct AddToListParams: Encodable, Sendable {
     let itemSource: ListItemSource
     let itemNote: String?
     let lineID: UUID
+    let itemQuantity: String?
+    let itemPlan: UUID?
 
     enum CodingKeys: String, CodingKey {
         case targetHousehold = "target_household"
@@ -171,6 +173,8 @@ private struct AddToListParams: Encodable, Sendable {
         case itemSource = "item_source"
         case itemNote = "item_note"
         case lineID = "line_id"
+        case itemQuantity = "item_quantity"
+        case itemPlan = "item_plan"
     }
 
     // PostgREST matches functions by argument names, so every argument is sent, null included.
@@ -183,6 +187,8 @@ private struct AddToListParams: Encodable, Sendable {
         try container.encode(itemSource, forKey: .itemSource)
         try container.encode(itemNote, forKey: .itemNote)
         try container.encode(lineID, forKey: .lineID)
+        try container.encode(itemQuantity, forKey: .itemQuantity)
+        try container.encode(itemPlan, forKey: .itemPlan)
     }
 }
 

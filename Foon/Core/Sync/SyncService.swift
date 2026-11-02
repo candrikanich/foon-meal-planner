@@ -111,16 +111,21 @@ final class SyncService {
     /// Adds an item to a list and returns the line's id, usable at once for a check-off.
     @discardableResult
     func addToList(itemID: UUID, list: ListKind, urgency: ListUrgency = .whenever,
-                   source: ListItemSource = .manual, note: String? = nil) async -> UUID {
+                   source: ListItemSource = .manual, note: String? = nil, quantity: String? = nil,
+                   planID: UUID? = nil) async -> UUID {
         let lineID = openLine(itemID: itemID, list: list)?.id ?? UUID()
         await perform(.addToList(householdID: householdID, itemID: itemID, list: list, urgency: urgency,
-                                 source: source, note: note, lineID: lineID))
+                                 source: source, note: note, lineID: lineID, quantity: quantity, planID: planID))
         return lineAliases[lineID] ?? lineID
     }
 
     /// Whether the cached item is a staple, including changes still queued. Nil when it isn't cached.
     func isKeptOnHand(_ itemID: UUID) -> Bool? {
         item(itemID)?.keepOnHand
+    }
+
+    func stockState(_ itemID: UUID) -> StockState? {
+        item(itemID)?.stockState
     }
 
     /// Device line ids the server merged into existing lines (kept for this session).
@@ -220,7 +225,7 @@ final class SyncService {
             context.insert(CachedListItem(
                 id: row.id, householdID: household, itemID: row.itemID, itemName: names[row.itemID] ?? "Item",
                 list: row.list, urgency: row.urgency, source: row.source, note: row.note, checkedAt: row.checkedAt,
-                quantity: row.quantity
+                quantity: row.quantity, planID: row.planID
             ))
         }
     }
@@ -252,15 +257,16 @@ final class SyncService {
         case .removeFromList(let listItemID):
             if let line = listLine(lineAliases[listItemID] ?? listItemID) { context.delete(line) }
 
-        case .addToList(let household, let itemID, let list, let urgency, let source, let note, let lineID):
+        case .addToList(let household, let itemID, let list, let urgency, let source, let note, let lineID, let quantity, let planID):
             // Mirrors add_to_list: merge into the item's open line on that list; urgency only goes up.
             if let open = openLine(itemID: itemID, list: list) {
                 if urgency == .tonight { open.urgency = .tonight }
-                if open.note == nil { open.note = note }
+                open.note = ListNotes.merged(existing: open.note, incoming: note)
+                if open.quantity == nil { open.quantity = quantity }
             } else {
                 context.insert(CachedListItem(
                     id: lineID, householdID: household, itemID: itemID, itemName: item(itemID)?.name ?? "Item",
-                    list: list, urgency: urgency, source: source, note: note, checkedAt: nil
+                    list: list, urgency: urgency, source: source, note: note, checkedAt: nil, quantity: quantity, planID: planID
                 ))
             }
         }

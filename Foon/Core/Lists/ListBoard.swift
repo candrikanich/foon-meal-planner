@@ -154,12 +154,14 @@ enum ListBoard {
             .map { .setStock(itemID: $0, state: .in) }
     }
 
-    /// "Couldn't find it": the item moves to the quick list for the next trip.
+    /// "Couldn't find it": the item moves to the quick list for the next trip, with its amount and any allergy note.
     static func couldntFind(_ entry: ListEntry, householdID: UUID, newLineID: UUID) -> [OfflineChange] {
         guard entry.list != .quick else { return [] }
         return [
             .addToList(householdID: householdID, itemID: entry.itemID, list: .quick, urgency: .whenever,
-                       source: .manual, note: String(localized: "Couldn't find it last trip"), lineID: newLineID),
+                       source: .manual,
+                       note: ListNotes.merged(existing: entry.lineNote, incoming: String(localized: "Couldn't find it last trip")),
+                       lineID: newLineID, quantity: entry.quantity),
             .removeFromList(listItemID: entry.lineID)
         ]
     }

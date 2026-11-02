@@ -219,7 +219,7 @@ select results_eq($$ select quick_pick::text, leftovers_from from public.plan_ni
   'correcting what was eaten long ago keeps the leftovers already eaten and only drops the link');
 
 -- What approve_plan does with a rebuilt line. These strings stand in for what the app builds (doubling itself is
--- tested in DoubleItTests): sent again it's replaced, not added to, and it never touches a line it doesn't own.
+-- tested in DoubleItTests): sent again it's replaced, not added to, and it never changes the amount on a line it doesn't own.
 select public.approve_plan('00000000-0000-0000-0000-0000000003a1',
   '[{"item_id": "00000000-0000-0000-0000-0000000001a1", "quantity": "2 lb (doubled)"}]'::jsonb);
 select public.approve_plan('00000000-0000-0000-0000-0000000003a1',

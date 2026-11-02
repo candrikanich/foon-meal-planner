@@ -7,7 +7,7 @@ enum OfflineChange: Codable, Equatable, Sendable {
     case setChecked(listItemID: UUID, checked: Bool)
     /// `lineID` is the id the device gave the new line, so later changes to it reach the same row.
     case addToList(householdID: UUID, itemID: UUID, list: ListKind, urgency: ListUrgency, source: ListItemSource,
-                   note: String?, lineID: UUID)
+                   note: String?, lineID: UUID, quantity: String? = nil, planID: UUID? = nil)
     case setStock(itemID: UUID, state: StockState?)
     /// Takes a line off its list ("couldn't find it" moves it to the quick list).
     case removeFromList(listItemID: UUID)
@@ -71,7 +71,7 @@ enum OfflineReplay {
                 report.sent.append(entry.sequence)
             case .merged(let existing):
                 report.sent.append(entry.sequence)
-                if case .addToList(_, _, _, _, _, _, let lineID) = change, lineID != existing {
+                if case .addToList(_, _, _, _, _, _, let lineID, _, _) = change, lineID != existing {
                     report.aliases[lineID] = existing
                 }
             case .rejected:

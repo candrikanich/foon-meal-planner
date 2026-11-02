@@ -9,18 +9,21 @@ enum DoubleIt {
     /// whoever's home then counts for its allergy notes. Only a link doubles the amounts. Tonight leaves once
     /// its dinner is logged (`logged`): it's over, and what was eaten may not be what was planned.
     static func listNights(_ layout: WeekLayout, logged: Set<UUID> = [], library: [LibraryMeal], allergies: [MemberAllergies]) -> [WeeklyList.Night] {
-        layout.plannable.filter { !logged.contains($0.id) }.map { night in
-            let later = leftoversNight(of: night, in: layout.ahead)
-            let eatenAgain = night.mealID.map { id in
-                layout.ahead.filter { leftoversDish(on: $0, nights: layout.ahead, library: library)?.id == id }
-            } ?? []
-            var home = night.allergyHome(allergies)
-            for leftovers in eatenAgain + (later.map { [$0] } ?? []) {
-                home.formUnion(leftovers.allergyHome(allergies))
-            }
-            return WeeklyList.Night(mealID: night.mealID, home: home,
-                                    doubled: later != nil, fromFreezer: night.stashItemID != nil)
+        layout.plannable.filter { !logged.contains($0.id) }.map { listNight($0, in: layout, library: library, allergies: allergies) }
+    }
+
+    /// One night as the list sees it.
+    static func listNight(_ night: WeekNight, in layout: WeekLayout, library: [LibraryMeal], allergies: [MemberAllergies]) -> WeeklyList.Night {
+        let later = leftoversNight(of: night, in: layout.ahead)
+        let eatenAgain = night.mealID.map { id in
+            layout.ahead.filter { leftoversDish(on: $0, nights: layout.ahead, library: library)?.id == id }
+        } ?? []
+        var home = night.allergyHome(allergies)
+        for leftovers in eatenAgain + (later.map { [$0] } ?? []) {
+            home.formUnion(leftovers.allergyHome(allergies))
         }
+        return WeeklyList.Night(mealID: night.mealID, home: home,
+                                doubled: later != nil, fromFreezer: night.stashItemID != nil)
     }
 
     /// What changing this night also changes, said before it happens: in Swap, and in Plan it. Shuffle isn't offered on
