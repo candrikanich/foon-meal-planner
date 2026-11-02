@@ -65,11 +65,11 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
         var summary: String {
             switch self {
             case .light:
-                String(localized: "Only what you'd hate to miss: time to plan and prep reminders. No rating prompts or polls. \"The plan's set\" and urgent list items are on the way.")
+                String(localized: "Only what you'd hate to miss: time to plan, \"the plan's set,\" something added for tonight, and prep reminders. No rating prompts or polls.")
             case .balanced:
-                String(localized: "Light, plus a \"home tonight?\" check-in and an after-dinner rating prompt. Kids get a few a week at most.")
+                String(localized: "Light, plus a \"home tonight?\" check-in, an after-dinner rating prompt, and telling planners who won't be home or will cook. Kids get a few a week at most.")
             case .engaged:
-                String(localized: "Everything so far: Balanced, plus one follow-up on reminders. Idea digests, tonight polls, \"heading to the store,\" and the weekly recap are on the way.")
+                String(localized: "Everything so far: Balanced, plus tonight polls, \"your idea made Friday,\" and one follow-up on reminders. Idea digests, \"heading to the store,\" and the weekly recap are on the way.")
             }
         }
     }
