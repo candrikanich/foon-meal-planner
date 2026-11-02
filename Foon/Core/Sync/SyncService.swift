@@ -101,10 +101,19 @@ final class SyncService {
 
     /// Applies a change to the cache now and queues it for the server.
     func perform(_ change: OfflineChange) async {
-        applyLocally(change)
-        let sequence = (pendingChanges().map(\.sequence).max() ?? 0) + 1
-        if let pending = try? PendingChange(sequence: sequence, householdID: householdID, change: change) {
-            context.insert(pending)
+        await perform([change])
+    }
+
+    /// One tap's changes, applied and queued together before anything waits on the network, so a second tap can't land
+    /// between them (a check-off's restock after its own undo).
+    func perform(_ changes: [OfflineChange]) async {
+        var sequence = pendingChanges().map(\.sequence).max() ?? 0
+        for change in changes {
+            applyLocally(change)
+            sequence += 1
+            if let pending = try? PendingChange(sequence: sequence, householdID: householdID, change: change) {
+                context.insert(pending)
+            }
         }
         try? context.save()
         pendingCount = pendingChanges().count
@@ -212,7 +221,7 @@ final class SyncService {
         // Realtime's item change pulls it in.
         let keptMaybe = entries.contains { entry in
             switch entry.change {
-            case .removeStapleLine, .restock(_, .some): report.sent.contains(entry.sequence)
+            case .removeStapleLine, .restock(_, .some), .restoreStock: report.sent.contains(entry.sequence)
             default: false
             }
         }
@@ -317,6 +326,10 @@ final class SyncService {
             // Re-applied after a pull, so it mirrors the server's check rather than overwriting the snapshot's stock.
             guard let item = item(itemID), item.keepOnHand, ifWas == nil || item.stockState == ifWas else { return }
             item.stockState = .in
+
+        case .restoreStock(let itemID, let state):
+            guard let item = item(itemID), item.keepOnHand, item.stockState == .in else { return }
+            item.stockState = state
 
         case .removeStapleLine(let listItemID):
             if let line = listLine(lineAliases[listItemID] ?? listItemID), Self.isOpenStapleLine(line) { context.delete(line) }

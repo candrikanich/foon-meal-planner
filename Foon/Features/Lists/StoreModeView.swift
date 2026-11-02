@@ -119,8 +119,11 @@ struct StoreModeView: View {
     // MARK: - Actions
 
     private func check(_ entry: ListEntry, _ checked: Bool) {
-        let changes = checked ? ListBoard.gotIt(entry) : ListBoard.putBack(entry)
-        Task { for change in changes { await sync?.perform(change) } }
+        var updated = trip
+        let changes = checked ? ListBoard.gotIt(entry) : ListBoard.putBack(entry, stockBefore: updated.stock(before: entry.itemID))
+        updated.note(entry, checked: checked)
+        savedTrip = updated.rawValue
+        Task { await sync?.perform(changes) }
     }
 
     /// The item goes to the quick list for next time, and out of the aisles for this trip.
@@ -131,9 +134,7 @@ struct StoreModeView: View {
         updated.skipped.formUnion(ListBoard.skippedLines(entry, newLineID: newLine))
         // Before the wait: another tap or Finish trip can happen during it, and this would write over them afterward.
         savedTrip = updated.rawValue
-        for change in ListBoard.couldntFind(entry, householdID: householdID, newLineID: newLine) {
-            await sync.perform(change)
-        }
+        await sync.perform(ListBoard.couldntFind(entry, householdID: householdID, newLineID: newLine))
     }
 
     /// Staples went back to in stock as they were checked off, so one marked low or out since stays that way.

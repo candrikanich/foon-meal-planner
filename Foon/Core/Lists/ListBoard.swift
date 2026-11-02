@@ -48,10 +48,25 @@ struct ShoppingTrip: Codable, Equatable, Sendable, RawRepresentable {
     var start: Date
     /// Quick-list lines made by "Couldn't find it" this trip: shown under For next time, not in the aisles.
     var skipped: Set<UUID> = []
+    /// Staples checked off this trip that were low or out, so putting one back puts that back too. Keyed by the item's id as
+    /// text, so it's stored as a JSON object with sorted keys rather than an array in hash order.
+    private var stockBefore: [String: StockState] = [:]
 
     init(start: Date) {
         self.start = Date(timeIntervalSince1970: (start.timeIntervalSince1970 * 1000).rounded() / 1000)
     }
+
+    /// Checking a row off or putting it back: remembers or forgets the stock a check-off is about to restock.
+    mutating func note(_ entry: ListEntry, checked: Bool) {
+        if checked, entry.keepOnHand, let stock = entry.stock, stock != .in {
+            stockBefore[entry.itemID.uuidString] = stock
+        } else if !checked {
+            stockBefore[entry.itemID.uuidString] = nil
+        }
+    }
+
+    /// The low or out a staple checked off this trip was at before.
+    func stock(before itemID: UUID) -> StockState? { stockBefore[itemID.uuidString] }
 
     static func storageKey(_ householdID: UUID) -> String { "foon.trip.\(householdID.uuidString)" }
 
@@ -75,22 +90,24 @@ struct ShoppingTrip: Codable, Equatable, Sendable, RawRepresentable {
     /// Field by field. Without this, RawRepresentable's `==` compares `rawValue` strings, and JSON key order isn't
     /// guaranteed, so the same trip could compare unequal to itself (#115).
     static func == (lhs: ShoppingTrip, rhs: ShoppingTrip) -> Bool {
-        lhs.start == rhs.start && lhs.skipped == rhs.skipped
+        lhs.start == rhs.start && lhs.skipped == rhs.skipped && lhs.stockBefore == rhs.stockBefore
     }
 
-    private enum CodingKeys: String, CodingKey { case start, skipped }
+    private enum CodingKeys: String, CodingKey { case start, skipped, stockBefore }
 
-    /// The start is kept as whole milliseconds, so it reads back exactly.
+    /// The start is kept as whole milliseconds, so it reads back exactly. A trip saved by an older build has no stock to remember.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         start = Date(timeIntervalSince1970: Double(try container.decode(Int64.self, forKey: .start)) / 1000)
         skipped = try container.decodeIfPresent(Set<UUID>.self, forKey: .skipped) ?? []
+        stockBefore = try container.decodeIfPresent([String: StockState].self, forKey: .stockBefore) ?? [:]
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(Int64((start.timeIntervalSince1970 * 1000).rounded()), forKey: .start)
         try container.encode(skipped.sorted { $0.uuidString < $1.uuidString }, forKey: .skipped)
+        if !stockBefore.isEmpty { try container.encode(stockBefore, forKey: .stockBefore) }
     }
 }
 
@@ -185,13 +202,15 @@ enum ListBoard {
     }
 
     /// Putting a cart row back reopens its latest line on each list. A list holds one open line per item, so an older one
-    /// bought this trip (milk bought, marked out again, bought again) stays bought.
-    static func putBack(_ entry: ListEntry) -> [OfflineChange] {
+    /// bought this trip (milk bought, marked out again, bought again) stays bought. A staple that was low or out before it was
+    /// checked off goes back to that; the reopened line is already on the list, so nothing else is added.
+    static func putBack(_ entry: ListEntry, stockBefore: StockState? = nil) -> [OfflineChange] {
         let latest = Dictionary(([entry] + entry.folded).map { ($0.list, $0) }) { lhs, rhs in
             (lhs.checkedAt ?? .distantPast) >= (rhs.checkedAt ?? .distantPast) ? lhs : rhs
         }
-        return entry.lineIDs.filter { id in latest.values.contains { $0.lineID == id } }
+        let reopened: [OfflineChange] = entry.lineIDs.filter { id in latest.values.contains { $0.lineID == id } }
             .map { .setChecked(listItemID: $0, checked: false) }
+        return reopened + (stockBefore.map { [.restoreStock(itemID: entry.itemID, to: $0)] } ?? [])
     }
 
     static func remove(_ entry: ListEntry) -> [OfflineChange] {

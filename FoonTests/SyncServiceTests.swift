@@ -150,6 +150,34 @@ struct SyncServiceTests {
         #expect(service.stockState(milkItem) == .out, "the server will keep out, so this phone shows it while the restock waits")
     }
 
+    @Test func puttingBackAStapleRestoresItsStockOnlyIfStillIn() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let service = makeService(container: container, client: .fake(snapshot: { snapshot }, send: { _ in
+            throw URLError(.notConnectedToInternet)
+        }))
+        await service.pull()
+        await service.perform(.restoreStock(itemID: milkItem, to: .out))
+        #expect(service.stockState(milkItem) == .out)
+        await service.setStock(itemID: milkItem, state: .low)
+        await service.perform(.restoreStock(itemID: milkItem, to: .out))
+        #expect(service.stockState(milkItem) == .low, "marked since, so it stays")
+        await service.perform(.restoreStock(itemID: eggsItem, to: .out))
+        #expect(service.isKeptOnHand(eggsItem) == false)
+    }
+
+    @Test func aTapsChangesAreQueuedTogetherBeforeAnyIsSent() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let sent = Mutex<[OfflineChange]>([])
+        let milkLine = milkLine, milkItem = milkItem, base = snapshot
+        let service = makeService(container: container, client: .fake(snapshot: { base }, send: { change in
+            sent.withLock { $0.append(change) }
+        }))
+        await service.pull()
+        let tap: [OfflineChange] = [.setChecked(listItemID: milkLine, checked: true), .restock(itemID: milkItem, ifWas: .in)]
+        await service.perform(tap)
+        #expect(sent.withLock { $0 } == tap, "in the order the tap made them")
+    }
+
     @Test func checkingOffANonStapleDoesntPull() async throws {
         let container = try SyncService.inMemoryContainer()
         let pulls = Mutex(0)

@@ -158,11 +158,11 @@ struct ListsView: View {
     // MARK: - Actions
 
     private func gotIt(_ entry: ListEntry) {
-        Task { for change in ListBoard.gotIt(entry) { await sync?.perform(change) } }
+        Task { await sync?.perform(ListBoard.gotIt(entry)) }
     }
 
     private func remove(_ entry: ListEntry) {
-        Task { for change in ListBoard.remove(entry) { await sync?.perform(change) } }
+        Task { await sync?.perform(ListBoard.remove(entry)) }
     }
 
     /// Known items go on at once, offline too; a brand-new item needs a connection to be created first. Anything
