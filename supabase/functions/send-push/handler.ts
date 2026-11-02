@@ -77,7 +77,7 @@ export async function handleSendPush(req: Request, deps: SendPushDeps): Promise<
 
 function routeFor(row: OutboxRow): Route | null {
   // An urgent item has tonight's night for its timing, but the news is on the list.
-  if (row.kind === "urgent_item") return { route: "list" };
+  if (row.kind === "urgent_item" || row.kind === "heading_to_store") return { route: "list" };
   // The vote card is on This Week; the night's sheet hides an open poll.
   if (row.kind === "tonight_poll") return { route: "dinner" };
   if (row.kind === "new_requests") return { route: "ideas" };

@@ -15,6 +15,8 @@ struct ListsView: View {
     @State private var shopping = false
     @State private var openItem: ItemDetails?
     @State private var errorMessage: String?
+    @Environment(\.storeRunClient) private var storeRunClient
+    @State private var storeRuns: StoreRunStore?
 
     private var entries: [ListEntry] { ListEntry.entries(lines: lines, items: items) }
 
@@ -31,6 +33,9 @@ struct ListsView: View {
     var body: some View {
         NavigationStack {
             List {
+                if let storeRuns {
+                    StoreRunSection(store: storeRuns, me: household.me, members: household.members)
+                }
                 addSection
                 if let errorMessage {
                     Text(errorMessage).font(.callout).foregroundStyle(.red)
@@ -59,7 +64,17 @@ struct ListsView: View {
                         .disabled(!canShop)
                 }
             }
-            .refreshable { await sync?.pull() }
+            .refreshable {
+                await sync?.pull()
+                await storeRuns?.load()
+            }
+            .task(id: household.household?.id) {
+                guard let householdID = household.household?.id else { return }
+                if storeRuns?.householdID != householdID {
+                    storeRuns = StoreRunStore(householdID: householdID, client: storeRunClient)
+                }
+                await storeRuns?.load()
+            }
             .sheet(item: $openItem) { item in
                 ItemSheet(item: item, canRecategorize: canRecategorize, client: itemClient) { await sync?.pull() }
             }
@@ -73,7 +88,7 @@ struct ListsView: View {
 
     @ViewBuilder
     private var storeMode: some View {
-        if let householdID = household.household?.id { StoreModeView(householdID: householdID) }
+        if let householdID = household.household?.id { StoreModeView(householdID: householdID, run: storeRuns?.run) }
     }
 
     /// Open while there's something to buy, or a trip is still in progress (to finish it).
@@ -192,6 +207,8 @@ struct ListsView: View {
 struct ListEntryRow: View {
     let entry: ListEntry
     var large = false
+    /// Put on the list during a store run: store mode marks it so whoever's shopping sees what's new.
+    var justAdded = false
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -208,6 +225,10 @@ struct ListEntryRow: View {
                 }
             }
             Spacer(minLength: 8)
+            if justAdded {
+                Chip(text: String(localized: "Just added", comment: "Store mode: put on the list during this store run"),
+                     systemImage: "sparkles", tint: Palette.herb)
+            }
             if entry.list == .quick {
                 Chip(text: entry.urgency == .tonight ? String(localized: "Tonight") : String(localized: "Quick"),
                      tint: entry.urgency == .tonight ? Palette.paprika : .secondary)
@@ -232,6 +253,7 @@ struct ListEntryRow: View {
     ListsView()
         .environment(HouseholdStore.preview())
         .environment(\.itemClient, .preview)
+        .environment(\.storeRunClient, .preview)
         .environment(FreezerStore(householdID: Household.sample.id, client: .preview))
         .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .modelContainer(try! SyncService.inMemoryContainer())

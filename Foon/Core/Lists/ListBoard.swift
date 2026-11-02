@@ -21,6 +21,8 @@ struct ListEntry: Identifiable, Equatable, Sendable {
     /// The item's line on the other list, shown in this row. An item has at most one open line per list, so a weekly line
     /// and a tonight line for the same milk read as one milk.
     var folded: [ListEntry] = []
+    /// When this line went on the list.
+    var createdAt: Date? = nil
 
     /// The item: a row is one per item, and keeps its place when a tonight line takes the lead from a weekly one.
     var id: UUID { itemID }
@@ -37,7 +39,7 @@ struct ListEntry: Identifiable, Equatable, Sendable {
             return ListEntry(lineID: line.id, itemID: line.itemID, name: item?.name ?? line.itemName, list: line.list,
                              urgency: line.urgency, quantity: line.quantity, lineNote: line.note, itemNote: item?.note,
                              category: item?.category ?? .other, checkedAt: line.checkedAt,
-                             keepOnHand: item?.keepOnHand ?? false, stock: item?.stockState)
+                             keepOnHand: item?.keepOnHand ?? false, stock: item?.stockState, createdAt: line.createdAt)
         }
     }
 }

@@ -16,9 +16,12 @@ struct StoreModeView: View {
     /// The trip in progress, saved so closing store mode mid-trip keeps the cart and skipped items.
     @AppStorage private var savedTrip: String
     @State private var finished: ListBoard.Summary?
+    /// The household's latest store run: what the family added during it is marked "Just added".
+    let run: StoreRun?
 
-    init(householdID: UUID) {
+    init(householdID: UUID, run: StoreRun? = nil) {
         _savedTrip = AppStorage(wrappedValue: "", ShoppingTrip.storageKey(householdID))
+        self.run = run
     }
 
     private var entries: [ListEntry] { ListEntry.entries(lines: lines, items: items) }
@@ -108,7 +111,7 @@ struct StoreModeView: View {
             Image(systemName: checked ? "checkmark.circle.fill" : "circle")
                 .font(.title2)
                 .foregroundStyle(checked ? Palette.herb : Palette.paprika)
-            ListEntryRow(entry: entry, large: true)
+            ListEntryRow(entry: entry, large: true, justAdded: !checked && entry.justAdded(during: run))
                 .opacity(checked ? 0.5 : 1)
                 .strikethrough(checked)
         }
@@ -168,7 +171,9 @@ struct StoreModeView: View {
 }
 
 #Preview {
-    StoreModeView(householdID: Household.sample.id)
+    StoreModeView(householdID: Household.sample.id,
+                  run: StoreRun(id: UUID(), startedBy: nil, startedAt: .now.addingTimeInterval(-300),
+                                endsAt: .now.addingTimeInterval(300)))
         .environment(HouseholdStore.preview())
         .modelContainer(try! SyncService.inMemoryContainer())
 }

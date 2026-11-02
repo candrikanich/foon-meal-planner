@@ -190,6 +190,22 @@ Deno.test("the ideas digest opens Ideas", async () => {
   }]);
 });
 
+Deno.test("a store run opens the list", async () => {
+  const payloads: ApnsPayload[] = [];
+  const run: OutboxRow = { ...row([sandbox], "heading_to_store"), week_start: null, args: { name: "Ben" } };
+  const { deps } = fakeDeps([run], {}, {
+    deliver: (_device, payload) => {
+      payloads.push(payload);
+      return Promise.resolve("delivered");
+    },
+  });
+  await handleSendPush(request(), deps);
+  assertEquals(payloads, [{
+    aps: { alert: { title: "Ben's at the store.", body: "Add anything in the next 10 minutes." }, sound: "default" },
+    route: "list",
+  }]);
+});
+
 Deno.test("a push whose words can't be made fails without a post", async () => {
   const nameless = fakeDeps([{ ...row([sandbox], "not_home"), args: null }]);
   await handleSendPush(request(), nameless.deps);

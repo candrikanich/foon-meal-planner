@@ -116,6 +116,11 @@ const words: Record<string, (args: Record<string, unknown>, nightDate: string | 
     const name = firstName(args);
     return name ? { title: `${name} started a vote on dinner.`, body: "Tap to vote." } : null;
   },
+  // Someone's at the store now: the words don't say the time, since the push is given up when the run ends.
+  heading_to_store: (args) => {
+    const name = firstName(args);
+    return name ? { title: `${name}'s at the store.`, body: "Add anything in the next 10 minutes." } : null;
+  },
   // A planner's digest of new ideas: how many, and who when it's one person. Never a dish.
   new_requests: (args) => {
     const count = ideaCount(args);

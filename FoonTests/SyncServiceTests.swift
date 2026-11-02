@@ -49,6 +49,25 @@ struct SyncServiceTests {
         try container.mainContext.fetch(FetchDescriptor<CachedListItem>()).filter { $0.itemID == item && $0.checkedAt == nil }
     }
 
+    @Test func aLineAddedBeforeAStoreRunIsntJustAddedWhenAPullComesDuringIt() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let service = makeService(container: container, client: .fake(snapshot: { snapshot }, send: { _ in
+            throw URLError(.notConnectedToInternet)
+        }))
+        await service.pull()
+        await service.addToList(itemID: eggsItem, list: .quick)
+        let madeAt = Date.now.addingTimeInterval(-3600)
+        let pending = try #require(try container.mainContext.fetch(FetchDescriptor<PendingChange>()).first)
+        pending.createdAt = madeAt
+        let run = StoreRun(id: UUID(), startedBy: nil, startedAt: .now.addingTimeInterval(-300), endsAt: .now.addingTimeInterval(300))
+
+        await service.pull()
+        let line = try #require(try openLines(container, item: eggsItem).first)
+        #expect(line.createdAt == madeAt, "still waiting to send, it keeps the time it was added, not the pull's")
+        let entry = try #require(ListEntry.entries(lines: [line], items: []).first)
+        #expect(!entry.justAdded(during: run))
+    }
+
     @Test func outPutsAStapleOnTheQuickListOffline() async throws {
         let container = try SyncService.inMemoryContainer()
         let service = makeService(container: container, client: .fake(snapshot: { snapshot }, send: { _ in

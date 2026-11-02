@@ -323,6 +323,20 @@
     "%@'s allergies" : {
 
     },
+    "%@'s at the store: %lld min left" : {
+      "comment" : "A family member is shopping now",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@'s at the store: %2$lld min left"
+          }
+        }
+      }
+    },
+    "%@'s at the store: 1 min left" : {
+      "comment" : "A family member is shopping now"
+    },
     "%@'s favorite" : {
       "comment" : "Reason chip: a member's favorite"
     },
@@ -1191,6 +1205,9 @@
     "Couldn't switch schedules. Pull to refresh, then try again." : {
 
     },
+    "Couldn't tell the family. Check your connection and try again." : {
+
+    },
     "Couldn't undo it. Check your connection and try again." : {
 
     },
@@ -1413,7 +1430,7 @@
     "Everything" : {
       "comment" : "Family: the household has all the kitchen equipment"
     },
-    "Everything so far: Balanced, plus tonight polls, \"your idea made Friday,\" an evening note to planners about new ideas, and one follow-up on reminders. \"Heading to the store\" and the weekly recap are on the way." : {
+    "Everything so far: Balanced, plus tonight polls, \"your idea made Friday,\" an evening note to planners about new ideas, \"heading to the store,\" and one follow-up on reminders. The weekly recap is on the way." : {
 
     },
     "Everything's in the cart" : {
@@ -1745,6 +1762,9 @@
     "Haven't had it since yesterday" : {
       "comment" : "Reason chip: last made yesterday"
     },
+    "Heading to the store" : {
+
+    },
     "Held back by your food rules" : {
 
     },
@@ -1911,6 +1931,9 @@
     },
     "Joining a family?" : {
 
+    },
+    "Just added" : {
+      "comment" : "Store mode: put on the list during this store run"
     },
     "Keep just the name and link" : {
 
@@ -2369,6 +2392,9 @@
 
     },
     "One step per line" : {
+
+    },
+    "Only an adult in the family can say they're heading to the store." : {
 
     },
     "Only parents can change allergies." : {
@@ -2997,6 +3023,12 @@
     "Store mode" : {
 
     },
+    "Store run: %lld min left" : {
+
+    },
+    "Store run: 1 min left" : {
+
+    },
     "Suggestions" : {
 
     },
@@ -3072,7 +3104,13 @@
     "Taste" : {
 
     },
+    "Tells the family to add anything in the next 10 minutes" : {
+
+    },
     "Tells the family you're cooking this night" : {
+
+    },
+    "Tells the family you're shopping, so they can add anything in the next 10 minutes." : {
 
     },
     "Tex-Mex" : {
@@ -3597,6 +3635,9 @@
     "What your household skips, and when." : {
 
     },
+    "What's added now is marked in store mode." : {
+
+    },
     "What's for dinner tonight?" : {
 
     },
@@ -3712,6 +3753,12 @@
 
     },
     "You're already in a household. Foon supports one household per person for now." : {
+
+    },
+    "You're at the store: %lld min left" : {
+
+    },
+    "You're at the store: 1 min left" : {
 
     },
     "You're away for the rest of this week" : {
