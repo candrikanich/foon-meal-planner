@@ -26,6 +26,17 @@ enum AppTab: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+extension ReminderRoute {
+    /// Where a tapped notification lands. Everything but Lists and Ideas is on This Week.
+    var tab: AppTab {
+        switch self {
+        case .lists: .lists
+        case .ideas: .ideas
+        case .week, .night, .swap, .dinnerCard, .rate, .checkIn: .week
+        }
+    }
+}
+
 extension EnvironmentValues {
     /// Switches the app's tab, e.g. the cart on This Week opens Lists. Set by RootTabView.
     @Entry var showTab: (AppTab) -> Void = { _ in }

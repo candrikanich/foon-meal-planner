@@ -34,7 +34,9 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
   in-app notes reading the same rows). Migration `20261102180000_push_car2.sql`, pgTAP `54_push_car2.test.sql`.
 - **Car 3 (done, 2026-11-02, server half):** urgent list item → adults, tonight poll → whoever's home, request made
   the plan. Migration `20261102190000_push_car3.sql`, pgTAP `55_push_car3.test.sql`. App half: a "list" tap route.
-- **Car 4:** budgets for server pushes (shared count with local reminders via `notification_log`), new-requests digest.
+- **Car 4 (server half, 2026-11-02):** budgets for server pushes (shared count with local reminders via
+  `notification_log`), new-requests digest. Migration `20261102200000_push_car4.sql`, pgTAP `56_push_car4.test.sql`.
+  App half: count your own `channel = 'push'` log rows in the budget, and an "ideas" tap route.
 
 ## Decided (2026-11-02, Chris)
 
@@ -84,6 +86,44 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
   `away_until`). Consent withdrawal (`anonymize_expired_profiles`) deletes urgent and poll rows about the kid, sent too, and
   clears `list_items.urgent_by`; the stamp trigger leaves `urgent_by` alone on updates so retention can clear it.
 
+## Decided for car 4 (2026-11-02, defaults; open questions below)
+
+**Budgets.**
+- One budget per person per household week, the device's numbers: kids 2 / 5 / 6, adults 8 / 12 / 16 on Light / Balanced /
+  Engaged. The household's `notification_preset` only (per-person presets, #47, aren't read on the server yet). The week is
+  the household's (`settings.week_start`, default Sunday) on its clock, the week the push would go out in.
+- Counted from `notification_log`: every row for that person in that household with `sent_at` inside the week, either
+  channel. Server pushes are already logged on send (`complete_push_outbox`, channel `push`). Device rows count once the
+  device has uploaded them; a reminder the device has scheduled but not yet sent isn't counted (no reserving, either way).
+- At claim time, before handing anything out, each due row is ranked per person: `plan_set` and `urgent_item` first, then
+  `not_home` and `claim`, then `tonight_poll`, then `request_planned` and `new_requests`, then soonest. Rows that would take
+  the person past what's left this week end as `failed = 'over_budget'`: never sent, never retried, never logged. It's in
+  `failed` because that is the outbox's one "ended without sending" column (stale, called off by time, gave up); every
+  rule that skips finished rows already skips it. send-push never sees one, so it isn't a delivery failure.
+- A row handed out and not finished (`attempts > 0`, unsent, not failed: a retry waiting, a run still sending, a crashed
+  run's hold) counts against what's left, so a new row can't take the same last slot. Only rows that still stand count, and
+  the over_budget update rechecks `failed is null and attempts = 0` on the row, so one another run just claimed isn't marked.
+- A digest row is a planner's once-a-day mark, so nothing deletes it early: consent withdrawal and
+  `members_drop_push_devices` (removal, leaving, a profile claimed) blank `args.name` and `about_member_id` instead. A
+  digest sent to someone goes when they're removed (what was sent to them goes with them) and stays only on an account
+  change while they're still in the family (their devices go, so an unsent one ends as `no_devices`). A new digest names
+  someone only if `push_may_name` (not a kid whose parental consent was withdrawn); otherwise it's count only.
+- No kind is exempt. Nothing about allergies or safety is a push, so a budget can't drop one.
+- Held for a later week: no. Everything a server push says is about now or a night this week.
+- The device: today it counts only what it scheduled itself (`ReminderCache`), so server pushes don't reduce its own budget
+  yet. App half: read your own `notification_log` rows with `channel = 'push'` (RLS already lets everyone read their own)
+  and add their `sent_at` to `NotificationPlanner.withinBudget`'s count. The device still plans its own reminders first, so
+  a busy week can still reach budget + a few pushes on that phone until it next re-plans; the server never goes past.
+
+**New-requests digest.**
+- Planners, Engaged only. Once a day per planner at 7:30pm on the household's clock (after dinner, before the 9pm quiet
+  hours, outside kids' school hours), if there are new ideas since that planner's last digest (at most the last day, the
+  first time). A pg_cron job every 15 minutes queues it between 7:30 and 9pm, once a planner a day.
+- New: requests created since then that are still open, not asked for or entered by that planner. Not on an away day.
+- Words: "1 new dinner idea." / "2 new dinner ideas.", or with one person "Ben has a new dinner idea." / "Ben has 2 new
+  dinner ideas."; "Tap to see it." / "Tap to see them." Never a dish. `args` is `{"count": n}` plus `"name"` when one person.
+- Route `{"route": "ideas"}`: the app has no ideas route yet (App half). Expires at 9pm that day.
+
 ## Unresolved questions
 
 1. Is Push Notifications ticked on the App ID `com.andrikanich.foon`? Adding the entitlement before that breaks
@@ -92,3 +132,7 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
    ("Ben won't be home tonight", "Ben will cook Thursday"). Proposal: name the family member (first name only), never
    the dish. Plan's set needs no name: "This week's dinners are set."
 3. Does `APPLE_KEY_ID` on staging hold 73FNGXV868? (Assumed yes.)
+4. Car 4: are 7:30pm and once a day right for the ideas digest? Should Balanced get it too?
+5. Car 4: should urgent items and Plan's set be exempt from budgets rather than first in line? Today a person at budget
+   misses an urgent item.
+6. Car 4: should the server read per-person presets once #47 writes them, so the server and the device agree on a budget?

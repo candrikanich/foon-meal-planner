@@ -69,7 +69,7 @@ struct HouseholdSettings: Equatable, Sendable, Codable {
             case .balanced:
                 String(localized: "Light, plus a \"home tonight?\" check-in, an after-dinner rating prompt, and telling planners who won't be home or will cook. Kids get a few a week at most.")
             case .engaged:
-                String(localized: "Everything so far: Balanced, plus tonight polls, \"your idea made Friday,\" and one follow-up on reminders. Idea digests, \"heading to the store,\" and the weekly recap are on the way.")
+                String(localized: "Everything so far: Balanced, plus tonight polls, \"your idea made Friday,\" an evening note to planners about new ideas, and one follow-up on reminders. \"Heading to the store\" and the weekly recap are on the way.")
             }
         }
     }

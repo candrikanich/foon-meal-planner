@@ -174,6 +174,8 @@ struct ReminderPayload: Equatable, Sendable {
             info["member"] = member.uuidString
         case .lists:
             info["route"] = "list"
+        case .ideas:
+            info["route"] = "ideas"
         }
         if let dinnerAt { info["dinner"] = String(dinnerAt.timeIntervalSince1970) }
         return info
@@ -196,6 +198,8 @@ struct ReminderPayload: Equatable, Sendable {
             route = .dinnerCard
         case "list":
             route = .lists
+        case "ideas":
+            route = .ideas
         case "checkin", "rate":
             guard let night = (userInfo["night"] as? String).flatMap(UUID.init(uuidString:)),
                   let member = (userInfo["member"] as? String).flatMap(UUID.init(uuidString:)) else { return nil }

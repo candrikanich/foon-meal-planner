@@ -80,6 +80,7 @@ function routeFor(row: OutboxRow): Route | null {
   if (row.kind === "urgent_item") return { route: "list" };
   // The vote card is on This Week; the night's sheet hides an open poll.
   if (row.kind === "tonight_poll") return { route: "dinner" };
+  if (row.kind === "new_requests") return { route: "ideas" };
   if (row.night_id && row.night_date) return { route: "night", night: row.night_id, date: row.night_date };
   return row.week_start ? { route: "week", date: row.week_start } : null;
 }

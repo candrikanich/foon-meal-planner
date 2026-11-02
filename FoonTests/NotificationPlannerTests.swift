@@ -467,6 +467,12 @@ private typealias F = PlannerFixture
         #expect(plan.count == 2)
     }
 
+    @Test func theServersPushesShareTheBudget() {
+        var inputs = F.inputs(me: F.kim, weeks: [everyNight], now: F.at(8, 12))
+        inputs.pushesSent = [F.at(8, 9), F.at(8, 10), F.at(1, 10)]
+        #expect(NotificationPlanner.plan(inputs).count == 3, "two pushes this week, and last week's doesn't count")
+    }
+
     @Test func nextWeekHasItsOwnBudget() {
         let next = F.week((15...21).map { F.night($0) }, start: 15)
         let sent = (0..<5).map { ReminderHistory(id: "earlier.\($0)", sentAt: F.at(8, 9 + $0)) }
