@@ -39,7 +39,7 @@ supabase/
 3. **Mostly code, AI as helper.** Planning, scoring, filtering, allergy flags, list building, and parsing are deterministic Swift or SQL with unit tests. AI features must check `SystemLanguageModel.default.availability` and always have a non-AI path.
 4. **Minimal data.** First names, avatars, roles, allergies, preferences. No birthdays, phone numbers, location, or photos of people. Allergy data never leaves the device for AI.
 5. **Rate the dish, never the cook.** UI copy about reactions always refers to the food.
-6. **Never hard-delete user content.** Meals archive; members go "away" or are removed with history kept.
+6. **Never hard-delete user content.** Meals archive; members go "away" or are removed with history kept. One exception: a planner can delete a dish nothing depends on yet (see docs/spec.md → Removing).
 7. **Everything configurable has a sensible default.** Settings are layered: defaults, presets, advanced.
 
 ## Domain vocabulary

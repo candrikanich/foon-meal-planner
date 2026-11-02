@@ -71,6 +71,12 @@ final class IdeasStore {
         madeDishes[requestID] = mealID
     }
 
+    /// A dish that's been deleted can't be linked, so an idea remembering it goes back to making a new one.
+    func dishDeleted(_ mealID: UUID) async {
+        madeDishes = madeDishes.filter { $0.value != mealID }
+        await load()
+    }
+
     /// The idea as it is now, before saving it as a dish. Ideas have no realtime, so another phone may have got there
     /// first. Nil when it has a dish now, or has gone.
     func latestToSave(_ request: DinnerRequest) async -> DinnerRequest? {
@@ -97,7 +103,9 @@ final class IdeasStore {
             let refusal = errorMessage
             await load()
             errorMessage = refusal
-            if let linked = requests.first(where: { $0.id == requestID })?.mealID, linked != mealID {
+            let linked = requests.first(where: { $0.id == requestID })?.mealID
+            // Gone means the dish went on another phone, or the idea did. Either way a retry would only be refused again.
+            if (linked != nil && linked != mealID) || refusal == Self.message(for: .update, code: "P0002") {
                 madeDishes[requestID] = nil
             }
             return false

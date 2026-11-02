@@ -76,6 +76,10 @@ final class LibraryStore {
     private(set) var comments: [MealComment] = []
     /// Everyone's serving notes, for meal detail and day cards.
     private(set) var servingNotes: [ServingNote] = []
+    /// Dishes this person can delete, as of the last load. Only decides what's offered: the server checks again.
+    private var unusedMeals: Set<UUID> = []
+    /// What's left to do after a delete. It doesn't hold the screen up, so the dish's page can close straight away.
+    private(set) var deleteCleanup: Task<Void, Never>?
 
     /// Dishes that are someone's favorite now.
     private var favorites: Set<UUID> { Set(reactions.favorites.values.flatMap { $0 }) }
@@ -146,11 +150,13 @@ final class LibraryStore {
             async let likes = client.likes(householdID)
             async let notes = client.servingNotes(householdID)
             async let comments = client.comments(householdID)
+            async let unused = client.unusedMeals(householdID)
             let loaded = try await (meals, history, catalog, allergyRows, itemNames)
             let reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
             let servingNotes = try await notes
             // Not worth failing the Library for: a failed read keeps what was shown.
             let loadedComments = (try? await comments) ?? self.comments
+            let loadedUnused = (try? await unused) ?? unusedMeals
             // Only the newest load counts: an older read can predate a save, and can't speak for a newer load that failed.
             guard generation == loadGeneration else { return }
             answered = true
@@ -164,6 +170,7 @@ final class LibraryStore {
             self.reactions = reactions
             self.servingNotes = servingNotes
             self.comments = loadedComments
+            unusedMeals = loadedUnused
             hasLoaded = true
             lastLoadFailed = false
             errorMessage = nil
@@ -187,6 +194,48 @@ final class LibraryStore {
             errorMessage = archived
                 ? String(localized: "Couldn't archive that meal. Check your connection and try again.")
                 : String(localized: "Couldn't restore that meal. Check your connection and try again.")
+        }
+    }
+
+    func canDelete(_ meal: LibraryMeal) -> Bool {
+        unusedMeals.contains(meal.id)
+    }
+
+    /// Looks again at what can be deleted, after something that may have put a dish to use (Plan it, a serving note).
+    func refreshUnused() async {
+        let generation = loadGeneration
+        guard let unused = try? await client.unusedMeals(householdID), generation == loadGeneration else { return }
+        unusedMeals = unused
+    }
+
+    /// Returns whether it's gone. A photo that can't be removed doesn't undo that: nothing points at it any more.
+    func delete(_ meal: LibraryMeal) async -> Bool {
+        do {
+            let photo = try await client.deleteUnused(meal.id)
+            meals.removeAll { $0.id == meal.id }
+            unusedMeals.remove(meal.id)
+            errorMessage = nil
+            // A read that went out before the delete would bring the dish back, so it's read again after.
+            let readOut = readsOut > 0
+            deleteCleanup = Task { [client] in
+                if readOut { await reload() }
+                if let photo { try? await client.removePhoto(photo) }
+            }
+            return true
+        } catch LibraryClientError.inUse {
+            // Planned or cooked on another phone a moment ago. Reloading stops offering it; loading clears messages, so this goes last.
+            await load(members: members)
+            errorMessage = String(localized: "\(meal.name) is in use now, so it can't be deleted. You can archive it instead.")
+            return false
+        } catch {
+            guard let refusal = Self.refusal(error) else {
+                errorMessage = String(localized: "Couldn't delete \(meal.name). Check your connection and try again.")
+                return false
+            }
+            // This phone was out of date: the dish went on another phone, or this person isn't a planner now.
+            await load(members: members)
+            errorMessage = refusal
+            return false
         }
     }
 

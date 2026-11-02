@@ -129,7 +129,11 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 
 **Quantities.** Recipes scale once, at import, to household size. Short-handed nights don't rescale; they predict leftovers instead. Per-night scaling of weight-based items (meat, produce) is a later option. Household size updates automatically with away status. The one exception is Double it (see Cook once, eat twice), which doubles a night's amounts on the list, and says so.
 
-**Removing.** Swipe to archive: gone from suggestions, recoverable, history kept. Nothing is hard-deleted. Dislike rules retire dishes automatically.
+**Removing.** Swipe to archive: gone from suggestions, recoverable, history kept. Dislike rules retire dishes automatically.
+
+- **Deleting an unused dish (#168, decided 2026-10-31):** the one thing that's hard-deleted, so a mistaken import doesn't sit under Archived forever. Planners get Delete, after a confirmation, on the dish screen and the Library long-press, only for a dish nothing depends on: never on a plan night or in the plan's change history, no dinner logged (ratings hang off those), not a tradition, not another dish's side, no serving note, nothing in the freezer. Everything else can only be archived. The server checks again and makes the delete in one step, so a dish planned on another phone a moment earlier is refused with a message.
+- **What goes with it:** its ingredient lines, its own side list, and its photo. The app removes the photo after the delete, so a failure there can leave an unreachable file in Storage. The household keeps the items.
+- **An idea linked to it** stays, with its name and link (taking the dish's name if it had none). A planned one goes back to waiting; an archived or special-occasion one stays as it is.
 
 **Library screen.** Search, a prominent Add button (quick add, link, photo, paste), filter chips (Favorites, Quick, Trying, Backup dinners, Allergy flags, Archived), a two-column photo grid with effort, made-by, and allergy indicators, and sorts (Haven't had in a while, Most made, Family favorites, Recently added).
 
@@ -137,10 +141,10 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 - Search matches meal names and ingredients, ignoring case and accents. Matching starter dishes not yet in the library appear below the family's own ("From Foon's ideas").
 - History (times made, last made) counts logged dinners: confirmed, or saved overnight unanswered (#42). A past night of an approved plan with no log (from before logs existed) still counts. Haven't had in a while puts never-made dishes last; they're new, not forgotten.
 - Favorites shows dishes that are someone's favorite now (their latest reaction). Family favorites sorts by how many people's favorite a dish is, then by how often anyone rated it Favorite or Good (#42).
-- Long-press: Plan it and Archive, or Back in rotation for archived meals (planners only).
+- Long-press: Plan it and Archive, or Back in rotation for archived meals, plus Delete for a dish that's never been used (planners only).
 - Browse ideas lists the catalog by category; planners copy a dish into the library with one tap, and adding it again returns the copy already there, even a retired one: a dish the dislike rule retired stays retired until a planner brings it back.
 
-**Meal detail.** Hero photo with "Replace with yours"; tags and allergy flags (Make it safe comes later; see Allergies); every family member's current verdict, visible to all; history and frequency ("Made 8 times, about every 2 weeks"); editable ingredients with Add to list; optional recipe steps and source link; prep steps; comments; per-person serving notes ("Nora: keep everything separate before mixing"), shown on day cards and in cook mode when that person is home; actions Plan it, Copy and tweak, Archive.
+**Meal detail.** Hero photo with "Replace with yours"; tags and allergy flags (Make it safe comes later; see Allergies); every family member's current verdict, visible to all; history and frequency ("Made 8 times, about every 2 weeks"); editable ingredients with Add to list; optional recipe steps and source link; prep steps; comments; per-person serving notes ("Nora: keep everything separate before mixing"), shown on day cards and in cook mode when that person is home; actions Plan it, Copy and tweak, Archive, and Delete for a dish that's never been used.
 
 - v1 (#19): ingredients are edited as lines (amount and name), typed or pasted naturally with autocomplete from the library. New items take the starter pack's category for the same name, else Other. Saving writes the meal and its lines together.
 - Add to list puts an ingredient (or all of them) on the quick list; anyone in the family can, offline too.

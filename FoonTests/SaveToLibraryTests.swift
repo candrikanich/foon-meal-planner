@@ -493,6 +493,26 @@ struct StalePhoneTests {
         #expect(store.errorMessage?.contains("connection") == false)
     }
 
+    @Test func deletingADishForgetsItForTheIdeaThatMadeIt() async {
+        let dish = UUID(), other = UUID()
+        let idea = DinnerRequest(requestedByMemberID: asker, title: "Chili")
+        let otherIdea = DinnerRequest(requestedByMemberID: asker, title: "Soup")
+        let store = ideas { [idea, otherIdea] }
+        store.rememberDish(dish, for: idea.id)
+        store.rememberDish(other, for: otherIdea.id)
+        await store.dishDeleted(dish)
+        #expect(store.madeDishes[idea.id] == nil)
+        #expect(store.madeDishes[otherIdea.id] == other)
+    }
+
+    @Test func aRememberedDishDeletedOnAnotherPhoneIsForgotten() async {
+        let dish = UUID()
+        let idea = DinnerRequest(requestedByMemberID: asker, title: "Chili")
+        let store = ideas({ [idea] }, update: { _, _ in throw PostgrestError(code: "P0002", message: "no meal") })
+        #expect(!(await store.linkDish(dish, to: idea.id)))
+        #expect(store.madeDishes[idea.id] == nil, "a retry makes a new dish instead of being refused forever")
+    }
+
     @Test func aFailedLinkOfflineKeepsItsOwnMessageAndTheDish() async {
         let dish = UUID()
         let idea = DinnerRequest(requestedByMemberID: asker, title: "Chili")
