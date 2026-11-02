@@ -39,6 +39,8 @@ struct FamilyView: View {
                     }
                 }
 
+                FamilyStatsSection(stats: store.stats)
+
                 Section("Family") {
                     ForEach(store.visibleMembers) { member in
                         NavigationLink {
@@ -188,9 +190,11 @@ struct FamilyView: View {
             .refreshable {
                 await store.load()
                 await loadDinners()
+                await store.loadStats()
             }
             // Waits for the household, so the tally uses its time zone (the store's calendar is shared with This Week).
             .task(id: store.household?.id) { await loadDinners() }
+            .task(id: store.household?.id) { await store.loadStats() }
             .navigationTitle("Family")
             .toolbar {
                 if store.canManagePeople {

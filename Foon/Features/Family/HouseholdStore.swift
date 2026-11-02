@@ -41,6 +41,9 @@ final class HouseholdStore {
     private(set) var parentalConsentMemberIDs: Set<UUID> = []
     /// Saved schedules ("School year"), by name; loaded when their screen opens.
     private(set) var attendanceTemplates: [AttendanceTemplate] = []
+    /// "This month" on the Family tab; nil until it loads, and left as it was if a refresh fails.
+    private(set) var stats: FamilyStats?
+    private var statsHouseholdID: UUID?
 
     /// Bumped per fetch and per save, so a fetch that started before a save can't put old settings back.
     private var loadGeneration = 0
@@ -149,6 +152,19 @@ final class HouseholdStore {
 
     func clearError() {
         errorMessage = nil
+    }
+
+    /// The month so far, by the household's day. Quiet on failure: the card is a nice-to-have, never in the way.
+    func loadStats(now: Date = .now) async {
+        guard let household else { return }
+        if statsHouseholdID != household.id {
+            stats = nil
+        }
+        let range = FamilyStats.monthToDate(today: household.planningSettings.today(now: now))
+        guard let loaded = try? await client.familyStats(household.id, range.from, range.to),
+              self.household?.id == household.id else { return }
+        stats = loaded
+        statsHouseholdID = household.id
     }
 
     func load() async {

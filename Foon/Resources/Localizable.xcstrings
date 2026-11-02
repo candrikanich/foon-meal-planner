@@ -390,6 +390,12 @@
     "%lld dinners" : {
 
     },
+    "%lld dinners planned together" : {
+      "comment" : "Family stats: dinners planned this month"
+    },
+    "%lld family dinners at the table" : {
+      "comment" : "Family stats: dinners eaten at home"
+    },
     "%lld hours ahead" : {
 
     },
@@ -414,6 +420,12 @@
     "%lld more people" : {
 
     },
+    "%lld new dishes tried" : {
+      "comment" : "Family stats: dishes the family had for the first time"
+    },
+    "%lld nights cooked by someone other than the usual cook" : {
+      "comment" : "Family stats: dinners cooked by someone new to the stove"
+    },
     "%lld nights still open" : {
 
     },
@@ -426,6 +438,17 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "%lld of %lld dinners were someone else's idea" : {
+      "comment" : "Family stats: dishes asked for by someone other than a planner",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld dinners were someone else's idea"
           }
         }
       }
@@ -466,6 +489,15 @@
     "1 dinner" : {
 
     },
+    "1 dinner planned together" : {
+      "comment" : "Family stats: dinners planned this month"
+    },
+    "1 dinner was someone else's idea" : {
+      "comment" : "Family stats: the month's one dish was asked for by someone other than a planner"
+    },
+    "1 family dinner at the table" : {
+      "comment" : "Family stats: dinners eaten at home"
+    },
     "1 hour ahead" : {
 
     },
@@ -484,11 +516,20 @@
     "1 meal can't be fully checked for allergies. Open it to see why." : {
 
     },
+    "1 new dish tried" : {
+      "comment" : "Family stats: dishes the family had for the first time"
+    },
+    "1 night cooked by someone other than the usual cook" : {
+      "comment" : "Family stats: dinners cooked by someone new to the stove"
+    },
     "1 night still open" : {
 
     },
     "1 night." : {
 
+    },
+    "1 of %lld dinners was someone else's idea" : {
+      "comment" : "Family stats: dishes asked for by someone other than a planner"
     },
     "1 request waiting" : {
 
@@ -552,6 +593,9 @@
     },
     "A removed meal" : {
 
+    },
+    "About %@ of planning saved" : {
+      "comment" : "Family stats: estimated planning time saved; the argument is a duration like \"1 hour, 30 minutes\""
     },
     "About the food, not the cook. Only your family sees it." : {
 
@@ -726,6 +770,9 @@
     },
     "Amount of %@" : {
 
+    },
+    "An estimate: %@ for each week planned in Foon." : {
+      "comment" : "Family stats: footnote under the planning time saved; the argument is a duration like \"30 minutes\""
     },
     "An idea" : {
 
@@ -2312,6 +2359,9 @@
     "On their own phones" : {
 
     },
+    "Once a week's plan is approved, this month's dinners show up here." : {
+
+    },
     "One step at a time, with timers" : {
 
     },
@@ -3258,6 +3308,9 @@
 
     },
     "This is the sample family. Delete it and set up your own; you keep your account." : {
+
+    },
+    "This month" : {
 
     },
     "This one's for whoever's home tonight." : {

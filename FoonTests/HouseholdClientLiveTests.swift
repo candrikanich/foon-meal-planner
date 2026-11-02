@@ -978,6 +978,43 @@ struct HouseholdClientLiveTests {
         #expect(rows.first?.response == "done")
     }
 
+    @Test func familyStatsCountTheApprovedMonth() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let weeks = WeekClient.live(supabase)
+        let household = try await households.createHousehold("Stats family", nil, "Ann", HouseholdSettings())
+        let ann = try #require(try await households.members(household.id).first)
+        let settings = household.planningSettings
+        let range = FamilyStats.monthToDate(today: settings.today())
+
+        #expect(try await households.familyStats(household.id, range.from, range.to) == FamilyStats(),
+                "a new household's month is all zeros")
+
+        let start = WeekMath.start(of: range.to, weekStart: settings.weekStart, calendar: settings.dayCalendar)
+        let week = try await weeks.create(household.id, start)
+        let tonight = try #require(week.nights.first { $0.date == range.to })
+        let chili = try await LibraryClient.live(supabase).create(household.id, try MealDraft(newNamed: "Chili").validated())
+        try await weeks.setNight(NightUpdate(nightID: tonight.id, mealID: chili), false)
+        #expect(try await households.familyStats(household.id, range.from, range.to).dinners == 0, "a draft week doesn't count")
+
+        try await weeks.approve(week.planID, [])
+        _ = try await DinnerClient.live(supabase).react(tonight.id, ann.id, .good)
+        let stats = try await households.familyStats(household.id, range.from, range.to)
+        #expect(stats.dinners == 1)
+        #expect(stats.dishes == 1)
+        #expect(stats.ideas == 0)
+        #expect(stats.atTable == 1)
+        #expect(stats.newDishes == 1)
+        #expect(stats.weeksPlanned == 1)
+        #expect(stats.lines.contains(.timeSaved(minutes: 30)))
+
+        let stranger = try await Self.signedUpClient()
+        #expect(try await stranger.familyStats(household.id, range.from, range.to) == FamilyStats(),
+                "another account learns nothing")
+    }
+
     @Test func planChangesAreLoggedAndUndone() async throws {
         let supabase = Self.newSupabaseClient()
         try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
