@@ -98,6 +98,34 @@ on conflict (slug) do update set
   image_path = excluded.image_path,
   prep_steps = excluded.prep_steps;
 
+-- Start-to-table minutes where a tag can't give a fair guess. Quick and slow cooker dishes keep their estimates (#146).
+update public.catalog_meals dish
+set cook_minutes = times.minutes::smallint
+from (values
+  ('pasta-with-sauce-and-meatballs', 45),
+  ('homemade-mac-and-cheese', 40),
+  ('baked-ziti', 60),
+  ('lasagna', 90),
+  ('enchiladas', 50),
+  ('burgers', 30),
+  ('grilled-chicken', 40),
+  ('kebabs', 45),
+  ('steak-night', 35),
+  ('potato-soup', 45),
+  ('sheet-pan-chicken-and-veggies', 45),
+  ('baked-chicken-thighs-and-potatoes', 60),
+  ('chicken-parmesan', 50),
+  ('pork-chops-and-applesauce', 30),
+  ('pork-tenderloin', 45),
+  ('ham-and-scalloped-potatoes', 90),
+  ('meatloaf-and-mashed-potatoes', 75),
+  ('shepherds-pie', 75),
+  ('crab-cakes', 30),
+  ('fish-and-chips-night', 45),
+  ('homemade-pizza-night', 60)
+) as times (slug, minutes)
+where dish.slug = times.slug;
+
 delete from public.catalog_ingredients;
 
 insert into public.catalog_ingredients (catalog_meal_id, name, category, quantity_text, position)
