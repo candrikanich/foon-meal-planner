@@ -60,6 +60,137 @@ struct DinnerStoreTests {
         #expect(sent.first?.1 == .dish(mealID: nil, quickPick: .takeout), "leftovers and the cook aren't touched")
     }
 
+    private final class Flag: Sendable {
+        let value = Mutex(false)
+    }
+
+    private func tonightsChili(me: UUID, rated: Flag) -> @Sendable () -> [DinnerLog] {
+        { [logID, nightID, today, chili] in
+            let reactions = rated.value.withLock { $0 } ? [Reaction(memberID: me, kind: .good, offTonight: false, createdAt: .now)] : []
+            return [DinnerLog(id: logID, nightID: nightID, date: today, mealID: chili, mealName: "Chili", quickPick: nil,
+                              reactions: reactions)]
+        }
+    }
+
+    private func night() -> WeekNight {
+        WeekNight(id: nightID, date: today, effort: .normal, dinnerTime: "18:00", mealID: chili, mealName: "Chili",
+                  quickPick: nil, locked: false, attendance: [:])
+    }
+
+    @Test func rightAfterRatingTheCardOffersAComment() async {
+        let me = UUID()
+        let rated = Flag()
+        let tonight = night()
+        let store = DinnerStore(householdID: UUID(), client: client(
+            logs: tonightsChili(me: me, rated: rated),
+            react: { _, _, _ in rated.value.withLock { $0 = true }; return UUID() },
+            nights: { _, _ in [tonight] }
+        ), now: { self.noon })
+        await store.load(settings: HouseholdSettings())
+        #expect(store.commentPrompts(me: me).isEmpty, "nothing's offered before rating")
+
+        await store.rate(nightID: nightID, memberID: me, .good)
+        #expect(store.commentPrompts(me: me).map(\.id) == [nightID])
+        #expect(store.commentPrompts(me: UUID()).isEmpty, "only to who rated")
+
+        store.skipComment(nightID: nightID)
+        #expect(store.commentPrompts(me: me).isEmpty, "Not now means it's gone")
+    }
+
+    @Test func passingThePhoneDoesntOfferAComment() async {
+        let me = UUID()
+        let rated = Flag()
+        let tonight = night()
+        let store = DinnerStore(householdID: UUID(), client: client(
+            logs: tonightsChili(me: me, rated: rated),
+            react: { _, _, _ in rated.value.withLock { $0 = true }; return UUID() },
+            nights: { _, _ in [tonight] }
+        ), now: { self.noon })
+        await store.load(settings: HouseholdSettings())
+        await store.react(nightID: nightID, memberID: me, .good)
+        #expect(store.commentPrompts(me: me).isEmpty)
+    }
+
+    @Test func aFailedRatingOffersNoComment() async {
+        struct Offline: Error {}
+        let me = UUID()
+        let tonight = night()
+        let store = DinnerStore(householdID: UUID(), client: client(
+            logs: tonightsChili(me: me, rated: Flag()),
+            react: { _, _, _ in throw Offline() },
+            nights: { _, _ in [tonight] }
+        ), now: { self.noon })
+        await store.load(settings: HouseholdSettings())
+        await store.rate(nightID: nightID, memberID: me, .good)
+        #expect(store.commentPrompts(me: me).isEmpty)
+    }
+
+    @Test func savingACommentSendsTheTidiedWordsAndClosesTheCard() async {
+        let me = UUID()
+        let rated = Flag()
+        let sent = Mutex<[String]>([])
+        let tonight = night()
+        var fake = client(
+            logs: tonightsChili(me: me, rated: rated),
+            react: { _, _, _ in rated.value.withLock { $0 = true }; return UUID() },
+            nights: { _, _ in [tonight] }
+        )
+        fake.comment = { [logID] log, member, text in
+            #expect(log == logID)
+            #expect(member == me)
+            sent.withLock { $0.append(text) }
+        }
+        let store = DinnerStore(householdID: UUID(), client: fake, now: { self.noon })
+        await store.load(settings: HouseholdSettings())
+        await store.rate(nightID: nightID, memberID: me, .good)
+
+        #expect(await store.saveComment(nightID: nightID, memberID: me, typed: "   \n ") == false, "blank saves nothing")
+        #expect(sent.withLock { $0 }.isEmpty)
+        #expect(store.commentPrompts(me: me).count == 1, "and doesn't close the card")
+
+        #expect(await store.saveComment(nightID: nightID, memberID: me, typed: "  Too spicy\nfor me "))
+        #expect(sent.withLock { $0 } == ["Too spicy for me"])
+        #expect(store.commentPrompts(me: me).isEmpty)
+    }
+
+    @Test func aCommentThatDoesntSaveKeepsTheCardOpen() async {
+        struct Offline: Error {}
+        let me = UUID()
+        let rated = Flag()
+        let tonight = night()
+        var fake = client(
+            logs: tonightsChili(me: me, rated: rated),
+            react: { _, _, _ in rated.value.withLock { $0 = true }; return UUID() },
+            nights: { _, _ in [tonight] }
+        )
+        fake.comment = { _, _, _ in throw Offline() }
+        let store = DinnerStore(householdID: UUID(), client: fake, now: { self.noon })
+        await store.load(settings: HouseholdSettings())
+        await store.rate(nightID: nightID, memberID: me, .good)
+        #expect(await store.saveComment(nightID: nightID, memberID: me, typed: "Good") == false)
+        #expect(store.errorMessage != nil)
+        #expect(store.commentPrompts(me: me).count == 1)
+    }
+
+    @Test func aCommentFitsWhatTheServerAccepts() throws {
+        #expect(DinnerPrompts.comment(from: "") == nil)
+        #expect(DinnerPrompts.comment(from: " \n\t ") == nil)
+        #expect(DinnerPrompts.comment(from: "  Line one\n\nline two ") == "Line one line two")
+
+        let long = try #require(DinnerPrompts.comment(from: String(repeating: "x", count: 200)))
+        #expect(long.unicodeScalars.count == 140)
+
+        // A family emoji is one character to a person and seven to the server. It's kept whole or left out.
+        let family = "👨‍👩‍👧‍👦"
+        let emoji = try #require(DinnerPrompts.comment(from: String(repeating: family, count: 30)))
+        #expect(emoji.unicodeScalars.count <= 140)
+        #expect(emoji.count == 140 / family.unicodeScalars.count)
+
+        let cutAtASpace = try #require(DinnerPrompts.comment(from: String(repeating: "x", count: 139) + " y"))
+        #expect(cutAtASpace == String(repeating: "x", count: 139), "no space left on the end")
+        #expect(DinnerPrompts.capped("Short") == "Short")
+    }
+
     @Test func theDishOnlyChangesBeforeAnyoneRates() async {
         let rated = DinnerLog(id: logID, nightID: nightID, date: today, mealID: chili, mealName: "Chili", quickPick: nil,
                               reactions: [Reaction(memberID: UUID(), kind: .good, offTonight: false,

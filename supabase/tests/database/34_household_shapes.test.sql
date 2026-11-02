@@ -319,8 +319,7 @@ select is((select hidden from public.meal_comments where member_id = '00000000-0
 
 select throws_ok($$ select public.set_comment_hidden(id, true) from public.reactions
   where member_id = '00000000-0000-0000-0000-0000000000a2' $$, '42501', null, 'a member can''t hide one, even their own');
-select throws_ok($$ update public.reactions set comment_hidden_at = null where member_id = '00000000-0000-0000-0000-0000000000a2' $$,
-  '42501', null, 'or write the column directly');
+select throws_ok($$ delete from public.hidden_comments $$, '42501', null, 'or write the table directly');
 select pg_temp.as_user('f0000000-0000-0000-0000-00000000000f');
 select throws_ok($$ select public.set_comment_hidden(id, true) from public.reactions
   where member_id = '00000000-0000-0000-0000-0000000000a2' $$, '42501', null, 'a kid can''t');
@@ -346,7 +345,7 @@ select is((select count(*)::int from public.meal_comments where id = (select id 
   'nor does anyone else who isn''t a planner');
 
 select pg_temp.as_admin();
-select is((select comment from public.reactions where id = (select id from the_comment)), 'Too spicy for me',
+select is((select comment from public.hidden_comments where reaction_id = (select id from the_comment)), 'Too spicy for me',
   'hiding deletes nothing');
 select is((select reaction::text from public.reactions where id = (select id from the_comment)), 'good',
   'and the rating still counts');
@@ -360,9 +359,9 @@ select is((select hidden from public.meal_comments where id = (select id from th
   'editing it doesn''t bring it back');
 
 -- The export is a planner's, and planners see hidden comments: it has the text, marked hidden.
-select ok((select (r ->> 'comment_hidden_at') is not null and r ->> 'comment' = 'Still too spicy'
-           from jsonb_array_elements(public.export_household('00000000-0000-0000-0000-0000000000a0') -> 'reactions') r
-           where r ->> 'member_id' = '00000000-0000-0000-0000-0000000000a2'), 'the export says it''s hidden');
+select ok((select r ->> 'comment' = 'Still too spicy'
+           from jsonb_array_elements(public.export_household('00000000-0000-0000-0000-0000000000a0') -> 'hidden_comments') r
+           where (r ->> 'reaction_id')::uuid = (select id from the_comment)), 'the export says it''s hidden');
 
 select lives_ok(format($$ select public.set_comment_hidden(%L, false) $$, (select id from the_comment)),
   'a planner brings it back');
@@ -391,7 +390,7 @@ select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select public.set_comment_hidden((select id from the_comment), true);
 select pg_temp.as_admin();
 select public.delete_account_data('b0000000-0000-0000-0000-00000000000b');
-select is((select comment from public.reactions where id = (select id from the_comment)), null,
+select is((select count(*)::int from public.hidden_comments where reaction_id = (select id from the_comment)), 0,
   'deleting an account clears a hidden comment too');
 
 select * from finish();

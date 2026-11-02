@@ -107,6 +107,8 @@ insert into public.meal_logs (id, household_id, night_id, meal_id, cooked_by_mem
 insert into public.reactions (household_id, meal_log_id, member_id, reaction) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000003a1',
    '00000000-0000-0000-0000-0000000000a1', 'good');
+insert into public.hidden_comments (reaction_id, household_id, comment)
+  select id, household_id, 'Too spicy' from public.reactions where household_id = '00000000-0000-0000-0000-0000000000a0';
 insert into public.chef_thanks (household_id, meal_log_id, from_member_id) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000003a1',
    '00000000-0000-0000-0000-0000000000a1');

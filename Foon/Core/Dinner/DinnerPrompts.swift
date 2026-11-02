@@ -17,6 +17,27 @@ enum DinnerPrompts {
 
     static let delay: TimeInterval = 60 * 60
 
+    /// The server's limit on a comment. It counts Unicode code points, not what looks like one character to a person:
+    /// a family emoji is several.
+    static let commentLimit = 140
+
+    /// As much of what's typed as fits, cut only between whole characters.
+    static func capped(_ typed: String) -> String {
+        var scalars = 0
+        return String(typed.prefix { character in
+            scalars += character.unicodeScalars.count
+            return scalars <= commentLimit
+        })
+    }
+
+    /// What's saved of a typed comment: one line, trimmed, within the limit. Nil when there's nothing to say.
+    static func comment(from typed: String) -> String? {
+        let line = typed.split(whereSeparator: \.isNewline).joined(separator: " ")
+        let words = capped(line.trimmingCharacters(in: .whitespacesAndNewlines))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return words.isEmpty ? nil : words
+    }
+
     /// The household's calendar: its time zone, else New York like the server.
     static func calendar(for settings: HouseholdSettings) -> Calendar {
         var calendar = Calendar(identifier: .gregorian)

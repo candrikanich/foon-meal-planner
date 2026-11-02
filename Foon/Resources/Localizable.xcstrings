@@ -523,6 +523,9 @@
     "A removed meal" : {
 
     },
+    "About the food, not the cook. Only your family sees it." : {
+
+    },
     "Add" : {
 
     },
@@ -669,6 +672,9 @@
     },
     "Anything planned for those nights comes off, locked nights included, and doesn't come back if you change your mind." : {
 
+    },
+    "Anything to say about the %@?" : {
+      "comment" : "After rating dinner: the dish, in a sentence"
     },
     "Approve · %lld items" : {
 
@@ -3092,6 +3098,9 @@
     "This is the sample family. Delete it and set up your own; you keep your account." : {
 
     },
+    "This rating is locked in now, so it can't take a comment." : {
+
+    },
     "This week" : {
 
     },
@@ -3147,6 +3156,9 @@
 
     },
     "Too many tries. Wait 15 minutes and try again." : {
+
+    },
+    "Too spicy, more cheese next time..." : {
 
     },
     "Toss" : {
@@ -3527,6 +3539,9 @@
       }
     },
     "dinner" : {
+
+    },
+    "dish" : {
 
     },
     "eggs" : {

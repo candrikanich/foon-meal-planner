@@ -29,6 +29,9 @@ struct DinnerPromptsSection: View {
                     ForEach(DinnerPrompts.rates(me) ? dinner.prompts(me: me.id, settings: settings, at: context.date) : []) { prompt in
                         DinnerCard(prompt: prompt, me: me, open: { sheet = $0 })
                     }
+                    ForEach(dinner.commentPrompts(me: me.id)) { prompt in
+                        DinnerCommentCard(prompt: prompt, me: me)
+                    }
                     ForEach(dinner.extras(me: me.id, settings: settings, at: context.date)) { prompt in
                         DinnerExtrasCard(prompt: prompt)
                     }
@@ -74,7 +77,7 @@ struct DinnerCard: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(question).font(.foonHeadline).foregroundStyle(Palette.ink)
             ReactionRow(selected: nil, disabled: isSaving) { kind in
-                Task { await dinner.react(nightID: prompt.night.id, memberID: me.id, kind) }
+                Task { await dinner.rate(nightID: prompt.night.id, memberID: me.id, kind) }
             }
             actions
                 .font(.foonCaption)
@@ -149,6 +152,59 @@ struct ReactionRow: View {
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
+    }
+}
+
+/// Right after rating: an optional word about the dish. Asks once, and goes away with either button.
+struct DinnerCommentCard: View {
+    @Environment(DinnerStore.self) private var dinner
+    @Environment(LibraryStore.self) private var library
+    @Environment(HouseholdStore.self) private var household
+    let prompt: DinnerPrompts.Prompt
+    let me: Member
+    @State private var typed = ""
+
+    private var question: String {
+        let dish = prompt.log?.mealName ?? String(localized: "dish")
+        return String(localized: "Anything to say about the \(dish)?", comment: "After rating dinner: the dish, in a sentence")
+    }
+
+    private var isSaving: Bool { dinner.saving.contains(prompt.night.id) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(question).font(.foonHeadline).foregroundStyle(Palette.ink)
+            TextField("Too spicy, more cheese next time...", text: $typed, axis: .vertical)
+                .lineLimit(1...3)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel(question)
+                .onChange(of: typed) { _, latest in
+                    let fitted = DinnerPrompts.capped(latest)
+                    if fitted != latest { typed = fitted }
+                }
+            Text("About the food, not the cook. Only your family sees it.")
+                .font(.foonCaption)
+                .foregroundStyle(.secondary)
+            HStack {
+                Button("Not now") { dinner.skipComment(nightID: prompt.night.id) }
+                    .buttonStyle(.borderless)
+                Spacer(minLength: 0)
+                Button("Save") {
+                    Task {
+                        if await dinner.saveComment(nightID: prompt.night.id, memberID: me.id, typed: typed) {
+                            await library.refreshReactions(members: household.members)
+                        }
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(DinnerPrompts.comment(from: typed) == nil)
+            }
+            .tint(Palette.paprika)
+            .disabled(isSaving)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Palette.cardSurface))
     }
 }
 
@@ -462,6 +518,23 @@ private struct DinnerPreview<Content: View>: View {
         }
         .background(Palette.cream)
         .dynamicTypeSize(.accessibility2)
+    }
+}
+
+#Preview("A word about the dish") {
+    DinnerPreview {
+        DinnerCommentCard(prompt: DinnerPrompts.Prompt(night: previewNight, log: previewCookedLog), me: Member.sampleFamily[0])
+            .padding()
+            .background(Palette.cream)
+    }
+}
+
+#Preview("A word about the dish, accessibility size") {
+    DinnerPreview {
+        DinnerCommentCard(prompt: DinnerPrompts.Prompt(night: previewNight, log: previewCookedLog), me: Member.sampleFamily[0])
+            .padding()
+            .background(Palette.cream)
+            .dynamicTypeSize(.accessibility2)
     }
 }
 
