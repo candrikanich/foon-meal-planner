@@ -136,7 +136,7 @@ struct WeekView: View {
         case .swap(let night, let day):
             week.showingNextWeek = day >= nextWeek
             if canPlan { swappingNight = night } else { openNight = night }
-        case .dinnerCard, .checkIn:
+        case .dinnerCard, .rate, .checkIn:
             week.showingNextWeek = false
         }
     }
@@ -158,7 +158,7 @@ struct WeekView: View {
     /// Waits for the household, so the first load uses its real shopping day.
     private func load() async {
         guard household.household != nil else { return }
-        await reminders?.sendWaitingCheckIns()
+        await reminders?.sendWaitingAnswers()
         // The library (allergy flags, sides, serving notes, and Build) loads alongside the week, not before it, for
         // everyone: members see the same flags and notes on the cards as planners.
         let loadsLibrary = library.needsFullLoad(holding: heldMeals)

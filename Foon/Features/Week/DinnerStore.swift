@@ -31,14 +31,17 @@ final class DinnerStore {
     let householdID: UUID
     private let client: DinnerClient
     private let now: () -> Date
+    /// Lock-screen answers waiting to be sent. One made here is newer, so the older one for that night mustn't land after it.
+    private let waiting: ReminderDevice?
     /// Bumped per load, so an older load that finishes last can't bring back an answered card.
     private var loadGeneration = 0
     /// The household's calendar, from the last load's settings.
     private var calendar = DinnerPrompts.calendar(for: HouseholdSettings())
 
-    init(householdID: UUID, client: DinnerClient, now: @escaping () -> Date = { .now }) {
+    init(householdID: UUID, client: DinnerClient, waiting: ReminderDevice? = nil, now: @escaping () -> Date = { .now }) {
         self.householdID = householdID
         self.client = client
+        self.waiting = waiting
         self.now = now
     }
 
@@ -111,9 +114,11 @@ final class DinnerStore {
     /// One tap: confirms the dinner and saves this person's reaction. Returns whether it saved.
     @discardableResult
     func react(nightID: UUID, memberID: UUID, _ kind: ReactionKind) async -> Bool {
-        await write(nightID, failure: String(localized: "Couldn't save that. Check your connection and try again.")) {
+        let saved = await write(nightID, failure: String(localized: "Couldn't save that. Check your connection and try again.")) {
             [client] in _ = try await client.react(nightID, memberID, kind)
         }
+        if saved { waiting?.removeDinnerAnswers(night: nightID, member: memberID) }
+        return saved
     }
 
     /// The after-dinner card's tap: saves the reaction, then offers a comment. Pass the phone stays quick and doesn't.
@@ -154,6 +159,7 @@ final class DinnerStore {
         let saved = await write(nightID, failure: String(localized: "Couldn't save that. Check your connection and try again.")) {
             [client] in try await client.setNotHome(nightID, memberID)
         }
+        if saved { waiting?.removeDinnerAnswers(night: nightID, member: memberID) }
         // The server takes them off as the cook, unless they've been thanked. Say so rather than leave it looking done.
         if saved, log(for: nightID)?.cookedByMemberID == memberID {
             errorMessage = String(localized: "Saved. They're still down as the cook, because someone already thanked them.")

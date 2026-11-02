@@ -132,7 +132,7 @@ enum NotificationPlanner {
                     id: ReminderID.afterDinner(me: me.id, night: night.id, meal: meal), kind: .afterDinner,
                     nightID: night.id, fireAt: dinner.addingTimeInterval(DinnerPrompts.delay), dinnerAt: nil,
                     title: ReminderText.afterDinnerTitle, body: ReminderText.afterDinnerBody,
-                    route: .dinnerCard))
+                    route: .rate(night: night.id, member: me.id)))
             }
         }
 

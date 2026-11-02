@@ -81,8 +81,9 @@ final class ReminderStore {
     }
 
     /// Before a screen reads the week, so it sees what was said on the lock screen.
-    func sendWaitingCheckIns() async {
+    func sendWaitingAnswers() async {
         await CheckInDelivery.send(device: device, client: client)
+        await DinnerAnswerDelivery.send(device: device, client: client)
     }
 
     /// The card's answer reached the server, and it's newer than anything still waiting for that night.
@@ -133,6 +134,7 @@ final class ReminderStore {
         let permission = await center.permission()
         // Before the read, so it sees them.
         await CheckInDelivery.send(device: device, client: client)
+        await DinnerAnswerDelivery.send(device: device, client: client)
         let weeks = await fetchWeeks(settings: wanted.settings)
         guard !isStopped else { return }
         self.permission = permission

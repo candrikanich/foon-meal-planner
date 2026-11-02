@@ -272,7 +272,7 @@ private typealias F = PlannerFixture
         let night = F.night(10)
         let reminder = try #require(F.of(.afterDinner, F.plan(me: F.kim, weeks: [F.week([night])])).first)
         #expect(reminder.fireAt == F.at(10, 19))
-        #expect(reminder.route == .dinnerCard)
+        #expect(reminder.route == .rate(night: night.id, member: F.kim.id))
         #expect(reminder.body == "Tap to rate dinner.")
     }
 
