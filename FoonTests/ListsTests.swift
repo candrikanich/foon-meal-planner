@@ -61,6 +61,31 @@ struct ListBoardTests {
         #expect(ShoppingTrip(rawValue: "") == nil)
     }
 
+    @Test func aTripRemembersTheStockAStapleWasAtUntilItsPutBack() throws {
+        var cereal = entry("Cereal", keepOnHand: true)
+        cereal.stock = .out
+        var trip = ShoppingTrip(start: tripStart)
+        trip.note(cereal, checked: true)
+        #expect(trip.stock(before: cereal.itemID) == .out)
+        let restored = try #require(ShoppingTrip(rawValue: trip.rawValue))
+        #expect(restored.stock(before: cereal.itemID) == .out, "closing store mode keeps it")
+        trip.note(cereal, checked: false)
+        #expect(trip.stock(before: cereal.itemID) == nil)
+        var bread = entry("Bread")
+        bread.stock = nil
+        trip.note(bread, checked: true)
+        #expect(trip.stock(before: bread.itemID) == nil, "not a staple")
+        let older = try #require(ShoppingTrip(rawValue: #"{"skipped":[],"start":1800000000000}"#))
+        #expect(older.stock(before: cereal.itemID) == nil, "a trip saved by an older build still opens")
+    }
+
+    @Test func puttingBackAStapleRestoresItsStock() {
+        let cereal = entry("Cereal", keepOnHand: true)
+        #expect(ListBoard.putBack(cereal, stockBefore: .out) == [.setChecked(listItemID: cereal.lineID, checked: false),
+                                                                 .restoreStock(itemID: cereal.itemID, to: .out)])
+        #expect(ListBoard.putBack(cereal) == [.setChecked(listItemID: cereal.lineID, checked: false)])
+    }
+
     @Test func equalTripsAreEqualWhateverOrderTheirJSONKeysCameIn() throws {
         let skipped = UUID()
         let startFirst = try #require(ShoppingTrip(rawValue: #"{"start":1800000000000,"skipped":["\#(skipped)"]}"#))

@@ -334,6 +334,10 @@ struct HouseholdClientLiveTests {
         _ = try await sync.send(.setStock(itemID: napkins, state: .low))
         _ = try await sync.send(.restock(itemID: napkins, ifWas: nil))
         #expect(try await napkinStock() == .in, "made a staple on another phone: restocked")
+        _ = try await sync.send(.restoreStock(itemID: napkins, to: .out))
+        #expect(try await napkinStock() == .out, "a check-off undone puts back what it was")
+        _ = try await sync.send(.restoreStock(itemID: napkins, to: .low))
+        #expect(try await napkinStock() == .out, "only from in, so a stock marked since stays")
         let gone = try #require(weekly.first)
         await #expect(throws: (any Error).self, "no such item") {
             _ = try await SyncClient.live(supabase).send(.addToList(householdID: household.id, itemID: UUID(), list: .quick,
