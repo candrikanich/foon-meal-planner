@@ -33,9 +33,10 @@ struct TonightPollSection: View {
     var body: some View {
         if let polls, let tonight, let poll = polls.poll(for: tonight.id),
            !dinner.logs.contains(where: { $0.nightID == tonight.id }) {
-            // Re-checked every minute, so voting turns into the result with the app left open.
-            TimelineView(.everyMinute) { context in
-                if poll.isOpen(at: context.date) {
+            // Redrawn every minute, so voting turns into the result with the app left open. Reads the clock itself: the timeline's
+            // date is the top of the minute, which would keep a poll ended just now looking open until the next one.
+            TimelineView(.everyMinute) { _ in
+                if poll.isOpen(at: .now) {
                     openCard(poll, night: tonight, polls: polls)
                 } else if !dismissed.contains(poll.id.uuidString) {
                     resultCard(poll, night: tonight, polls: polls)
