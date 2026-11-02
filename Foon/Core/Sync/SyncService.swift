@@ -28,6 +28,9 @@ final class SyncService {
     private var isRunning = false
     /// Work requested while the runner was busy (true: pull too); the runner picks it up before it stops.
     private var requestedPull: Bool?
+    /// Set after approving: the next pull to start drops staple lines the weekly list now covers. Only a pull that starts after
+    /// the approve has its lines, and one already under way when it landed doesn't.
+    private var dropStaplesAfterPull = false
 
     init(householdID: UUID, context: ModelContext, client: SyncClient,
          today: @escaping @Sendable () -> CalendarDay = { CalendarDay(Date()) }) {
@@ -139,8 +142,13 @@ final class SyncService {
         }
     }
 
-    /// After approving: a staple the weekly list now has comes off the quick list, so it's listed once.
-    func dropStapleLinesOnTheWeeklyList() async {
+    /// After approving: pulls the new weekly list, then takes a staple it has off the quick list, so it's listed once.
+    func pullAfterApproving() async {
+        dropStaplesAfterPull = true
+        await pull()
+    }
+
+    private func dropStapleLinesOnTheWeeklyList() async {
         let open = (try? context.fetch(FetchDescriptor<CachedListItem>(predicate: #Predicate { $0.checkedAt == nil }))) ?? []
         let weekly = Set(open.filter { $0.list == .weekly }.map(\.itemID))
         let covered = open.filter { Self.isOpenStapleLine($0) && weekly.contains($0.itemID) }.map(\.id)
@@ -209,6 +217,7 @@ final class SyncService {
     }
 
     private func pullOnce() async {
+        let drop = dropStaplesAfterPull
         do {
             let snapshot = try await client.fetchSnapshot(householdID, today())
             guard mayWrite else { return }
@@ -219,6 +228,10 @@ final class SyncService {
             }
             try context.save()
             lastPulled = .now
+            if drop {
+                dropStaplesAfterPull = false
+                await dropStapleLinesOnTheWeeklyList()
+            }
         } catch {
             if OfflineReplay.classify(error) == .offline { isOffline = true }
         }
@@ -304,6 +317,8 @@ final class SyncService {
                 if urgency == .tonight { open.urgency = .tonight }
                 open.note = ListNotes.merged(existing: open.note, incoming: note)
                 if open.quantity == nil { open.quantity = quantity }
+                // Something added on top of a staple's line makes it that line instead, so marking the staple in leaves it.
+                if open.sourceRaw == ListItemSource.staple.rawValue { open.sourceRaw = source.rawValue }
             } else {
                 context.insert(CachedListItem(
                     id: lineID, householdID: household, itemID: itemID, itemName: item(itemID)?.name ?? "Item",

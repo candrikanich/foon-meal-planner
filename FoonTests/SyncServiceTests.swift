@@ -146,10 +146,53 @@ struct SyncServiceTests {
                             note: nil, checkedAt: nil)
             ], items: base.items)
         }, send: { _ in throw URLError(.notConnectedToInternet) }))
-        await service.pull()
-        await service.dropStapleLinesOnTheWeeklyList()
+        await service.pullAfterApproving()
         let open = try container.mainContext.fetch(FetchDescriptor<CachedListItem>()).map(\.id)
         #expect(Set(open) == [weekly, other])
+    }
+
+    /// The approve's write sets off a sync through Realtime, and that pull can be under way, without the new list, when the
+    /// approve asks for its own.
+    @Test func approvingWaitsForAPullThatHasTheNewList() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let quick = UUID(), weekly = UUID()
+        let pulls = Mutex(0)
+        let removed = Mutex(false)
+        let household = household, eggsItem = eggsItem, base = snapshot
+        let service = makeService(container: container, client: .fake(snapshot: {
+            let pull = pulls.withLock { $0 += 1; return $0 }
+            let staple = removed.withLock { $0 } ? [] : [ListItemRow(
+                id: quick, householdID: household, itemID: eggsItem, list: .quick, urgency: .whenever, source: .staple, note: nil,
+                checkedAt: nil)]
+            if pull == 1 {
+                try await Task.sleep(for: .milliseconds(200))
+                return SyncSnapshot(plan: base.plan, nights: [], listItems: staple, items: base.items)
+            }
+            return SyncSnapshot(plan: base.plan, nights: [], listItems: staple + [ListItemRow(
+                id: weekly, householdID: household, itemID: eggsItem, list: .weekly, urgency: .whenever, source: .plan, note: nil,
+                checkedAt: nil)], items: base.items)
+        }, send: { change in
+            if change == .removeStapleLine(listItemID: quick) { removed.withLock { $0 = true } }
+        }))
+        let earlier = Task { await service.pull() }
+        try await Task.sleep(for: .milliseconds(50))
+        await service.pullAfterApproving()
+        await earlier.value
+        let open = try container.mainContext.fetch(FetchDescriptor<CachedListItem>()).map(\.id)
+        #expect(open == [weekly])
+    }
+
+    @Test func somethingAddedToAStaplesLineMakesItThatLine() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let service = makeService(container: container, client: .fake(snapshot: { snapshot }, send: { _ in
+            throw URLError(.notConnectedToInternet)
+        }))
+        await service.pull()
+        await service.setStock(itemID: eggsItem, state: .out)
+        await service.addToList(itemID: eggsItem, list: .quick, urgency: .tonight, source: .pivot, note: "Get egg-free (Sam)")
+        await service.setStock(itemID: eggsItem, state: .in)
+        let lines = try openLines(container, item: eggsItem)
+        #expect(lines.map(\.note) == ["Get egg-free (Sam)"], "tonight's need stays when the staple's back in")
     }
 
     @Test func aMoveShowsAtOnceOffline() async throws {
