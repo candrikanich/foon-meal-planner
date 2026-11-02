@@ -102,8 +102,13 @@ import Testing
         let device = device(), first = answer(.reaction(.favorite)), second = answer(.wasntHome)
         device.add(first)
         device.add(second)
-        await DinnerAnswerDelivery.send(device: device, client: client { _ in throw URLError(.notConnectedToInternet) }, now: now)
+        let tries = Sent()
+        await DinnerAnswerDelivery.send(device: device, client: client { answer in
+            await tries.add(answer)
+            throw URLError(.notConnectedToInternet)
+        }, now: now)
         #expect(device.dinnerAnswers == [first, second])
+        #expect(await tries.answers.count == 1, "no signal for one is no signal for all")
     }
 
     @Test func aFinalNoComesOffTheListAndTheRestStillGo() async {

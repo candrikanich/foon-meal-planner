@@ -211,9 +211,12 @@ enum DinnerAnswerDelivery {
                     try await client.answerDinner(answer)
                 } catch let error as PostgrestError where error.code.map(finalRefusals.contains) == true {
                     // It's had its answer.
-                } catch {
+                } catch is PostgrestError {
                     held.insert(key)
                     continue
+                } catch {
+                    // Not reached: the rest wouldn't be either, so don't wait on each in turn.
+                    return
                 }
             }
             device.removeDinnerAnswer(answer)
