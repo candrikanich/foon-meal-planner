@@ -366,6 +366,16 @@ private typealias F = PlannerFixture
 }
 
 @Suite struct CheckInSettingsTests {
+    @Test func rhythmSavesTheCheckInTime() throws {
+        var changed = HouseholdSettings()
+        changed.checkInTime = "16:05"
+        let changes = RhythmChanges(from: HouseholdSettings(), to: changed)
+        #expect(!changes.isEmpty)
+        #expect(changes.applied(to: HouseholdSettings()).checkInTime == "16:05")
+        let sent = try JSONSerialization.jsonObject(with: JSONEncoder().encode(changes)) as? [String: String]
+        #expect(sent == ["check_in_time": "16:05"])
+    }
+
     @Test func itDefaultsToAfterSchool() {
         #expect(HouseholdSettings().checkInTime == "15:30")
     }
