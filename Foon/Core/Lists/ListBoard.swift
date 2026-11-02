@@ -20,7 +20,8 @@ struct ListEntry: Identifiable, Equatable, Sendable {
     /// and a tonight line for the same milk read as one milk.
     var folded: [ListEntry] = []
 
-    var id: UUID { lineID }
+    /// The item: a row is one per item, and keeps its place when a tonight line takes the lead from a weekly one.
+    var id: UUID { itemID }
 
     /// Every line this row stands for: checking it off or removing it acts on all of them.
     var lineIDs: [UUID] { [lineID] + folded.map(\.lineID) }
@@ -122,8 +123,9 @@ enum ListBoard {
         }
     }
 
-    /// An item on both lists is one row: it takes the more urgent line's place, with both amounts and every note, so it's
-    /// bought once. The lines themselves stay apart, so undoing tonight's swap leaves the weekly list as it was.
+    /// An item on both lists is one row: it takes the more urgent line's place, with every note, so it's bought once. Each
+    /// line keeps its own amount, shown apart: two sixes might be the same eggs or twelve, and only the shopper can tell. The
+    /// lines themselves stay apart, so undoing tonight's swap leaves the weekly list as it was.
     static func oneRowPerItem(_ entries: [ListEntry]) -> [ListEntry] {
         var order: [UUID] = []
         var byItem: [UUID: [ListEntry]] = [:]
@@ -135,11 +137,9 @@ enum ListBoard {
             guard let lines = byItem[itemID]?.sorted(by: { rank($0) < rank($1) }), let first = lines.first else { return nil }
             guard lines.count > 1 else { return first }
             let rest = Array(lines.dropFirst())
-            var amounts: [String] = []
-            for amount in lines.compactMap(\.quantity) where !amounts.contains(amount) { amounts.append(amount) }
             let note = rest.reduce(first.lineNote) { ListNotes.merged(existing: $0, incoming: $1.lineNote) }
             return ListEntry(lineID: first.lineID, itemID: itemID, name: first.name, list: first.list, urgency: first.urgency,
-                             quantity: amounts.isEmpty ? nil : amounts.joined(separator: " + "), lineNote: note,
+                             quantity: first.quantity, lineNote: note,
                              itemNote: first.itemNote, category: first.category,
                              checkedAt: lines.compactMap(\.checkedAt).max(), keepOnHand: first.keepOnHand, folded: rest)
         }
@@ -181,8 +181,14 @@ enum ListBoard {
             + (entry.keepOnHand ? [.setStock(itemID: entry.itemID, state: .in)] : [])
     }
 
+    /// Putting a cart row back reopens its latest line on each list. A list holds one open line per item, so an older one
+    /// bought this trip (milk bought, marked out again, bought again) stays bought.
     static func putBack(_ entry: ListEntry) -> [OfflineChange] {
-        entry.lineIDs.map { .setChecked(listItemID: $0, checked: false) }
+        let latest = Dictionary(([entry] + entry.folded).map { ($0.list, $0) }) { lhs, rhs in
+            (lhs.checkedAt ?? .distantPast) >= (rhs.checkedAt ?? .distantPast) ? lhs : rhs
+        }
+        return entry.lineIDs.filter { id in latest.values.contains { $0.lineID == id } }
+            .map { .setChecked(listItemID: $0, checked: false) }
     }
 
     static func remove(_ entry: ListEntry) -> [OfflineChange] {

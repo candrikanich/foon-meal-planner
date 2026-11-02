@@ -113,15 +113,31 @@ struct ListBoardTests {
         let row = try #require(rows.first)
         #expect(row.lineID == tonight.lineID)
         #expect(Set(row.lineIDs) == [weekly.lineID, tonight.lineID])
-        #expect(row.quantity == "2 cups + 1 gallon")
+        #expect(row.quantity == "2 cups", "each line keeps its own amount")
+        #expect(row.folded.map(\.quantity) == ["1 gallon"])
+        #expect(row.id == item, "the row keeps its place when a tonight line takes the lead")
         #expect(row.lineNote == "Get dairy-free (Nora)", "an allergy note on either line shows")
     }
 
-    @Test func oneAmountShowsOnce() {
+    @Test func equalAmountsAreBothShown() throws {
+        // Monday's 6 eggs and tonight's frittata's 6 might be twelve: neither is dropped, and they aren't added up.
         let item = UUID()
-        let row = ListBoard.onTheList([milk(.weekly, quantity: "1 gallon", item: item),
-                                       milk(.quick, quantity: "1 gallon", item: item)])
-        #expect(row.map(\.quantity) == ["1 gallon"])
+        let row = try #require(ListBoard.onTheList([milk(.weekly, quantity: "6", item: item),
+                                                    milk(.quick, urgency: .tonight, quantity: "6", item: item)]).first)
+        #expect(row.quantity == "6")
+        #expect(row.folded.map(\.quantity) == ["6"])
+    }
+
+    @Test func puttingBackReopensOnlyTheLatestLineOnEachList() throws {
+        let item = UUID()
+        let first = milk(.quick, checkedAt: tripStart.addingTimeInterval(5), item: item)
+        let again = milk(.quick, checkedAt: tripStart.addingTimeInterval(60), item: item)
+        let weekly = milk(.weekly, checkedAt: tripStart.addingTimeInterval(30), item: item)
+        let row = try #require(ListBoard.store([first, again, weekly], tripStart: tripStart).cart.first)
+        let changes = ListBoard.putBack(row)
+        #expect(changes.count == 2, "a list holds one open line per item")
+        #expect(changes.contains(.setChecked(listItemID: again.lineID, checked: false)))
+        #expect(changes.contains(.setChecked(listItemID: weekly.lineID, checked: false)))
     }
 
     @Test func checkingOffOrRemovingTheRowActsOnBothLines() throws {

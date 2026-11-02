@@ -709,6 +709,18 @@
     "Already listed, so check the amount: %@." : {
       "comment" : "After a swap: already on the list with another amount than the dish needs"
     },
+    "Also on the quick list" : {
+      "comment" : "A row's other line"
+    },
+    "Also on the quick list: %@" : {
+      "comment" : "A row's other line and its amount"
+    },
+    "Also on the week's list" : {
+      "comment" : "A row's other line"
+    },
+    "Also on the week's list: %@" : {
+      "comment" : "A row's other line and its amount"
+    },
     "Amount" : {
 
     },
