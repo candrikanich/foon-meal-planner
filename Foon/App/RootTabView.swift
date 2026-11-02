@@ -57,6 +57,8 @@ struct RootTabView: View {
             guard let route else { return }
             selection = route.tab
             if route.tab != .week { router.clear() }
+            // Ideas may already be the tab, so its own load won't run again to show what the push was about.
+            if route == .ideas { Task { await ideas.load() } }
         }
         .sheet(item: $shared) { item in
             SharedItemSheet(item: item) { outcome in finishShared(item, outcome) }
