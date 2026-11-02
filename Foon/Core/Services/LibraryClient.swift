@@ -17,6 +17,8 @@ struct AllergyRow: Decodable, Equatable, Sendable {
 enum LibraryClientError: Error {
     /// The server changed nothing: the meal is gone or this person may no longer change it.
     case notAllowed
+    /// The server refused to delete a dish: something depends on it now.
+    case inUse
 }
 
 /// The household's library, the shared catalog, and what the library screen shows alongside them.
@@ -52,6 +54,11 @@ struct LibraryClient: Sendable {
     var setServingNote: @Sendable (_ mealID: UUID, _ memberID: UUID, _ note: String) async throws -> Void = { _, _, _ in }
     /// Reads a recipe link through the import-recipe Edge Function. Throws `RecipeImportError`.
     var importRecipe: @Sendable (_ link: String) async throws -> RecipeImport = { _ in throw RecipeImportError.unavailable }
+    /// The dishes nothing depends on, which a planner may delete. Empty for anyone else.
+    var unusedMeals: @Sendable (_ householdID: UUID) async throws -> Set<UUID> = { _ in [] }
+    /// Deletes a dish if the server agrees it's unused, and returns its photo's path. Throws `LibraryClientError.inUse` if not.
+    var deleteUnused: @Sendable (_ mealID: UUID) async throws -> String? = { _ in nil }
+    var removePhoto: @Sendable (_ path: String) async throws -> Void = { _ in }
 }
 
 enum RecipeImportError: Error, Equatable {
@@ -209,7 +216,23 @@ extension LibraryClient {
                 } catch {
                     throw RecipeImportError.unavailable
                 }
-            }
+            },
+            unusedMeals: { householdID in
+                let ids: [UUID] = try await client.rpc("unused_meals", params: ["target_household": householdID])
+                    .execute()
+                    .value
+                return Set(ids)
+            },
+            deleteUnused: { mealID in
+                do {
+                    return try await client.rpc("delete_unused_meal", params: ["target_meal": mealID])
+                        .execute()
+                        .value
+                } catch let error as PostgrestError where error.code == "FD015" {
+                    throw LibraryClientError.inUse
+                }
+            },
+            removePhoto: photos.remove
         )
     }
 }

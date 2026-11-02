@@ -71,6 +71,95 @@ struct LibraryStoreTests {
         #expect(calls.withLock { $0 } == [.archived, .active])
     }
 
+    @Test func offersDeleteOnlyForWhatTheServerSaysIsUnused() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let chili = LibraryMeal.fixture(name: "Chili")
+        var client = LibraryClient.fake(meals: { _ in [tacos, chili] })
+        client.unusedMeals = { _ in [tacos.id] }
+        let store = LibraryStore(householdID: household, client: client)
+        await store.load(members: [])
+        #expect(store.canDelete(tacos))
+        #expect(!store.canDelete(chili))
+    }
+
+    @Test func aFailedReadOfWhatsUnusedKeepsWhatWasOffered() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let reads = Mutex(0)
+        var client = LibraryClient.fake(meals: { _ in [tacos] })
+        client.unusedMeals = { _ in
+            let read = reads.withLock { $0 += 1; return $0 }
+            if read > 1 { throw URLError(.notConnectedToInternet) }
+            return [tacos.id]
+        }
+        let store = LibraryStore(householdID: household, client: client)
+        await store.load(members: [])
+        await store.load(members: [])
+        #expect(store.canDelete(tacos))
+        #expect(store.errorMessage == nil)
+    }
+
+    @Test func deletingRemovesTheDishAndItsPhoto() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let removed = Mutex<[String]>([])
+        var client = LibraryClient.fake(meals: { _ in [tacos] })
+        client.unusedMeals = { _ in [tacos.id] }
+        client.deleteUnused = { id in
+            #expect(id == tacos.id)
+            return "household/meals/tacos.jpg"
+        }
+        client.removePhoto = { path in removed.withLock { $0.append(path) } }
+        let store = LibraryStore(householdID: household, client: client)
+        await store.load(members: [])
+        #expect(await store.delete(tacos))
+        #expect(store.visibleEntries.isEmpty)
+        #expect(!store.canDelete(tacos))
+        #expect(removed.withLock { $0 } == ["household/meals/tacos.jpg"])
+    }
+
+    @Test func aPhotoThatWontGoDoesntUndoTheDelete() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        var client = LibraryClient.fake(meals: { _ in [tacos] })
+        client.deleteUnused = { _ in "household/meals/tacos.jpg" }
+        client.removePhoto = { _ in throw URLError(.notConnectedToInternet) }
+        let store = LibraryStore(householdID: household, client: client)
+        await store.load(members: [])
+        #expect(await store.delete(tacos))
+        #expect(store.visibleEntries.isEmpty)
+        #expect(store.errorMessage == nil)
+    }
+
+    @Test func aDishPlannedOnAnotherPhoneIsRefusedAndNoLongerOffered() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        let reads = Mutex(0)
+        let removed = Mutex(0)
+        var client = LibraryClient.fake(meals: { _ in [tacos] })
+        client.unusedMeals = { _ in
+            reads.withLock { $0 += 1; return $0 } == 1 ? [tacos.id] : []
+        }
+        client.deleteUnused = { _ in throw LibraryClientError.inUse }
+        client.removePhoto = { _ in removed.withLock { $0 += 1 } }
+        let store = LibraryStore(householdID: household, client: client)
+        await store.load(members: [])
+        #expect(await !store.delete(tacos))
+        #expect(store.visibleEntries.map(\.meal.name) == ["Tacos"])
+        #expect(!store.canDelete(tacos))
+        #expect(store.errorMessage?.contains("in use") == true)
+        #expect(removed.withLock { $0 } == 0)
+    }
+
+    @Test func aFailedDeleteKeepsTheDishAndSaysSo() async {
+        let tacos = LibraryMeal.fixture(name: "Tacos")
+        var client = LibraryClient.fake(meals: { _ in [tacos] })
+        client.unusedMeals = { _ in [tacos.id] }
+        client.deleteUnused = { _ in throw URLError(.notConnectedToInternet) }
+        let store = LibraryStore(householdID: household, client: client)
+        await store.load(members: [])
+        #expect(await !store.delete(tacos))
+        #expect(store.visibleEntries.map(\.meal.name) == ["Tacos"])
+        #expect(store.canDelete(tacos))
+        #expect(store.errorMessage?.contains("Check your connection") == true)
+    }
+
     @Test func aFailedArchiveLeavesTheMealWhereItWas() async {
         let tacos = LibraryMeal.fixture(name: "Tacos")
         let store = LibraryStore(householdID: household, client: .fake(

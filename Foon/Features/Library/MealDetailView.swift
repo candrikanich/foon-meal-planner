@@ -8,13 +8,16 @@ struct MealDetailView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(HouseholdStore.self) private var household
     @Environment(WeekStore.self) private var week: WeekStore?
+    @Environment(IdeasStore.self) private var ideas: IdeasStore?
     @Environment(SyncService.self) private var sync: SyncService?
+    @Environment(\.dismiss) private var dismiss
     let mealID: UUID
     let canEdit: Bool
 
     @State private var editing: LibraryMeal?
     @State private var planning: LibraryMeal?
     @State private var bringingBack: LibraryMeal?
+    @State private var deleting: LibraryMeal?
     @State private var editingNote: NoteTarget?
     @State private var cooking: LibraryMeal?
     @State private var photoItem: PhotosPickerItem?
@@ -80,6 +83,20 @@ struct MealDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: { _ in
             Text("It'll still stay off nights when anyone who said Not for me is home, and another Not for me retires it again.")
+        }
+        .confirmationDialog("Delete this dish?", isPresented: Binding(
+            get: { deleting != nil }, set: { if !$0 { deleting = nil } }
+        ), titleVisibility: .visible, presenting: deleting) { meal in
+            Button("Delete", role: .destructive) {
+                Task {
+                    guard await library.delete(meal) else { return }
+                    dismiss()
+                    await ideas?.load()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { meal in
+            Text("\(meal.name) has never been planned or cooked. This can't be undone.")
         }
         .sheet(item: $planning) { meal in PlanItSheet(meal: meal) }
         .sheet(item: $editingNote) { target in ServingNoteEditor(target: target) }
@@ -442,6 +459,11 @@ struct MealDetailView: View {
             } else if LibraryStore.canRestore(meal) {
                 ToolbarItem(placement: .secondaryAction) {
                     Button("Back in rotation", systemImage: "arrow.uturn.backward") { restore(meal) }
+                }
+            }
+            if library.canDelete(meal) {
+                ToolbarItem(placement: .secondaryAction) {
+                    Button("Delete", systemImage: "trash", role: .destructive) { deleting = meal }
                 }
             }
         }

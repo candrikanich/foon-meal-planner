@@ -5,10 +5,12 @@ import SwiftUI
 struct LibraryView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(HouseholdStore.self) private var household
+    @Environment(IdeasStore.self) private var ideas: IdeasStore?
     @State private var browsingCatalog = false
     @State private var quickAdding = false
     @State private var planning: LibraryMeal?
     @State private var bringingBack: LibraryMeal?
+    @State private var deleting: LibraryMeal?
     @State private var importingLink = false
     @State private var path: [UUID] = []
 
@@ -59,6 +61,16 @@ struct LibraryView: View {
             } message: { _ in
                 Text("It'll still stay off nights when anyone who said Not for me is home, and another Not for me retires it again.")
             }
+            .confirmationDialog("Delete this dish?", isPresented: Binding(
+                get: { deleting != nil }, set: { if !$0 { deleting = nil } }
+            ), titleVisibility: .visible, presenting: deleting) { meal in
+                Button("Delete", role: .destructive) {
+                    Task { if await library.delete(meal) { await ideas?.load() } }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: { meal in
+                Text("\(meal.name) has never been planned or cooked. This can't be undone.")
+            }
             .sheet(item: $planning) { meal in PlanItSheet(meal: meal) }
             .sheet(isPresented: $browsingCatalog) {
                 CatalogBrowserView(canAdd: canEdit)
@@ -104,7 +116,8 @@ struct LibraryView: View {
         }
     }
 
-    /// Empty for members, which shows no menu at all. Retired dishes offer Back in rotation, after a confirmation.
+    /// Empty for members, which shows no menu at all. Retired dishes offer Back in rotation, after a confirmation. Delete only
+    /// for a dish that's never been used.
     @ViewBuilder
     private func menu(for meal: LibraryMeal) -> some View {
         if canEdit && meal.status.isInRotation {
@@ -114,6 +127,9 @@ struct LibraryView: View {
             }
         } else if canEdit && LibraryStore.canRestore(meal) {
             Button("Back in rotation", systemImage: "arrow.uturn.backward") { restore(meal) }
+        }
+        if canEdit && library.canDelete(meal) {
+            Button("Delete", systemImage: "trash", role: .destructive) { deleting = meal }
         }
     }
 

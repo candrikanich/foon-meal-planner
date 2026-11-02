@@ -114,7 +114,13 @@
         }
       }
     },
+    "%@ has never been planned or cooked. This can't be undone." : {
+
+    },
     "%@ is cooking" : {
+
+    },
+    "%@ is in use now, so it can't be deleted. You can archive it instead." : {
 
     },
     "%@ is on the list" : {
@@ -913,6 +919,9 @@
     "Couldn't create your household. Check your connection and try again." : {
 
     },
+    "Couldn't delete %@. Check your connection and try again." : {
+
+    },
     "Couldn't delete the schedule. Check your connection and try again." : {
 
     },
@@ -1097,6 +1106,9 @@
 
     },
     "Delete the sample family" : {
+
+    },
+    "Delete this dish?" : {
 
     },
     "Delete your account and household?" : {

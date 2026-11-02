@@ -11,6 +11,7 @@ struct PhotoStorageClient: Sendable {
     /// Stores a prepared JPEG under the household's folder and returns its path (for `meals.photo_path`).
     var upload: @Sendable (_ householdID: UUID, _ preparedJPEG: Data) async throws -> String
     var signedURL: @Sendable (_ path: String) async throws -> URL
+    var remove: @Sendable (_ path: String) async throws -> Void
 
     /// `<household id>/meals/<photo id>.jpg`, lowercase to match the storage policy's folder check.
     static func mealPhotoPath(householdID: UUID, photoID: UUID = UUID()) -> String {
@@ -29,6 +30,9 @@ extension PhotoStorageClient {
             },
             signedURL: { path in
                 try await client.storage.from(bucket).createSignedURL(path: path, expiresIn: signedURLLifetime)
+            },
+            remove: { path in
+                _ = try await client.storage.from(bucket).remove(paths: [path])
             }
         )
     }

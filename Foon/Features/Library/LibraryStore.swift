@@ -76,6 +76,8 @@ final class LibraryStore {
     private(set) var comments: [MealComment] = []
     /// Everyone's serving notes, for meal detail and day cards.
     private(set) var servingNotes: [ServingNote] = []
+    /// Dishes this person can delete, as of the last load. Only decides what's offered: the server checks again.
+    private var unusedMeals: Set<UUID> = []
 
     /// Dishes that are someone's favorite now.
     private var favorites: Set<UUID> { Set(reactions.favorites.values.flatMap { $0 }) }
@@ -146,11 +148,13 @@ final class LibraryStore {
             async let likes = client.likes(householdID)
             async let notes = client.servingNotes(householdID)
             async let comments = client.comments(householdID)
+            async let unused = client.unusedMeals(householdID)
             let loaded = try await (meals, history, catalog, allergyRows, itemNames)
             let reactions = try await ReactionSummary(verdicts: verdicts, likes: likes)
             let servingNotes = try await notes
             // Not worth failing the Library for: a failed read keeps what was shown.
             let loadedComments = (try? await comments) ?? self.comments
+            let loadedUnused = (try? await unused) ?? unusedMeals
             // Only the newest load counts: an older read can predate a save, and can't speak for a newer load that failed.
             guard generation == loadGeneration else { return }
             answered = true
@@ -164,6 +168,7 @@ final class LibraryStore {
             self.reactions = reactions
             self.servingNotes = servingNotes
             self.comments = loadedComments
+            unusedMeals = loadedUnused
             hasLoaded = true
             lastLoadFailed = false
             errorMessage = nil
@@ -187,6 +192,31 @@ final class LibraryStore {
             errorMessage = archived
                 ? String(localized: "Couldn't archive that meal. Check your connection and try again.")
                 : String(localized: "Couldn't restore that meal. Check your connection and try again.")
+        }
+    }
+
+    func canDelete(_ meal: LibraryMeal) -> Bool {
+        unusedMeals.contains(meal.id)
+    }
+
+    /// Returns whether it's gone. A photo that can't be removed doesn't undo that: nothing points at it any more.
+    func delete(_ meal: LibraryMeal) async -> Bool {
+        do {
+            let photo = try await client.deleteUnused(meal.id)
+            meals.removeAll { $0.id == meal.id }
+            unusedMeals.remove(meal.id)
+            errorMessage = nil
+            if let photo { try? await client.removePhoto(photo) }
+            if readsOut > 0 { await load(members: members) }
+            return true
+        } catch LibraryClientError.inUse {
+            // Planned or cooked on another phone a moment ago. Reloading stops offering it; loading clears messages, so this goes last.
+            await load(members: members)
+            errorMessage = String(localized: "\(meal.name) is in use now, so it can't be deleted. You can archive it instead.")
+            return false
+        } catch {
+            errorMessage = String(localized: "Couldn't delete \(meal.name). Check your connection and try again.")
+            return false
         }
     }
 
