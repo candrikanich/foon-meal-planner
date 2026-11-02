@@ -54,8 +54,9 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
   entered it.
 - A push already being sent when it's called off still goes (the row is deleted and complete finds nothing).
   The same goes for a row in flight when its subject is removed, leaves, or deletes their account: it still goes out.
-- A claim row is given up as `on_hold` at claim time if the claim no longer stands (released, the cook can't cook that
-  night per `can_cook_night`, or the night is a quick pick); the cook saying Not home deletes it outright. Rows about a
+- A claim row goes only if it still stands when it's due (`push_outbox_stands`: not released, `can_cook_night`, no quick
+  pick, dinner not logged); otherwise it waits until dinner, then is dropped as stale. The cook saying Not home deletes
+  it outright. `kick_push_sender` asks the same, so a waiting claim doesn't wake send-push every minute. Rows about a
   night are also stale once `night_dinner_at` (as the night is now) has passed, so moving dinner earlier still ends them.
 - send-push fails a row as `no_words` (not `unknown_kind`) when it knows the kind but the name or date is missing.
 

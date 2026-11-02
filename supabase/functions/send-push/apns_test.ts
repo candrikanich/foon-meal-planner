@@ -125,8 +125,13 @@ Deno.test("a claim says the night's weekday from its date, never tonight or tomo
   assertEquals(alertFor("claim", {}, "2026-11-05"), null);
 });
 
-Deno.test("every kind it has words for is known", () => {
+Deno.test("the known kinds are exactly the ones with words", () => {
+  assertEquals([...knownKinds].sort(), ["claim", "not_home", "plan_set"]);
   for (const kind of knownKinds) assert(alertFor(kind, { name: "Ben" }, "2026-11-05"));
+  for (const kind of ["something_new", "tonight_poll", "constructor", "toString", ""]) {
+    assert(!knownKinds.has(kind));
+    assertEquals(alertFor(kind, { name: "Ben" }, "2026-11-05"), null);
+  }
 });
 
 Deno.test("only the name is read from args", () => {

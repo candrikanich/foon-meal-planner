@@ -2,7 +2,7 @@
 -- device, never to whoever said it or entered it, only on Balanced and Engaged, never for an away night, once, and not after
 -- dinner. Taking it back calls off what hasn't gone.
 begin;
-select plan(51);
+select plan(55);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -348,14 +348,37 @@ select results_eq($$ select * from pg_temp.queued('not_home') $$, $$ values ('Pa
 select pg_temp.as_user('e0000000-0000-0000-0000-00000000000e');
 select public.claim_night('00000000-0000-0000-0000-0000000004a2', '00000000-0000-0000-0000-0000000000a4');
 select pg_temp.as_postgres();
+-- Held by quiet hours while the night is briefly a quick pick.
+update public.push_outbox set not_before = now() + interval '1 hour' where kind = 'claim';
 update public.plan_nights set quick_pick = 'takeout' where id = '00000000-0000-0000-0000-0000000004a2';
 set local role service_role;
-select count(*) from public.claim_push_outbox(0);
+select count(*) from public.claim_push_outbox(10);
 select pg_temp.as_postgres();
-select results_eq(
-  $$ select distinct failed from public.push_outbox where kind = 'claim' and night_id = '00000000-0000-0000-0000-0000000004a2' $$,
-  $$ values ('on_hold') $$, 'a claim on a night that''s become a quick pick is on hold, so it isn''t sent');
 update public.plan_nights set quick_pick = null where id = '00000000-0000-0000-0000-0000000004a2';
+select results_eq($$ select * from pg_temp.queued('claim') $$, $$ values ('Alice', 'Eve'), ('Pam', 'Eve') $$,
+  'a claim that stops standing for a while before it''s due isn''t given up: it waits');
+update public.push_outbox set not_before = now() - interval '1 minute' where kind = 'claim';
+set local role service_role;
+select is((select count(*) from public.claim_push_outbox(10) where kind = 'claim'), 2::bigint,
+  'and goes once it''s due and stands again');
+select pg_temp.as_postgres();
+update public.push_outbox set claimed_until = null, attempts = 0 where kind = 'claim';
+
+update public.plan_nights set quick_pick = 'takeout' where id = '00000000-0000-0000-0000-0000000004a2';
+set local role service_role;
+select is((select count(*) from public.claim_push_outbox(10) where kind = 'claim'), 0::bigint,
+  'a due claim on a night that''s now a quick pick isn''t handed out');
+select pg_temp.as_postgres();
+update public.plan_nights set quick_pick = null where id = '00000000-0000-0000-0000-0000000004a2';
+
+insert into public.meal_logs (household_id, night_id, quick_pick)
+values ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000004a2', 'takeout');
+set local role service_role;
+select is((select count(*) from public.claim_push_outbox(10) where kind = 'claim'), 0::bigint,
+  'nor one whose dinner was logged after it was queued');
+select pg_temp.as_postgres();
+select is((select count(*) from pg_temp.queued('claim')), 2::bigint, 'it waits, for the dinner-time check to end it');
+delete from public.meal_logs where night_id = '00000000-0000-0000-0000-0000000004a2';
 
 -- Dinner moving earlier ---------------------------------------------------------------------------------------------------------
 

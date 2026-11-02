@@ -84,26 +84,25 @@ function firstName(args: Record<string, unknown>): string | null {
   return name === "" ? null : name;
 }
 
-export const knownKinds: ReadonlySet<string> = new Set(["plan_set", "not_home", "claim"]);
-
 // The words are fixed: a server push may name a family member by first name, never a dish (decided 2026-11-02). The name
-// is read from args and nothing else is.
+// is read from args and nothing else is. A kind is known exactly when it has words here.
+const words: Record<string, (args: Record<string, unknown>, nightDate: string | null) => Alert | null> = {
+  plan_set: () => ({ title: "This week's dinners are set.", body: "Tap to see the week." }),
+  not_home: (args) => {
+    const name = firstName(args);
+    return name ? { title: `${name} won't be home tonight.`, body: "Tap to see tonight." } : null;
+  },
+  claim: (args, nightDate) => {
+    const name = firstName(args);
+    const weekday = weekdayOf(nightDate);
+    return name && weekday ? { title: `${name} will cook ${weekday}.`, body: "Tap to see the night." } : null;
+  },
+};
+
+export const knownKinds: ReadonlySet<string> = new Set(Object.keys(words));
+
 export function alertFor(kind: string, args: Record<string, unknown> = {}, nightDate: string | null = null): Alert | null {
-  switch (kind) {
-    case "plan_set":
-      return { title: "This week's dinners are set.", body: "Tap to see the week." };
-    case "not_home": {
-      const name = firstName(args);
-      return name ? { title: `${name} won't be home tonight.`, body: "Tap to see tonight." } : null;
-    }
-    case "claim": {
-      const name = firstName(args);
-      const weekday = weekdayOf(nightDate);
-      return name && weekday ? { title: `${name} will cook ${weekday}.`, body: "Tap to see the night." } : null;
-    }
-    default:
-      return null;
-  }
+  return Object.hasOwn(words, kind) ? words[kind](args, nightDate) : null;
 }
 
 export function payloadFor(alert: Alert, route: Route | null): ApnsPayload {

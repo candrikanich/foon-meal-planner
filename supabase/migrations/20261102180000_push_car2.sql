@@ -6,8 +6,9 @@
 --    It's news until dinner: a row not sent by the night's dinner time is given up as stale. Taking the no back, or a
 --    planner's later write to that attendance (which wipes checked_in_at), calls off a row not sent yet.
 -- 2. Will cook: a claim made on a night still ahead, not an away night, on Balanced or Engaged. Planners with a device hear,
---    except whoever entered it (and the cook). Once a claim. Taken back before it's sent, it's called off, and so is one that
---    no longer stands when it's due: the cook says Not home or is marked out, or the night becomes a quick pick (on hold).
+--    except whoever entered it (and the cook). Once a claim. Taken back before it's sent, it's called off, and the cook
+--    saying Not home calls it off too. It goes only if it still stands when it's due (not taken back, the cook can cook,
+--    not a quick pick, dinner not logged); otherwise it waits, and goes if the claim stands again before dinner.
 --    It's news until that night's dinner too. The words say the weekday, never "tonight" or "tomorrow", since quiet hours
 --    can hold it.
 -- 3. args holds the first name and nothing else; the words are built in send-push from the kind and the name. Never a dish.
@@ -217,8 +218,60 @@ create trigger night_claims_call_off_claim after update of released_at on public
 
 -- Sending (service role only) -------------------------------------------------------------------------------------------------
 
--- As car 1's, plus: a row past its expires_at is given up as stale too, and each row comes with its night, the night's date,
--- and its args, for the words and the tap.
+-- Whether a row's news is still true as things are now. A claim that doesn't stand (taken back, the cook out or gone, the
+-- night a quick pick, or dinner logged) isn't sent, but it isn't given up either: it can stand again, and the dinner-time
+-- stale check ends it otherwise.
+create function public.push_outbox_stands(row_kind text, row_claim uuid)
+returns boolean
+language sql stable set search_path = ''
+as $$
+  select row_kind <> 'claim' or exists (
+    select 1 from public.night_claims c join public.plan_nights n on n.id = c.night_id
+    where c.id = row_claim and c.released_at is null and n.quick_pick is null
+      and public.can_cook_night(c.member_id, c.night_id)
+      and not exists (select 1 from public.meal_logs l where l.night_id = n.id));
+$$;
+
+revoke execute on function public.push_outbox_stands(text, uuid) from public, anon, authenticated;
+
+-- As car 1's, but it only pokes for a row that still stands, so a claim waiting on a quick pick doesn't wake send-push
+-- every minute until dinner.
+create or replace function public.kick_push_sender()
+returns boolean
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  function_url text;
+  cron_secret text;
+begin
+  if not exists (
+    select 1 from public.push_outbox o
+    where o.sent_at is null and o.failed is null and o.not_before <= now() and o.attempts < 5
+      and (o.claimed_until is null or o.claimed_until < now())
+      and public.push_outbox_stands(o.kind, o.claim_id)
+  ) then
+    return false;
+  end if;
+
+  select decrypted_secret into function_url from vault.decrypted_secrets where name = 'push_function_url';
+  select decrypted_secret into cron_secret from vault.decrypted_secrets where name = 'push_cron_secret';
+  if coalesce(function_url, '') = '' or coalesce(cron_secret, '') = '' then
+    return false;
+  end if;
+
+  perform net.http_post(
+    url := function_url,
+    body := '{}'::jsonb,
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-push-secret', cron_secret),
+    timeout_milliseconds := 55000
+  );
+  return true;
+end;
+$$;
+
+-- As car 1's, plus: a row past its expires_at, or about a night whose dinner time has passed, is given up as stale too; a
+-- row that doesn't stand waits; and each row comes with its night, the night's date, and its args, for the words and the
+-- tap.
 drop function public.claim_push_outbox(int);
 
 create function public.claim_push_outbox(batch_size int)
@@ -240,19 +293,12 @@ begin
     and (o.not_before < now() - interval '1 day' or o.expires_at <= now()
          or (o.kind in ('not_home', 'claim') and public.night_dinner_at(o.night_id) <= now()));
 
-  -- A claim that doesn't stand as it is now isn't news: taken back, the cook out or gone, or the night a quick pick.
-  update public.push_outbox o set failed = 'on_hold'
-  where o.kind = 'claim' and o.sent_at is null and o.failed is null
-    and not exists (
-      select 1 from public.night_claims c join public.plan_nights n on n.id = c.night_id
-      where c.id = o.claim_id and c.released_at is null and n.quick_pick is null
-        and public.can_cook_night(c.member_id, c.night_id));
-
   return query
   with due as (
     select o.id from public.push_outbox o
     where o.sent_at is null and o.failed is null and o.not_before <= now() and o.attempts < 5
       and (o.claimed_until is null or o.claimed_until < now())
+      and public.push_outbox_stands(o.kind, o.claim_id)
     order by o.not_before
     limit greatest(batch_size, 0)
     for update skip locked
