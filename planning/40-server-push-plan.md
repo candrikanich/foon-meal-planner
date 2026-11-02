@@ -104,8 +104,10 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
   run's hold) counts against what's left, so a new row can't take the same last slot. Only rows that still stand count, and
   the over_budget update rechecks `failed is null and attempts = 0` on the row, so one another run just claimed isn't marked.
 - A digest row is a planner's once-a-day mark, so nothing deletes it early: consent withdrawal and
-  `members_drop_push_devices` (removal, leaving, a profile claimed) blank `args.name` and `about_member_id` instead, and a
-  digest to someone who leaves stays (their devices go, so an unsent one ends as `no_devices`).
+  `members_drop_push_devices` (removal, leaving, a profile claimed) blank `args.name` and `about_member_id` instead. A
+  digest sent to someone goes when they're removed (what was sent to them goes with them) and stays only on an account
+  change while they're still in the family (their devices go, so an unsent one ends as `no_devices`). A new digest names
+  someone only if `push_may_name` (not a kid whose parental consent was withdrawn); otherwise it's count only.
 - No kind is exempt. Nothing about allergies or safety is a push, so a budget can't drop one.
 - Held for a later week: no. Everything a server push says is about now or a night this week.
 - The device: today it counts only what it scheduled itself (`ReminderCache`), so server pushes don't reduce its own budget

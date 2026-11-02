@@ -1,7 +1,7 @@
 -- Server push, car 4 (#40 part 2): server pushes share the device's weekly budget, counted from the log on either channel,
 -- most important first; and Engaged planners get one digest a day about new ideas that aren't theirs.
 begin;
-select plan(39);
+select plan(44);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -52,6 +52,7 @@ insert into public.members (id, household_id, first_name, role, guardian, age_gr
   ('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-0000000000a0', 'Pam', 'planner', false, 'kid',
    'f0000000-0000-0000-0000-00000000000f'),
   ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000a0', 'Nora', 'member', false, 'kid', null),
+  ('00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-0000000000a0', 'Ivy', 'member', false, 'kid', null),
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b0', 'Carol', 'planner', true, 'adult',
    'c0000000-0000-0000-0000-00000000000c'),
   ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000b0', 'Dave', 'member', false, 'adult',
@@ -240,6 +241,8 @@ select results_eq(
   'count only what came since their last digest');
 select is(public.enqueue_request_digests(pg_temp.at_a_day(1, '20:00')), 0,
   'and once a day by the run''s own clock: the digest is stamped with when it ran');
+select results_eq($$ select distinct created_at from public.push_outbox where sent_at is null $$,
+  $$ values (pg_temp.at_a_day(1, '19:45')) $$, 'stamped with the run''s time, not the clock''s');
 
 -- Someone removed -------------------------------------------------------------------------------------------------------------------
 
@@ -273,21 +276,42 @@ select is((select count(*) from public.push_outbox where kind = 'new_requests' a
 select is((select count(*) from public.push_outbox where kind = 'new_requests'), 7::bigint,
   'and the others are untouched: Alice''s and Pam''s two days, and Carol''s');
 
--- A profile claimed mid-window ---------------------------------------------------------------------------------------------------
-
+-- A withdrawn kid's idea is counted, not named.
 insert into public.requests (household_id, requested_by_member_id, entered_by_member_id, title, status, created_at) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000a2',
    'Waffles', 'open', pg_temp.at_a_day(3, '19:00'));
 select is(public.enqueue_request_digests(pg_temp.at_a_day(3, '19:45')), 2, 'Nora''s idea, passed to Bob''s phone');
-select is((select count(*) from public.push_outbox where args ->> 'name' = 'Nora'), 2::bigint, 'names her');
+select results_eq($$ select distinct args, about_member_id from public.push_outbox where created_at = pg_temp.at_a_day(3, '19:45') $$,
+  $$ values ('{"count": 1}'::jsonb, null::uuid) $$, 'a kid whose consent is withdrawn is counted but never named');
+
+-- A profile claimed mid-window ---------------------------------------------------------------------------------------------------
+
+insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', 'parental',
+   'a0000000-0000-0000-0000-00000000000a', 'v1');
+insert into public.requests (household_id, requested_by_member_id, entered_by_member_id, title, status, created_at) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-0000000000a2',
+   'Pancakes', 'open', pg_temp.at_a_day(4, '19:00'));
+select is(public.enqueue_request_digests(pg_temp.at_a_day(4, '19:45')), 2, 'Ivy''s idea, passed to Bob''s phone');
+select is((select count(*) from public.push_outbox where args ->> 'name' = 'Ivy'), 2::bigint,
+  'names her: she has her parents'' consent');
 insert into auth.users (id, email, aud, role) values
-  ('40000000-0000-0000-0000-000000000004', 'nora@example.com', 'authenticated', 'authenticated');
+  ('40000000-0000-0000-0000-000000000004', 'ivy@example.com', 'authenticated', 'authenticated');
 update public.members set user_id = '40000000-0000-0000-0000-000000000004'
-where id = '00000000-0000-0000-0000-0000000000a4';
-select is((select count(*) from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a4'
-             or args ->> 'name' = 'Nora'), 0::bigint, 'when she claims her profile, the digests stop naming her');
-select is(public.enqueue_request_digests(pg_temp.at_a_day(3, '20:00')), 0,
+where id = '00000000-0000-0000-0000-0000000000a5';
+select is((select count(*) from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a5'
+             or args ->> 'name' = 'Ivy'), 0::bigint, 'when she claims her profile, the digests stop naming her');
+select is(public.enqueue_request_digests(pg_temp.at_a_day(4, '20:00')), 0,
   'but stay, so the 8pm run doesn''t send the same news again');
+
+-- A planner removed -------------------------------------------------------------------------------------------------------------
+
+update public.push_outbox set sent_at = now() where member_id = '00000000-0000-0000-0000-0000000000a3';
+update public.members set status = 'removed', user_id = null where id = '00000000-0000-0000-0000-0000000000a3';
+select is((select count(*) from public.push_outbox where member_id = '00000000-0000-0000-0000-0000000000a3'), 0::bigint,
+  'a planner removed takes the digests sent to them along, as with everything else sent to them');
+select ok(exists (select 1 from public.push_outbox where member_id = '00000000-0000-0000-0000-0000000000a1'),
+  'Alice''s stay');
 
 -- Clients ------------------------------------------------------------------------------------------------------------------------
 

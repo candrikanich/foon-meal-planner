@@ -220,8 +220,9 @@ $$;
 
 
 -- As car 2's, except a digest: it's a planner's once-a-day mark, so one naming someone who leaves (or whose profile is
--- claimed) stops naming them instead of going, and one sent to someone who leaves stays (their devices go, so an unsent one
--- ends as no_devices). Everything else about them or to them goes, as before.
+-- claimed) stops naming them instead of going. One sent to them goes when they're removed (what was sent to them goes with
+-- them), and stays when only their account changes while they're still in the family (a profile claimed or unlinked):
+-- their devices go, so an unsent one ends as no_devices. Everything else about them or to them goes, as before.
 create or replace function public.members_drop_push_devices()
 returns trigger
 language plpgsql security definer set search_path = ''
@@ -231,12 +232,28 @@ begin
   update public.push_outbox set args = args - 'name', about_member_id = null
   where kind = 'new_requests' and about_member_id = new.id;
   delete from public.push_outbox
-  where kind <> 'new_requests' and (member_id = new.id or about_member_id = new.id);
+  where (kind <> 'new_requests' and (member_id = new.id or about_member_id = new.id))
+     or (kind = 'new_requests' and member_id = new.id and new.status = 'removed');
   return null;
 end;
 $$;
 
 -- New-ideas digest ------------------------------------------------------------------------------------------------------------------
+
+-- Whether a digest may name them: not a kid whose parental consent was withdrawn (and not given again), the same test
+-- retention uses before erasing what they did themselves.
+create function public.push_may_name(target_member uuid)
+returns boolean
+language sql stable set search_path = ''
+as $$
+  select not exists (
+    select 1 from public.members m
+    where m.id = target_member and m.age_group = 'kid' and not public.has_parental_consent(m.id)
+      and exists (select 1 from public.consents c
+                  where c.member_id = m.id and c.kind = 'parental' and c.revoked_at is not null));
+$$;
+
+revoke execute on function public.push_may_name(uuid) from public, anon, authenticated;
 
 -- Returns how many it queued, for tests. `at` is the moment it runs as (now, from pg_cron).
 create function public.enqueue_request_digests(at timestamptz default now())
@@ -259,9 +276,9 @@ begin
 
     insert into public.push_outbox
       (household_id, member_id, kind, about_member_id, args, not_before, expires_at, created_at)
-    select house.id, m.id, 'new_requests', news.only_one,
+    select house.id, m.id, 'new_requests', named.id,
            jsonb_build_object('count', news.count)
-             || case when news.only_one is not null then jsonb_build_object('name', who.first_name) else '{}' end,
+             || case when named.id is not null then jsonb_build_object('name', named.first_name) else '{}' end,
            public.push_not_before(house.tz, m.age_group = 'kid', at),
            ((at at time zone house.tz)::date + time '21:00') at time zone house.tz,
            at
@@ -282,7 +299,7 @@ begin
         and exists (select 1 from public.members asker
                     where asker.id = r.requested_by_member_id and asker.status <> 'removed')
     ) news
-    left join public.members who on who.id = news.only_one
+    left join public.members named on named.id = news.only_one and public.push_may_name(named.id)
     where m.household_id = house.id and m.role = 'planner' and m.status <> 'removed'
       and news.count > 0
       and exists (select 1 from public.push_devices d where d.member_id = m.id)
