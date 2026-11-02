@@ -15,6 +15,19 @@ struct MealDraft: Equatable, Sendable {
         }
     }
 
+    /// A prep step while editing. Its words are typed, and how far ahead is picked.
+    struct PrepLine: Identifiable, Equatable, Sendable {
+        let id: UUID
+        var step: String
+        var leadHours: Int?
+
+        init(id: UUID = UUID(), step: String, leadHours: Int?) {
+            self.id = id
+            self.step = step
+            self.leadHours = leadHours
+        }
+    }
+
     /// What `save_meal` receives.
     struct Saved: Equatable, Sendable {
         struct Line: Equatable, Sendable, Encodable {
@@ -50,6 +63,7 @@ struct MealDraft: Equatable, Sendable {
         let lines: [Line]
         var sides: [Side] = []
         var cookMinutes: Int? = nil
+        var prepSteps: [PrepStep] = []
     }
 
     /// A side while editing: a library meal by id, or an item by name.
@@ -59,7 +73,7 @@ struct MealDraft: Equatable, Sendable {
     }
 
     enum Problem: Error, Equatable {
-        case nameMissing, nameTooLong, servings, badLink, ingredientTooLong, tooManySteps, stepsTooLong
+        case nameMissing, nameTooLong, servings, badLink, ingredientTooLong, tooManySteps, stepsTooLong, tooManyPrepSteps, prepStepTooLong
 
         var message: String {
             switch self {
@@ -70,6 +84,8 @@ struct MealDraft: Equatable, Sendable {
             case .ingredientTooLong: String(localized: "Ingredient names and amounts need 60 characters or fewer.")
             case .tooManySteps: String(localized: "Recipes can have up to 50 steps.")
             case .stepsTooLong: String(localized: "The recipe steps are too long.")
+            case .tooManyPrepSteps: String(localized: "Dishes can have up to 10 prep steps.")
+            case .prepStepTooLong: String(localized: "Prep steps need 120 characters or fewer.")
             }
         }
     }
@@ -85,6 +101,7 @@ struct MealDraft: Equatable, Sendable {
     var sides: [Side]
     /// Time to cook, or nil to let the start-cooking nudge estimate.
     var cookMinutes: Int?
+    var prepLines: [PrepLine]
 
     init(_ meal: LibraryMeal) {
         name = meal.name
@@ -101,6 +118,7 @@ struct MealDraft: Equatable, Sendable {
             }
         }
         cookMinutes = meal.cookMinutes
+        prepLines = meal.prepSteps.map { PrepLine(step: $0.step, leadHours: $0.leadHours) }
         mealID = meal.id
     }
 
@@ -115,6 +133,7 @@ struct MealDraft: Equatable, Sendable {
         madeByMemberID = nil
         sides = []
         cookMinutes = nil
+        prepLines = []
         mealID = nil
     }
 
@@ -176,10 +195,18 @@ struct MealDraft: Equatable, Sendable {
             }
         }
 
+        // A blank row is one that was started and left. A lead the server wouldn't take can only be old data, and means none.
+        let prepSteps = prepLines.compactMap { line -> PrepStep? in
+            let step = line.step.trimmingCharacters(in: .whitespacesAndNewlines)
+            return step.isEmpty ? nil : PrepStep(step: step, leadHours: line.leadHours.flatMap { (1...336).contains($0) ? $0 : nil })
+        }
+        guard prepSteps.count <= 10 else { throw .tooManyPrepSteps }
+        guard prepSteps.allSatisfy({ Self.length($0.step) <= 120 }) else { throw .prepStepTooLong }
+
         return Saved(
             name: name, servings: servings, tags: MealTag.allCases.filter(tags.contains), steps: steps,
             sourceURL: try Self.webLink(link), madeByMemberID: madeByMemberID, lines: savedLines, sides: savedSides,
-            cookMinutes: cookMinutes
+            cookMinutes: cookMinutes, prepSteps: prepSteps
         )
     }
 
@@ -241,6 +268,13 @@ enum MealText {
         var style = Duration.UnitsFormatStyle(allowedUnits: [.hours, .minutes], width: .wide)
         style.locale = locale
         return Duration.seconds(minutes * 60).formatted(style)
+    }
+
+    /// The editor's choices, in hours. A saved lead not on the list stays offered.
+    static func leadTimeChoices(including saved: Int?) -> [Int] {
+        let usual = [1, 2, 4, 8, 12, 24, 48]
+        guard let saved, !usual.contains(saved) else { return usual }
+        return (usual + [saved]).sorted()
     }
 
     static func leadTime(hours: Int?) -> String? {

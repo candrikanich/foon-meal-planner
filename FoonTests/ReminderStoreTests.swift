@@ -171,7 +171,7 @@ private final class Harness {
 
     func set(now: Date) { currentTime = now }
 
-    var prepID: String { ReminderID.prep(me: ann.id, night: night.id, meal: chili, step: 0) }
+    var prepID: String { ReminderID.prep(me: ann.id, night: night.id, meal: chili, kind: .thaw, leadHours: 24) }
     var afterID: String { ReminderID.afterDinner(me: ann.id, night: night.id, meal: chili) }
 
     func records() throws -> [NotificationRecord] {
@@ -238,7 +238,7 @@ struct ReminderSchedulingTests {
         await store.replan(test.wanted())
         #expect(test.center.removed.contains(test.prepID))
         #expect(test.center.removed.contains(test.afterID))
-        #expect(test.center.pending.contains(ReminderID.prep(me: test.ann.id, night: test.night.id, meal: tacos, step: 0)))
+        #expect(test.center.pending.contains(ReminderID.prep(me: test.ann.id, night: test.night.id, meal: tacos, kind: .thaw, leadHours: 24)))
         #expect(try !test.records().contains { $0.key == test.prepID }, "called off, so it doesn't count")
     }
 
@@ -310,7 +310,7 @@ struct ReminderSchedulingTests {
         release.continuation.finish()
         await first.value
         #expect(!test.center.pending.contains(test.prepID), "the older plan's reminder doesn't outlive the newer one")
-        #expect(test.center.pending.contains(ReminderID.prep(me: test.ann.id, night: test.night.id, meal: swapped.mealID!, step: 0)))
+        #expect(test.center.pending.contains(ReminderID.prep(me: test.ann.id, night: test.night.id, meal: swapped.mealID!, kind: .thaw, leadHours: 24)))
     }
 }
 
@@ -688,7 +688,7 @@ struct ReminderAnswerTests {
 
     private let night = UUID()
     private let day = Harness.day(10)
-    private var id: String { ReminderID.prep(me: UUID(), night: night, meal: UUID(), step: 0) }
+    private var id: String { ReminderID.prep(me: UUID(), night: night, meal: UUID(), kind: .thaw, leadHours: 24) }
 
     @Test func aCookTimerAnswerIsntOurs() {
         #expect(ReminderResponse.outcome(id: UUID().uuidString, action: "default", payload: nil, now: .now) == nil)

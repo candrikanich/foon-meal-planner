@@ -43,7 +43,8 @@ enum NightBadges {
         // Out of the freezer or left over: allergies and rules still count, but there's nothing to start or cook it with.
         guard !alreadyCooked else { return allergyBadges + rules }
         let prep = meal.prepSteps.first { step in
-            start == nil || !DishTraits(name: step.step).equipment.contains(.slowCooker)
+            settings.usesPrep(PrepKind(step: step.step))
+                && (start == nil || !DishTraits(name: step.step).equipment.contains(.slowCooker))
         }.map { step in
             DayCardModel.Badge.prep([step.step, MealText.leadTime(hours: step.leadHours)].compactMap { $0 }
                 .joined(separator: " · "))

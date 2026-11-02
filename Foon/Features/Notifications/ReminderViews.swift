@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 /// Keeps reminders in step while the household's screens are up: at launch, back in the foreground, and when the plan, the
-/// family, the rhythm, or a rating changes on this phone.
+/// family, the rhythm, or a rating changes on this phone. A dish's prep steps aren't in any of those, so its editor asks itself.
 struct ReminderRunner: ViewModifier {
     @Environment(HouseholdStore.self) private var household
     @Environment(\.modelContext) private var modelContext

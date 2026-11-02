@@ -71,6 +71,15 @@ struct NightBadgeTests {
         #expect(NightBadges.badges(meal: chicken, library: [chicken], allergies: [], home: [], lookup: .loaded)
             == [.prep("Move the chicken to the fridge to thaw · 1 day ahead")])
     }
+
+    @Test func aHouseholdThatBuysFreshSeesTheNextStepInstead() {
+        let chicken = LibraryMeal.fixture(name: "Grilled chicken", prepSteps: [PrepStep(step: "Thaw the chicken", leadHours: 24),
+                                                                               PrepStep(step: "Marinate", leadHours: 4)])
+        var fresh = HouseholdSettings()
+        fresh.keepsMeatFrozen = false
+        #expect(NightBadges.badges(meal: chicken, library: [chicken], allergies: [], home: [], lookup: .loaded, settings: fresh)
+            == [.prep("Marinate · 4 hours ahead")])
+    }
 }
 
 @MainActor

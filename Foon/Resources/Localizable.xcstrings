@@ -559,6 +559,9 @@
     "Add a household name and your first name." : {
 
     },
+    "Add a prep step" : {
+
+    },
     "Add a serving note" : {
 
     },
@@ -626,6 +629,9 @@
 
     },
     "Adds it to your library; you can add ingredients later." : {
+
+    },
+    "Adds this prep step" : {
 
     },
     "Adult" : {
@@ -1181,6 +1187,9 @@
 
     },
     "Discard" : {
+
+    },
+    "Dishes can have up to 10 prep steps." : {
 
     },
     "Dismiss" : {
@@ -1937,6 +1946,9 @@
     "Makes leftovers for tomorrow" : {
       "comment" : "Reason chip: a big-batch meal"
     },
+    "Marinate" : {
+      "comment" : "Suggested prep step"
+    },
     "Mark %@ as away?" : {
 
     },
@@ -1984,6 +1996,9 @@
     },
     "Most recipe sites work. Foon reads the recipe card, not the whole page." : {
 
+    },
+    "Move the meat to the fridge to thaw" : {
+      "comment" : "Suggested prep step"
     },
     "Name" : {
 
@@ -2100,6 +2115,9 @@
 
     },
     "No recipe card on that page, so Foon kept the name and link. Add ingredients when you can." : {
+
+    },
+    "No reminder" : {
 
     },
     "No rule" : {
@@ -2391,6 +2409,9 @@
       "comment" : "Food rule: what the household skips"
     },
     "Prep ahead" : {
+
+    },
+    "Prep steps need 120 characters or fewer." : {
 
     },
     "Produce" : {
@@ -2781,6 +2802,9 @@
         }
       }
     },
+    "Start the slow cooker" : {
+      "comment" : "Suggested prep step"
+    },
     "Start the week on This Week, then plan %@ into it." : {
 
     },
@@ -3000,6 +3024,9 @@
 
     },
     "Thaw first" : {
+
+    },
+    "Thawing, marinating, starting the slow cooker. Planners get a reminder this long before dinner." : {
 
     },
     "The Sample Family" : {
@@ -3224,6 +3251,9 @@
     "Turn on reminders" : {
 
     },
+    "Turn this off if you buy it fresh, and Foon skips thaw reminders and won't hold a dish back to give it time to thaw." : {
+
+    },
     "Type %@ to confirm" : {
 
     },
@@ -3320,6 +3350,9 @@
     "We had something else" : {
 
     },
+    "We keep meat frozen" : {
+
+    },
     "Week" : {
 
     },
@@ -3356,6 +3389,9 @@
     "What this can't do" : {
 
     },
+    "What to do" : {
+
+    },
     "What you add goes to Foon's servers, so your family sees it too. Meal photos lose their location and camera details first." : {
 
     },
@@ -3369,6 +3405,9 @@
 
     },
     "What your household skips, and when." : {
+
+    },
+    "When" : {
 
     },
     "When do you plan the week?" : {

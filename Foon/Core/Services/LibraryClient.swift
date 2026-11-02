@@ -306,7 +306,7 @@ private struct MealRow: Decodable, Sendable {
     let createdAt: Date
     let steps: [String]
     let sourceURL: String?
-    let prepSteps: [PrepStep]
+    let prepSteps: LenientPrepSteps
     let cookMinutes: Int?
     let mealIngredients: [Line]
     let mealSides: [Side]
@@ -360,7 +360,7 @@ private struct MealRow: Decodable, Sendable {
                                position: $0.position, note: $0.items.note, category: $0.items.category,
                                keepOnHand: $0.items.keepOnHand)
             },
-            steps: steps, sourceURL: sourceURL.flatMap(URL.init(string:)), prepSteps: prepSteps,
+            steps: steps, sourceURL: sourceURL.flatMap(URL.init(string:)), prepSteps: prepSteps.steps,
             sides: mealSides.sorted { $0.position < $1.position }.compactMap(\.side),
             cookMinutes: cookMinutes
         )
@@ -408,6 +408,7 @@ private struct SaveMealParams: Encodable, Sendable {
         case lines
         case sides
         case cookMinutes = "meal_cook_minutes"
+        case prepSteps = "meal_prep_steps"
     }
 
     // Every argument is sent, nulls included: PostgREST matches functions by argument names.
@@ -418,6 +419,8 @@ private struct SaveMealParams: Encodable, Sendable {
         try container.encode(meal.sides, forKey: .sides)
         // Null means "leave it" to save_meal, for older builds; 0 is how this one clears it.
         try container.encode(meal.cookMinutes ?? 0, forKey: .cookMinutes)
+        // Always sent, so removing every step reaches the database. Null is for older builds, which leave them alone.
+        try container.encode(meal.prepSteps, forKey: .prepSteps)
         try Self.encodeFields(of: meal, to: encoder)
     }
 

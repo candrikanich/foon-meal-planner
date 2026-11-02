@@ -114,14 +114,6 @@ private struct ReminderNightRow: Decodable, Sendable {
 
     /// One step that won't read shouldn't cost the rest, or the night.
     struct Meal: Decodable, Sendable {
-        struct LenientStep: Decodable, Sendable {
-            let step: PrepStep?
-
-            init(from decoder: Decoder) throws {
-                step = try? PrepStep(from: decoder)
-            }
-        }
-
         let prepSteps: [PrepStep]
 
         enum CodingKeys: String, CodingKey {
@@ -130,8 +122,7 @@ private struct ReminderNightRow: Decodable, Sendable {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            prepSteps = ((try? container.decodeIfPresent([LenientStep].self, forKey: .prepSteps)) ?? nil)?
-                .compactMap(\.step) ?? []
+            prepSteps = ((try? container.decodeIfPresent(LenientPrepSteps.self, forKey: .prepSteps)) ?? nil)?.steps ?? []
         }
     }
 
