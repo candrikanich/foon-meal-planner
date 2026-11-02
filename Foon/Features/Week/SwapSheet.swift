@@ -48,11 +48,6 @@ struct SwapSheet: View {
 
     private var settings: HouseholdSettings { household.household?.planningSettings ?? HouseholdSettings() }
 
-    private var libraryMatches: [LibraryEntry] {
-        Array(LibraryQuery.apply(LibraryQuery.entries(meals: library.meals, library: library.meals, history: library.history,
-                                                      allergies: library.allergies, favorites: []),
-                                 filter: nil, sort: .notLately, search: search).prefix(12))
-    }
 
     private var typedName: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -282,11 +277,12 @@ struct SwapSheet: View {
 
     @ViewBuilder
     private var searchResults: some View {
+        let libraryMatches = LibraryQuery.searchMatches(library.meals, history: library.history, search: search, limit: 12)
         let catalogMatches = LibraryQuery.catalogMatches(library.catalog, search: search, library: library.meals)
         if !libraryMatches.isEmpty {
             Section("Your meals") {
-                ForEach(libraryMatches) { entry in
-                    libraryRow(entry.meal)
+                ForEach(libraryMatches) { meal in
+                    libraryRow(meal)
                 }
             }
         }

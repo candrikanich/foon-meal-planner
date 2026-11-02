@@ -88,6 +88,14 @@ enum LibraryQuery {
             .sorted(by: ordering(sort))
     }
 
+    /// In-rotation dishes matching a search, for a list that checks allergies on each row it shows. Skipping them here is the
+    /// point: working out every dish's flags takes seconds in a big library, and nothing about a search depends on them.
+    static func searchMatches(_ meals: [LibraryMeal], history: [MealHistory], search: String, limit: Int) -> [LibraryMeal] {
+        let historyByMeal = Dictionary(history.map { ($0.mealID, $0) }, uniquingKeysWith: { first, _ in first })
+        let entries = meals.map { LibraryEntry(meal: $0, history: historyByMeal[$0.id], flags: [], isFavorite: false) }
+        return apply(entries, filter: nil, sort: .notLately, search: search).prefix(limit).map(\.meal)
+    }
+
     /// Starter dishes matching a search, shown below the family's own; dishes already copied in are skipped.
     static func catalogMatches(_ catalog: [CatalogDish], search: String, library: [LibraryMeal]) -> [CatalogDish] {
         let terms = searchTerms(search)

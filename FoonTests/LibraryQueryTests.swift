@@ -42,6 +42,45 @@ struct LibraryQueryTests {
 
     // MARK: Filters
 
+    @Test func swapSearchFindsTheSameDishesInTheSameOrderAsTheLibrary() {
+        let meals = (0..<20).map { meal("Chicken \($0)", ingredients: ["rice", "milk"]) }
+            + [meal("Tacos"), meal("Archived chicken", status: .archived), meal("Retired chicken", status: .retired),
+               meal("Stir fry", ingredients: ["Chicken thighs"])]
+        let history = [MealHistory(mealID: meals[3].id, timesMade: 1, lastMade: CalendarDay(year: 2026, month: 10, day: 1)),
+                       MealHistory(mealID: meals[7].id, timesMade: 1, lastMade: CalendarDay(year: 2026, month: 9, day: 1))]
+        for search in ["chicken", "CHICKEN", "rice", "tacos", "nothing like it", "chicken rice"] {
+            let full = LibraryQuery.apply(LibraryQuery.entries(allOf: meals, history: history, allergies: [nora], favorites: []),
+                                          filter: nil, sort: .notLately, search: search)
+            let found = LibraryQuery.searchMatches(meals, history: history, search: search, limit: 12)
+            #expect(found.map(\.id) == full.prefix(12).map(\.meal.id), "\(search)")
+        }
+        let found = LibraryQuery.searchMatches(meals, history: history, search: "chicken", limit: 12)
+        #expect(found.count == 12)
+        #expect(found.first?.id == meals[7].id, "the one made longest ago comes first")
+        #expect(!found.contains { !$0.status.isInRotation })
+    }
+
+    /// Search doesn't work out flags, so a row always checks what's true now: there's no saved answer to go stale.
+    @Test func aSwapSearchRowFlagsWhatIsTrueNow() {
+        let side = meal("Garlic bread", ingredients: ["butter"])
+        var mac = meal("Mac", ingredients: ["milk"])
+        mac.sides = [.meal(side.id)]
+        let library = [mac, side]
+        let found = LibraryQuery.searchMatches(library, history: [], search: "mac", limit: 12)
+        #expect(found.map(\.id) == [mac.id])
+        func flagged(_ allergies: [MemberAllergies], on night: WeekNight? = nil, in library: [LibraryMeal]) -> Bool {
+            !SwapRow.allergyCheck(found[0], on: night, library: library, allergies: allergies, lookup: .loaded).flags.isEmpty
+        }
+        #expect(flagged([nora], in: library), "the allergy")
+        #expect(!flagged([], in: library), "nobody allergic now")
+        let night = WeekNight(id: UUID(), date: CalendarDay(year: 2026, month: 11, day: 2), effort: .normal, dinnerTime: "18:00",
+                              mealID: nil, mealName: nil, quickPick: nil, locked: false, attendance: [nora.memberID: false])
+        #expect(!flagged([nora], on: night, in: library), "out that night")
+        let peanuts = MemberAllergies(memberID: UUID(), firstName: "Sam", allergens: [.peanuts])
+        let withPeanuts = LibraryMeal.fixture(id: side.id, name: "Garlic bread", ingredients: ["peanuts"])
+        #expect(flagged([peanuts], in: [mac, withPeanuts]), "a side's ingredients changed")
+    }
+
     @Test func theDefaultViewHidesArchivedAndRetiredMeals() {
         let entries = LibraryQuery.entries(allOf: [
             meal("Tacos"), meal("Trial curry", status: .trial),
