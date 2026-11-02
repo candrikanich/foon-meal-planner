@@ -48,7 +48,6 @@ struct SwapSheet: View {
 
     private var settings: HouseholdSettings { household.household?.planningSettings ?? HouseholdSettings() }
 
-
     private var typedName: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     /// An archived meal with exactly the typed name: offered back rather than added again.
