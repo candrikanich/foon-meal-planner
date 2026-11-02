@@ -3,8 +3,8 @@
 -- 1. store_runs: one row per run, written only by start_store_run. Any adult in the family starts one; kids can't. One at a
 --    time per household: starting while one is open hands back the open one and sends nothing. Members read their own
 --    household's runs; nobody writes them directly. A run is only news for 10 minutes, so a day later it's pruned.
--- 2. Push 'heading_to_store' (a kind both lists have held since the log was made): "Ben's at the store." / "Add anything in the next 10 minutes." to everyone else in the family with a
---    device, on Engaged only, not on an away day. Quiet hours per person (kid hours for kids); one they'd hold past the run's
+-- 2. Push 'heading_to_store' (a kind both lists have held since the log was made): "Ben's at the store." / "Add anything in
+--    the next 10 minutes." to everyone else in the family with a device who isn't travelling, on Engaged only, not on an away day. Quiet hours per person (kid hours for kids); one they'd hold past the run's
 --    end isn't queued, and what isn't sent by then is given up. A tap opens Lists. It ranks with urgent items for budgets.
 --    Removal and retention follow the other kinds: members_drop_push_devices deletes rows to or about someone who leaves.
 
@@ -31,7 +31,9 @@ alter table public.store_runs enable row level security;
 create policy "members read store runs" on public.store_runs
   for select to authenticated using (public.is_household_member(household_id));
 
--- The open run, or a new one. Locks the household so two adults tapping at once get one run, and one push.
+-- The open run, or a new one. Locks the household row so two adults tapping at once line up and get one run, and one push.
+-- `for no key update`: enough to line up taps with each other, without blocking writes that only reference the household
+-- (a list line going on during the run).
 create function public.start_store_run(target_household uuid)
 returns public.store_runs
 language plpgsql security definer set search_path = ''
@@ -49,7 +51,7 @@ begin
     raise exception 'an adult heads to the store' using errcode = '42501';
   end if;
 
-  perform 1 from public.households where id = target_household for update;
+  perform 1 from public.households where id = target_household for no key update;
   select * into run from public.store_runs
   where household_id = target_household and ends_at > clock_timestamp()
   order by ends_at desc limit 1;
@@ -93,6 +95,8 @@ begin
   from public.members m
   cross join lateral (select public.push_not_before(tz, m.age_group = 'kid', now()) as not_before) held
   where m.household_id = new.household_id and m.status <> 'removed' and m.id <> starter.id
+    -- Travelling (the rule urgent items use): nothing to add from away.
+    and not (m.status = 'away' and (m.away_until is null or (now() at time zone tz)::date < m.away_until))
     and held.not_before < new.ends_at
     and exists (select 1 from public.push_devices d where d.member_id = m.id);
   return null;

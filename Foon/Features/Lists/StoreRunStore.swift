@@ -51,14 +51,17 @@ extension EnvironmentValues {
 }
 
 /// "Heading to the store" in Lists: a button for adults, and while a run is open, who's shopping and how long's left.
+/// The Section stays a direct child of the List (so its footer shows); the times inside it follow the clock.
 struct StoreRunSection: View {
     let store: StoreRunStore
     let me: Member?
     let members: [Member]
 
+    private var schedule: StoreRunSchedule { StoreRunSchedule(endsAt: store.run?.endsAt) }
+
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 30)) { context in
-            Section {
+        Section {
+            TimelineView(schedule) { context in
                 if let run = store.openRun(at: context.date) {
                     Label(StoreRunText.running(run, members: members, me: me, now: context.date), systemImage: "cart.fill")
                         .foregroundStyle(Palette.paprika)
@@ -71,16 +74,37 @@ struct StoreRunSection: View {
                     .disabled(store.isStarting)
                     .accessibilityHint("Tells the family to add anything in the next 10 minutes")
                 }
-                if let message = store.errorMessage {
-                    Text(message).font(.callout).foregroundStyle(.red)
-                }
-            } footer: {
+            }
+            if let message = store.errorMessage {
+                Text(message).font(.callout).foregroundStyle(.red)
+            }
+        } footer: {
+            TimelineView(schedule) { context in
                 if store.openRun(at: context.date) != nil {
                     Text("What's added now is marked in store mode.")
                 } else if StoreRun.canStart(me) {
                     Text("Tells the family you're shopping, so they can add anything in the next 10 minutes.")
                 }
             }
+        }
+    }
+}
+
+/// Every 30 seconds for the minutes left, and exactly when the run ends, so the button comes back on the dot.
+struct StoreRunSchedule: TimelineSchedule {
+    let endsAt: Date?
+
+    func entries(from start: Date, mode: TimelineScheduleMode) -> AnyIterator<Date> {
+        var next = start
+        return AnyIterator {
+            let current = next
+            let periodic = current.addingTimeInterval(30)
+            if let endsAt, current < endsAt, endsAt < periodic {
+                next = endsAt
+            } else {
+                next = periodic
+            }
+            return current
         }
     }
 }

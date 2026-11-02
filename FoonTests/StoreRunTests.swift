@@ -79,6 +79,14 @@ struct StoreRunTests {
         #expect(row.createdAt == ISO8601DateFormatter().date(from: "2026-11-02T18:30:00Z"))
     }
 
+    @Test func theListRefreshesEveryHalfMinuteAndExactlyWhenTheRunEnds() {
+        let entries = StoreRunSchedule(endsAt: start.addingTimeInterval(45)).entries(from: start, mode: .normal)
+        #expect(Array(entries.prefix(4)) == [start, start.addingTimeInterval(30), start.addingTimeInterval(45),
+                                             start.addingTimeInterval(75)])
+        let idle = StoreRunSchedule(endsAt: nil).entries(from: start, mode: .normal)
+        #expect(Array(idle.prefix(2)) == [start, start.addingTimeInterval(30)])
+    }
+
     // MARK: - Words
 
     @Test func theListSaysWhoIsShoppingAndHowLongIsLeft() {

@@ -142,5 +142,6 @@ struct RootTabView: View {
                 dinnerClient: .preview, ideasClient: .preview(), freezerClient: .preview)
         .environment(SessionStore(auth: .preview()))
         .environment(store)
+        .environment(\.storeRunClient, .preview)
         .task { await store.load() }
 }

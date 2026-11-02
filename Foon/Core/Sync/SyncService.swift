@@ -109,10 +109,12 @@ final class SyncService {
     func perform(_ changes: [OfflineChange]) async {
         var sequence = pendingChanges().map(\.sequence).max() ?? 0
         for change in changes {
-            applyLocally(change)
             sequence += 1
             if let pending = try? PendingChange(sequence: sequence, householdID: householdID, change: change) {
                 context.insert(pending)
+                applyLocally(change, madeAt: pending.createdAt)
+            } else {
+                applyLocally(change, madeAt: .now)
             }
         }
         try? context.save()
@@ -236,9 +238,10 @@ final class SyncService {
             let snapshot = try await client.fetchSnapshot(householdID, today())
             guard mayWrite else { return }
             try replaceCache(with: snapshot)
-            // The server hasn't seen queued changes yet, so they stay visible on top of the snapshot.
-            for change in pendingChanges().compactMap(\.change) {
-                applyLocally(change)
+            // The server hasn't seen queued changes yet, so they stay visible on top of the snapshot, each as of when it was
+            // made: a line added before a store run mustn't read as added during it because a pull came later.
+            for pending in pendingChanges() {
+                if let change = pending.change { applyLocally(change, madeAt: pending.createdAt) }
             }
             try context.save()
             lastPulled = .now
@@ -308,7 +311,7 @@ final class SyncService {
         }
     }
 
-    private func applyLocally(_ change: OfflineChange) {
+    private func applyLocally(_ change: OfflineChange, madeAt: Date) {
         switch change {
         case .setChecked(let listItemID, let checked):
             guard let line = listLine(lineAliases[listItemID] ?? listItemID) else { return }
@@ -346,7 +349,7 @@ final class SyncService {
                 context.insert(CachedListItem(
                     id: lineID, householdID: household, itemID: itemID, itemName: item(itemID)?.name ?? "Item",
                     list: list, urgency: urgency, source: source, note: note, checkedAt: nil, quantity: quantity, planID: planID,
-                    createdAt: .now
+                    createdAt: madeAt
                 ))
             }
             if let replacing, let line = listLine(lineAliases[replacing] ?? replacing) { context.delete(line) }
