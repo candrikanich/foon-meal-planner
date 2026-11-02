@@ -9,14 +9,33 @@ import AppKit
 /// Server push (#40 part 2): this device's APNs token, on the server while this person has reminders on. The server works out
 /// whose it is from the session, so nothing here names a member.
 enum PushRegistration {
-    /// Which APNs servers the token belongs to. Debug builds are development-signed; Staging and Release go out through
-    /// TestFlight and the App Store, which sign for production.
+    /// Which APNs servers the token belongs to, read from the signed profile: a build run from Xcode is development-signed
+    /// whatever its configuration, while App Store and TestFlight builds carry no profile and sign for production.
     static var environment: String {
-        #if DEBUG
-        "sandbox"
+        apsEnvironment(fromProfile: embeddedProfile())
+    }
+
+    /// `profile` is the CMS-signed provisioning profile; the plist inside it holds the entitlements the build was signed with.
+    /// No readable profile means an App Store or TestFlight build (a simulator can't get a token at all).
+    static func apsEnvironment(fromProfile profile: Data?) -> String {
+        let open = Data("<?xml".utf8), close = Data("</plist>".utf8)
+        guard let profile, let start = profile.range(of: open),
+              let end = profile.range(of: close, in: start.lowerBound..<profile.endIndex),
+              let plist = try? PropertyListSerialization.propertyList(
+                  from: profile[start.lowerBound..<end.upperBound], format: nil) as? [String: Any],
+              let entitlements = plist["Entitlements"] as? [String: Any]
+        else { return "production" }
+        let value = entitlements["aps-environment"] ?? entitlements["com.apple.developer.aps-environment"]
+        return (value as? String) == "development" ? "sandbox" : "production"
+    }
+
+    private static func embeddedProfile() -> Data? {
+        #if os(macOS)
+        let url = Bundle.main.bundleURL.appending(path: "Contents/embedded.provisionprofile")
         #else
-        "production"
+        let url = Bundle.main.bundleURL.appending(path: "embedded.mobileprovision")
         #endif
+        return try? Data(contentsOf: url)
     }
 
     static func hex(_ token: Data) -> String {
