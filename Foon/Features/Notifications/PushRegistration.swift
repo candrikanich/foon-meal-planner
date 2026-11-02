@@ -2,6 +2,8 @@ import Foundation
 import Synchronization
 #if os(iOS)
 import UIKit
+#elseif os(macOS)
+import AppKit
 #endif
 
 /// Server push (#40 part 2): this device's APNs token, on the server while this person has reminders on. The server works out
@@ -29,6 +31,8 @@ enum PushRegistration {
         hasAsked = true
         #if os(iOS)
         UIApplication.shared.registerForRemoteNotifications()
+        #elseif os(macOS)
+        NSApplication.shared.registerForRemoteNotifications()
         #endif
     }
 
@@ -81,14 +85,29 @@ private final class FirstAnswer: Sendable {
     }
 }
 
+/// Hands the system's token to the server under whoever is signed in.
+@MainActor
+private func sendPushToken(_ token: Data) {
+    guard (try? SupabaseConfig.fromMainBundle()) != nil else { return }
+    Task { await PushRegistration.received(token, client: .live(SupabaseService.shared.client)) }
+}
+
 #if os(iOS)
 /// Only for the token: notification taps and actions go through `CookAlertPresenter`.
 final class FoonAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        guard (try? SupabaseConfig.fromMainBundle()) != nil else { return }
-        Task { await PushRegistration.received(deviceToken, client: .live(SupabaseService.shared.client)) }
+        sendPushToken(deviceToken)
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {}
+}
+#elseif os(macOS)
+/// Only for the token: notification taps and actions go through `CookAlertPresenter`.
+final class FoonAppDelegate: NSObject, NSApplicationDelegate {
+    func application(_ application: NSApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        sendPushToken(deviceToken)
+    }
+
+    func application(_ application: NSApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {}
 }
 #endif

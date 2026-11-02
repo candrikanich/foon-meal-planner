@@ -6,6 +6,8 @@ import UserNotifications
 struct FoonApp: App {
     #if os(iOS)
     @UIApplicationDelegateAdaptor(FoonAppDelegate.self) private var appDelegate
+    #elseif os(macOS)
+    @NSApplicationDelegateAdaptor(FoonAppDelegate.self) private var appDelegate
     #endif
     @State private var session: SessionStore? = Self.configured
         ? SessionStore(auth: .live(SupabaseService.shared.client)) : nil
