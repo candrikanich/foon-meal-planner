@@ -26,7 +26,8 @@ export interface Alert {
 export type Route =
   | { route: "week"; date: string }
   | { route: "night"; night: string; date: string }
-  | { route: "list" };
+  | { route: "list" }
+  | { route: "dinner" };
 
 export type ApnsPayload = { aps: { alert: Alert; sound: "default" } } & Partial<Route>;
 

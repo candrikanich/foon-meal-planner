@@ -77,7 +77,12 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
   logged; it lasts at most the poll.
 - Idea: on a later approval of the same week, ideas not told yet are told; one planned after approval is not (no trigger on
   requests). The requester must have entered it themselves (`entered_by` null counts as theirs).
-- Payload for urgent: `{"route": "list"}` only, no other keys.
+- Payload for urgent: `{"route": "list"}` only, no other keys. The tonight poll sends `{"route": "dinner"}` (This Week's
+  vote card; the night sheet hides an open poll), not the night.
+- Review fixes: `push_outbox_stands(kind, claim, request, night)` replaces car 2's two-argument version; an idea's push
+  stands only while the request is planned on that night. Urgent skips members away (`status = 'away'` until
+  `away_until`). Consent withdrawal (`anonymize_expired_profiles`) deletes urgent and poll rows about the kid, sent too, and
+  clears `list_items.urgent_by`; the stamp trigger leaves `urgent_by` alone on updates so retention can clear it.
 
 ## Unresolved questions
 

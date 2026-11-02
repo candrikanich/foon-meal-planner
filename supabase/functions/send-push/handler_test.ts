@@ -152,6 +152,28 @@ Deno.test("an urgent item opens the list, though it carries tonight's night", as
   }]);
 });
 
+Deno.test("a tonight poll opens This Week, where the vote card is", async () => {
+  const payloads: ApnsPayload[] = [];
+  const poll: OutboxRow = {
+    ...row([sandbox], "tonight_poll"),
+    week_start: null,
+    night_id: "night-1",
+    night_date: "2026-11-05",
+    args: { name: "Ben" },
+  };
+  const { deps } = fakeDeps([poll], {}, {
+    deliver: (_device, payload) => {
+      payloads.push(payload);
+      return Promise.resolve("delivered");
+    },
+  });
+  await handleSendPush(request(), deps);
+  assertEquals(payloads, [{
+    aps: { alert: { title: "Ben started a vote on dinner.", body: "Tap to vote." }, sound: "default" },
+    route: "dinner",
+  }]);
+});
+
 Deno.test("a push whose words can't be made fails without a post", async () => {
   const nameless = fakeDeps([{ ...row([sandbox], "not_home"), args: null }]);
   await handleSendPush(request(), nameless.deps);

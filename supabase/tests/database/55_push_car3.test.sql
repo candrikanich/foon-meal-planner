@@ -1,7 +1,7 @@
 -- Server push, car 3 (#40 part 2): an urgent list item reaches the other adults on every preset, coalesced; a tonight poll
 -- reaches whoever can vote, on Engaged; "Your idea made Friday" reaches whoever asked, on Engaged, once a request.
 begin;
-select plan(34);
+select plan(43);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -185,6 +185,27 @@ select is((select count(*) from public.push_outbox), 0::bigint, 'nor once tonigh
 update public.plan_nights set dinner_time = '23:00' where id = '00000000-0000-0000-0000-0000000004a1';
 
 delete from public.list_items;
+update public.members set status = 'away' where id = '00000000-0000-0000-0000-0000000000a7';
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select public.add_to_list('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a1', 'quick', 'tonight');
+select pg_temp.as_postgres();
+select results_eq($$ select * from pg_temp.queued('urgent_item') $$, $$ values ('Alice', 'Bob'), ('Eli', 'Bob') $$,
+  'not to someone travelling, who can''t pick it up');
+update public.members set status = 'active' where id = '00000000-0000-0000-0000-0000000000a7';
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+update public.list_items set checked_at = now() where item_id = '00000000-0000-0000-0000-0000000001a1';
+select pg_temp.as_postgres();
+select is((select count(*) from public.push_outbox), 0::bigint, 'someone else buying it calls it off too');
+
+delete from public.list_items;
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select public.add_to_list('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a2', 'weekly');
+select public.move_to_quick_list((select id from public.list_items where item_id = '00000000-0000-0000-0000-0000000001a2'),
+  '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a2', null, gen_random_uuid());
+select pg_temp.as_postgres();
+select is((select count(*) from public.push_outbox), 0::bigint, '"Couldn''t find it" moving a line to the quick list tells no one');
+
+delete from public.list_items;
 delete from public.plan_nights where id = '00000000-0000-0000-0000-0000000004b1';
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
 select public.add_to_list('00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000001b1', 'quick', 'tonight');
@@ -277,6 +298,8 @@ values
    '00000000-0000-0000-0000-0000000000a7', 'Curry', 'open', null),
   ('00000000-0000-0000-0000-0000000006a7', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a7',
    '00000000-0000-0000-0000-0000000000a1', 'Ramen', 'planned', '00000000-0000-0000-0000-0000000004a2'),
+  ('00000000-0000-0000-0000-0000000006a8', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a7',
+   null, 'Stew', 'planned', '00000000-0000-0000-0000-0000000004a2'),
   ('00000000-0000-0000-0000-0000000006b1', '00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000000c2',
    '00000000-0000-0000-0000-0000000000c2', 'Chili', 'planned', '00000000-0000-0000-0000-0000000004b1');
 
@@ -300,8 +323,10 @@ update public.plans set approved_at = null where id = '00000000-0000-0000-0000-0
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select public.approve_plan('00000000-0000-0000-0000-0000000003a1', '[]'::jsonb);
 select pg_temp.as_postgres();
-select results_eq($$ select * from pg_temp.queued('request_planned') $$, $$ values ('Bob', 'Bob'), ('Kim', 'Kim') $$,
-  'approving again tells only about ideas not told yet: not the approver''s own, not one a parent entered for someone');
+select results_eq($$ select * from pg_temp.queued('request_planned') $$,
+  $$ values ('Bob', 'Bob'), ('Gil', 'Gil'), ('Kim', 'Kim') $$,
+  'approving again tells only about ideas not told yet: not the approver''s own, not one a parent entered for someone, '
+  'and one with no record of whose phone it was counts as the requester''s');
 
 update public.households set settings = settings || '{"notification_preset": "balanced"}'
 where id = '00000000-0000-0000-0000-0000000000b0';
@@ -312,11 +337,37 @@ select is((select count(*) from public.push_outbox where household_id = '0000000
              and kind = 'request_planned'), 0::bigint, 'only on Engaged');
 
 delete from public.requests where id = '00000000-0000-0000-0000-0000000006a2';
-select is((select count(*) from pg_temp.queued('request_planned')), 1::bigint, 'a request erased takes its push along');
+select is((select count(*) from pg_temp.queued('request_planned')), 2::bigint, 'a request erased takes its push along');
+
+update public.push_outbox
+set not_before = case when request_id = '00000000-0000-0000-0000-0000000006a1' then now() - interval '1 minute'
+                    else now() + interval '1 hour' end
+where kind = 'request_planned';
+update public.requests set status = 'open', planned_night_id = null where id = '00000000-0000-0000-0000-0000000006a1';
+set local role service_role;
+select is((select count(*) from public.claim_push_outbox(10) where kind = 'request_planned'),
+  0::bigint, 'an idea sent back to Someday before it goes isn''t told');
+select pg_temp.as_postgres();
+update public.requests set status = 'planned', planned_night_id = '00000000-0000-0000-0000-0000000004a1'
+where id = '00000000-0000-0000-0000-0000000006a1';
+set local role service_role;
+select is((select count(*) from public.claim_push_outbox(10) where kind = 'request_planned'),
+  0::bigint, 'nor one moved to another night, which would say the wrong day');
+select pg_temp.as_postgres();
+select is((select count(*) from pg_temp.queued('request_planned') where recipient = 'Bob'), 1::bigint,
+  'it waits rather than being given up');
+update public.requests set planned_night_id = '00000000-0000-0000-0000-0000000004a2'
+where id = '00000000-0000-0000-0000-0000000006a1';
+set local role service_role;
+select is((select count(*) from public.claim_push_outbox(10) where kind = 'request_planned'),
+  1::bigint, 'and goes once it''s back on that night');
+select pg_temp.as_postgres();
 
 -- Sending ---------------------------------------------------------------------------------------------------------------------
 
 delete from public.push_outbox;
+update public.requests set planned_night_id = '00000000-0000-0000-0000-0000000004a1'
+where id = '00000000-0000-0000-0000-0000000006a1';
 insert into public.push_outbox (id, household_id, member_id, kind, night_id, about_member_id, request_id, args, not_before)
 values
   ('00000000-0000-0000-0000-0000000005a1', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2',
@@ -351,6 +402,27 @@ select is((select count(*) from public.push_outbox where about_member_id = '0000
 
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 select throws_ok($$ select * from public.push_outbox $$, '42501', null, 'and no client reads the outbox');
+
+-- A kid's consent withdrawn ------------------------------------------------------------------------------------------------------
+
+select pg_temp.as_postgres();
+insert into public.list_items (household_id, item_id, list, urgency) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a4', 'quick', 'tonight');
+update public.list_items set urgent_by = '00000000-0000-0000-0000-0000000000a6'
+where item_id = '00000000-0000-0000-0000-0000000001a4';
+insert into public.push_outbox (household_id, member_id, kind, about_member_id, args, not_before, sent_at) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a1', 'urgent_item',
+   '00000000-0000-0000-0000-0000000000a6', '{"name": "Nora"}', now(), null),
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a1', 'tonight_poll',
+   '00000000-0000-0000-0000-0000000000a6', '{"name": "Nora"}', now(), now());
+insert into public.consents (household_id, member_id, kind, granted_by, granted_at, revoked_at, text_version) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'parental',
+   'a0000000-0000-0000-0000-00000000000a', now() - interval '90 days', now() - interval '31 days', 'v1');
+select public.anonymize_expired_profiles();
+select is((select count(*) from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a6'), 0::bigint,
+  'a kid''s withdrawn consent takes the pushes about what they did, sent ones too');
+select is((select urgent_by from public.list_items where item_id = '00000000-0000-0000-0000-0000000001a4'), null::uuid,
+  'and a line stops saying they marked it');
 
 select * from finish();
 rollback;

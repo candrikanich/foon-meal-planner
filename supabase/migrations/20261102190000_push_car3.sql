@@ -48,7 +48,8 @@ revoke execute on function public.household_dinner_tonight(uuid) from public, an
 
 -- Urgent list item ---------------------------------------------------------------------------------------------------------------
 
--- Who marked a line for tonight, from the session: never from the client. Nobody (a job, the service role) leaves it empty.
+-- Who marked a line for tonight, from the session: never from the client, which has no grant on the column. Nobody (a job,
+-- the service role) leaves it empty. Otherwise an update leaves it alone, so retention can clear it.
 create function public.list_items_stamp_urgent_by()
 returns trigger
 language plpgsql security definer set search_path = ''
@@ -56,9 +57,7 @@ as $$
 begin
   if new.urgency = 'tonight' and (tg_op = 'INSERT' or old.urgency is distinct from 'tonight') then
     new.urgent_by := public.my_member_id(new.household_id);
-  elsif tg_op = 'UPDATE' then
-    new.urgent_by := old.urgent_by;
-  else
+  elsif tg_op = 'INSERT' then
     new.urgent_by := null;
   end if;
   return new;
@@ -96,6 +95,8 @@ begin
   from public.members m
   cross join lateral (select public.push_not_before(tz, false, now()) as not_before) held
   where m.household_id = new.household_id and m.age_group = 'adult' and m.status <> 'removed' and m.id <> adder.id
+    -- Travelling (the rule create_week and member_usually_home use): they can't pick it up on the way home.
+    and not (m.status = 'away' and (m.away_until is null or (now() at time zone tz)::date < m.away_until))
     and held.not_before < dinner_at
     and exists (select 1 from public.push_devices d where d.member_id = m.id)
     and not exists (select 1 from public.push_outbox o
@@ -247,7 +248,139 @@ create trigger plans_enqueue_request_planned after update of approved_at on publ
   for each row when (old.approved_at is null and new.approved_at is not null)
   execute function public.plans_enqueue_request_planned();
 
+-- Retention -----------------------------------------------------------------------------------------------------------------------
+
+-- As in 20261102110000_tonight_poll.sql, plus: a kid whose consent was withdrawn takes along the pushes about what they did
+-- themselves (a poll they started, something they marked for tonight), sent ones too, and stops being named on a line.
+create or replace function public.anonymize_expired_profiles()
+returns integer
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  removed uuid[];
+  withdrawn uuid[];
+begin
+  select coalesce(array_agg(m.id), '{}') into removed
+  from public.members m
+  where m.age_group = 'kid' and m.anonymized_at is null and m.user_id is null
+    and m.status = 'removed' and m.removed_at < now() - interval '12 months';
+
+  select coalesce(array_agg(m.id), '{}') into withdrawn
+  from public.members m
+  where m.age_group = 'kid' and m.user_id is null and m.status <> 'removed'
+    and not public.has_parental_consent(m.id)
+    -- Measured from the latest withdrawal, so an older consent cycle can't shorten the 30 days;
+    -- erased again only if a newer withdrawal came after the last erase.
+    and (select max(c.revoked_at) from public.consents c where c.member_id = m.id and c.kind = 'parental')
+        < now() - interval '30 days'
+    and (m.own_data_erased_at is null
+         or m.own_data_erased_at < (select max(c.revoked_at) from public.consents c
+                                    where c.member_id = m.id and c.kind = 'parental'));
+
+  delete from public.member_allergies where member_id = any (removed);
+  delete from public.serving_notes where member_id = any (removed);
+  update public.requests set note = null where requested_by_member_id = any (removed);
+  -- A removed kid's ratings stay as anonymous history; their own words don't.
+  update public.reactions set comment = null where member_id = any (removed);
+  -- What a kid rated themselves (not what a parent entered for them by passing the phone) is theirs to lose.
+  delete from public.reactions where member_id = any (withdrawn) and entered_by_member_id = member_id;
+  update public.reactions set comment = null where member_id = any (withdrawn);
+  -- The thanks a kid sent from their own phone are theirs too.
+  delete from public.chef_thanks where from_member_id = any (withdrawn);
+  -- Notes a kid wrote themselves are theirs; ones a parent wrote for them stay.
+  delete from public.serving_notes where member_id = any (withdrawn) and written_by_member_id = member_id;
+  -- What a kid asked for themselves goes (the spec's "requests"), with their me-toos.
+  delete from public.request_plus_ones where member_id = any (withdrawn) and entered_by_member_id = member_id;
+  delete from public.request_plus_ones where request_id in
+    (select id from public.requests where requested_by_member_id = any (withdrawn) and entered_by_member_id = requested_by_member_id);
+  delete from public.requests where requested_by_member_id = any (withdrawn) and entered_by_member_id = requested_by_member_id;
+  -- Offers to cook a kid made themselves go; ones a parent entered for them stay, and a removed kid's stay anonymous.
+  delete from public.night_claims where member_id = any (withdrawn) and entered_by_member_id = member_id;
+  update public.night_claims set released_at = now() where member_id = any (removed) and released_at is null;
+  -- A vote a kid cast themselves goes, and a poll stops saying they started it. One a parent tapped in for them stays until it ages out.
+  delete from public.poll_votes where member_id = any (withdrawn) and entered_by_member_id = member_id;
+  update public.polls set started_by = null where started_by = any (withdrawn);
+  -- The pushes about a poll they started or something they marked for tonight were about what they did themselves, sent
+  -- ones too; and a line stops saying they marked it.
+  delete from public.push_outbox
+  where kind in ('tonight_poll', 'urgent_item') and about_member_id = any (withdrawn);
+  update public.list_items set urgent_by = null where urgent_by = any (withdrawn);
+  -- A poll is about one dinner, so it ages out like the log, for everyone, and its votes go with it.
+  delete from public.polls where created_at < now() - interval '8 weeks';
+  -- A kid who plans: what they changed themselves goes. Entries about the plan itself age out below for everyone.
+  delete from public.plan_changes where actor_member_id = any (withdrawn);
+  delete from public.plan_changes where created_at < now() - interval '8 weeks';
+  -- What was sent to a kid goes with them, and the log ages out for everyone.
+  delete from public.notification_log where member_id = any (removed) or member_id = any (withdrawn);
+  delete from public.notification_log where created_at < now() - interval '8 weeks';
+  update public.members
+  set first_name = 'Former member', avatar = null, attendance_defaults = '{}', notification_prefs = '{}',
+      declared_age_band = null, anonymized_at = now()
+  where id = any (removed);
+
+  update public.members
+  set declared_age_band = null, own_data_erased_at = now()
+  where id = any (withdrawn);
+
+  return cardinality(removed) + cardinality(withdrawn);
+end;
+$$;
+
 -- Sending -----------------------------------------------------------------------------------------------------------------------
+
+-- As car 2's, plus: "Your idea made Friday" stands only while the idea is still planned on that night, so one sent back to
+-- Someday or moved to another night before it goes waits, and the dinner-time check ends it.
+create function public.push_outbox_stands(row_kind text, row_claim uuid, row_request uuid, row_night uuid)
+returns boolean
+language sql stable set search_path = ''
+as $$
+  select case row_kind
+    when 'claim' then exists (
+      select 1 from public.night_claims c join public.plan_nights n on n.id = c.night_id
+      where c.id = row_claim and c.released_at is null and n.quick_pick is null
+        and public.can_cook_night(c.member_id, c.night_id)
+        and not exists (select 1 from public.meal_logs l where l.night_id = n.id))
+    when 'request_planned' then exists (
+      select 1 from public.requests r
+      where r.id = row_request and r.status = 'planned' and r.planned_night_id = row_night)
+    else true
+  end;
+$$;
+
+revoke execute on function public.push_outbox_stands(text, uuid, uuid, uuid) from public, anon, authenticated;
+
+create or replace function public.kick_push_sender()
+returns boolean
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  function_url text;
+  cron_secret text;
+begin
+  if not exists (
+    select 1 from public.push_outbox o
+    where o.sent_at is null and o.failed is null and o.not_before <= now() and o.attempts < 5
+      and (o.claimed_until is null or o.claimed_until < now())
+      and public.push_outbox_stands(o.kind, o.claim_id, o.request_id, o.night_id)
+  ) then
+    return false;
+  end if;
+
+  select decrypted_secret into function_url from vault.decrypted_secrets where name = 'push_function_url';
+  select decrypted_secret into cron_secret from vault.decrypted_secrets where name = 'push_cron_secret';
+  if coalesce(function_url, '') = '' or coalesce(cron_secret, '') = '' then
+    return false;
+  end if;
+
+  perform net.http_post(
+    url := function_url,
+    body := '{}'::jsonb,
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-push-secret', cron_secret),
+    timeout_milliseconds := 55000
+  );
+  return true;
+end;
+$$;
 
 -- As car 2's, with an idea's night following its dinner time too, and an urgent item following tonight's.
 create or replace function public.claim_push_outbox(batch_size int)
@@ -275,7 +408,7 @@ begin
     select o.id from public.push_outbox o
     where o.sent_at is null and o.failed is null and o.not_before <= now() and o.attempts < 5
       and (o.claimed_until is null or o.claimed_until < now())
-      and public.push_outbox_stands(o.kind, o.claim_id)
+      and public.push_outbox_stands(o.kind, o.claim_id, o.request_id, o.night_id)
     order by o.not_before
     limit greatest(batch_size, 0)
     for update skip locked
@@ -293,3 +426,6 @@ begin
   left join public.plan_nights n on n.id = c.night_id;
 end;
 $$;
+
+-- Nothing calls car 2's two-argument version any more.
+drop function public.push_outbox_stands(text, uuid);
