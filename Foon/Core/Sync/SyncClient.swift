@@ -109,6 +109,11 @@ extension SyncClient {
                     try await client.from("list_items").delete().eq("id", value: listItemID)
                         .eq("source", value: ListItemSource.staple.rawValue).is("checked_at", value: nil).execute()
                     return nil
+                case .teachReceiptAlias(let householdID, let rawText, let itemID):
+                    try await client.rpc("teach_receipt_alias", params: TeachReceiptAliasParams(
+                        targetHousehold: householdID, aliasText: rawText, targetItem: itemID
+                    )).execute()
+                    return nil
                 }
             },
             listChanges: { householdID in
@@ -156,6 +161,18 @@ extension SyncClient {
 }
 
 private struct LineID: Decodable { let id: UUID }
+
+struct TeachReceiptAliasParams: Encodable, Sendable {
+    let targetHousehold: UUID
+    let aliasText: String
+    let targetItem: UUID
+
+    enum CodingKeys: String, CodingKey {
+        case targetHousehold = "target_household"
+        case aliasText = "alias_text"
+        case targetItem = "target_item"
+    }
+}
 
 // Patches send nulls explicitly so clearing a value reaches the database.
 
