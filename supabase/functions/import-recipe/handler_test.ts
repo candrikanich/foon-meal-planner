@@ -13,6 +13,8 @@ const request = (body: unknown, jwt: string | null = signedIn) =>
     body: JSON.stringify(body),
   });
 
+const allow = () => Promise.resolve(true);
+
 const recipePage = `<script type="application/ld+json">${
   JSON.stringify({ "@type": "Recipe", name: "Tacos", recipeYield: 4, recipeIngredient: ["1 lb beef"] })
 }</script>`;
@@ -20,6 +22,7 @@ const recipePage = `<script type="application/ld+json">${
 Deno.test("returns the recipe and where the page ended up", async () => {
   const response = await handleImport(request({ url: " https://r.example/tacos " }), {
     fetchPage: (link) => Promise.resolve({ html: recipePage, url: `${link}?final` }),
+    claimSlot: allow,
     log: () => {},
   });
   assertEquals(response.status, 200);
@@ -32,6 +35,7 @@ Deno.test("returns the recipe and where the page ended up", async () => {
 Deno.test("no recipe data is still a 200, with the title", async () => {
   const response = await handleImport(request({ url: "https://r.example/post" }), {
     fetchPage: () => Promise.resolve({ html: "<title>A post</title>", url: "https://r.example/post" }),
+    claimSlot: allow,
     log: () => {},
   });
   assertEquals(await response.json(), { recipe: null, caption: null, captionTruncated: false, title: "A post", url: "https://r.example/post" });
@@ -40,19 +44,21 @@ Deno.test("no recipe data is still a 200, with the title", async () => {
 Deno.test("blocked and unreachable links say which", async () => {
   const blocked = await handleImport(request({ url: "http://10.0.0.1" }), {
     fetchPage: () => Promise.reject(new BlockedURL("private address")),
+    claimSlot: allow,
     log: () => {},
   });
   assertEquals(blocked.status, 400);
   assertEquals(await blocked.json(), { error: "url_not_allowed" });
   const down = await handleImport(request({ url: "https://r.example/down" }), {
     fetchPage: () => Promise.reject(new PageUnavailable("status 503")),
+    claimSlot: allow,
     log: () => {},
   });
   assertEquals(down.status, 502);
 });
 
 Deno.test("needs a session and a link", async () => {
-  const deps = { fetchPage: () => Promise.reject(new Error("not called")), log: () => {} };
+  const deps = { claimSlot: allow, fetchPage: () => Promise.reject(new Error("not called")), log: () => {} };
   assertEquals((await handleImport(request({ url: "https://r.example" }, null), deps)).status, 401);
   assertEquals(
     (await handleImport(request({ url: "https://r.example" }, token({ role: "anon" })), deps)).status,
@@ -66,4 +72,39 @@ Deno.test("needs a session and a link", async () => {
     (await handleImport(new Request("http://localhost/import-recipe", { method: "GET" }), deps)).status,
     405,
   );
+});
+
+Deno.test("over the daily cap is a 429, and nothing is fetched", async () => {
+  const response = await handleImport(request({ url: "https://r.example/tacos" }), {
+    claimSlot: () => Promise.resolve(false),
+    fetchPage: () => Promise.reject(new Error("not called")),
+    log: () => {},
+  });
+  assertEquals(response.status, 429);
+  assertEquals(await response.json(), { error: "rate_limited" });
+});
+
+Deno.test("the slot is claimed with the caller's own token, before the fetch", async () => {
+  const calls: string[] = [];
+  await handleImport(request({ url: "https://r.example/tacos" }), {
+    claimSlot: (authorization) => {
+      calls.push(`claim ${authorization}`);
+      return Promise.resolve(true);
+    },
+    fetchPage: () => {
+      calls.push("fetch");
+      return Promise.resolve({ html: "", url: "https://r.example/tacos" });
+    },
+    log: () => {},
+  });
+  assertEquals(calls, [`claim Bearer ${signedIn}`, "fetch"]);
+});
+
+Deno.test("a cap check that fails is a 502, not a free pass", async () => {
+  const response = await handleImport(request({ url: "https://r.example/tacos" }), {
+    claimSlot: () => Promise.reject(new Error("db down")),
+    fetchPage: () => Promise.reject(new Error("not called")),
+    log: () => {},
+  });
+  assertEquals(response.status, 502);
 });

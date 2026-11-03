@@ -125,7 +125,8 @@ struct SharedItemSheet: View {
         let shared = title
         let imported = await library.importRecipe(url.absoluteString)
         library.clearError()
-        defer { foundNoRecipe = readDraft == nil }
+        // A capped read says nothing about the post, so it must not claim there's no recipe in it (#116).
+        defer { foundNoRecipe = readDraft == nil && !library.importWasCapped }
         guard let imported else { return }
         // Shared with it or typed while it was reading: their words beat a guess from the page.
         let words = title.trimmingCharacters(in: .whitespacesAndNewlines)

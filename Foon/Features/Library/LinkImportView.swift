@@ -59,7 +59,7 @@ struct LinkImportView: View {
                             Button("Save just the link") { useLinkOnly(unreadable) }
                         }
                     } footer: {
-                        if unreadable != nil {
+                        if unreadable != nil, !library.importWasCapped {
                             Text("Some sites don't let apps read their recipes. You can add the ingredients yourself.")
                         }
                     }
