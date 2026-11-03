@@ -113,6 +113,40 @@ struct RatingCadenceTests {
         #expect(F.of(.ratingRoundup, NotificationPlanner.plan(inputs)).isEmpty)
     }
 
+    @Test func noRoundupWhenTheOnlyUnratedNightWasTakeoutInstead() {
+        var nights = (8...14).map { F.night($0) }
+        for index in nights.indices { nights[index].ratedBy = [F.kim.id] }
+        nights[2].ratedBy = []
+        nights[2].hasLog = true
+        nights[2].loggedMealID = nil
+        var inputs = F.inputs(me: F.kim, weeks: [F.week(nights)], now: F.at(8, 12))
+        inputs.cadence = RatingCadence(weeklySince: F.at(7, 12))
+        #expect(F.of(.ratingRoundup, NotificationPlanner.plan(inputs)).isEmpty, "a quick pick logged instead: nothing to rate")
+    }
+
+    @Test func theRoundupRanksBelowPrepAndAboveTheNightlyOnes() {
+        #expect(ReminderKind.timeToPlan.budgetOrder < ReminderKind.prep.budgetOrder)
+        #expect(ReminderKind.prep.budgetOrder < ReminderKind.ratingRoundup.budgetOrder)
+        #expect(ReminderKind.ratingRoundup.budgetOrder < ReminderKind.checkIn.budgetOrder)
+        #expect(ReminderKind.checkIn.budgetOrder == ReminderKind.afterDinner.budgetOrder)
+    }
+
+    @Test func aKidsRoundupStillBeatsHerWeeksCheckInsButNotPrep() throws {
+        // Prep on every night, for a kid who's the only one home: prep fills the budget before the roundup.
+        let steps = [PlannerFixture.thaw]
+        let kidOnly = (8...14).map { F.night($0, steps: steps, home: [F.kim]) }
+        var inputs = F.inputs(me: F.kim, members: [F.kim], weeks: [F.week(kidOnly)], now: F.at(8, 12))
+        inputs.cadence = RatingCadence(weeklySince: F.at(7, 12))
+        let plan = NotificationPlanner.plan(inputs)
+        #expect(F.of(.ratingRoundup, plan).isEmpty, "five prep reminders come first")
+        #expect(F.of(.prep, plan).count == 5)
+
+        let plain = (8...14).map { F.night($0) }
+        var checkIns = F.inputs(me: F.kim, weeks: [F.week(plain)], now: F.at(8, 12))
+        checkIns.cadence = RatingCadence(weeklySince: F.at(7, 12))
+        #expect(!F.of(.ratingRoundup, NotificationPlanner.plan(checkIns)).isEmpty, "but it beats her check-ins")
+    }
+
     @Test func theRoundupOpensThisWeekFromTheLockScreen() {
         let payload = ReminderPayload(route: .roundup(F.day(8)), dinnerAt: nil)
         #expect(ReminderPayload(userInfo: payload.userInfo)?.route == .roundup(F.day(8)))

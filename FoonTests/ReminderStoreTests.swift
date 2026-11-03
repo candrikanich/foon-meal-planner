@@ -1021,3 +1021,44 @@ struct ReminderPresetWordingTests {
         #expect(ReminderRoute.dinnerCard.tab == .week)
     }
 }
+
+@MainActor
+struct RatingCadenceStoreTests {
+    /// Three after-dinner prompts that went out Sunday to Tuesday with nothing back.
+    private func ignoredThree(_ test: Harness) throws -> [ReminderNight] {
+        let nights = (8...10).map { day in
+            ReminderNight(id: UUID(), date: Harness.day(day), mealID: UUID(), attendance: [test.ann.id: true])
+        }
+        for night in nights {
+            let prompt = PlannedReminder(
+                id: ReminderID.afterDinner(me: test.ann.id, night: night.id, meal: night.mealID!), kind: .afterDinner,
+                nightID: night.id, fireAt: Harness.calendar.date(bySettingHour: 19, minute: 0, second: 0,
+                                                                 of: night.date.date(in: Harness.calendar))!,
+                dinnerAt: nil, title: "", body: "", route: .dinnerCard)
+            let record = NotificationRecord(reminder: prompt, householdID: test.household, memberID: test.ann.id)
+            record.sentAt = prompt.fireAt
+            test.context.insert(record)
+        }
+        try test.context.save()
+        return nights
+    }
+
+    @Test func aReadThatFailsNeverDownshifts() async throws {
+        let test = try Harness()
+        test.set(now: Harness.at(8, 9))
+        let nights = try ignoredThree(test)
+        test.server.set(weeks: [test.week(nights)])
+        let store = test.store()
+        await store.replan(test.wanted())
+        test.server.set(offline: true)
+        test.set(now: Harness.at(12, 10))
+        await store.replan(test.wanted())
+        #expect(!test.device.ratingCadence(test.ann.id).isWeekly,
+                "from an old cache, a rating made on another phone since can't be seen, so nothing is decided")
+        #expect(!store.ratingCadence.isWeekly)
+
+        test.server.set(offline: false)
+        await store.replan(test.wanted())
+        #expect(test.device.ratingCadence(test.ann.id).isWeekly, "a fresh read that agrees does")
+    }
+}
