@@ -55,7 +55,8 @@ One project for the alpha is enough. Prod gets its own project before external t
 ### 4. Xcode Cloud: automatic builds (15 min, needs your Apple ID in Xcode)
 1. Open `Foon.xcodeproj` and go to Product → Xcode Cloud → Create Workflow. Grant access to the GitHub repo `candrikanich/foon-meal-planner`.
 2. Workflow settings:
-   - Start condition: **branch changes on `main`**.
+   - Start condition: **tags matching `testflight/*`** (changed from branch changes on `main` on 2026-10-30; see
+     Shipping a TestFlight build below).
    - Action: **Archive**, iOS, scheme `Foon`, configuration **Staging**.
    - Post-action: **TestFlight Internal Testing**, group "Family".
    - Xcode version: **latest beta**, which matches what we build with.
@@ -94,4 +95,18 @@ Xcode Cloud numbers builds automatically, and 25 compute hours a month are free,
   - Or click Start Build in Xcode (⌘9 → Cloud).
 - Staging migrations still deploy on every merge to `main` (`deploy-staging.yml`), so keep migrations backward
   compatible with the last TestFlight build.
+- If a tag hasn't started a build within about 3 minutes, push a second tag on the same commit. A tag can also start its
+  build late, so check `runs` before pushing a third.
+- If a migration changes an RPC the new build calls, wait for "Deploy staging" to pass before tagging.
+
+## New targets and capabilities need the developer portal first (#151)
+CI builds with `CODE_SIGNING_ALLOWED=NO`, so it never exercises App Store signing. A new target, App Group, or
+capability passes every check and then fails at Xcode Cloud's App Store export. Builds 10 to 17 failed this way
+after the share extension (#140) arrived without its App ID and App Group in the portal.
+
+Before tagging a build with one of these, Chris adds it in developer.apple.com → Identifiers:
+- a new extension target: register its App ID (`com.andrikanich.foon.<name>`), with App Groups on and
+  `group.com.andrikanich.foon` ticked if it shares data with the app;
+- a new capability on an existing target: tick it on that App ID. Push Notifications on `com.andrikanich.foon` was
+  done on 2026-11-02, before the `aps-environment` entitlement went in.
 
