@@ -120,6 +120,8 @@ struct FamilyView: View {
                     Text("Who changed what on the plan, so two planners don't confuse each other.")
                 }
 
+                ShowTipsAgainSection()
+
                 // Family order, not a ranking: credit, not a leaderboard.
                 let cooks = Dictionary(dinner.cookTally.map { ($0.memberID, $0) }, uniquingKeysWith: { first, _ in first })
                 let cooking = store.visibleMembers.filter { cooks[$0.id] != nil }

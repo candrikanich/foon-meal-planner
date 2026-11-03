@@ -1,4 +1,5 @@
 import SwiftUI
+import TipKit
 
 struct RootTabView: View {
     @Environment(HouseholdStore.self) private var household
@@ -99,7 +100,10 @@ struct RootTabView: View {
     }
 
     private func refreshShared() {
-        waitingShares = (SharedInbox.shared?.pending() ?? []).filter { !postponedShares.contains($0.id) }
+        let pending = SharedInbox.shared?.pending() ?? []
+        // They've found the share sheet, so the tip on Ideas has done its job.
+        if !pending.isEmpty { ShareToFoonTip().invalidate(reason: .actionPerformed) }
+        waitingShares = pending.filter { !postponedShares.contains($0.id) }
     }
 
     private func finishShared(_ item: SharedItem, _ outcome: SharedItemSheet.Outcome) {

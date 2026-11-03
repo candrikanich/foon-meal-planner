@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import TipKit
 
 /// The household's lists (docs/spec.md → Shopping and pantry), read from the offline cache so they work with no
 /// signal: add an item, what's on the list (tonight first, then the week, then the rest), and staples running low.
@@ -17,6 +18,7 @@ struct ListsView: View {
     @State private var errorMessage: String?
     @Environment(\.storeRunClient) private var storeRunClient
     @State private var storeRuns: StoreRunStore?
+    private let storeModeTip = StoreModeTip()
 
     private var entries: [ListEntry] { ListEntry.entries(lines: lines, items: items) }
 
@@ -60,8 +62,9 @@ struct ListsView: View {
             .navigationTitle("Lists")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Shop", systemImage: "cart") { shopping = true }
+                    Button("Shop", systemImage: "cart") { openStoreMode() }
                         .disabled(!canShop)
+                        .popoverTip(offersStoreModeTip ? storeModeTip : nil)
                 }
             }
             .refreshable {
@@ -89,6 +92,15 @@ struct ListsView: View {
     @ViewBuilder
     private var storeMode: some View {
         if let householdID = household.household?.id { StoreModeView(householdID: householdID, run: storeRuns?.run) }
+    }
+
+    private var offersStoreModeTip: Bool {
+        TipRules.eligible(onMac: FoonTips.onMac, canShop: canShop).contains(.storeMode)
+    }
+
+    private func openStoreMode() {
+        storeModeTip.invalidate(reason: .actionPerformed)
+        shopping = true
     }
 
     /// Open while there's something to buy, or a trip is still in progress (to finish it).
