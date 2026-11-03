@@ -437,6 +437,29 @@
     "%lld new dishes tried" : {
       "comment" : "Family stats: dishes the family had for the first time"
     },
+    "%lld new ideas are waiting." : {
+      "comment" : "Reminder body: Time to plan, with open ideas",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld new idea is waiting."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld new ideas are waiting."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld nights cooked by someone other than the usual cook" : {
       "comment" : "Family stats: dinners cooked by someone new to the stove"
     },

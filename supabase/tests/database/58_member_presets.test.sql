@@ -32,7 +32,7 @@ insert into public.households (id, name, owner) values
   ('00000000-0000-0000-0000-0000000000a0', 'Andersons', 'a0000000-0000-0000-0000-00000000000a'),
   ('00000000-0000-0000-0000-0000000000b0', 'Carters', 'c0000000-0000-0000-0000-00000000000c');
 
--- A clock where it's about noon now, so tonight's dinner and 7:30pm are still ahead and adults aren't in quiet hours.
+-- A clock where it's about noon now, so tonight's dinner and 8:30pm are still ahead and adults aren't in quiet hours.
 update public.households
 set settings = settings || jsonb_build_object('time_zone',
   (select case when k >= 0 then 'Etc/GMT+' || k else 'Etc/GMT-' || -k end
@@ -177,7 +177,7 @@ select results_eq($$ select * from pg_temp.recipients('request_planned') $$, $$ 
 select results_eq($$ select * from pg_temp.recipients('plan_set') $$, $$ values ('Bob'), ('Dan'), ('Kim') $$,
   'Plan''s set goes on every preset, so nobody''s own changes it');
 
-select is(public.enqueue_request_digests(pg_temp.at_a('19:45')), 1, 'the ideas digest');
+select is(public.enqueue_request_digests(pg_temp.at_a('20:30')), 1, 'the ideas digest');
 select results_eq($$ select * from pg_temp.recipients('new_requests') $$, $$ values ('Bob') $$,
   'reaches a planner on Engaged in a Balanced family');
 

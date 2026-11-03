@@ -24,6 +24,8 @@ struct NotificationLogEntry: Encodable, Equatable, Sendable {
 struct NotificationClient: Sendable {
     /// The plans starting from `from` through `through`, with what reminders need from each night.
     var weeks: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ through: CalendarDay) async throws -> [ReminderWeek]
+    /// The household's open ideas added since `since`, for counting: when, and whose (RLS keeps it to the household).
+    var ideas: @Sendable (_ householdID: UUID, _ since: Date) async throws -> [ReminderIdea] = { _, _ in [] }
     /// Sends log rows (`record_notifications`), at most 200 at a time. The server only ever files them under the caller.
     var record: @Sendable (_ householdID: UUID, _ entries: [NotificationLogEntry]) async throws -> Void
     /// "Home" or "Not home" from the lock screen. The server takes it only for tonight.
@@ -69,6 +71,15 @@ extension NotificationClient {
                     .value
                 let byNight = Dictionary(logs.map { ($0.nightID, $0) }, uniquingKeysWith: { first, _ in first })
                 return plans.map { $0.week(logs: byNight) }
+            },
+            ideas: { householdID, since in
+                try await client.from("requests")
+                    .select("created_at, requested_by_member_id, entered_by_member_id")
+                    .eq("household_id", value: householdID)
+                    .eq("status", value: "open")
+                    .gte("created_at", value: since.ISO8601Format())
+                    .execute()
+                    .value
             },
             record: { householdID, entries in
                 try await client.rpc("record_notifications", params: RecordParams(targetHousehold: householdID, entries: entries))

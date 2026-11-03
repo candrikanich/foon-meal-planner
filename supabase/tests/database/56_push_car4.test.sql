@@ -38,7 +38,7 @@ insert into public.households (id, name, owner) values
   ('00000000-0000-0000-0000-0000000000a0', 'Andersons', 'a0000000-0000-0000-0000-00000000000a'),
   ('00000000-0000-0000-0000-0000000000b0', 'Carters', 'c0000000-0000-0000-0000-00000000000c');
 
--- A clock where it's about noon now, so 7:30pm today is still ahead whenever the tests run.
+-- A clock where it's about noon now, so 8:30pm today is still ahead whenever the tests run.
 update public.households
 set settings = settings || jsonb_build_object('time_zone',
   (select case when k >= 0 then 'Etc/GMT+' || k else 'Etc/GMT-' || -k end
@@ -193,10 +193,10 @@ insert into public.requests (household_id, requested_by_member_id, entered_by_me
   ('00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000c2',
    'Chili', 'open', now() - interval '1 hour');
 
-select is(public.enqueue_request_digests(pg_temp.at_a('19:45')), 0, 'nothing on Balanced');
+select is(public.enqueue_request_digests(pg_temp.at_a('20:30')), 0, 'nothing on Balanced');
 
 update public.households set settings = settings || '{"notification_preset": "engaged"}';
-select is(public.enqueue_request_digests(pg_temp.at_a('19:00')), 0, 'nothing before 7:30pm');
+select is(public.enqueue_request_digests(pg_temp.at_a('20:15')), 0, 'nothing before 8:30pm');
 select is(public.enqueue_request_digests(pg_temp.at_a('21:15')), 0, 'or once quiet hours begin');
 
 update public.households
@@ -206,13 +206,13 @@ set settings = settings || jsonb_build_object('away_dates', jsonb_build_array(js
 where id = '00000000-0000-0000-0000-0000000000a0';
 update public.households set settings = settings || '{"notification_preset": "balanced"}'
 where id = '00000000-0000-0000-0000-0000000000b0';
-select is(public.enqueue_request_digests(pg_temp.at_a('19:45')), 0, 'or on an away day');
+select is(public.enqueue_request_digests(pg_temp.at_a('20:30')), 0, 'or on an away day');
 update public.households set settings = (settings - 'away_dates')
 where id = '00000000-0000-0000-0000-0000000000a0';
 update public.households set settings = settings || '{"notification_preset": "engaged"}'
 where id = '00000000-0000-0000-0000-0000000000b0';
 
-select is(public.enqueue_request_digests(pg_temp.at_a('19:45')), 3, 'at 7:45 on Engaged, each planner with a device');
+select is(public.enqueue_request_digests(pg_temp.at_a('20:30')), 3, 'at 8:30 on Engaged, each planner with a device');
 select results_eq(
   $$ select m.first_name, o.args, o.about_member_id from public.push_outbox o join public.members m on m.id = o.member_id
      order by m.first_name $$,
@@ -222,27 +222,27 @@ select results_eq(
   'counting open ideas from the last day that aren''t theirs (not asked for, not entered by them), naming one person only');
 select is((select count(*) from public.push_outbox o join public.members m on m.id = o.member_id
            where o.not_before <> public.push_not_before(public.household_time_zone(o.household_id), m.age_group = 'kid',
-                                                        pg_temp.at_a('19:45'))
+                                                        pg_temp.at_a('20:30'))
               or o.expires_at <> ((public.household_today(o.household_id) + time '21:00')
                                   at time zone public.household_time_zone(o.household_id))), 0::bigint,
   'each held for their own quiet hours, and good until 9pm');
-select is(public.enqueue_request_digests(pg_temp.at_a('20:00')), 0, 'once a planner a day');
+select is(public.enqueue_request_digests(pg_temp.at_a('20:45')), 0, 'once a planner a day');
 
 -- The next day, only what's new since the last one.
 insert into public.requests (household_id, requested_by_member_id, entered_by_member_id, title, status, created_at) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000a2',
    'Ramen', 'open', pg_temp.at_a_day(0, '22:00'));
 update public.push_outbox set sent_at = now();
-select is(public.enqueue_request_digests(pg_temp.at_a_day(1, '19:45')), 2, 'the next day, the planners with something new');
+select is(public.enqueue_request_digests(pg_temp.at_a_day(1, '20:30')), 2, 'the next day, the planners with something new');
 select results_eq(
   $$ select m.first_name, o.args from public.push_outbox o join public.members m on m.id = o.member_id
      where o.sent_at is null order by m.first_name $$,
   $$ values ('Alice', '{"count": 1, "name": "Bob"}'::jsonb), ('Pam', '{"count": 1, "name": "Bob"}'::jsonb) $$,
   'count only what came since their last digest');
-select is(public.enqueue_request_digests(pg_temp.at_a_day(1, '20:00')), 0,
+select is(public.enqueue_request_digests(pg_temp.at_a_day(1, '20:45')), 0,
   'and once a day by the run''s own clock: the digest is stamped with when it ran');
 select results_eq($$ select distinct created_at from public.push_outbox where sent_at is null $$,
-  $$ values (pg_temp.at_a_day(1, '19:45')) $$, 'stamped with the run''s time, not the clock''s');
+  $$ values (pg_temp.at_a_day(1, '20:30')) $$, 'stamped with the run''s time, not the clock''s');
 
 -- Someone removed -------------------------------------------------------------------------------------------------------------------
 
@@ -250,7 +250,7 @@ insert into public.requests (household_id, requested_by_member_id, entered_by_me
   ('00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000c2',
    'Gumbo', 'open', pg_temp.at_a_day(1, '22:00'));
 update public.members set status = 'removed', user_id = null where id = '00000000-0000-0000-0000-0000000000c2';
-select is(public.enqueue_request_digests(pg_temp.at_a_day(2, '19:45')), 0,
+select is(public.enqueue_request_digests(pg_temp.at_a_day(2, '20:30')), 0,
   'ideas from someone removed since don''t make a digest, so their name doesn''t go out');
 select results_eq($$ select args, about_member_id from public.push_outbox where member_id = '00000000-0000-0000-0000-0000000000c1' $$,
   $$ values ('{"count": 1}'::jsonb, null::uuid) $$,
@@ -280,8 +280,8 @@ select is((select count(*) from public.push_outbox where kind = 'new_requests'),
 insert into public.requests (household_id, requested_by_member_id, entered_by_member_id, title, status, created_at) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000a2',
    'Waffles', 'open', pg_temp.at_a_day(3, '19:00'));
-select is(public.enqueue_request_digests(pg_temp.at_a_day(3, '19:45')), 2, 'Nora''s idea, passed to Bob''s phone');
-select results_eq($$ select distinct args, about_member_id from public.push_outbox where created_at = pg_temp.at_a_day(3, '19:45') $$,
+select is(public.enqueue_request_digests(pg_temp.at_a_day(3, '20:30')), 2, 'Nora''s idea, passed to Bob''s phone');
+select results_eq($$ select distinct args, about_member_id from public.push_outbox where created_at = pg_temp.at_a_day(3, '20:30') $$,
   $$ values ('{"count": 1}'::jsonb, null::uuid) $$, 'a kid whose consent is withdrawn is counted but never named');
 
 -- A profile claimed mid-window ---------------------------------------------------------------------------------------------------
@@ -292,7 +292,7 @@ insert into public.consents (household_id, member_id, kind, granted_by, text_ver
 insert into public.requests (household_id, requested_by_member_id, entered_by_member_id, title, status, created_at) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-0000000000a2',
    'Pancakes', 'open', pg_temp.at_a_day(4, '19:00'));
-select is(public.enqueue_request_digests(pg_temp.at_a_day(4, '19:45')), 2, 'Ivy''s idea, passed to Bob''s phone');
+select is(public.enqueue_request_digests(pg_temp.at_a_day(4, '20:30')), 2, 'Ivy''s idea, passed to Bob''s phone');
 select is((select count(*) from public.push_outbox where args ->> 'name' = 'Ivy'), 2::bigint,
   'names her: she has her parents'' consent');
 insert into auth.users (id, email, aud, role) values
@@ -301,8 +301,8 @@ update public.members set user_id = '40000000-0000-0000-0000-000000000004'
 where id = '00000000-0000-0000-0000-0000000000a5';
 select is((select count(*) from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a5'
              or args ->> 'name' = 'Ivy'), 0::bigint, 'when she claims her profile, the digests stop naming her');
-select is(public.enqueue_request_digests(pg_temp.at_a_day(4, '20:00')), 0,
-  'but stay, so the 8pm run doesn''t send the same news again');
+select is(public.enqueue_request_digests(pg_temp.at_a_day(4, '20:45')), 0,
+  'but stay, so the 8:45 run doesn''t send the same news again');
 
 -- A planner removed -------------------------------------------------------------------------------------------------------------
 

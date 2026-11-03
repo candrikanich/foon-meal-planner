@@ -136,12 +136,14 @@ struct ReminderWeek: Codable, Equatable, Sendable {
 struct ReminderSnapshot: Codable, Equatable, Sendable {
     let pulledAt: Date
     let weeks: [ReminderWeek]
+    /// The household's open ideas from the past week, as of the last read that got them, for Balanced's Time to plan.
+    var ideas: [ReminderIdea] = []
 
     /// With answers the server hasn't got yet counted as if it had. They're what this person last said, and planning from the
     /// read alone would ask again, and bring back the prompt for a dinner they said they'd miss.
     func applying(_ answers: [CheckInAnswer]) -> ReminderSnapshot {
         guard !answers.isEmpty else { return self }
-        return ReminderSnapshot(pulledAt: pulledAt, weeks: weeks.map { week in
+        let answered = weeks.map { week in
             var week = week
             week.nights = week.nights.map { night in
                 var night = night
@@ -152,7 +154,35 @@ struct ReminderSnapshot: Codable, Equatable, Sendable {
                 return night
             }
             return week
-        })
+        }
+        return ReminderSnapshot(pulledAt: pulledAt, weeks: answered, ideas: ideas)
+    }
+}
+
+extension ReminderSnapshot {
+    private enum CodingKeys: String, CodingKey {
+        case pulledAt, weeks, ideas
+    }
+
+    /// A cache saved before ideas were read has none.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        pulledAt = try container.decode(Date.self, forKey: .pulledAt)
+        weeks = try container.decode([ReminderWeek].self, forKey: .weeks)
+        ideas = try container.decodeIfPresent([ReminderIdea].self, forKey: .ideas) ?? []
+    }
+}
+
+/// An open idea, only as much as counting it needs: when, and whose. No dish and no words.
+struct ReminderIdea: Codable, Equatable, Sendable {
+    let createdAt: Date
+    let requestedBy: UUID
+    let enteredBy: UUID?
+
+    private enum CodingKeys: String, CodingKey {
+        case createdAt = "created_at"
+        case requestedBy = "requested_by_member_id"
+        case enteredBy = "entered_by_member_id"
     }
 }
 
@@ -207,8 +237,9 @@ enum ReminderID {
     static let prefix = "foon.reminder."
     private static let followUpSuffix = ".again"
 
-    static func timeToPlan(me: UUID, week: CalendarDay) -> String {
-        "\(prefix)\(me.uuidString).plan.\(week.isoString)"
+    /// The count of new ideas is part of it, like the dish in a prompt's: a new count replaces the one already scheduled.
+    static func timeToPlan(me: UUID, week: CalendarDay, ideas: Int = 0) -> String {
+        "\(prefix)\(me.uuidString).plan.\(week.isoString)" + (ideas > 0 ? ".ideas-\(ideas)" : "")
     }
 
     static func prep(me: UUID, night: UUID, meal: UUID, kind: PrepKind, leadHours: Int, twin: Int = 0) -> String {

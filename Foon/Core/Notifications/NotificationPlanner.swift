@@ -30,6 +30,8 @@ enum NotificationPlanner {
     /// app, with room for cook-mode timers. Raising a budget (#47) means checking that.
     static let horizon: TimeInterval = 8 * 24 * 60 * 60
     static let followUpDelay: TimeInterval = 60 * 60
+    /// What counts as a new idea for Time to plan: added in the week before it goes.
+    static let newIdeasWindow: TimeInterval = 7 * 24 * 60 * 60
     /// The weekly roundup's time on the week's last day: after most dinners, before quiet hours.
     static let roundupTime = "19:30"
     /// How far before a quiet stretch a prep reminder moves to, so it isn't the last thing at bedtime.
@@ -95,10 +97,22 @@ enum NotificationPlanner {
                       snapshot.weeks.first(where: { $0.start == week })?.isApproved != true,
                       !(0..<7).allSatisfy({ settings.isAway(on: week.adding(days: $0, calendar: calendar)) }),
                       let fire = DinnerPrompts.moment(settings.planningTime, on: day, calendar: calendar) else { return nil }
+                let ideas = rules.countsNewIdeas ? newIdeas(before: fire) : 0
                 return Candidate(reminder: PlannedReminder(
-                    id: ReminderID.timeToPlan(me: me.id, week: week), kind: .timeToPlan, nightID: nil, fireAt: fire,
-                    dinnerAt: nil, title: ReminderText.timeToPlanTitle, body: ReminderText.timeToPlanBody,
-                    route: .week(week)))
+                    id: ReminderID.timeToPlan(me: me.id, week: week, ideas: ideas), kind: .timeToPlan, nightID: nil,
+                    fireAt: fire, dinnerAt: nil, title: ReminderText.timeToPlanTitle,
+                    body: ideas > 0 ? ReminderText.ideasWaiting(ideas) : ReminderText.timeToPlanBody, route: .week(week)))
+            }
+        }
+
+        /// Open ideas added in the week before `fire`, as of the last read, by the digest's rule: not theirs (asked for or
+        /// entered by them), and not from someone removed. A count read days ago can be behind, which a nudge can live with.
+        private func newIdeas(before fire: Date) -> Int {
+            let askers = Set(inputs.members.filter { $0.status != .removed }.map(\.id))
+            let since = fire.addingTimeInterval(-NotificationPlanner.newIdeasWindow)
+            return snapshot.ideas.count { idea in
+                idea.createdAt > since && idea.createdAt <= fire && askers.contains(idea.requestedBy)
+                    && idea.requestedBy != me.id && idea.enteredBy != me.id
             }
         }
 
@@ -314,6 +328,10 @@ enum ReminderText {
     static var timeToPlanTitle: String { String(localized: "Time to plan the week", comment: "Reminder title") }
     static var timeToPlanBody: String {
         String(localized: "Foon can draft it in a tap, and you can change any night.", comment: "Reminder body: time to plan")
+    }
+    /// Only the count, never a dish or whose: "1 new idea is waiting." The plural forms are in the string catalog.
+    static func ideasWaiting(_ count: Int) -> String {
+        String(localized: "\(count) new ideas are waiting.", comment: "Reminder body: Time to plan, with open ideas")
     }
     static var afterDinnerTitle: String { String(localized: "How was dinner?", comment: "Reminder title") }
     static var afterDinnerBody: String {
