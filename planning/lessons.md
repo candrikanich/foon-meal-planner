@@ -6,6 +6,13 @@ _None yet._
 
 ## Patterns
 
+### A migration merged after a later-dated one won't deploy
+**Times seen:** 1
+
+**What happened (2026-11-03):** #228's `20261103010000` was dated before #230's `20261103020000`. #230 merged and deployed first, so staging's `supabase db push` refused #228's migration ("to be inserted before the last migration on remote database"), and Deploy staging failed.
+
+**Rule (migrations):** Before merging a PR with a migration, check that its timestamp sorts after every migration already on main. If it doesn't, rename it to a later timestamp, but only while it hasn't been applied to any hosted database. When two migration PRs are open at once, merge them in timestamp order.
+
 ### A list being shown isn't the library to look things up in
 **Times seen:** 1
 
