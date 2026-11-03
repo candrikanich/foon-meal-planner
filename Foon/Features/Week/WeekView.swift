@@ -16,6 +16,7 @@ struct WeekView: View {
     @Environment(SyncService.self) private var sync: SyncService?
     @Environment(ReminderStore.self) private var reminders: ReminderStore?
     @Environment(ReminderRouter.self) private var router: ReminderRouter?
+    @Environment(CalendarBusyStore.self) private var calendarBusy: CalendarBusyStore?
     @State private var isApproving = false
     @State private var openNight: UUID?
     @State private var swappingNight: UUID?
@@ -104,6 +105,11 @@ struct WeekView: View {
                           dinnerTime: settings.dinnerTime)) {
             await load()
         }
+        .task(id: CalendarKey(isOn: calendarBusy?.isOn == true,
+                              range: CalendarBusy.readRange(nights: week.week?.nights ?? [], settings: settings,
+                                                            now: .now))) {
+            await refreshCalendar()
+        }
         .onChange(of: router?.route, initial: true) { _, route in
             if let route { open(route) }
         }
@@ -114,6 +120,8 @@ struct WeekView: View {
                 Task {
                     await household.refreshQuietly()
                     await load()
+                    // The calendar may have changed while Foon was away, with the same nights showing.
+                    await refreshCalendar()
                 }
             }
         }
@@ -168,6 +176,13 @@ struct WeekView: View {
         let id: UUID
     }
 
+    /// Turning calendar awareness on in Family, another week showing, or a night's effort or who's home changing what
+    /// could take a suggestion, reads the calendar again.
+    private struct CalendarKey: Equatable {
+        let isOn: Bool
+        let range: DateInterval?
+    }
+
     private struct LoadKey: Equatable {
         let householdID: UUID?
         let next: Bool
@@ -203,6 +218,12 @@ struct WeekView: View {
             await library.refreshReactions(members: household.members)
         }
         if canPlan { await week.fillInMissing(members: household.members) }
+    }
+
+    /// Only planners change effort, so only their devices read the calendar.
+    private func refreshCalendar() async {
+        guard canPlan, let calendarBusy else { return }
+        await calendarBusy.refresh(nights: week.week?.nights ?? [], settings: settings)
     }
 
     private var heldMeals: [UUID] { week.week?.nights.compactMap(\.mealID) ?? [] }
@@ -308,10 +329,22 @@ struct WeekView: View {
         return DayCard(model: model, today: week.todayDay, actions: canPlan && !isAway ? actions(for: night) : nil,
                        offer: claimOffer(for: night, log: log),
                        rescue: TonightRescue.offers(night: night, logged: log != nil, isAway: isAway,
-                                                    today: week.todayDay) ? { rescuingNight = night.id } : nil)
+                                                    today: week.todayDay) ? { rescuingNight = night.id } : nil,
+                       busy: busySuggestion(for: night))
             .contentShape(Rectangle())
             .onTapGesture { if !isAway { openNight = night.id } }
             .accessibilityAction(named: Text("Open night")) { if !isAway { openNight = night.id } }
+    }
+
+    /// The calendar looks busy around this night's dinner. Accepting goes through the usual effort change.
+    private func busySuggestion(for night: WeekNight) -> DayCard.BusySuggestion? {
+        guard canPlan, let calendarBusy, busyNights.contains(night.id) else { return nil }
+        return DayCard.BusySuggestion(markRushed: { Task { await week.setEffort(.rushed, nightID: night.id) } },
+                                      dismiss: { calendarBusy.dismiss(night.id) })
+    }
+
+    private var busyNights: Set<UUID> {
+        calendarBusy?.suggestions(nights: week.week?.nights ?? [], settings: settings) ?? []
     }
 
     /// Offering for yourself, right on the card. Pass the phone is in the night's detail.

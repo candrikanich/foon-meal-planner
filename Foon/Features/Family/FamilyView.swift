@@ -114,6 +114,9 @@ struct FamilyView: View {
 
                 ReminderSettingsSection()
 
+                // Only planners change effort, so only they get the calendar's suggestions.
+                if canPlan { CalendarSettingsSection() }
+
                 Section {
                     NavigationLink("Plan activity") { PlanActivityView() }
                 } footer: {

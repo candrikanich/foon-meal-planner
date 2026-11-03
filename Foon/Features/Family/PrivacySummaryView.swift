@@ -19,6 +19,7 @@ struct PrivacySummaryView: View {
             Section("What stays on this device") {
                 Text("A copy of this week's and next week's plan and your lists, so they work offline and reminders can go out. It's erased when you sign out or your household is gone.")
                 Text("Photos and PDFs you share to Foon. They're read here and then deleted, and only the text you keep is saved.")
+                Text("If a planner turns on Spot busy evenings, Foon reads the times of this device's calendar events to suggest rushed nights. It never saves or sends them.")
             }
 
             Section("What leaves this device") {

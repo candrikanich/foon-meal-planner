@@ -24,18 +24,29 @@ struct DayCard: View {
         let claim: () -> Void
     }
 
+    /// Calendar awareness (#64): the calendar looks busy around dinner. Planners only, and only ever a suggestion.
+    struct BusySuggestion {
+        let markRushed: () -> Void
+        let dismiss: () -> Void
+    }
+
     let model: DayCardModel
     var today = CalendarDay(Date())
     var actions: Actions?
     var offer: ClaimOffer? = nil
     /// "What can we make?" on tonight's card: anyone can look, so it's apart from the planner's actions.
     var rescue: (() -> Void)? = nil
+    var busy: BusySuggestion? = nil
 
     private var isTonight: Bool { model.date == today }
+
+    /// Nothing to tap, so VoiceOver reads the card as one summary.
+    private var isReadOnly: Bool { actions == nil && offer == nil && rescue == nil && busy == nil }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
+            if let busy { busyRow(busy) }
             mealSlot
             if !model.badges.isEmpty { badges }
             if !model.attendance.isEmpty { attendance }
@@ -51,7 +62,7 @@ struct DayCard: View {
                 .strokeBorder(isTonight ? Palette.paprika : .clear, lineWidth: 2)
         }
         .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
-        .accessibilityElement(children: actions == nil && offer == nil && rescue == nil ? .ignore : .contain)
+        .accessibilityElement(children: isReadOnly ? .ignore : .contain)
         .accessibilityLabel(DayCardText.accessibilitySummary(model, today: today))
     }
 
@@ -237,6 +248,26 @@ struct DayCard: View {
             .accessibilityHint(String(localized: "Tells the family you're cooking this night"))
     }
 
+    private func busyRow(_ busy: BusySuggestion) -> some View {
+        HStack(spacing: 8) {
+            Button(action: busy.markRushed) {
+                Label("Busy evening? Mark it rushed", systemImage: "calendar.badge.clock")
+                    .font(.foonCaption)
+            }
+            .buttonStyle(.bordered)
+            .tint(Palette.paprika)
+            .controlSize(.small)
+            .accessibilityHint(String(localized: "Changes the night's effort to rushed"))
+            Spacer(minLength: 0)
+            Button("Not this time", systemImage: "xmark", action: busy.dismiss)
+                .labelStyle(.iconOnly)
+                .frame(minWidth: 44, minHeight: 44)
+                .buttonStyle(.borderless)
+                .tint(.secondary)
+                .accessibilityLabel(String(localized: "Dismiss the busy evening suggestion"))
+        }
+    }
+
     private func rescueButton(_ rescue: @escaping () -> Void) -> some View {
         Button("What can we make?", systemImage: "lifepreserver", action: rescue)
             .buttonStyle(.bordered)
@@ -419,6 +450,15 @@ private enum DayCardPreview {
     }
     .padding()
     .background(Palette.cream)
+}
+
+#Preview("Busy evening") {
+    DayCard(model: .init(date: DayCardPreview.today.adding(days: 1), effort: .normal,
+                         slot: .meal(name: "Tacos", photoURL: nil, reason: "Due for a turn"),
+                         attendance: DayCardPreview.family, badges: [], isLocked: false),
+            actions: DayCardPreview.actions, busy: DayCard.BusySuggestion(markRushed: {}, dismiss: {}))
+        .padding()
+        .background(Palette.cream)
 }
 
 #Preview("Read-only (member)") {

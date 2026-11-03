@@ -69,6 +69,10 @@ targets:
         # A background refresh sends the after-dinner card's answers (#122, AnswerRefresh). iOS only; the Mac ignores them.
         UIBackgroundModes: [fetch]
         BGTaskSchedulerPermittedIdentifiers: [com.andrikanich.foon.answers]
+        # Calendar awareness (#64), asked only when a planner turns it on in Family. EventKit has no read-only access,
+        # so this is full access; Foon only reads, and nothing from the calendar leaves the device.
+        NSCalendarsFullAccessUsageDescription: >-
+          Foon looks at your calendar on this device to spot busy evenings. Nothing from it leaves your device.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon
@@ -92,6 +96,8 @@ targets:
         ENABLE_PREVIEWS: YES
         ENABLE_APP_SANDBOX: YES
         ENABLE_OUTGOING_NETWORK_CONNECTIONS: YES
+        # The Mac's sandbox needs it for EventKit (#64); iOS ignores it.
+        ENABLE_RESOURCE_ACCESS_CALENDARS: YES
         ENABLE_HARDENED_RUNTIME: YES
 
   FoonShare:
