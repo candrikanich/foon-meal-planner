@@ -156,13 +156,15 @@ final class ReminderStore {
         await CheckInDelivery.send(device: device, client: client)
         await DinnerAnswerDelivery.send(device: device, client: client)
         let weeks = await fetchWeeks(settings: wanted.settings)
+        let ideas = try? await client.ideas(householdID, now().addingTimeInterval(-NotificationPlanner.newIdeasWindow))
         // Offline, the server's pushes can't be counted: the budget can run a few over until the next read.
         let pushesSent = (try? await client.pushesSent(householdID, wanted.me.id, now().addingTimeInterval(-8 * 24 * 60 * 60))) ?? []
         guard !isStopped else { return }
         self.permission = permission
         hasDeclined = device.hasDeclined(wanted.me.id)
         isOptedIn = device.isOptedIn(wanted.me.id)
-        if let weeks { saveSnapshot(weeks, in: context) }
+        // A count that couldn't be read keeps the last one.
+        if let weeks { saveSnapshot(weeks, ideas: ideas ?? loadSnapshot(in: context)?.ideas ?? [], in: context) }
         let snapshot = loadSnapshot(in: context)?.applying(device.checkIns)
         if let nights = snapshot?.weeks.flatMap(\.nights) {
             center.removeDelivered(ReminderID.answeredAfterDinner(await center.deliveredIDs(), me: wanted.me.id, nights: nights))
@@ -228,8 +230,9 @@ final class ReminderStore {
         return try? await client.weeks(householdID, thisWeek, thisWeek.adding(days: 7, calendar: calendar))
     }
 
-    private func saveSnapshot(_ weeks: [ReminderWeek], in context: ModelContext) {
-        guard let payload = try? JSONEncoder().encode(ReminderSnapshot(pulledAt: now(), weeks: weeks)) else { return }
+    private func saveSnapshot(_ weeks: [ReminderWeek], ideas: [ReminderIdea], in context: ModelContext) {
+        guard let payload = try? JSONEncoder().encode(ReminderSnapshot(pulledAt: now(), weeks: weeks, ideas: ideas))
+        else { return }
         let household = householdID
         let cached = try? context.fetch(FetchDescriptor<CachedReminders>(predicate: #Predicate { $0.householdID == household })).first
         if let cached {

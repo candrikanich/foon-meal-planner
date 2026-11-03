@@ -75,6 +75,8 @@ private final class SpyCenter: Sendable {
 private final class SpyServer: Sendable {
     struct State {
         var weeks: [ReminderWeek] = []
+        var ideas: [ReminderIdea] = []
+        var ideasFail = false
         var offline = false
         var uploadsFail = false
         var uploads: [[NotificationLogEntry]] = []
@@ -93,6 +95,12 @@ private final class SpyServer: Sendable {
                     if $0.offline { throw URLError(.notConnectedToInternet) }
                     $0.checkInsAtRead.append($0.checkIns)
                     return $0.weeks
+                }
+            },
+            ideas: { _, _ in
+                try self.state.withLock {
+                    if $0.offline || $0.ideasFail { throw URLError(.notConnectedToInternet) }
+                    return $0.ideas
                 }
             },
             record: { _, entries in
@@ -119,6 +127,12 @@ private final class SpyServer: Sendable {
     var uploads: [[NotificationLogEntry]] { state.withLock { $0.uploads } }
     func set(weeks: [ReminderWeek]) { state.withLock { $0.weeks = weeks } }
     func set(offline: Bool) { state.withLock { $0.offline = offline } }
+    func set(ideas: [ReminderIdea], failing: Bool = false) {
+        state.withLock {
+            $0.ideas = ideas
+            $0.ideasFail = failing
+        }
+    }
     func set(uploadsFail: Bool) { state.withLock { $0.uploadsFail = uploadsFail } }
 }
 
@@ -1097,5 +1111,41 @@ struct RatingsBackOfferTests {
         let store = test.store()
         await store.replan(test.wanted(me: ann))
         #expect(!store.shouldOfferRatingsBack)
+    }
+}
+
+@MainActor
+struct IdeasWaitingStoreTests {
+    /// Next week's Time to plan, Sunday the 15th: this week's is approved.
+    private func timeToPlan(_ test: Harness) -> PlannedReminder? {
+        test.center.added.last { $0.kind == .timeToPlan }
+    }
+
+    @Test func timeToPlanCountsTheIdeasItRead() async throws {
+        let test = try Harness()
+        test.set(now: Harness.at(9, 10))
+        test.server.set(weeks: [test.week()])
+        test.server.set(ideas: [ReminderIdea(createdAt: Harness.at(9, 8), requestedBy: test.kim.id, enteredBy: test.kim.id)])
+        await test.store().replan(test.wanted())
+        #expect(timeToPlan(test)?.body == "1 new idea is waiting.")
+    }
+
+    @Test func withoutAFreshCountItKeepsTheLastOne() async throws {
+        let test = try Harness()
+        test.set(now: Harness.at(9, 10))
+        test.server.set(weeks: [test.week()])
+        let idea = ReminderIdea(createdAt: Harness.at(9, 8), requestedBy: test.kim.id, enteredBy: test.kim.id)
+        test.server.set(ideas: [idea])
+        let store = test.store()
+        await store.replan(test.wanted())
+        let first = try #require(timeToPlan(test))
+
+        test.server.set(ideas: [], failing: true)
+        await store.replan(test.wanted())
+        #expect(test.center.pending.contains(first.id), "the ideas read failed: the count stays")
+
+        test.server.set(offline: true)
+        await store.replan(test.wanted())
+        #expect(test.center.pending.contains(first.id), "offline: the count stays")
     }
 }

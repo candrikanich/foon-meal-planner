@@ -45,6 +45,8 @@ struct ReminderRules: Equatable, Sendable {
     var weeklyBudget: Int
     /// Engaged's one follow-up on Time to plan and prep reminders.
     var followsUp: Bool
+    /// Balanced's Time to plan says how many new ideas are waiting. Engaged has the evening digest; Light stays quiet.
+    var countsNewIdeas: Bool
     var quietWindows: [Window]
 
     init(member: Member, settings: HouseholdSettings) {
@@ -62,6 +64,7 @@ struct ReminderRules: Equatable, Sendable {
             weeklyBudget = isKid ? 6 : 16
         }
         followsUp = preset == .engaged
+        countsNewIdeas = preset == .balanced
         quietWindows = isKid ? [Self.quietHours, Self.schoolHours] : [Self.quietHours]
     }
 
