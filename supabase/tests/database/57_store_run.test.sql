@@ -1,7 +1,7 @@
 -- Heading to the store (#51): any adult starts a 10-minute run, one at a time; the family hears on Engaged, by quiet hours,
 -- within budgets; runs are their household's alone.
 begin;
-select plan(28);
+select plan(29);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -85,6 +85,25 @@ select results_eq($$ select started_by, ends_at - started_at from public.store_r
   $$ values ('00000000-0000-0000-0000-0000000000a2'::uuid, interval '10 minutes') $$, 'for ten minutes, and the family can see it');
 select pg_temp.as_postgres();
 select is((select count(*) from public.push_outbox), 0::bigint, 'nobody hears on Balanced');
+
+-- Exactly ten minutes every time: the start and the end come from one reading of the clock, not two that can be a
+-- microsecond apart (a run in ~30 came out 10:00.000001).
+create function pg_temp.run_lengths(n int) returns setof interval language plpgsql as $$
+declare
+  run public.store_runs;
+begin
+  for i in 1..n loop
+    delete from public.store_runs;
+    perform pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+    run := public.start_store_run('00000000-0000-0000-0000-0000000000a0');
+    perform pg_temp.as_postgres();
+    return next run.ends_at - run.started_at;
+  end loop;
+end;
+$$;
+select results_eq($$ select distinct * from pg_temp.run_lengths(300) $$, $$ values (interval '10 minutes') $$,
+  'every run is ten minutes to the microsecond');
+delete from public.store_runs;
 
 -- Engaged.
 delete from public.store_runs;
