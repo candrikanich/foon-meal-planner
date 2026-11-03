@@ -1021,3 +1021,81 @@ struct ReminderPresetWordingTests {
         #expect(ReminderRoute.dinnerCard.tab == .week)
     }
 }
+
+@MainActor
+struct RatingCadenceStoreTests {
+    /// Three after-dinner prompts that went out Sunday to Tuesday with nothing back.
+    private func ignoredThree(_ test: Harness) throws -> [ReminderNight] {
+        let nights = (8...10).map { day in
+            ReminderNight(id: UUID(), date: Harness.day(day), mealID: UUID(), attendance: [test.ann.id: true])
+        }
+        for night in nights {
+            let prompt = PlannedReminder(
+                id: ReminderID.afterDinner(me: test.ann.id, night: night.id, meal: night.mealID!), kind: .afterDinner,
+                nightID: night.id, fireAt: Harness.calendar.date(bySettingHour: 19, minute: 0, second: 0,
+                                                                 of: night.date.date(in: Harness.calendar))!,
+                dinnerAt: nil, title: "", body: "", route: .dinnerCard)
+            let record = NotificationRecord(reminder: prompt, householdID: test.household, memberID: test.ann.id)
+            record.sentAt = prompt.fireAt
+            test.context.insert(record)
+        }
+        try test.context.save()
+        return nights
+    }
+
+    @Test func aReadThatFailsNeverDownshifts() async throws {
+        let test = try Harness()
+        test.set(now: Harness.at(8, 9))
+        let nights = try ignoredThree(test)
+        test.server.set(weeks: [test.week(nights)])
+        let store = test.store()
+        await store.replan(test.wanted())
+        test.server.set(offline: true)
+        test.set(now: Harness.at(12, 10))
+        await store.replan(test.wanted())
+        #expect(!test.device.ratingCadence(test.ann.id).isWeekly,
+                "from an old cache, a rating made on another phone since can't be seen, so nothing is decided")
+        #expect(!store.ratingCadence.isWeekly)
+
+        test.server.set(offline: false)
+        await store.replan(test.wanted())
+        #expect(test.device.ratingCadence(test.ann.id).isWeekly, "a fresh read that agrees does")
+    }
+}
+
+@MainActor
+struct RatingsBackOfferTests {
+    private func weeklyFor11Days(_ test: Harness) {
+        test.set(now: Harness.at(12, 10))
+        test.device.setRatingCadence(RatingCadence(weeklySince: Harness.at(1, 10)), for: test.ann.id)
+        test.server.set(weeks: [test.week()])
+    }
+
+    @Test func offeredWhenNightlyPromptsWouldComeBack() async throws {
+        let test = try Harness()
+        weeklyFor11Days(test)
+        let store = test.store()
+        await store.replan(test.wanted())
+        #expect(store.shouldOfferRatingsBack)
+    }
+
+    @Test func notOfferedOnLightSinceThereAreNoNightlyPrompts() async throws {
+        let test = try Harness()
+        weeklyFor11Days(test)
+        var settings = test.settings
+        settings.notificationPreset = .light
+        let store = test.store()
+        await store.replan(ReminderStore.Context(me: test.ann, members: [test.ann, test.kim], settings: settings))
+        #expect(!store.shouldOfferRatingsBack)
+    }
+
+    @Test func notOfferedToSomeoneWhoEatsSeparately() async throws {
+        let test = try Harness()
+        weeklyFor11Days(test)
+        var ann = test.ann
+        ann.eatsSeparately = true
+        let store = test.store()
+        await store.replan(test.wanted(me: ann))
+        #expect(!store.shouldOfferRatingsBack)
+    }
+}

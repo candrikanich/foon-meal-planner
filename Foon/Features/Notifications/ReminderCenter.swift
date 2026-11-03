@@ -176,6 +176,9 @@ struct ReminderPayload: Equatable, Sendable {
             info["route"] = "list"
         case .ideas:
             info["route"] = "ideas"
+        case .roundup(let week):
+            info["route"] = "roundup"
+            info["date"] = week.isoString
         }
         if let dinnerAt { info["dinner"] = String(dinnerAt.timeIntervalSince1970) }
         return info
@@ -200,6 +203,9 @@ struct ReminderPayload: Equatable, Sendable {
             route = .lists
         case "ideas":
             route = .ideas
+        case "roundup":
+            guard let day else { return nil }
+            route = .roundup(day)
         case "checkin", "rate":
             guard let night = (userInfo["night"] as? String).flatMap(UUID.init(uuidString:)),
                   let member = (userInfo["member"] as? String).flatMap(UUID.init(uuidString:)) else { return nil }

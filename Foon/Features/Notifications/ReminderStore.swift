@@ -34,6 +34,8 @@ final class ReminderStore {
     private(set) var hasRemindersToOffer = false
     private(set) var hasDeclined = false
     private(set) var isOptedIn = false
+    /// How often this person is asked to rate dinner, as of the last run.
+    private(set) var ratingCadence = RatingCadence()
 
     let householdID: UUID
     private let client: NotificationClient
@@ -112,6 +114,24 @@ final class ReminderStore {
         await replan(wanted)
     }
 
+    /// "Want these back?" on This Week: offered once, a while after rating went weekly.
+    /// Not to someone whose nightly prompts wouldn't come back anyway: on Light, or eating separately.
+    var shouldOfferRatingsBack: Bool { isOptedIn && ratesNightly && ratingCadence.shouldOfferBack(at: now()) }
+    private var ratesNightly = false
+
+    /// "Yes, each night": the prompts come back, and what was ignored before doesn't count against them.
+    func takeRatingsBack(for wanted: Context) async {
+        ratingCadence = ratingCadence.takenBack(at: now())
+        device.setRatingCadence(ratingCadence, for: wanted.me.id)
+        await replan(wanted)
+    }
+
+    /// "Keep it weekly": not asked again until it next goes weekly.
+    func keepRatingsWeekly(for member: UUID) {
+        ratingCadence = ratingCadence.keptWeekly()
+        device.setRatingCadence(ratingCadence, for: member)
+    }
+
     func decline(_ member: UUID) {
         device.setDeclined(true, for: member)
         hasDeclined = true
@@ -153,11 +173,17 @@ final class ReminderStore {
         forgetOtherPeople(than: wanted.me.id, in: context)
         fileAnswers(in: context)
         settleSent(pending: Set(pending), member: wanted.me.id, in: context)
+        // Only from a fresh read: an old cache can't see a rating made on another phone since, and that's not ignoring.
+        let cadence = weeks == nil ? storedCadence(for: wanted.me.id)
+            : updatedCadence(for: wanted.me.id, nights: snapshot?.weeks.flatMap(\.nights) ?? [], in: context)
 
         let plan = NotificationPlanner.plan(NotificationPlanner.Inputs(
             me: wanted.me, members: wanted.members, settings: wanted.settings, snapshot: snapshot,
-            history: records(member: wanted.me.id, in: context).map(\.history), pushesSent: pushesSent, now: now()
+            history: records(member: wanted.me.id, in: context).map(\.history), pushesSent: pushesSent, cadence: cadence,
+            now: now()
         ))
+        ratesNightly = DinnerPrompts.rates(wanted.me)
+            && ReminderRules(member: wanted.me, settings: wanted.settings).kinds.contains(.afterDinner)
         hasRemindersToOffer = !plan.isEmpty && snapshot?.weeks.contains(where: \.isApproved) == true
 
         guard permission == .on, isOptedIn else {
@@ -263,6 +289,24 @@ final class ReminderStore {
             record.changed()
         }
         try? context.save()
+    }
+
+    private func storedCadence(for member: UUID) -> RatingCadence {
+        ratingCadence = device.ratingCadence(member)
+        return ratingCadence
+    }
+
+    /// Three after-dinner prompts in a row with nothing back turns rating weekly (RatingCadence).
+    private func updatedCadence(for member: UUID, nights: [ReminderNight], in context: ModelContext) -> RatingCadence {
+        let summaries = records(member: member, in: context).map {
+            ReminderRecordSummary(kind: ReminderKind(rawValue: $0.kindRaw), nightID: $0.nightID, sentAt: $0.sentAt,
+                                  respondedAt: $0.respondedAt)
+        }
+        let stored = device.ratingCadence(member)
+        let cadence = stored.after(PromptOutcome.outcomes(summaries, nights: nights, me: member, now: now()), now: now())
+        if cadence != stored { device.setRatingCadence(cadence, for: member) }
+        ratingCadence = cadence
+        return cadence
     }
 
     /// Reminders still ahead that the plan dropped: they were called off, so they don't count. A row already on the server keeps

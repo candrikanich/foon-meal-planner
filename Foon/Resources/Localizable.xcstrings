@@ -758,6 +758,9 @@
     "All gone" : {
 
     },
+    "All rated. Thanks!" : {
+
+    },
     "Allergies" : {
 
     },
@@ -1119,6 +1122,9 @@
 
     },
     "Couldn't load the week. Check your connection and try again." : {
+
+    },
+    "Couldn't load this week's dinners. Check your connection and try again." : {
 
     },
     "Couldn't load your household" : {
@@ -1944,6 +1950,9 @@
     "Just added" : {
       "comment" : "Store mode: put on the list during this store run"
     },
+    "Keep it weekly" : {
+
+    },
     "Keep just the name and link" : {
 
     },
@@ -1960,6 +1969,9 @@
 
     },
     "Last night away" : {
+
+    },
+    "Lately it's been a weekly roundup, since the nightly ones went unanswered." : {
 
     },
     "Later" : {
@@ -2636,6 +2648,9 @@
     "Rate the food, not the cook. Changes are fine for a day." : {
 
     },
+    "Rate this week's dinners" : {
+      "comment" : "Reminder title: the weekly rating roundup"
+    },
     "Read from the post's caption, so check it over. Swipe to remove anything that isn't an ingredient." : {
 
     },
@@ -3113,6 +3128,9 @@
     "Tap to rate dinner." : {
       "comment" : "Reminder body: rate the dish, never the cook"
     },
+    "Tap to rate the ones you were home for." : {
+      "comment" : "Reminder body: the weekly rating roundup"
+    },
     "Tap to see what's for dinner." : {
       "comment" : "Reminder body: the day-of check-in"
     },
@@ -3384,6 +3402,9 @@
     "This week" : {
 
     },
+    "This week's dinners" : {
+
+    },
     "Those dates didn't work. The last night has to be on or after the first, up to a year later, and not already over." : {
 
     },
@@ -3581,6 +3602,9 @@
     "Want a copy first? Export saves everything as a file." : {
 
     },
+    "Want dinner ratings back each night?" : {
+
+    },
     "Want reminders about dinner?" : {
 
     },
@@ -3735,6 +3759,9 @@
 
     },
     "Would rather skip" : {
+
+    },
+    "Yes, each night" : {
 
     },
     "Yes, someone does" : {

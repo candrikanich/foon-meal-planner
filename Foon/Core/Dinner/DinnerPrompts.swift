@@ -60,6 +60,21 @@ enum DinnerPrompts {
         }
     }
 
+    /// The weekly roundup's list: dishes they were home for and haven't rated, once each night's card would have opened.
+    static func unrated(nights: [WeekNight], logs: [DinnerLog], me: UUID, defaultDinnerTime: String, now: Date,
+                        calendar: Calendar = .current) -> [Prompt] {
+        let logs = Dictionary(logs.map { ($0.nightID, $0) }, uniquingKeysWith: { first, _ in first })
+        return nights.sorted { $0.date < $1.date }.compactMap { night in
+            let log = logs[night.id]
+            guard (log?.mealID ?? (log == nil ? night.mealID : nil)) != nil,
+                  night.attendance[me] == true,
+                  log?.reaction(of: me) == nil,
+                  let opens = promptTime(night, defaultDinnerTime: defaultDinnerTime, calendar: calendar),
+                  now >= opens else { return nil }
+            return Prompt(night: night, log: log)
+        }
+    }
+
     /// The first responder's follow-up (leftovers, who cooked), while the night's card would still be open.
     static func extras(nights: [WeekNight], logs: [DinnerLog], me: UUID, defaultDinnerTime: String, now: Date,
                        calendar: Calendar = .current) -> [Prompt] {

@@ -17,6 +17,8 @@ enum NotificationPlanner {
         /// The server's pushes to this person (`notification_log`, channel push). They share the week's budget, apart from
         /// Plan's set and urgent items, which sit outside it.
         var pushesSent: [SentPush] = []
+        /// Each night, or weekly after three prompts in a row went unanswered.
+        var cadence = RatingCadence()
         var now: Date
     }
 
@@ -28,6 +30,8 @@ enum NotificationPlanner {
     /// app, with room for cook-mode timers. Raising a budget (#47) means checking that.
     static let horizon: TimeInterval = 8 * 24 * 60 * 60
     static let followUpDelay: TimeInterval = 60 * 60
+    /// The weekly roundup's time on the week's last day: after most dinners, before quiet hours.
+    static let roundupTime = "19:30"
     /// How far before a quiet stretch a prep reminder moves to, so it isn't the last thing at bedtime.
     static let quietMargin: TimeInterval = 15 * 60
 
@@ -71,7 +75,8 @@ enum NotificationPlanner {
         private var settings: HouseholdSettings { inputs.settings }
 
         func candidates() -> [Candidate] {
-            let first = timeToPlan() + prep() + afterDinner() + checkIn()
+            let rating = inputs.cadence.isWeekly ? roundup() : afterDinner()
+            let first = timeToPlan() + prep() + rating + checkIn()
             return rules.followsUp ? first + first.compactMap(followUp) : first
         }
 
@@ -139,6 +144,30 @@ enum NotificationPlanner {
             }
         }
 
+        /// Instead of each night's prompt, once they've stopped answering those: one on the week's last evening at 7:30pm, if
+        /// any dish that week before then still wants their rating. It opens a list of them.
+        private func roundup() -> [Candidate] {
+            guard rules.kinds.contains(.afterDinner), DinnerPrompts.rates(me) else { return [] }
+            return snapshot.weeks.filter(\.isApproved).compactMap { week -> Candidate? in
+                let lastDay = week.start.adding(days: 6, calendar: calendar)
+                guard let fire = DinnerPrompts.moment(NotificationPlanner.roundupTime, on: lastDay, calendar: calendar)
+                else { return nil }
+                let unrated = week.nights.contains { night in
+                    // What was eaten, once logged, else what was planned: the same dishes the roundup's list shows.
+                    guard (night.hasLog ? night.loggedMealID : night.mealID) != nil, !settings.isAway(on: night.date),
+                          night.attendance[me.id] == true, !me.isAway(today: night.date), !night.ratedBy.contains(me.id),
+                          let dinner = DinnerPrompts.moment(night.dinnerTime ?? settings.dinnerTime, on: night.date,
+                                                            calendar: calendar) else { return false }
+                    return dinner.addingTimeInterval(DinnerPrompts.delay) <= fire
+                }
+                guard unrated else { return nil }
+                return Candidate(reminder: PlannedReminder(
+                    id: ReminderID.roundup(me: me.id, week: week.start), kind: .ratingRoundup, nightID: nil, fireAt: fire,
+                    dinnerAt: nil, title: ReminderText.roundupTitle, body: ReminderText.roundupBody,
+                    route: .roundup(week.start)))
+            }
+        }
+
         /// "Home tonight?", to whoever's expected, at the household's check-in time. Only with a dinner to come home to: not an
         /// empty night, not Fend for yourselves, and not once dinner's logged or they've answered on any phone.
         private func checkIn() -> [Candidate] {
@@ -162,7 +191,8 @@ enum NotificationPlanner {
         private func followUp(_ first: Candidate) -> Candidate? {
             let reminder = first.reminder
             let known = history[reminder.id]
-            guard reminder.kind != .afterDinner, reminder.kind != .checkIn, known?.respondedAt == nil,
+            guard reminder.kind != .afterDinner, reminder.kind != .checkIn, reminder.kind != .ratingRoundup,
+                  known?.respondedAt == nil,
                   let moved = settled(time: reminder.fireAt, for: reminder),
                   known?.sentAt != nil || moved > inputs.now else { return nil }
             return Candidate(reminder: PlannedReminder(
@@ -245,7 +275,7 @@ enum NotificationPlanner {
                               dinner.timeIntervalSince(quiet.end) >= dinner.timeIntervalSince(time) / 2 else { return nil }
                         moved = quiet.end
                     }
-                case .timeToPlan, .checkIn: moved = quiet.end
+                case .timeToPlan, .checkIn, .ratingRoundup: moved = quiet.end
                 case .afterDinner: return nil
                 }
             }
@@ -288,6 +318,12 @@ enum ReminderText {
     static var afterDinnerTitle: String { String(localized: "How was dinner?", comment: "Reminder title") }
     static var afterDinnerBody: String {
         String(localized: "Tap to rate dinner.", comment: "Reminder body: rate the dish, never the cook")
+    }
+    static var roundupTitle: String {
+        String(localized: "Rate this week's dinners", comment: "Reminder title: the weekly rating roundup")
+    }
+    static var roundupBody: String {
+        String(localized: "Tap to rate the ones you were home for.", comment: "Reminder body: the weekly rating roundup")
     }
 
     /// Fixed words like the rest: the dish shows on the card, after a tap.

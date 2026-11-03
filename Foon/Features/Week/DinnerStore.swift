@@ -79,6 +79,20 @@ final class DinnerStore {
                           now: date ?? now(), calendar: calendar)
     }
 
+    /// The week that starts on `week`, for the weekly roundup: dishes this person was home for and hasn't rated. Nil when it
+    /// can't be read.
+    func unrated(me: UUID, settings: HouseholdSettings, week: CalendarDay) async -> [DinnerPrompts.Prompt]? {
+        let calendar = DinnerPrompts.calendar(for: settings)
+        do {
+            async let nights = client.nights(householdID, week, week.adding(days: 6, calendar: calendar))
+            async let logs = client.logs(householdID, week)
+            return DinnerPrompts.unrated(nights: try await nights, logs: try await logs, me: me,
+                                         defaultDinnerTime: settings.dinnerTime, now: now(), calendar: calendar)
+        } catch {
+            return nil
+        }
+    }
+
     func extras(me: UUID, settings: HouseholdSettings, at date: Date? = nil) -> [DinnerPrompts.Prompt] {
         DinnerPrompts.extras(nights: nights, logs: logs, me: me, defaultDinnerTime: settings.dinnerTime,
                              now: date ?? now(), calendar: calendar)
