@@ -447,6 +447,8 @@ final class LibraryStore {
             return imported
         } catch RecipeImportError.notAllowed {
             errorMessage = String(localized: "Foon can't open that link. Try the recipe's web page.")
+        } catch RecipeImportError.rateLimited {
+            errorMessage = String(localized: "Try again tomorrow.")
         } catch {
             errorMessage = String(localized: "Couldn't read that page. Check your connection and try again.")
         }

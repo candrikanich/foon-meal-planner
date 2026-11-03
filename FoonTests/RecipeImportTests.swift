@@ -117,6 +117,17 @@ struct LinkImportStoreTests {
         #expect(down.errorMessage?.contains("Couldn't read") == true)
     }
 
+    @Test func overTheDailyCapSaysTryAgainTomorrow() async {
+        #expect(RecipeImportError(status: 429) == .rateLimited)
+        #expect(RecipeImportError(status: 400) == .notAllowed)
+        #expect(RecipeImportError(status: 502) == .unavailable)
+        let capped = LibraryStore(householdID: UUID(), client: .fake(importRecipe: { _ in
+            throw RecipeImportError.rateLimited
+        }))
+        #expect(await capped.importRecipe("https://recipes.example") == nil)
+        #expect(capped.errorMessage == "Try again tomorrow.")
+    }
+
     @Test func linksAreWebAddresses() {
         #expect(LibraryStore.webLink("recipes.example/chili")?.absoluteString == "https://recipes.example/chili")
         #expect(LibraryStore.webLink("http://r.example")?.absoluteString == "http://r.example")
