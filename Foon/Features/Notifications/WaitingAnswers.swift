@@ -15,16 +15,24 @@ enum WaitingAnswers {
     }
 }
 
-/// When the background refresh should next run. Soon while answers are still waiting (no signal last time); otherwise half an
-/// hour after the next after-dinner prompt goes out, so its card has had time to be answered. A refresh at the moment it goes
-/// would find nothing and ask for tomorrow's. Nil when there's nothing to wait for.
+/// When the background refresh should next run. Soon while answers are still waiting (no signal last time). Otherwise the
+/// sooner of: half an hour after the next after-dinner prompt goes out, so its card has had time to be answered (a refresh at
+/// the moment it goes would find nothing and ask for tomorrow's); and an hour on while a prompt from the last few hours is
+/// still in Notification Center, since its card can still be answered that evening (#231). Nil when there's nothing to wait for.
 enum RefreshPlan {
     static let retryAfter: TimeInterval = 15 * 60
     static let afterPrompt: TimeInterval = 30 * 60
+    static let whileUnanswered: TimeInterval = 60 * 60
+    /// A prompt older than this isn't going to be answered tonight, so it doesn't keep refreshes coming for days.
+    static let answerWindow: TimeInterval = 6 * 60 * 60
 
-    static func next(waiting: Bool, prompts: [Date], now: Date) -> Date? {
+    /// `unanswered`: when each after-dinner prompt still delivered went out.
+    static func next(waiting: Bool, prompts: [Date], unanswered: [Date], now: Date) -> Date? {
         if waiting { return now.addingTimeInterval(retryAfter) }
-        return prompts.filter { $0 > now }.min()?.addingTimeInterval(afterPrompt)
+        let nextPrompt = prompts.filter { $0 > now }.min()?.addingTimeInterval(afterPrompt)
+        let open = unanswered.contains { now.timeIntervalSince($0) < answerWindow }
+            ? now.addingTimeInterval(whileUnanswered) : nil
+        return [nextPrompt, open].compactMap { $0 }.min()
     }
 }
 
@@ -44,10 +52,14 @@ enum AnswerRefresh {
 
     /// After a send, on going to the background, and after each refresh, so one is pending for the next prompt's card.
     static func scheduleNext(device: ReminderDevice) async {
-        let pending = await UNUserNotificationCenter.current().pendingNotificationRequests()
-        let prompts = pending.filter { ReminderID.isAfterDinner($0.identifier) }
+        let prompts = await UNUserNotificationCenter.current().pendingNotificationRequests()
+            .filter { ReminderID.isAfterDinner($0.identifier) }
             .compactMap { ($0.trigger as? UNTimeIntervalNotificationTrigger)?.nextTriggerDate() }
-        if let next = RefreshPlan.next(waiting: device.hasWaitingAnswers, prompts: prompts, now: .now) { schedule(at: next) }
+        let unanswered = await ReminderCenter.system.deliveredPromptDates()
+        if let next = RefreshPlan.next(waiting: device.hasWaitingAnswers, prompts: prompts, unanswered: unanswered,
+                                       now: .now) {
+            schedule(at: next)
+        }
     }
 }
 #endif
