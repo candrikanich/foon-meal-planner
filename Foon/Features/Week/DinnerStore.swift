@@ -131,7 +131,7 @@ final class DinnerStore {
         let saved = await write(nightID, failure: String(localized: "Couldn't save that. Check your connection and try again.")) {
             [client] in _ = try await client.react(nightID, memberID, kind)
         }
-        if saved { waiting?.removeDinnerAnswers(night: nightID, member: memberID) }
+        if saved { waiting?.removeDinnerAnswers(night: nightID, member: memberID, savedAt: now()) }
         return saved
     }
 
@@ -173,7 +173,7 @@ final class DinnerStore {
         let saved = await write(nightID, failure: String(localized: "Couldn't save that. Check your connection and try again.")) {
             [client] in try await client.setNotHome(nightID, memberID)
         }
-        if saved { waiting?.removeDinnerAnswers(night: nightID, member: memberID) }
+        if saved { waiting?.removeDinnerAnswers(night: nightID, member: memberID, savedAt: now()) }
         // The server takes them off as the cook, unless they've been thanked. Say so rather than leave it looking done.
         if saved, log(for: nightID)?.cookedByMemberID == memberID {
             errorMessage = String(localized: "Saved. They're still down as the cook, because someone already thanked them.")

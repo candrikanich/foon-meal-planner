@@ -152,9 +152,13 @@ final class CookAlertPresenter: NSObject, UNUserNotificationCenterDelegate, Send
             }
         }
         if let dinner = outcome.dinner { device.add(dinner) }
+        // Before sending, so opening a notification never waits on the network.
+        if let route = outcome.route { ReminderRouter.shared.go(to: route) }
         // Now, if it can, so it's on the server the next time a planner looks. Any button wakes the app, so it sends everything
         // waiting, the after-dinner card's answers too: nothing else wakes the app for those. The app's next run sends the rest.
         await WaitingAnswers.send(device: device, client: .live(SupabaseService.shared.client))
-        if let route = outcome.route { ReminderRouter.shared.go(to: route) }
+        #if os(iOS)
+        await AnswerRefresh.scheduleNext(device: device)
+        #endif
     }
 }

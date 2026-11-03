@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 // Foundation only: the after-dinner card (FoonDinner) builds these answers and saves them to `DinnerCardInbox`.
 
@@ -79,8 +80,15 @@ struct DinnerCardInbox: Sendable {
         try JSONEncoder().encode(answered).write(to: directory.appending(path: name), options: .atomic)
     }
 
+    /// One take at a time in this process, so two can't both read a file before either deletes it. Only the app takes.
+    private static let taking = Mutex(())
+
     /// Everything saved, oldest first, and gone from here. One that can't be read goes too: it never will be.
     func takeAll() -> [DinnerPrompt.Answered] {
+        Self.taking.withLock { _ in takeUnlocked() }
+    }
+
+    private func takeUnlocked() -> [DinnerPrompt.Answered] {
         let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
         let answers = files.filter { $0.pathExtension == "json" }.compactMap { file -> DinnerPrompt.Answered? in
             defer { try? FileManager.default.removeItem(at: file) }

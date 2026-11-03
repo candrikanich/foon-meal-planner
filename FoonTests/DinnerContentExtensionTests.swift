@@ -151,3 +151,71 @@ private func card(_ answer: DinnerAnswer.Answer, night: UUID = UUID(), member: U
         #expect(device.dinnerAnswers.isEmpty)
     }
 }
+
+/// Two take-ins at once, say the app's run and a button waking it, can't both read the same file.
+@Suite struct DinnerCardInboxConcurrencyTests {
+    @Test func eachAnswerIsTakenOnce() async throws {
+        for _ in 0..<5 {
+            let inbox = inbox()
+            for index in 0..<40 { try inbox.add(card(.reaction(.good), at: now.addingTimeInterval(Double(index)))) }
+            let taken = await withTaskGroup(of: Int.self) { group in
+                for _ in 0..<8 { group.addTask { inbox.takeAll().count } }
+                return await group.reduce(0, +)
+            }
+            #expect(taken == 40)
+        }
+    }
+}
+
+/// When the background refresh should next run: soon if answers are waiting, else when the next prompt goes out, since that's
+/// when the card gets answered.
+@Suite struct RefreshPlanTests {
+    @Test func soonWhileAnswersAreWaiting() {
+        #expect(RefreshPlan.next(waiting: true, prompts: [now.addingTimeInterval(3600)], now: now)
+                == now.addingTimeInterval(RefreshPlan.retryAfter))
+    }
+
+    @Test func otherwiseAtTheNextPrompt() {
+        let prompts = [now.addingTimeInterval(-60), now.addingTimeInterval(7200), now.addingTimeInterval(3600)]
+        #expect(RefreshPlan.next(waiting: false, prompts: prompts, now: now) == now.addingTimeInterval(3600))
+    }
+
+    @Test func nothingToWaitFor() {
+        #expect(RefreshPlan.next(waiting: false, prompts: [now.addingTimeInterval(-60)], now: now) == nil)
+    }
+
+    @Test func afterDinnerPromptsAreToldApart() {
+        let me = UUID(), night = UUID()
+        #expect(ReminderID.isAfterDinner(ReminderID.afterDinner(me: me, night: night, meal: UUID())))
+        #expect(!ReminderID.isAfterDinner(ReminderID.checkIn(me: me, night: night)))
+        #expect(!ReminderID.isAfterDinner(UUID().uuidString), "a cook-mode timer")
+    }
+}
+
+/// A rating made in the app after one on the card is the one that stands, even if the card's file is still waiting.
+@Suite @MainActor struct CardAnswerVersusAppRatingTests {
+    private func store(_ device: ReminderDevice, at time: Date) -> DinnerStore {
+        let client = DinnerClient(logs: { _, _ in [] }, confirm: { _ in UUID() }, react: { _, _, _ in UUID() },
+                                  correct: { _, _ in }, nights: { _, _, _ in [] }, setNotHome: { _, _ in })
+        return DinnerStore(householdID: UUID(), client: client, waiting: device, now: { time })
+    }
+
+    @Test func theCardsOlderAnswerIsDroppedWhenTheAppSaves() async throws {
+        let inbox = inbox(), device = ReminderDevice(defaults: suite(), cardInbox: inbox)
+        let night = UUID(), me = UUID(), eight = now
+        try inbox.add(card(.reaction(.notForMe), night: night, member: me, at: eight.addingTimeInterval(5 * 60)))
+        #expect(await store(device, at: eight.addingTimeInterval(6 * 60)).react(nightID: night, memberID: me, .favorite))
+        device.takeInCardAnswers()
+        #expect(device.dinnerAnswers.isEmpty, "Not for me must not be sent after Favorite")
+    }
+
+    @Test func aCardAnswerAfterTheAppsStays() async throws {
+        let inbox = inbox(), device = ReminderDevice(defaults: suite(), cardInbox: inbox)
+        let night = UUID(), me = UUID(), eight = now
+        let later = card(.wasntHome, night: night, member: me, at: eight.addingTimeInterval(7 * 60))
+        try inbox.add(later)
+        #expect(await store(device, at: eight.addingTimeInterval(6 * 60)).notHome(nightID: night, memberID: me))
+        device.takeInCardAnswers()
+        #expect(device.dinnerAnswers == [later.dinner])
+    }
+}

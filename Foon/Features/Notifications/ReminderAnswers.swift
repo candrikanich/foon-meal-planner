@@ -106,9 +106,12 @@ struct ReminderDevice: @unchecked Sendable {
         }
     }
 
-    func removeDinnerAnswers(night: UUID, member: UUID) {
+    /// An answer saved in the app at `savedAt` stands over any for that night from then or before, the card's still in their
+    /// files too: otherwise an older one would be sent after it and land last.
+    func removeDinnerAnswers(night: UUID, member: UUID, savedAt: Date) {
+        takeInCardAnswers()
         Self.answersLock.withLock { _ in
-            storeDinnerAnswers(storedDinnerAnswers.filter { $0.nightID != night || $0.memberID != member })
+            storeDinnerAnswers(storedDinnerAnswers.filter { $0.nightID != night || $0.memberID != member || $0.at > savedAt })
         }
     }
 

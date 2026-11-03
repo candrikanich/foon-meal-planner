@@ -18,6 +18,7 @@ private final class SpyCenter: Sendable {
         var clears = 0
         var addFails = false
         var pushAsks = 0
+        var refreshes: [Date] = []
     }
 
     let state = Mutex(State())
@@ -61,7 +62,8 @@ private final class SpyCenter: Sendable {
                     $0.pending = []
                 }
             },
-            askForPushToken: { self.state.withLock { $0.pushAsks += 1 } }
+            askForPushToken: { self.state.withLock { $0.pushAsks += 1 } },
+            scheduleRefresh: { date in self.state.withLock { $0.refreshes.append(date) } }
         )
     }
 
@@ -201,6 +203,15 @@ struct ReminderSchedulingTests {
         #expect(ids.contains(test.prepID))
         #expect(ids.contains(test.afterID))
         #expect(test.center.state.withLock { $0.intervals[test.prepID] } == Harness.at(9, 18).timeIntervalSince(Harness.at(8, 10)))
+    }
+
+    /// So a background refresh is pending when the after-dinner card is likely to be answered (#122).
+    @Test func aRefreshIsAskedForWhenTheNextPromptGoes() async throws {
+        let test = try Harness()
+        test.server.set(weeks: [test.week()])
+        await test.store().replan(test.wanted())
+        let prompt = try #require(test.center.added.first { $0.id == test.afterID })
+        #expect(test.center.state.withLock { $0.refreshes.last } == prompt.fireAt)
     }
 
     @Test func runningAgainChangesNothing() async throws {

@@ -215,6 +215,11 @@ final class ReminderStore {
             return
         }
         try? context.save()
+        // So a background refresh is pending when the next prompt's card is answered.
+        let prompts = plan.filter { $0.kind == .afterDinner }.map(\.fireAt)
+        if let next = RefreshPlan.next(waiting: device.hasWaitingAnswers, prompts: prompts, now: now()) {
+            center.scheduleRefresh(next)
+        }
         await upload(member: wanted.me.id, in: context)
     }
 

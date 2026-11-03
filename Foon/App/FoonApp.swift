@@ -32,11 +32,14 @@ struct FoonApp: App {
         WindowGroup { root }
             // The after-dinner card's answers wait for the app; this gives iOS a chance to send them without it opening.
             .onChange(of: scenePhase) { _, phase in
-                if phase == .background, Self.configured { AnswerRefresh.schedule() }
+                if phase == .background, Self.configured { Task { await AnswerRefresh.scheduleNext(device: ReminderDevice()) } }
             }
             .backgroundTask(.appRefresh(AnswerRefresh.id)) {
                 guard Self.configured else { return }
-                await WaitingAnswers.send(device: ReminderDevice(), client: .live(SupabaseService.shared.client))
+                let device = ReminderDevice()
+                await WaitingAnswers.send(device: device, client: .live(SupabaseService.shared.client))
+                // Each refresh asks for the next: for answers still waiting, or the next prompt's card.
+                await AnswerRefresh.scheduleNext(device: device)
             }
         #endif
     }

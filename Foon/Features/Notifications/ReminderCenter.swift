@@ -29,6 +29,8 @@ struct ReminderCenter: Sendable {
     var removeDelivered: @Sendable (_ ids: [String]) -> Void = { _ in }
     /// Asks for an APNs token (server push), which arrives through the app delegate.
     var askForPushToken: @Sendable @MainActor () -> Void = {}
+    /// Asks for a background refresh no earlier than this, to send the after-dinner card's answers (#122). iPhone and iPad.
+    var scheduleRefresh: @Sendable (_ earliest: Date) -> Void = { _ in }
 }
 
 extension ReminderCenter {
@@ -129,7 +131,12 @@ extension ReminderCenter {
         removeDelivered: { ids in
             UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ids)
         },
-        askForPushToken: { PushRegistration.ask() }
+        askForPushToken: { PushRegistration.ask() },
+        scheduleRefresh: { earliest in
+            #if os(iOS)
+            AnswerRefresh.schedule(at: earliest)
+            #endif
+        }
     )
 
     static let none = ReminderCenter(

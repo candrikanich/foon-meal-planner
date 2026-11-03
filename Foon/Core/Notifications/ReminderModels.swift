@@ -204,6 +204,9 @@ extension ReminderID {
         "\(prefix)\(me.uuidString).roundup.\(week.isoString)"
     }
 
+    /// Whether this is an after-dinner prompt (or its follow-up), for any night.
+    static func isAfterDinner(_ id: String) -> Bool { isReminder(id) && id.contains(".after.") }
+
     /// Whether this is an after-dinner prompt for that night, whichever dish it's about.
     static func isAfterDinner(_ id: String, night: UUID) -> Bool {
         id.contains(".after.\(night.uuidString).")

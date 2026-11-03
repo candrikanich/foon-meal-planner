@@ -1,6 +1,7 @@
 import Foundation
 #if os(iOS)
 import BackgroundTasks
+import UserNotifications
 #endif
 
 /// Sends what's waiting on this device: the after-dinner card's answers (taken in first), check-ins, and after-dinner answers.
@@ -11,24 +12,40 @@ enum WaitingAnswers {
         device.takeInCardAnswers()
         await CheckInDelivery.send(device: device, client: client)
         await DinnerAnswerDelivery.send(device: device, client: client)
-        #if os(iOS)
-        if device.hasWaitingAnswers { AnswerRefresh.schedule() }
-        #endif
+    }
+}
+
+/// When the background refresh should next run. Soon while answers are still waiting (no signal last time); otherwise when the
+/// next after-dinner prompt goes out, since its card gets answered after that. Nil when there's nothing to wait for.
+enum RefreshPlan {
+    static let retryAfter: TimeInterval = 15 * 60
+
+    static func next(waiting: Bool, prompts: [Date], now: Date) -> Date? {
+        if waiting { return now.addingTimeInterval(retryAfter) }
+        return prompts.filter { $0 > now }.min()
     }
 }
 
 #if os(iOS)
 /// A background refresh that sends what's waiting, for the card's answers above all: nothing else wakes the app for them. iOS
-/// decides when, or whether, it runs.
+/// decides when, or whether, it runs, never before the date it's given.
 enum AnswerRefresh {
     /// In `BGTaskSchedulerPermittedIdentifiers` (project.yml).
     static let id = "com.andrikanich.foon.answers"
 
     /// Replaces any already asked for.
-    static func schedule() {
+    static func schedule(at earliest: Date) {
         let request = BGAppRefreshTaskRequest(identifier: id)
-        request.earliestBeginDate = .now.addingTimeInterval(15 * 60)
+        request.earliestBeginDate = earliest
         try? BGTaskScheduler.shared.submit(request)
+    }
+
+    /// After a send, on going to the background, and after each refresh, so one is pending for the next prompt's card.
+    static func scheduleNext(device: ReminderDevice) async {
+        let pending = await UNUserNotificationCenter.current().pendingNotificationRequests()
+        let prompts = pending.filter { ReminderID.isAfterDinner($0.identifier) }
+            .compactMap { ($0.trigger as? UNTimeIntervalNotificationTrigger)?.nextTriggerDate() }
+        if let next = RefreshPlan.next(waiting: device.hasWaitingAnswers, prompts: prompts, now: .now) { schedule(at: next) }
     }
 }
 #endif
