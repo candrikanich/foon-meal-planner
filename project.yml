@@ -41,6 +41,8 @@ targets:
       - package: Supabase
       - target: FoonShare
         destinationFilters: [iOS]
+      - target: FoonDinner
+        destinationFilters: [iOS]
     configFiles:
       Debug: Config/Local.xcconfig
       Staging: Config/Staging.xcconfig
@@ -62,11 +64,14 @@ targets:
             CFBundleURLSchemes: [foon]
         # Only the OS's own encryption (HTTPS, Sign in with Apple): exempt, so App Store Connect skips the question.
         ITSAppUsesNonExemptEncryption: false
+        # A background refresh sends the after-dinner card's answers (#122, AnswerRefresh). iOS only; the Mac ignores them.
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [com.andrikanich.foon.answers]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon
         PRODUCT_NAME: Foon
-        # The App Group only serves the share extension, which is iOS only.
+        # The App Group only serves the share extension and the after-dinner card, which are iOS only.
         "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Foon/App/FoonMac.entitlements
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Foon
@@ -93,6 +98,7 @@ targets:
     sources:
       - path: FoonShare
       - path: Foon/Core/Share/SharedItem.swift
+      - path: Foon/Core/Share/AppGroup.swift
     entitlements:
       path: FoonShare/FoonShare.entitlements
       properties:
@@ -116,6 +122,44 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon.share
+        GENERATE_INFOPLIST_FILE: YES
+        SKIP_INSTALL: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+        ENABLE_PREVIEWS: YES
+
+  # The after-dinner prompt's card (#122). It answers into the App Group's waiting list, with no network of its own.
+  FoonDinner:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: FoonDinner
+      - path: Foon/Core/Share/AppGroup.swift
+      - path: Foon/Core/Models/CalendarDay.swift
+      - path: Foon/Core/Dinner/ReactionKind.swift
+      - path: Foon/Core/Notifications/ReminderPayload.swift
+      - path: Foon/Core/Notifications/ReminderQueue.swift
+    entitlements:
+      path: FoonDinner/FoonDinner.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.andrikanich.foon]
+    info:
+      path: FoonDinner/Info.plist
+      properties:
+        CFBundleDisplayName: Foon
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.usernotifications.content-extension
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).DinnerViewController
+          NSExtensionAttributes:
+            # ReminderCenter.afterDinnerCategory.
+            UNNotificationExtensionCategory: foon.reminder.afterdinner
+            UNNotificationExtensionInitialContentSizeRatio: 0.5
+            # The card says "How was dinner?" itself; the body's "Tap to rate dinner." would be wrong above its buttons.
+            UNNotificationExtensionDefaultContentHidden: true
+            UNNotificationExtensionUserInteractionEnabled: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon.dinner
         GENERATE_INFOPLIST_FILE: YES
         SKIP_INSTALL: YES
         SWIFT_EMIT_LOC_STRINGS: YES
