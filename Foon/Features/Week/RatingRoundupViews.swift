@@ -20,8 +20,7 @@ struct RatingRoundupSheet: View {
                         Label("All rated. Thanks!", systemImage: "checkmark.circle.fill").foregroundStyle(Palette.herb)
                     }
                     ForEach(prompts) { prompt in
-                        Section(prompt.night.date.date(in: settings.dayCalendar)
-                            .formatted(.dateTime.weekday(.wide).month().day())) {
+                        Section(dayTitle(prompt.night.date)) {
                             row(prompt)
                         }
                     }
@@ -41,6 +40,13 @@ struct RatingRoundupSheet: View {
             }
             .task { await load() }
         }
+    }
+
+    /// In the household's time zone, which the night's date is in, so it's the right weekday on a phone set elsewhere.
+    private func dayTitle(_ day: CalendarDay) -> String {
+        let calendar = settings.dayCalendar
+        return day.date(in: calendar).formatted(
+            Date.FormatStyle(calendar: calendar, timeZone: calendar.timeZone).weekday(.wide).month().day())
     }
 
     private func row(_ prompt: DinnerPrompts.Prompt) -> some View {

@@ -115,7 +115,9 @@ final class ReminderStore {
     }
 
     /// "Want these back?" on This Week: offered once, a while after rating went weekly.
-    var shouldOfferRatingsBack: Bool { isOptedIn && ratingCadence.shouldOfferBack(at: now()) }
+    /// Not to someone whose nightly prompts wouldn't come back anyway: on Light, or eating separately.
+    var shouldOfferRatingsBack: Bool { isOptedIn && ratesNightly && ratingCadence.shouldOfferBack(at: now()) }
+    private var ratesNightly = false
 
     /// "Yes, each night": the prompts come back, and what was ignored before doesn't count against them.
     func takeRatingsBack(for wanted: Context) async {
@@ -171,13 +173,17 @@ final class ReminderStore {
         forgetOtherPeople(than: wanted.me.id, in: context)
         fileAnswers(in: context)
         settleSent(pending: Set(pending), member: wanted.me.id, in: context)
-        let cadence = updatedCadence(for: wanted.me.id, nights: snapshot?.weeks.flatMap(\.nights) ?? [], in: context)
+        // Only from a fresh read: an old cache can't see a rating made on another phone since, and that's not ignoring.
+        let cadence = weeks == nil ? storedCadence(for: wanted.me.id)
+            : updatedCadence(for: wanted.me.id, nights: snapshot?.weeks.flatMap(\.nights) ?? [], in: context)
 
         let plan = NotificationPlanner.plan(NotificationPlanner.Inputs(
             me: wanted.me, members: wanted.members, settings: wanted.settings, snapshot: snapshot,
             history: records(member: wanted.me.id, in: context).map(\.history), pushesSent: pushesSent, cadence: cadence,
             now: now()
         ))
+        ratesNightly = DinnerPrompts.rates(wanted.me)
+            && ReminderRules(member: wanted.me, settings: wanted.settings).kinds.contains(.afterDinner)
         hasRemindersToOffer = !plan.isEmpty && snapshot?.weeks.contains(where: \.isApproved) == true
 
         guard permission == .on, isOptedIn else {
@@ -286,6 +292,11 @@ final class ReminderStore {
     }
 
     /// Three after-dinner prompts in a row with nothing back turns rating weekly (RatingCadence).
+    private func storedCadence(for member: UUID) -> RatingCadence {
+        ratingCadence = device.ratingCadence(member)
+        return ratingCadence
+    }
+
     private func updatedCadence(for member: UUID, nights: [ReminderNight], in context: ModelContext) -> RatingCadence {
         let summaries = records(member: member, in: context).map {
             ReminderRecordSummary(kind: ReminderKind(rawValue: $0.kindRaw), nightID: $0.nightID, sentAt: $0.sentAt,

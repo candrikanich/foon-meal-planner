@@ -153,7 +153,8 @@ enum NotificationPlanner {
                 guard let fire = DinnerPrompts.moment(NotificationPlanner.roundupTime, on: lastDay, calendar: calendar)
                 else { return nil }
                 let unrated = week.nights.contains { night in
-                    guard night.mealID != nil, night.quickPick == nil, !settings.isAway(on: night.date),
+                    guard night.mealID != nil, night.quickPick == nil, !night.hasLog || night.loggedMealID != nil,
+                          !settings.isAway(on: night.date),
                           night.attendance[me.id] == true, !me.isAway(today: night.date), !night.ratedBy.contains(me.id),
                           let dinner = DinnerPrompts.moment(night.dinnerTime ?? settings.dinnerTime, on: night.date,
                                                             calendar: calendar) else { return false }

@@ -1062,3 +1062,40 @@ struct RatingCadenceStoreTests {
         #expect(test.device.ratingCadence(test.ann.id).isWeekly, "a fresh read that agrees does")
     }
 }
+
+@MainActor
+struct RatingsBackOfferTests {
+    private func weeklyFor11Days(_ test: Harness) {
+        test.set(now: Harness.at(12, 10))
+        test.device.setRatingCadence(RatingCadence(weeklySince: Harness.at(1, 10)), for: test.ann.id)
+        test.server.set(weeks: [test.week()])
+    }
+
+    @Test func offeredWhenNightlyPromptsWouldComeBack() async throws {
+        let test = try Harness()
+        weeklyFor11Days(test)
+        let store = test.store()
+        await store.replan(test.wanted())
+        #expect(store.shouldOfferRatingsBack)
+    }
+
+    @Test func notOfferedOnLightSinceThereAreNoNightlyPrompts() async throws {
+        let test = try Harness()
+        weeklyFor11Days(test)
+        var settings = test.settings
+        settings.notificationPreset = .light
+        let store = test.store()
+        await store.replan(ReminderStore.Context(me: test.ann, members: [test.ann, test.kim], settings: settings))
+        #expect(!store.shouldOfferRatingsBack)
+    }
+
+    @Test func notOfferedToSomeoneWhoEatsSeparately() async throws {
+        let test = try Harness()
+        weeklyFor11Days(test)
+        var ann = test.ann
+        ann.eatsSeparately = true
+        let store = test.store()
+        await store.replan(test.wanted(me: ann))
+        #expect(!store.shouldOfferRatingsBack)
+    }
+}

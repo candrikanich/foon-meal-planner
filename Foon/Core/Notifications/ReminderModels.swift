@@ -12,14 +12,15 @@ enum ReminderKind: String, Codable, CaseIterable, Sendable {
 
     /// Who loses out when a week's budget runs short: forgetting to thaw means no dinner, and a check-in or a rating prompt
     /// can wait for its card on This Week. Those two share a place, so each night gets both while the budget lasts rather than
-    /// one kind using it all up. The weekly roundup goes with Time to plan: it's one a week standing in for seven prompts, and
-    /// at the week's end it would otherwise lose to every check-in before it. Nothing about allergies or safety is ever a
-    /// reminder, so a budget can't drop one.
+    /// one kind using it all up. The weekly roundup sits between: it's one a week standing in for seven prompts, and at the
+    /// week's end it would otherwise lose to every check-in before it, but it still waits behind a thaw. Nothing about
+    /// allergies or safety is ever a reminder, so a budget can't drop one.
     var budgetOrder: Int {
         switch self {
-        case .timeToPlan, .ratingRoundup: 0
+        case .timeToPlan: 0
         case .prep: 1
-        case .afterDinner, .checkIn: 2
+        case .ratingRoundup: 2
+        case .afterDinner, .checkIn: 3
         }
     }
 }
