@@ -175,4 +175,17 @@ struct OfflineReplayMergeTests {
         #expect(report.aliases == [weekly: quick])
         #expect(report.sent == [1, 2])
     }
+
+    /// A line re-pointed by an earlier replay: a change queued since goes to where the line is now.
+    @Test func linesRepointedByAnEarlierReplayStayRepointed() async {
+        let weekly = UUID(), quick = UUID()
+        let sent = Mutex<[OfflineChange]>([])
+        let queue = [OfflineReplay.Entry(sequence: 3, change: .setChecked(listItemID: weekly, checked: false), attempts: 0)]
+        let report = await OfflineReplay.replay(queue, aliases: [weekly: quick]) { change in
+            sent.withLock { $0.append(change) }
+            return .sent
+        }
+        #expect(sent.withLock { $0 } == [.setChecked(listItemID: quick, checked: false)])
+        #expect(report.aliases.isEmpty, "only what this replay learned")
+    }
 }

@@ -89,11 +89,15 @@ enum OfflineReplay {
         var rewritten: [Int: OfflineChange] = [:]
     }
 
-    static func replay(_ queue: [Entry], send: @Sendable (OfflineChange) async -> SendResult) async -> Report {
+    /// `aliases` are lines earlier replays re-pointed: a change queued since, say an undo tapped while a check-off that
+    /// followed a move was on its way, goes to where the line is now.
+    static func replay(_ queue: [Entry], aliases known: [UUID: UUID] = [:],
+                       send: @Sendable (OfflineChange) async -> SendResult) async -> Report {
         var report = Report()
+        var aliases = known
         let ordered = queue.sorted { $0.sequence < $1.sequence }
         for (index, entry) in ordered.enumerated() {
-            let change = entry.change.repointed(report.aliases)
+            let change = entry.change.repointed(aliases)
             let result = await send(change)
             switch result {
             case .sent:
@@ -102,6 +106,7 @@ enum OfflineReplay {
                 report.sent.append(entry.sequence)
                 if let lineID = change.repointableLine, lineID != existing {
                     report.aliases[lineID] = existing
+                    aliases[lineID] = existing
                 }
             case .rejected:
                 report.rejected.append(entry.sequence)
@@ -112,8 +117,8 @@ enum OfflineReplay {
                 let waiting = ordered[index...]
                 report.remaining = waiting.map(\.sequence)
                 report.failedAttempt = result == .retryLater ? entry.sequence : nil
-                for queued in waiting where queued.change.repointed(report.aliases) != queued.change {
-                    report.rewritten[queued.sequence] = queued.change.repointed(report.aliases)
+                for queued in waiting where queued.change.repointed(aliases) != queued.change {
+                    report.rewritten[queued.sequence] = queued.change.repointed(aliases)
                 }
                 return report
             }

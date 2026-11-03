@@ -194,7 +194,7 @@ final class SyncService {
             stored.change.map { OfflineReplay.Entry(sequence: stored.sequence, change: $0, attempts: stored.attempts) }
         }
         let client = client
-        let report = await OfflineReplay.replay(entries) { change in
+        let report = await OfflineReplay.replay(entries, aliases: lineAliases) { change in
             do {
                 if let existing = try await client.send(change) { return .merged(into: existing) }
                 return .sent

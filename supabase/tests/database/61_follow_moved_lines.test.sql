@@ -1,7 +1,7 @@
 -- A check-off queued against a line "Couldn't find it" moved follows it to the quick list (#201). And items never merge, so a
 -- queued stock change reaches the item it was made for, by whatever name.
 begin;
-select plan(16);
+select plan(19);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -76,6 +76,20 @@ select results_eq($$ update public.list_items set checked_at = now()
   $$ values ('00000000-0000-0000-0000-0000000003a1'::uuid) $$, 'so the check-off follows it to the quick line');
 select is((select checked_by from public.list_items where id = '00000000-0000-0000-0000-0000000003a1'),
   '00000000-0000-0000-0000-0000000000a2'::uuid, 'checked off by Bob');
+
+-- Alice's own queued check-off follows too, after Bob's: the line's bought already, so it matches nothing and keeps Bob's stamp.
+reset role;
+create temp table bought as select checked_at, checked_by from public.list_items where id = '00000000-0000-0000-0000-0000000003a1';
+grant select on bought to authenticated;
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select is_empty($$ update public.list_items set checked_at = now()
+  where moved_from = '00000000-0000-0000-0000-0000000002a1' and checked_at is null returning id $$,
+  'a line bought since has nothing to follow onto');
+select is((select checked_at from public.list_items where id = '00000000-0000-0000-0000-0000000003a1'),
+  (select checked_at from bought), 'when it was bought stays');
+select is((select checked_by from public.list_items where id = '00000000-0000-0000-0000-0000000003a1'),
+  (select checked_by from bought), 'and who bought it');
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 
 -- A line taken off another way left nothing behind to follow.
 delete from public.list_items where id = '00000000-0000-0000-0000-0000000002a4';

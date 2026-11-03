@@ -7,6 +7,9 @@
 -- It's set only when the move found the line: a retry, whose first try already moved it, leaves what that try set, and a line
 -- that went another way (bought, removed, dropped by a plan change) leaves nothing to follow. A move that merges into an open
 -- quick line marks that line: the item is one row on the phone, and checking it off there would have checked off both.
+-- A line remembers only the latest move onto it. A second weekly line moved onto the same open quick line (next week's, say)
+-- replaces the first, and a check-off still queued for the first then finds nothing to follow and does nothing. That's rare:
+-- it takes two weeks' lines for one item and two "Couldn't find it"s while one phone stays offline.
 -- Another household's line is never found under the caller's row-level security, so it's never named.
 
 alter table public.list_items add column moved_from uuid;

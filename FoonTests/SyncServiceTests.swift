@@ -200,7 +200,7 @@ struct SyncServiceTests {
     @Test func checkingOffANonStapleDoesntPull() async throws {
         let container = try SyncService.inMemoryContainer()
         let pulls = Mutex(0)
-        let base = snapshot, householdID = household, milkItem = milkItem, milkLine = milkLine
+        let base = snapshot
         let service = makeService(container: container, client: .fake(snapshot: {
             pulls.withLock { $0 += 1 }
             return base
@@ -476,6 +476,36 @@ struct SyncServiceTests {
         #expect(lines.count == 1)
         #expect(lines.first?.id == moved && lines.first?.checkedAt != nil, "the cart shows the line it went to")
         #expect(lines.first?.note == "Couldn't find it", "pulled again, so it shows the line as the server has it")
+    }
+
+    /// Bob puts milk back while his followed check-off is still on its way, or after: the undo goes where the check-off went.
+    @Test func anUndoTappedDuringAFollowedCheckOffReachesTheMovedLine() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let moved = UUID()
+        let sent = Mutex<[OfflineChange]>([])
+        let (gate, release) = AsyncStream<Void>.makeStream()
+        let service = makeService(container: container, client: .fake(
+            snapshot: { snapshot },
+            send: { change in
+                if change == .setChecked(listItemID: milkLine, checked: true) {
+                    for await _ in gate { break }  // hold the check-off until the undo is queued
+                }
+                sent.withLock { $0.append(change) }
+            },
+            mergedInto: { change in change == .setChecked(listItemID: milkLine, checked: true) ? moved : nil }
+        ))
+        await service.pull()
+        let checkOff = Task { await service.perform(.setChecked(listItemID: milkLine, checked: true)) }
+        await Task.yield()
+        let undo = Task { await service.perform(.setChecked(listItemID: milkLine, checked: false)) }
+        await Task.yield()
+        release.yield()
+        await checkOff.value
+        await undo.value
+        #expect(sent.withLock { $0 } == [.setChecked(listItemID: milkLine, checked: true),
+                                         .setChecked(listItemID: moved, checked: false)])
+        await service.perform(.setChecked(listItemID: milkLine, checked: true))
+        #expect(sent.withLock { $0.last } == .setChecked(listItemID: moved, checked: true), "and after it, too")
     }
 
     @Test func changesMadeDuringAReplayAreSentOnceInOrder() async throws {

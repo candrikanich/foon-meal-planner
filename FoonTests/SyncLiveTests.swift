@@ -151,6 +151,28 @@ struct SyncLiveTests {
         let rows: [CheckRow] = try await supabase.from("list_items").select("checked_at").eq("id", value: quick).execute().value
         #expect(rows.first?.checkedAt != nil)
 
+        // Put back on its own, it doesn't follow: that would undo whatever happened to the moved line since.
+        #expect(try await client.send(.setChecked(listItemID: weekly, checked: false)) == nil, "an uncheck doesn't follow")
+        let stillBought: [CheckRow] = try await supabase.from("list_items").select("checked_at").eq("id", value: quick)
+            .execute().value
+        #expect(stillBought.first?.checkedAt != nil)
+
+        // The moved line was bought already, by someone else: a late check-off has nothing to follow onto.
+        let bread = try await item("Bread")
+        let breadWeekly = try await weeklyLine(bread)
+        let breadQuick = UUID()
+        _ = try await client.send(.addToList(householdID: household.id, itemID: bread, list: .quick, urgency: .whenever,
+                                             source: .manual, note: "Couldn't find it", lineID: breadQuick,
+                                             replacing: breadWeekly))
+        _ = try await client.send(.setChecked(listItemID: breadQuick, checked: true))
+        let before: [CheckRow] = try await supabase.from("list_items").select("checked_at").eq("id", value: breadQuick)
+            .execute().value
+        #expect(try await client.send(.setChecked(listItemID: breadWeekly, checked: true)) == nil,
+                "a line bought since isn't followed")
+        let after: [CheckRow] = try await supabase.from("list_items").select("checked_at").eq("id", value: breadQuick)
+            .execute().value
+        #expect(after.first?.checkedAt == before.first?.checkedAt, "and keeps when it was bought")
+
         let eggs = try await item("Eggs")
         let removed = try await weeklyLine(eggs)
         _ = try await client.send(.removeFromList(listItemID: removed))
