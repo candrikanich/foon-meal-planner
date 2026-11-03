@@ -228,7 +228,7 @@ struct ReminderSchedulingTests {
         test.server.set(weeks: [test.week()])
         await test.store().replan(test.wanted())
         let prompt = try #require(test.center.added.first { $0.id == test.afterID })
-        #expect(test.center.state.withLock { $0.refreshes.last } == prompt.fireAt)
+        #expect(test.center.state.withLock { $0.refreshes.last } == prompt.fireAt.addingTimeInterval(30 * 60))
     }
 
     @Test func runningAgainChangesNothing() async throws {

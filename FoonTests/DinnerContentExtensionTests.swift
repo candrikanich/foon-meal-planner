@@ -175,9 +175,11 @@ private func card(_ answer: DinnerAnswer.Answer, night: UUID = UUID(), member: U
                 == now.addingTimeInterval(RefreshPlan.retryAfter))
     }
 
-    @Test func otherwiseAtTheNextPrompt() {
+    /// Half an hour after the next prompt, so there's been time to answer its card: a refresh at the moment it goes finds
+    /// nothing, and the next one asked for is tomorrow's.
+    @Test func otherwiseHalfAnHourAfterTheNextPrompt() {
         let prompts = [now.addingTimeInterval(-60), now.addingTimeInterval(7200), now.addingTimeInterval(3600)]
-        #expect(RefreshPlan.next(waiting: false, prompts: prompts, now: now) == now.addingTimeInterval(3600))
+        #expect(RefreshPlan.next(waiting: false, prompts: prompts, now: now) == now.addingTimeInterval(3600 + 30 * 60))
     }
 
     @Test func nothingToWaitFor() {

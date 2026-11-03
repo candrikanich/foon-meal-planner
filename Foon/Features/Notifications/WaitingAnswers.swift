@@ -15,14 +15,16 @@ enum WaitingAnswers {
     }
 }
 
-/// When the background refresh should next run. Soon while answers are still waiting (no signal last time); otherwise when the
-/// next after-dinner prompt goes out, since its card gets answered after that. Nil when there's nothing to wait for.
+/// When the background refresh should next run. Soon while answers are still waiting (no signal last time); otherwise half an
+/// hour after the next after-dinner prompt goes out, so its card has had time to be answered. A refresh at the moment it goes
+/// would find nothing and ask for tomorrow's. Nil when there's nothing to wait for.
 enum RefreshPlan {
     static let retryAfter: TimeInterval = 15 * 60
+    static let afterPrompt: TimeInterval = 30 * 60
 
     static func next(waiting: Bool, prompts: [Date], now: Date) -> Date? {
         if waiting { return now.addingTimeInterval(retryAfter) }
-        return prompts.filter { $0 > now }.min()
+        return prompts.filter { $0 > now }.min()?.addingTimeInterval(afterPrompt)
     }
 }
 
