@@ -225,9 +225,11 @@ final class ReminderStore {
             return
         }
         try? context.save()
-        // So a background refresh is pending when the next prompt's card is answered.
+        // So a background refresh is pending when the next prompt's card is answered, or tonight's still may be. Answered and
+        // stale prompts were taken out of Notification Center above.
         let prompts = plan.filter { $0.kind == .afterDinner }.map(\.fireAt)
-        if let next = RefreshPlan.next(waiting: device.hasWaitingAnswers, prompts: prompts, now: now()) {
+        if let next = RefreshPlan.next(waiting: device.hasWaitingAnswers, prompts: prompts,
+                                       unanswered: await center.deliveredPromptDates(), now: now()), !isStopped {
             center.scheduleRefresh(next)
         }
         await upload(member: wanted.me.id, in: context)

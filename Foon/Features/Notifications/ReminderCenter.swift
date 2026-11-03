@@ -27,6 +27,8 @@ struct ReminderCenter: Sendable {
     /// What's showing in Notification Center, and taking some of it away.
     var deliveredIDs: @Sendable () async -> [String] = { [] }
     var removeDelivered: @Sendable (_ ids: [String]) -> Void = { _ in }
+    /// When each after-dinner prompt still in Notification Center went out: not answered on this phone's card, so it still may be.
+    var deliveredPromptDates: @Sendable () async -> [Date] = { [] }
     /// Asks for an APNs token (server push), which arrives through the app delegate.
     var askForPushToken: @Sendable @MainActor () -> Void = {}
     /// Asks for a background refresh no earlier than this, to send the after-dinner card's answers (#122). iPhone and iPad.
@@ -130,6 +132,10 @@ extension ReminderCenter {
         },
         removeDelivered: { ids in
             UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ids)
+        },
+        deliveredPromptDates: {
+            await UNUserNotificationCenter.current().deliveredNotifications()
+                .filter { ReminderID.isAfterDinner($0.request.identifier) }.map(\.date)
         },
         askForPushToken: { PushRegistration.ask() },
         scheduleRefresh: { earliest in

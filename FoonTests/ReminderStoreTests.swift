@@ -19,6 +19,8 @@ private final class SpyCenter: Sendable {
         var addFails = false
         var pushAsks = 0
         var refreshes: [Date] = []
+        /// What's in Notification Center: each notification's identifier and when it went out.
+        var delivered: [(id: String, date: Date)] = []
     }
 
     let state = Mutex(State())
@@ -61,6 +63,11 @@ private final class SpyCenter: Sendable {
                     $0.clears += 1
                     $0.pending = []
                 }
+            },
+            deliveredIDs: { self.state.withLock { $0.delivered.map(\.id) } },
+            removeDelivered: { ids in self.state.withLock { $0.delivered.removeAll { ids.contains($0.id) } } },
+            deliveredPromptDates: {
+                self.state.withLock { $0.delivered.filter { ReminderID.isAfterDinner($0.id) }.map(\.date) }
             },
             askForPushToken: { self.state.withLock { $0.pushAsks += 1 } },
             scheduleRefresh: { date in self.state.withLock { $0.refreshes.append(date) } }
@@ -229,6 +236,29 @@ struct ReminderSchedulingTests {
         await test.store().replan(test.wanted())
         let prompt = try #require(test.center.added.first { $0.id == test.afterID })
         #expect(test.center.state.withLock { $0.refreshes.last } == prompt.fireAt.addingTimeInterval(30 * 60))
+    }
+
+    /// #231: a prompt that went out an hour ago and is still showing may be answered on its card tonight, so the refresh is
+    /// an hour on, not left for tomorrow's prompt.
+    @Test func anUnansweredPromptKeepsARefreshAnHourOut() async throws {
+        let test = try Harness()
+        test.server.set(weeks: [test.week()])
+        test.center.state.withLock { $0.delivered = [(test.afterID, Harness.at(8, 9))] }
+        await test.store().replan(test.wanted())
+        #expect(test.center.state.withLock { $0.refreshes.last } == Harness.at(8, 11))
+    }
+
+    /// Rated on another phone: the prompt is taken out of Notification Center before the refresh is worked out, so it no
+    /// longer asks for one an hour on.
+    @Test func aPromptRatedElsewhereDoesntKeepRefreshesComing() async throws {
+        let test = try Harness()
+        var rated = test.night
+        rated.ratedBy = [test.ann.id]
+        test.server.set(weeks: [test.week([rated])])
+        test.center.state.withLock { $0.delivered = [(test.afterID, Harness.at(8, 9))] }
+        await test.store().replan(test.wanted())
+        #expect(test.center.state.withLock { $0.delivered.isEmpty })
+        #expect(test.center.state.withLock { $0.refreshes.last } != Harness.at(8, 11))
     }
 
     @Test func runningAgainChangesNothing() async throws {

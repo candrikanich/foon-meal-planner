@@ -171,7 +171,7 @@ private func card(_ answer: DinnerAnswer.Answer, night: UUID = UUID(), member: U
 /// when the card gets answered.
 @Suite struct RefreshPlanTests {
     @Test func soonWhileAnswersAreWaiting() {
-        #expect(RefreshPlan.next(waiting: true, prompts: [now.addingTimeInterval(3600)], now: now)
+        #expect(RefreshPlan.next(waiting: true, prompts: [now.addingTimeInterval(3600)], unanswered: [now], now: now)
                 == now.addingTimeInterval(RefreshPlan.retryAfter))
     }
 
@@ -179,11 +179,36 @@ private func card(_ answer: DinnerAnswer.Answer, night: UUID = UUID(), member: U
     /// nothing, and the next one asked for is tomorrow's.
     @Test func otherwiseHalfAnHourAfterTheNextPrompt() {
         let prompts = [now.addingTimeInterval(-60), now.addingTimeInterval(7200), now.addingTimeInterval(3600)]
-        #expect(RefreshPlan.next(waiting: false, prompts: prompts, now: now) == now.addingTimeInterval(3600 + 30 * 60))
+        #expect(RefreshPlan.next(waiting: false, prompts: prompts, unanswered: [], now: now)
+                == now.addingTimeInterval(3600 + 30 * 60))
     }
 
     @Test func nothingToWaitFor() {
-        #expect(RefreshPlan.next(waiting: false, prompts: [now.addingTimeInterval(-60)], now: now) == nil)
+        #expect(RefreshPlan.next(waiting: false, prompts: [now.addingTimeInterval(-60)], unanswered: [], now: now) == nil)
+    }
+
+    /// #231: a prompt still in Notification Center hasn't been answered (the card takes its own away), so its card may yet
+    /// be: check again in an hour rather than leaving a 9pm answer until tomorrow's refresh.
+    @Test func hourlyWhileTonightsPromptIsUnanswered() {
+        let tomorrow = now.addingTimeInterval(22 * 3600)
+        #expect(RefreshPlan.next(waiting: false, prompts: [tomorrow], unanswered: [now.addingTimeInterval(-3600)], now: now)
+                == now.addingTimeInterval(RefreshPlan.whileUnanswered))
+    }
+
+    /// A prompt left unanswered for hours isn't going to be answered tonight: no hourly refresh for days.
+    @Test func notForAPromptLongIgnored() {
+        let tomorrow = now.addingTimeInterval(22 * 3600)
+        let old = now.addingTimeInterval(-RefreshPlan.answerWindow - 60)
+        #expect(RefreshPlan.next(waiting: false, prompts: [tomorrow], unanswered: [old], now: now)
+                == tomorrow.addingTimeInterval(RefreshPlan.afterPrompt))
+        #expect(RefreshPlan.next(waiting: false, prompts: [], unanswered: [old], now: now) == nil)
+    }
+
+    /// The next prompt's own check is sooner than an hour on, so it stands.
+    @Test func theSoonerOfTheTwo() {
+        let soon = now.addingTimeInterval(10 * 60)
+        #expect(RefreshPlan.next(waiting: false, prompts: [soon], unanswered: [now.addingTimeInterval(-60)], now: now)
+                == soon.addingTimeInterval(RefreshPlan.afterPrompt))
     }
 
     @Test func afterDinnerPromptsAreToldApart() {
