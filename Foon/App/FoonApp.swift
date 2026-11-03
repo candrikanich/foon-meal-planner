@@ -22,6 +22,7 @@ struct FoonApp: App {
         // Cook-mode timer alerts show (with sound) even while Foon is in front.
         UNUserNotificationCenter.current().delegate = CookAlertPresenter.shared
         ReminderCenter.registerActions()
+        FoonTips.configure()
     }
 
     // One window (Mac) or scene (iPad): each would run its own sync service against the same cache.

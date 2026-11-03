@@ -895,6 +895,9 @@
     "At" : {
 
     },
+    "At the store, tap Shop: aisles in walking order, big rows, and the screen stays awake." : {
+
+    },
     "Avatar %@" : {
 
     },
@@ -1710,6 +1713,9 @@
 
     },
     "Former member" : {
+
+    },
+    "Found a recipe in another app? Tap Share, then Foon, and it lands in your ideas." : {
 
     },
     "Freezer raid" : {
@@ -2977,6 +2983,9 @@
     "Share or save the export" : {
 
     },
+    "Share recipes to Foon" : {
+
+    },
     "Shared with Foon" : {
 
     },
@@ -2986,6 +2995,9 @@
     "Shop" : {
 
     },
+    "Shop in store mode" : {
+
+    },
     "Show" : {
 
     },
@@ -2993,6 +3005,9 @@
 
     },
     "Show more" : {
+
+    },
+    "Show tips again" : {
 
     },
     "Show when to start cooking" : {
@@ -3451,6 +3466,9 @@
     "The shopping list keeps what's already on it until someone taps Update the list on This Week." : {
 
     },
+    "The short notes that show where things are, each shown once." : {
+
+    },
     "The week start can't change while a plan is running. Nothing was saved." : {
 
     },
@@ -3590,6 +3608,9 @@
       "comment" : "Cook mode timer alert title"
     },
     "Timer: %@" : {
+
+    },
+    "Tips come back after you close Foon and open it again." : {
 
     },
     "Tired of it" : {

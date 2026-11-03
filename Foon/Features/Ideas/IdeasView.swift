@@ -1,4 +1,5 @@
 import SwiftUI
+import TipKit
 
 /// The Ideas tab (docs/spec.md → Ideas tab): what the family wants, For this week, Later, Someday, and New finds, with
 /// me too and one "I want..." button. Planners decide what happens to each; no hard decline and no limits.
@@ -9,6 +10,8 @@ struct IdeasView: View {
     @Environment(WeekStore.self) private var week
     @State private var asking = false
     @State private var open: DinnerRequest?
+    @State private var showsShareTip = false
+    private let shareTip = ShareToFoonTip()
 
     private var sections: RequestBoard.Sections {
         let today = week.todayDay
@@ -21,6 +24,9 @@ struct IdeasView: View {
     var body: some View {
         NavigationStack {
             List {
+                if showsShareTip, TipRules.eligible(onMac: FoonTips.onMac, canShop: false).contains(.shareToFoon) {
+                    Section { TipView(shareTip) }
+                }
                 if let message = ideas.errorMessage {
                     Section { Text(message).foregroundStyle(.red) }
                 }
@@ -53,6 +59,8 @@ struct IdeasView: View {
                 await ideas.load()
                 if !library.hasLoaded { await library.load(members: household.members) }
             }
+            // Only while it's showing, so a closed tip doesn't leave an empty row behind.
+            .task { for await shows in shareTip.shouldDisplayUpdates { showsShareTip = shows } }
             .sheet(isPresented: $asking) { IWantSheet() }
             .sheet(item: $open) { request in RequestDetailView(requestID: request.id) }
         }
