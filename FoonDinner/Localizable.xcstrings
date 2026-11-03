@@ -1,0 +1,30 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Favorite" : {
+
+    },
+    "Good" : {
+
+    },
+    "How was dinner?" : {
+      "comment" : "Reminder title"
+    },
+    "Not for me" : {
+
+    },
+    "Saved." : {
+      "comment" : "After-dinner card, once answered"
+    },
+    "Tired of it" : {
+
+    },
+    "Wasn't home" : {
+      "comment" : "After-dinner action"
+    },
+    "We had something else" : {
+      "comment" : "After-dinner action"
+    }
+  },
+  "version" : "1.0"
+}

@@ -84,14 +84,13 @@ struct SharedInbox: Sendable {
 
     /// Plenty for shares between app opens; past this, a share says so.
     static let limit = 50
-    static let appGroup = "group.com.andrikanich.foon"
 
     let directory: URL
 
     /// Nil where there's no App Group: on the Mac (no share extension) and in unsigned test builds.
     static var shared: SharedInbox? {
         #if os(iOS)
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AppGroup.id)
             .map { SharedInbox(directory: $0.appending(path: "SharedInbox")) }
         #else
         nil

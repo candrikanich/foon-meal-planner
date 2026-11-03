@@ -165,26 +165,6 @@ struct ReminderHistory: Equatable, Sendable {
     var snoozedUntil: Date?
 }
 
-/// Where tapping a notification goes.
-enum ReminderRoute: Equatable, Sendable {
-    /// This Week, on the week that holds this day.
-    case week(CalendarDay)
-    case night(UUID, CalendarDay)
-    case swap(UUID, CalendarDay)
-    /// This Week's after-dinner cards. What a prompt scheduled before #122 carries.
-    case dinnerCard
-    /// This Week's after-dinner card for this person's night. The notification's reactions and Wasn't home answer it.
-    case rate(night: UUID, member: UUID)
-    /// This Week's check-in card. The lock screen's Home and Not home answer for this person on this night.
-    case checkIn(night: UUID, member: UUID)
-    /// The Lists tab: a server push about something added for tonight.
-    case lists
-    /// The Ideas tab: the server's digest of new dinner ideas.
-    case ideas
-    /// This Week's roundup of the week's dinners still to rate, for the week that starts that day.
-    case roundup(CalendarDay)
-}
-
 /// One notification to schedule. Its text is fixed words (`ReminderText`).
 struct PlannedReminder: Equatable, Identifiable, Sendable {
     let id: String
@@ -198,15 +178,12 @@ struct PlannedReminder: Equatable, Identifiable, Sendable {
     let route: ReminderRoute
 }
 
-/// Identifiers, all under one prefix so nothing here ever touches a cook-mode timer's (a bare UUID). Each carries the person,
-/// so what's left from someone else on this device never matches a plan, and the dish, so one that changed is a different
-/// reminder and what was sent for the old dish doesn't count against the new one. A prep step goes by its kind and lead time,
-/// never its place in the list, so editing one step can't hand its history, or its wording, to another. `twin` tells apart
-/// steps that match on both. None of it is what the family typed, so rewording a step keeps its history.
-enum ReminderID {
-    static let prefix = "foon.reminder."
-    private static let followUpSuffix = ".again"
-
+/// Each identifier carries the person, so what's left from someone else on this device never matches a plan, and the dish, so
+/// one that changed is a different reminder and what was sent for the old dish doesn't count against the new one. A prep step
+/// goes by its kind and lead time, never its place in the list, so editing one step can't hand its history, or its wording, to
+/// another. `twin` tells apart steps that match on both. None of it is what the family typed, so rewording a step keeps its
+/// history.
+extension ReminderID {
     static func timeToPlan(me: UUID, week: CalendarDay) -> String {
         "\(prefix)\(me.uuidString).plan.\(week.isoString)"
     }
@@ -231,15 +208,6 @@ enum ReminderID {
     static func isAfterDinner(_ id: String, night: UUID) -> Bool {
         id.contains(".after.\(night.uuidString).")
     }
-
-    static func followUp(of id: String) -> String { id + followUpSuffix }
-
-    /// The reminder a follow-up follows.
-    static func base(of id: String) -> String {
-        id.hasSuffix(followUpSuffix) ? String(id.dropLast(followUpSuffix.count)) : id
-    }
-
-    static func isReminder(_ id: String) -> Bool { id.hasPrefix(prefix) }
 
     /// After-dinner prompts still in Notification Center that are no longer the question: rated (on any phone), marked out,
     /// or about a dish that isn't what was planned or logged. Their buttons would write over an answer, so they're taken back.

@@ -114,6 +114,7 @@ Key flows: This Week tab, Fill my week, approve, then the cart icon for the shop
 - [ ] Privacy manifest (required-reason APIs declared)
 - [ ] In-app account deletion with Sign in with Apple token revocation
 - [x] Share extension: App IDs `com.andrikanich.foon` and `com.andrikanich.foon.share` both have App Groups on, with `group.com.andrikanich.foon`
+- [ ] After-dinner card (#122): App ID `com.andrikanich.foon.dinner` registered with App Groups on, with `group.com.andrikanich.foon`, before the first TestFlight tag that includes it
 - [ ] Privacy policy and terms live at the URLs above
 - [ ] Sign in with Apple private email relay: sending domain registered
 - [ ] Content rights: imported recipes are user-provided and private to the household

@@ -1,141 +1,13 @@
 import Foundation
 import Observation
 import Supabase
-import Synchronization
 import UserNotifications
 
-/// Someone's answer to a notification, kept until the app can file it. It's written by the notification delegate, which can
-/// run with the app in the background and none of its screens or stores around.
-struct ReminderAnswer: Codable, Equatable, Sendable {
-    let id: String
-    /// `notification_log.response`.
-    let response: String
-    let at: Date
-    var snoozedUntil: Date?
-}
-
-/// "Home" or "Not home" from the lock screen, kept until the server has it. Tapped with no signal it must still land, or the
-/// planner goes on cooking for someone who said they're out.
-struct CheckInAnswer: Codable, Equatable, Sendable {
-    let nightID: UUID
-    let memberID: UUID
-    let home: Bool
-}
-
-/// A reaction or "Wasn't home" from the after-dinner notification, kept until the server has it, so a tap with no signal still
-/// counts.
-struct DinnerAnswer: Codable, Equatable, Sendable {
-    enum Answer: Codable, Equatable, Sendable {
-        case reaction(ReactionKind)
-        case wasntHome
-    }
-
-    let nightID: UUID
-    let memberID: UUID
-    let answer: Answer
-    let at: Date
-
-    /// New ratings are for the last week's dinners, so one older than that can't land and isn't kept trying.
-    static let keptFor: TimeInterval = 7 * 24 * 60 * 60
-}
-
-/// What's kept on this device outside the cache: answers waiting to be filed, and each person's choice about reminders. System
-/// permission is shared with cook-mode timers, so a yes there isn't a yes to reminders: that's the opt-in, and it's per person.
-struct ReminderDevice: @unchecked Sendable {
-    private let defaults: UserDefaults
-    private static let answersKey = "foon.reminder.answers"
-    private static let checkInsKey = "foon.reminder.checkIns"
-    private static let dinnerAnswersKey = "foon.reminder.dinnerAnswers"
+/// Each person's choice about reminders, on this phone. System permission is shared with cook-mode timers, so a yes there isn't
+/// a yes to reminders: that's the opt-in, and it's per person. The answers waiting to be sent are in ReminderQueue.
+extension ReminderDevice {
     private static let declinedKey = "foon.reminder.declined"
     private static let optedInKey = "foon.reminder.optedIn"
-    /// Answers can be written and read from different threads.
-    private static let answersLock = Mutex(())
-
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
-
-    var answers: [ReminderAnswer] {
-        Self.answersLock.withLock { _ in storedAnswers }
-    }
-
-    private var storedAnswers: [ReminderAnswer] {
-        defaults.data(forKey: Self.answersKey).flatMap { try? JSONDecoder().decode([ReminderAnswer].self, from: $0) } ?? []
-    }
-
-    private func store(_ answers: [ReminderAnswer]) {
-        defaults.set(try? JSONEncoder().encode(answers), forKey: Self.answersKey)
-    }
-
-    func add(_ answer: ReminderAnswer) {
-        Self.answersLock.withLock { _ in store(Array((storedAnswers + [answer]).suffix(100))) }
-    }
-
-    /// Takes these off the waiting list, now they're filed. One that arrived since stays.
-    func removeAnswers(_ filed: [ReminderAnswer]) {
-        Self.answersLock.withLock { _ in store(storedAnswers.filter { !filed.contains($0) }) }
-    }
-
-    /// Oldest first, so a change of mind lands last.
-    var checkIns: [CheckInAnswer] {
-        Self.answersLock.withLock { _ in storedCheckIns }
-    }
-
-    private var storedCheckIns: [CheckInAnswer] {
-        defaults.data(forKey: Self.checkInsKey).flatMap { try? JSONDecoder().decode([CheckInAnswer].self, from: $0) } ?? []
-    }
-
-    func add(_ checkIn: CheckInAnswer) {
-        Self.answersLock.withLock { _ in
-            defaults.set(try? JSONEncoder().encode(Array((storedCheckIns + [checkIn]).suffix(20))), forKey: Self.checkInsKey)
-        }
-    }
-
-    /// Takes this one off, oldest first. A later answer for the same night stays, and is sent after it.
-    func removeCheckIn(_ sent: CheckInAnswer) {
-        Self.answersLock.withLock { _ in
-            var waiting = storedCheckIns
-            if let index = waiting.firstIndex(of: sent) { waiting.remove(at: index) }
-            defaults.set(try? JSONEncoder().encode(waiting), forKey: Self.checkInsKey)
-        }
-    }
-
-    func removeCheckIns(night: UUID, member: UUID) {
-        Self.answersLock.withLock { _ in
-            let waiting = storedCheckIns.filter { $0.nightID != night || $0.memberID != member }
-            defaults.set(try? JSONEncoder().encode(waiting), forKey: Self.checkInsKey)
-        }
-    }
-
-    /// Oldest first, so a change of mind lands last.
-    var dinnerAnswers: [DinnerAnswer] {
-        Self.answersLock.withLock { _ in storedDinnerAnswers }
-    }
-
-    private var storedDinnerAnswers: [DinnerAnswer] {
-        defaults.data(forKey: Self.dinnerAnswersKey).flatMap { try? JSONDecoder().decode([DinnerAnswer].self, from: $0) } ?? []
-    }
-
-    func add(_ answer: DinnerAnswer) {
-        Self.answersLock.withLock { _ in
-            defaults.set(try? JSONEncoder().encode(Array((storedDinnerAnswers + [answer]).suffix(20))), forKey: Self.dinnerAnswersKey)
-        }
-    }
-
-    func removeDinnerAnswer(_ sent: DinnerAnswer) {
-        Self.answersLock.withLock { _ in
-            var waiting = storedDinnerAnswers
-            if let index = waiting.firstIndex(of: sent) { waiting.remove(at: index) }
-            defaults.set(try? JSONEncoder().encode(waiting), forKey: Self.dinnerAnswersKey)
-        }
-    }
-
-    func removeDinnerAnswers(night: UUID, member: UUID) {
-        Self.answersLock.withLock { _ in
-            let waiting = storedDinnerAnswers.filter { $0.nightID != night || $0.memberID != member }
-            defaults.set(try? JSONEncoder().encode(waiting), forKey: Self.dinnerAnswersKey)
-        }
-    }
 
     func isOptedIn(_ member: UUID) -> Bool {
         defaults.stringArray(forKey: Self.optedInKey)?.contains(member.uuidString) ?? false
@@ -186,11 +58,7 @@ struct ReminderDevice: @unchecked Sendable {
 
     /// Signing out leaves nothing of this person's.
     func clear() {
-        Self.answersLock.withLock { _ in
-            defaults.removeObject(forKey: Self.answersKey)
-            defaults.removeObject(forKey: Self.checkInsKey)
-            defaults.removeObject(forKey: Self.dinnerAnswersKey)
-        }
+        clearQueues()
         defaults.removeObject(forKey: Self.declinedKey)
         defaults.removeObject(forKey: Self.optedInKey)
         defaults.removeObject(forKey: Self.ratingCadenceKey)
@@ -290,7 +158,7 @@ enum ReminderResponse {
         let base = ReminderID.base(of: id)
         let followUp = ReminderID.followUp(of: base)
         if let kind = ReminderCenter.reaction(fromAction: action) {
-            return dinnerOutcome(base: base, answer: .reaction(kind), payload: payload, now: now)
+            return dinnerOutcome(id: id, answer: .reaction(kind), payload: payload, now: now)
         }
         switch action {
         case ReminderCenter.doneAction:
@@ -308,7 +176,7 @@ enum ReminderResponse {
             return Outcome(answer: ReminderAnswer(id: base, response: "done", at: now), cancels: [followUp],
                            schedulesAgain: false, route: nil, checkIn: checkIn)
         case ReminderCenter.wasntHomeAction:
-            return dinnerOutcome(base: base, answer: .wasntHome, payload: payload, now: now)
+            return dinnerOutcome(id: id, answer: .wasntHome, payload: payload, now: now)
         case ReminderCenter.somethingElseAction:
             return Outcome(answer: ReminderAnswer(id: base, response: "opened", at: now), cancels: [followUp],
                            schedulesAgain: false, route: payload?.route)
@@ -330,11 +198,10 @@ enum ReminderResponse {
         return payload?.route
     }
 
-    private static func dinnerOutcome(base: String, answer: DinnerAnswer.Answer, payload: ReminderPayload?,
+    private static func dinnerOutcome(id: String, answer: DinnerAnswer.Answer, payload: ReminderPayload?,
                                       now: Date) -> Outcome? {
-        guard case .rate(let night, let member) = payload?.route else { return nil }
-        return Outcome(answer: ReminderAnswer(id: base, response: "done", at: now), cancels: [ReminderID.followUp(of: base)],
-                       schedulesAgain: false, route: nil,
-                       dinner: DinnerAnswer(nightID: night, memberID: member, answer: answer, at: now))
+        guard let answered = DinnerPrompt.answer(answer, id: id, payload: payload, now: now) else { return nil }
+        return Outcome(answer: answered.answer, cancels: answered.cancels, schedulesAgain: false, route: nil,
+                       dinner: answered.dinner)
     }
 }

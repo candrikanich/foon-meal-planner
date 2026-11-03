@@ -138,81 +138,8 @@ extension ReminderCenter {
     )
 }
 
-/// What a notification carries so it can be answered with the app closed. Routes and times, and no more than that.
-struct ReminderPayload: Equatable, Sendable {
-    var route: ReminderRoute
-    var dinnerAt: Date?
-
-    init(route: ReminderRoute, dinnerAt: Date?) {
-        self.route = route
-        self.dinnerAt = dinnerAt
-    }
-
+extension ReminderPayload {
     init(reminder: PlannedReminder) {
         self.init(route: reminder.route, dinnerAt: reminder.dinnerAt)
-    }
-
-    var userInfo: [String: String] {
-        var info: [String: String] = [:]
-        switch route {
-        case .week(let day):
-            info["route"] = "week"
-            info["date"] = day.isoString
-        case .night(let night, let day), .swap(let night, let day):
-            info["route"] = "night"
-            info["night"] = night.uuidString
-            info["date"] = day.isoString
-        case .dinnerCard:
-            info["route"] = "dinner"
-        case .rate(let night, let member):
-            info["route"] = "rate"
-            info["night"] = night.uuidString
-            info["member"] = member.uuidString
-        case .checkIn(let night, let member):
-            info["route"] = "checkin"
-            info["night"] = night.uuidString
-            info["member"] = member.uuidString
-        case .lists:
-            info["route"] = "list"
-        case .ideas:
-            info["route"] = "ideas"
-        case .roundup(let week):
-            info["route"] = "roundup"
-            info["date"] = week.isoString
-        }
-        if let dinnerAt { info["dinner"] = String(dinnerAt.timeIntervalSince1970) }
-        return info
-    }
-
-    init?(userInfo: [AnyHashable: Any]) {
-        guard let kind = userInfo["route"] as? String else { return nil }
-        let day = (userInfo["date"] as? String).flatMap { text -> CalendarDay? in
-            let parts = text.split(separator: "-").compactMap { Int($0) }
-            return parts.count == 3 ? CalendarDay(year: parts[0], month: parts[1], day: parts[2]) : nil
-        }
-        switch kind {
-        case "week":
-            guard let day else { return nil }
-            route = .week(day)
-        case "night":
-            guard let day, let night = (userInfo["night"] as? String).flatMap(UUID.init(uuidString:)) else { return nil }
-            route = .night(night, day)
-        case "dinner":
-            route = .dinnerCard
-        case "list":
-            route = .lists
-        case "ideas":
-            route = .ideas
-        case "roundup":
-            guard let day else { return nil }
-            route = .roundup(day)
-        case "checkin", "rate":
-            guard let night = (userInfo["night"] as? String).flatMap(UUID.init(uuidString:)),
-                  let member = (userInfo["member"] as? String).flatMap(UUID.init(uuidString:)) else { return nil }
-            route = kind == "rate" ? .rate(night: night, member: member) : .checkIn(night: night, member: member)
-        default:
-            return nil
-        }
-        dinnerAt = (userInfo["dinner"] as? String).flatMap(TimeInterval.init).map(Date.init(timeIntervalSince1970:))
     }
 }
