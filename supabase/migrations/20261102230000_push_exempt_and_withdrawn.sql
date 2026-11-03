@@ -7,7 +7,9 @@
 --    of skipping: the news is still the family's, and the planner can see who in the app. "Your idea made Friday" names
 --    nobody and goes to the requester, who has no device once withdrawn. Three layers: what's queued gets no name, what's
 --    handed to send-push has a withdrawn kid's name taken out, and withdrawing consent takes the name out of what's
---    already queued or sent at once, not 30 days later with retention.
+--    already queued or sent at once, not 30 days later with retention. That last is for a profile nobody has claimed: for
+--    a kid with her own account, withdrawal unlinks it (consents_unlink_on_parental_revoke), and members_drop_push_devices
+--    then deletes everything queued or sent about her, the stricter outcome, before this trigger runs.
 
 -- Budgets -------------------------------------------------------------------------------------------------------------------------
 
@@ -315,7 +317,8 @@ begin
   return null;
 end;
 $$;
--- Withdrawing consent takes the name out of what's queued or sent about them at once. A digest also stops pointing at
+-- Withdrawing consent takes the name out of what's queued or sent about them at once. For a kid with her own account the
+-- unlink has already deleted those rows (members_drop_push_devices), so this is what keeps an unclaimed profile unnamed. A digest also stops pointing at
 -- them, as retention does; the other kinds keep about_member_id, which once-only and call-offs key on.
 create function public.consents_unname_pushes()
 returns trigger

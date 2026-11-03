@@ -1,6 +1,6 @@
 -- Plan's set and urgent items sit outside the weekly budget; no push names a kid whose consent is withdrawn.
 begin;
-select plan(14);
+select plan(20);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -88,7 +88,9 @@ delete from public.notification_log;
 
 -- Names -------------------------------------------------------------------------------------------------------------------------
 
--- Nora's parents gave consent for her own device and then withdrew it. Owen never had a device of his own.
+-- Nora's profile has a parental consent on record but nobody signed in to it (unclaimed), and her parents withdraw it: her
+-- pushes still go, unnamed. Owen has no consent on record at all. (A kid with her own account is below: withdrawal unlinks
+-- the account, and that takes her queued and sent pushes with it.)
 insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'parental',
    'a0000000-0000-0000-0000-00000000000a', 'v1');
@@ -99,12 +101,17 @@ insert into public.push_outbox (household_id, member_id, kind, about_member_id, 
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'not_home',
    '00000000-0000-0000-0000-0000000000a3', '{"name": "Nora"}', now(), now()),
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a1', 'new_requests',
-   '00000000-0000-0000-0000-0000000000a3', '{"count": 1, "name": "Nora"}', now(), now());
+   '00000000-0000-0000-0000-0000000000a3', '{"count": 1, "name": "Nora"}', now(), now()),
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'not_home',
+   '00000000-0000-0000-0000-0000000000a4', '{"name": "Owen"}', now(), null);
 update public.consents set revoked_at = now() where member_id = '00000000-0000-0000-0000-0000000000a3';
 
-select is((select count(*) from public.push_outbox where args ? 'name'), 0::bigint,
+select is((select count(*) from public.push_outbox where args ->> 'name' = 'Nora'), 0::bigint,
   'withdrawing consent takes her name out of what''s queued or sent at once, not a month later');
-select results_eq($$ select kind, about_member_id from public.push_outbox order by kind $$,
+select is((select args from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a4'),
+  '{"name": "Owen"}'::jsonb, 'and leaves rows about anyone else alone');
+select results_eq($$ select kind, about_member_id from public.push_outbox
+                     where about_member_id is distinct from '00000000-0000-0000-0000-0000000000a4' order by kind $$,
   $$ values ('claim', '00000000-0000-0000-0000-0000000000a3'::uuid), ('new_requests', null::uuid),
             ('not_home', '00000000-0000-0000-0000-0000000000a3'::uuid) $$,
   'a digest stops pointing at her; the rest keep what once-only and call-offs need');
@@ -147,6 +154,52 @@ select results_eq($$ select kind, args from public.claim_push_outbox(10) where k
   $$ values ('claim', '{}'::jsonb), ('not_home', '{}'::jsonb) $$,
   'send-push gets no name for her, whatever the row holds');
 select pg_temp.as_postgres();
+
+-- A kid with her own account: withdrawal unlinks it, which takes everything queued or sent about her along.
+delete from public.push_outbox;
+insert into auth.users (id, email, aud, role) values
+  ('e0000000-0000-0000-0000-00000000000e', 'kim@example.com', 'authenticated', 'authenticated');
+insert into public.members (id, household_id, first_name, role, guardian, age_group, user_id) values
+  ('00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-0000000000a0', 'Kim', 'member', false, 'kid',
+   'e0000000-0000-0000-0000-00000000000e');
+insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', 'parental',
+   'a0000000-0000-0000-0000-00000000000a', 'v1');
+insert into public.push_outbox (household_id, member_id, kind, about_member_id, args, not_before, sent_at) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'claim',
+   '00000000-0000-0000-0000-0000000000a5', '{"name": "Kim"}', now() + interval '1 hour', null),
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'not_home',
+   '00000000-0000-0000-0000-0000000000a5', '{"name": "Kim"}', now(), now());
+update public.consents set revoked_at = now() where member_id = '00000000-0000-0000-0000-0000000000a5';
+select is((select user_id from public.members where id = '00000000-0000-0000-0000-0000000000a5'), null::uuid,
+  'withdrawing a kid''s consent unlinks her account');
+select is((select count(*) from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a5'), 0::bigint,
+  'so what was queued or sent about her goes, not out as "Someone"');
+
+-- Only one parental consent can be active per kid (consents_one_active), so "another one still standing" is a kid who has
+-- consent while some other consent is revoked: the household's allergy-data consent, or an older parental one of his.
+insert into public.consents (household_id, member_id, kind, granted_by, text_version, granted_at, revoked_at) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', 'parental',
+   'a0000000-0000-0000-0000-00000000000a', 'v1', now() - interval '2 days', now() - interval '1 day');
+insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', 'parental',
+   'a0000000-0000-0000-0000-00000000000a', 'v2'),
+  ('00000000-0000-0000-0000-0000000000a0', null, 'allergy_data', 'a0000000-0000-0000-0000-00000000000a', 'allergy-data-v1');
+insert into public.push_outbox (household_id, member_id, kind, about_member_id, args, not_before) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'claim',
+   '00000000-0000-0000-0000-0000000000a4', '{"name": "Owen"}', now() + interval '1 hour');
+update public.consents set revoked_at = now() where kind = 'allergy_data';
+select is((select args from public.push_outbox where about_member_id = '00000000-0000-0000-0000-0000000000a4'),
+  '{"name": "Owen"}'::jsonb, 'revoking some other consent, with his own still standing, leaves his name');
+select is(public.push_name_args('00000000-0000-0000-0000-0000000000a4'), '{"name": "Owen"}'::jsonb,
+  'and an old revoked one doesn''t outweigh the one he has now');
+
+-- Consent given again: named again.
+insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'parental',
+   'a0000000-0000-0000-0000-00000000000a', 'v2');
+select is(public.push_name_args('00000000-0000-0000-0000-0000000000a3'), '{"name": "Nora"}'::jsonb,
+  'once her parents consent again, Nora is named again');
 
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 select throws_ok($$ select public.push_name_args('00000000-0000-0000-0000-0000000000a4') $$, '42501', null,
