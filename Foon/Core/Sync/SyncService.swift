@@ -24,7 +24,7 @@ final class SyncService {
     private let today: @Sendable () -> CalendarDay
 
     /// Set on sign-out: no write may land in the cache after it is wiped.
-    private var isStopped = false
+    private(set) var isStopped = false
     private var isRunning = false
     /// Work requested while the runner was busy (true: pull too); the runner picks it up before it stops.
     private var requestedPull: Bool?

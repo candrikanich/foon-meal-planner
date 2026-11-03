@@ -16,7 +16,8 @@ struct SyncGate<Content: View>: View {
         content()
             .environment(service)
             .task(id: householdID) {
-                let service = SyncService(householdID: householdID, context: context, client: client)
+                // Shared with Siri's intents, which may have started it before the app opened.
+                let service = SyncServices.shared.service(for: householdID, context: context, client: client)
                 self.service = service
                 await service.start()
             }
@@ -26,7 +27,7 @@ struct SyncGate<Content: View>: View {
             }
             .onDisappear {
                 // Signed out (or switched household): nothing still in flight may write to the cache.
-                service?.stop()
+                if let service { SyncServices.shared.stop(service) }
             }
     }
 }
