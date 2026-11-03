@@ -62,7 +62,7 @@ One adult buys and sets up the app; one subscription covers the whole household.
 - **Notification presets on Rhythm:** the household preset, saying what each sends today and what's on the way. Family also says whether reminders are on for this device. Each person's own preset is on their member detail (see Notification presets, per person, #47). Ignore handling is on the device (see On-device reminders → Ignored prompts, #47).
 - **What Foon keeps (#47, built):** the privacy summary, for everyone, next to export and delete in Your data: what's kept, what stays on the device, what leaves it, who sees what, and how to change your mind. "Removes it from Foon" describes what the app does; how long a hosted backup keeps deleted data is for the privacy notice and legal review. Each line has to be true of the code today, so a change to what the app collects or sends changes that screen in the same PR (analytics and crash reporting aren't in the app yet; when they land, "no tracking" needs another look). It isn't the privacy policy (#67) and claims no law.
 
-**Minimal data.** Household name (last name or nickname), first names, avatars. No birthdays, phone numbers, photos, or location, apart from the household's time zone (decided 2026-10-28). That's coarse, needed to know when last night's dinner was, and disclosed in the privacy notice. Keep the app a parent-run household app, not in the App Store Kids category. COPPA applies if users under 13 are known; get a legal review before launch.
+**Minimal data.** Household name (last name or nickname), first names, avatars. No birthdays, phone numbers, photos, or location, apart from the household's time zone (decided 2026-10-28). That's coarse, needed to know when last night's dinner was, and disclosed in the privacy notice. The dinner memories timeline (Phase 3) shows family photos read from the phone's library on that device only; none are uploaded or stored by Foon (decided 2026-11-03). Keep the app a parent-run household app, not in the App Store Kids category. COPPA applies if users under 13 are known; get a legal review before launch.
 
 **Allergies and dietary preferences**
 
@@ -444,7 +444,7 @@ The plan produces one weekly list; pivots and running-out moments produce the qu
 
 **Offline.** The lists and the week's plan are cached on device; check-offs sync when signal returns.
 
-**Receipts (v1.5).** Photo of the receipt, or a forwarded digital receipt email. Direct retailer APIs are parked: chains rarely expose purchase history to outside apps. Receipts mark items bought, clear them from the list, and teach the app the family's staples ("Add apples to keep-on-hand?"). Hard part: normalizing receipt abbreviations to canonical items, improved by user corrections.
+**Receipts (Phase 3; forwarded email later, #237).** Photo of the receipt, or a forwarded digital receipt email. Direct retailer APIs are parked: chains rarely expose purchase history to outside apps. Receipts mark items bought, clear them from the list, and teach the app the family's staples ("Add apples to keep-on-hand?"). Hard part: normalizing receipt abbreviations to canonical items, improved by user corrections.
 
 **Shopping insights (later; needs 4 to 6 weeks of receipts, including quick trips)**
 
@@ -588,7 +588,7 @@ iOS-only, multiplatform SwiftUI (iPhone, iPad, Mac) on Supabase, with a local ca
 
 **Client.** SwiftUI app; SwiftData cache for the plan and lists; Share Sheet extension; widgets ("Tonight: tacos"); App Intents for Siri and Shortcuts; actionable push notifications; Vision for text recognition; Foundation Models for on-device AI.
 
-**Backend.** Supabase Postgres with every table scoped by `household_id` and row-level security from day one; Realtime for live list check-offs; Edge Functions for push notifications (APNs) that someone else triggers, recipe-site parsing, and invite codes; Storage for receipt images if retained.
+**Backend.** Supabase Postgres with every table scoped by `household_id` and row-level security from day one; Realtime for live list check-offs; Edge Functions for push notifications (APNs) that someone else triggers, recipe-site parsing, and invite codes; Storage for meal photos (receipt images are read on the phone and never uploaded).
 
 **Why not CloudKit.** Relational queries (ratings by person, dish, and night against attendance), realtime collaboration, and a possible future web page. Trade-off: owning hosting cost and the privacy story.
 
@@ -615,7 +615,7 @@ iOS-only, multiplatform SwiftUI (iPhone, iPad, Mac) on Supabase, with a local ca
 | requests | household, member, meal, name or link, note, target date (optional), status, planned night; me-toos in request\_plus\_ones |
 | list\_items | household, item, list (weekly, quick), urgency, source, checked |
 | polls / poll_votes | household, night, who started it, options, closes at; member, choice, whose phone cast it. Kept eight weeks |
-| receipts / receipt\_lines | household, date, image; raw text, matched item |
+| receipts / receipt\_lines | household, date (no image: it's read on the phone and never uploaded); raw text, matched item |
 | ai\_jobs | household, type, payload, status, claimed by device, result |
 | notification\_log | member, type, channel, night, scheduled, sent, responded (drives ignore and budget rules) |
 
@@ -644,7 +644,7 @@ Every family is different; these are all in, each optional and off or unobtrusiv
 | Change history and undo | "Dad swapped Tuesday to tacos"; undo a night's last change. v1: see Change history and undo (#57) | 2 |
 | Calendar awareness | With permission, read the family calendar on-device and pre-mark busy nights as rushed; nothing leaves the phone | 3 |
 | Picky-eater wins | "Nora tried 3 new dishes this month"; celebrates trying, not just liking | 3 |
-| Dinner memories | Photo timeline of family dinners and a yearly recap | 3 |
+| Dinner memories | Photo timeline of family dinners and a yearly recap. Photos are read from the phone's library on-device, around dinner on logged nights, and never uploaded (like calendar data) | 3 |
 | Budget awareness | Weekly spend from receipts; optional lean-week mode | Later |
 
 ## Risks, privacy, and outliers
@@ -773,10 +773,10 @@ Build everything, in order: Phase 1 (the Sunday flow) is what to sit down with y
 **Phase 3: Wow layer**
 
 - [ ] On-device AI features and the household AI job queue, with non-AI fallbacks
-- [ ] Receipt scanning (photo and forwarded email)
+- [ ] Receipt scanning from a photo; the image stays on the phone (forwarded email receipts moved to External TestFlight, #237)
 - [ ] Widgets, Siri and App Intents
-- [ ] Weekly recap; planner engagement view
-- [ ] Polished onboarding that demonstrates the AI features
+- [ ] Weekly recap; planner engagement view (#235)
+- [ ] Polished onboarding that demonstrates the AI features (#236)
 
 * [ ] Calendar awareness (EventKit, on-device, read-only)
 * [ ] Picky-eater wins; dinner memories timeline and yearly recap
