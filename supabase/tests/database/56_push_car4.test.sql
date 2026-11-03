@@ -116,18 +116,18 @@ insert into public.push_outbox (id, household_id, member_id, kind, args, not_bef
   ('00000000-0000-0000-0000-0000000005a1', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2',
    'tonight_poll', '{"name": "Alice"}', now() - interval '2 minutes'),
   ('00000000-0000-0000-0000-0000000005a2', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2',
-   'plan_set', '{}', now() - interval '1 minute'),
+   'not_home', '{"name": "Dan"}', now() - interval '1 minute'),
   ('00000000-0000-0000-0000-0000000005a3', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2',
    'tonight_poll', '{"name": "Alice"}', now() + interval '1 hour'),
   ('00000000-0000-0000-0000-0000000005c1', '00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000000c1',
-   'plan_set', '{}', now() - interval '1 minute'),
+   'tonight_poll', '{"name": "Dave"}', now() - interval '1 minute'),
   ('00000000-0000-0000-0000-0000000005a4', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a1',
-   'plan_set', '{}', now() - interval '1 minute');
+   'not_home', '{"name": "Dan"}', now() - interval '1 minute');
 
 set local role service_role;
 select results_eq($$ select id from public.claim_push_outbox(10) order by id $$,
   $$ values ('00000000-0000-0000-0000-0000000005a2'::uuid), ('00000000-0000-0000-0000-0000000005a4'::uuid) $$,
-  'with one left, Bob gets Plan''s set before an older poll; Carol, at budget, gets nothing; Alice is untouched');
+  'with one left, Bob gets a won''t-be-home before an older poll; Carol, at budget, gets nothing; Alice is untouched');
 select pg_temp.as_postgres();
 select results_eq($$ select id, failed from public.push_outbox where failed is not null order by id $$,
   $$ values ('00000000-0000-0000-0000-0000000005a1'::uuid, 'over_budget'),
@@ -150,22 +150,22 @@ select pg_temp.as_postgres();
 
 select pg_temp.log_sent('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-0000000000a0', 4, now());
 insert into public.push_outbox (household_id, member_id, kind, args, not_before) values
-  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'urgent_item', '{"name": "Bob"}',
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'heading_to_store', '{"name": "Bob"}',
    now() - interval '1 minute'),
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'not_home', '{"name": "Bob"}',
    now() - interval '3 minutes');
 set local role service_role;
-select results_eq($$ select kind from public.claim_push_outbox(10) $$, $$ values ('urgent_item') $$,
-  'a kid with one left gets the urgent item before an older no');
+select results_eq($$ select kind from public.claim_push_outbox(10) $$, $$ values ('heading_to_store') $$,
+  'a kid with one left gets a store run before an older no');
 select pg_temp.as_postgres();
 
--- Alice has one left, and her Plan's set is waiting to be tried again.
+-- Alice has one left, and her won't-be-home is waiting to be tried again.
 select pg_temp.log_sent('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a0', 11, now());
 update public.push_outbox set claimed_until = now() + interval '4 minutes'
 where id = '00000000-0000-0000-0000-0000000005a4';
 insert into public.push_outbox (id, household_id, member_id, kind, args, not_before) values
   ('00000000-0000-0000-0000-0000000005a5', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a1',
-   'urgent_item', '{"name": "Bob"}', now() - interval '1 minute');
+   'heading_to_store', '{"name": "Bob"}', now() - interval '1 minute');
 set local role service_role;
 select is((select count(*) from public.claim_push_outbox(10)), 0::bigint,
   'a push still being tried holds its place, so a new one can''t take the same last slot');

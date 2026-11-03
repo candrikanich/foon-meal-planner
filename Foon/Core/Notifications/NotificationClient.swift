@@ -35,7 +35,19 @@ struct NotificationClient: Sendable {
     /// Takes this device's token off the server, whoever it's filed under (`unregister_push_device`).
     var unregisterPush: @Sendable (_ token: String) async throws -> Void = { _ in }
     /// When the server's pushes to this member went out since `since`, for the shared weekly budget.
-    var pushesSent: @Sendable (_ householdID: UUID, _ memberID: UUID, _ since: Date) async throws -> [Date] = { _, _, _ in [] }
+    var pushesSent: @Sendable (_ householdID: UUID, _ memberID: UUID, _ since: Date) async throws -> [SentPush] = { _, _, _ in [] }
+}
+
+/// A server push that went out to this person, and whether it uses up the week's budget.
+struct SentPush: Equatable, Sendable {
+    let sentAt: Date
+    /// `notification_log.type`.
+    let type: String
+
+    /// Plan's set and urgent items go whatever else this week held, on the server too (`push_outside_budget`).
+    static let outsideBudget: Set<String> = ["plan_set", "urgent_item"]
+
+    var countsTowardBudget: Bool { !Self.outsideBudget.contains(type) }
 }
 
 extension NotificationClient {
@@ -85,14 +97,14 @@ extension NotificationClient {
             },
             pushesSent: { householdID, memberID, since in
                 let rows: [SentPushRow] = try await client.from("notification_log")
-                    .select("sent_at")
+                    .select("sent_at, type")
                     .eq("household_id", value: householdID)
                     .eq("member_id", value: memberID)
                     .eq("channel", value: "push")
                     .gte("sent_at", value: since)
                     .execute()
                     .value
-                return rows.map(\.sentAt)
+                return rows.map { SentPush(sentAt: $0.sentAt, type: $0.type) }
             }
         )
     }
@@ -103,9 +115,11 @@ extension NotificationClient {
 
 private struct SentPushRow: Decodable, Sendable {
     let sentAt: Date
+    let type: String
 
     enum CodingKeys: String, CodingKey {
         case sentAt = "sent_at"
+        case type
     }
 }
 

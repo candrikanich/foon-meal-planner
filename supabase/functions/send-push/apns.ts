@@ -89,6 +89,10 @@ function ideaCount(args: Record<string, unknown>): number | null {
   return typeof count === "number" && Number.isInteger(count) && count > 0 ? count : null;
 }
 
+function who(args: Record<string, unknown>): string {
+  return firstName(args) ?? "Someone";
+}
+
 function firstName(args: Record<string, unknown>): string | null {
   const name = typeof args.name === "string" ? args.name.trim() : "";
   return name === "" ? null : name;
@@ -98,29 +102,17 @@ function firstName(args: Record<string, unknown>): string | null {
 // is read from args and nothing else is. A kind is known exactly when it has words here.
 const words: Record<string, (args: Record<string, unknown>, nightDate: string | null) => Alert | null> = {
   plan_set: () => ({ title: "This week's dinners are set.", body: "Tap to see the week." }),
-  not_home: (args) => {
-    const name = firstName(args);
-    return name ? { title: `${name} won't be home tonight.`, body: "Tap to see tonight." } : null;
-  },
+  // With no name (a kid whose consent was withdrawn is never named), "Someone": the news is still the family's.
+  not_home: (args) => ({ title: `${who(args)} won't be home tonight.`, body: "Tap to see tonight." }),
   claim: (args, nightDate) => {
-    const name = firstName(args);
     const weekday = weekdayOf(nightDate);
-    return name && weekday ? { title: `${name} will cook ${weekday}.`, body: "Tap to see the night." } : null;
+    return weekday ? { title: `${who(args)} will cook ${weekday}.`, body: "Tap to see the night." } : null;
   },
   // Never the item: whoever's out can check the list.
-  urgent_item: (args) => {
-    const name = firstName(args);
-    return name ? { title: `${name} added something for tonight.`, body: "Tap to see the list." } : null;
-  },
-  tonight_poll: (args) => {
-    const name = firstName(args);
-    return name ? { title: `${name} started a vote on dinner.`, body: "Tap to vote." } : null;
-  },
+  urgent_item: (args) => ({ title: `${who(args)} added something for tonight.`, body: "Tap to see the list." }),
+  tonight_poll: (args) => ({ title: `${who(args)} started a vote on dinner.`, body: "Tap to vote." }),
   // Someone's at the store now: the words don't say the time, since the push is given up when the run ends.
-  heading_to_store: (args) => {
-    const name = firstName(args);
-    return name ? { title: `${name}'s at the store.`, body: "Add anything in the next 10 minutes." } : null;
-  },
+  heading_to_store: (args) => ({ title: `${who(args)}'s at the store.`, body: "Add anything in the next 10 minutes." }),
   // A planner's digest of new ideas: how many, and who when it's one person. Never a dish.
   new_requests: (args) => {
     const count = ideaCount(args);

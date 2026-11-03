@@ -109,9 +109,11 @@ Deno.test("won't be home names the person, first name only, and opens the night"
     night: "n-1",
     date: "2026-11-05",
   });
-  assertEquals(alertFor("not_home", {}), null);
-  assertEquals(alertFor("not_home", { name: "  " }), null);
-  assertEquals(alertFor("not_home", { name: 7 }), null);
+  // No name (a kid whose consent was withdrawn): the news, without who.
+  const someone = { title: "Someone won't be home tonight.", body: "Tap to see tonight." };
+  assertEquals(alertFor("not_home", {}), someone);
+  assertEquals(alertFor("not_home", { name: "  " }), someone);
+  assertEquals(alertFor("not_home", { name: 7 }), someone);
 });
 
 Deno.test("a claim says the night's weekday from its date, never tonight or tomorrow", () => {
@@ -122,7 +124,7 @@ Deno.test("a claim says the night's weekday from its date, never tonight or tomo
   assertEquals(alertFor("claim", { name: "Ben" }, "2026-11-08")?.title, "Ben will cook Sunday.");
   assertEquals(alertFor("claim", { name: "Ben" }, null), null);
   assertEquals(alertFor("claim", { name: "Ben" }, "Thursday"), null);
-  assertEquals(alertFor("claim", {}, "2026-11-05"), null);
+  assertEquals(alertFor("claim", {}, "2026-11-05")?.title, "Someone will cook Thursday.");
 });
 
 Deno.test("the known kinds are exactly the ones with words", () => {
@@ -147,7 +149,7 @@ Deno.test("an urgent item names who added it, never the item, and opens the list
   const alert = alertFor("urgent_item", { name: "Ben", item: "Milk" })!;
   assertEquals(alert, { title: "Ben added something for tonight.", body: "Tap to see the list." });
   assertEquals(payloadFor(alert, { route: "list" }), { aps: { alert, sound: "default" }, route: "list" });
-  assertEquals(alertFor("urgent_item", {}), null);
+  assertEquals(alertFor("urgent_item", {})?.title, "Someone added something for tonight.");
 });
 
 Deno.test("a tonight poll names who started it", () => {
@@ -155,7 +157,7 @@ Deno.test("a tonight poll names who started it", () => {
     title: "Ben started a vote on dinner.",
     body: "Tap to vote.",
   });
-  assertEquals(alertFor("tonight_poll", {}), null);
+  assertEquals(alertFor("tonight_poll", {})?.title, "Someone started a vote on dinner.");
 });
 
 Deno.test("your idea made the plan says the weekday, never the dish", () => {
@@ -184,7 +186,7 @@ Deno.test("the ideas digest counts, names one person, and never a dish", () => {
 Deno.test("heading to the store names who's going, and opens the list", () => {
   const alert = alertFor("heading_to_store", { name: "Ben", item: "Milk" })!;
   assertEquals(alert, { title: "Ben's at the store.", body: "Add anything in the next 10 minutes." });
-  assertEquals(alertFor("heading_to_store", {}), null);
+  assertEquals(alertFor("heading_to_store", {})?.title, "Someone's at the store.");
 });
 
 Deno.test("only the name is read from args", () => {
