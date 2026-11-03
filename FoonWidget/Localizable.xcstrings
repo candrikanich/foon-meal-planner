@@ -1,0 +1,39 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Away" : {
+
+    },
+    "Nothing planned yet" : {
+
+    },
+    "Open Foon to see the plan" : {
+
+    },
+    "Sheet-pan chicken fajitas" : {
+
+    },
+    "Takeout" : {
+
+    },
+    "Tomorrow" : {
+
+    },
+    "Tonight" : {
+
+    },
+    "Tonight's dinner" : {
+
+    },
+    "Tonight: %@" : {
+
+    },
+    "Tonight: nothing planned yet" : {
+
+    },
+    "What's for dinner tonight, from your family's plan." : {
+
+    }
+  },
+  "version" : "1.0"
+}

@@ -69,10 +69,18 @@ elif [[ "${check:-}" != 1 ]]; then
   echo "sync-strings: FoonDinner skipped; run an iOS build to include it" >&2
 fi
 
+# The Tonight widget (#62) is iOS only too.
+stringsdata_for FoonWidget
+if (( ${#reply} > 0 )); then
+  sync_catalog FoonWidget/Localizable.xcstrings "${reply[@]}"
+elif [[ "${check:-}" != 1 ]]; then
+  echo "sync-strings: FoonWidget skipped; run an iOS build to include it" >&2
+fi
+
 [[ "${check:-}" == 1 ]] || exit 0
 
 # A plain String literal never reaches the stringsdata, so the sync can't see it. Catch the usual shapes.
-unlocalized=$(grep -rnE 'errorMessage = "|static (let|var) [A-Za-z]+(: String)? = "[A-Z][a-z]+ [^"]*"' Foon FoonShare FoonDinner \
+unlocalized=$(grep -rnE 'errorMessage = "|static (let|var) [A-Za-z]+(: String)? = "[A-Z][a-z]+ [^"]*"' Foon FoonShare FoonDinner FoonWidget \
   --include='*.swift' || true)
 if [[ -n "$unlocalized" ]]; then
   echo "sync-strings: user-facing text needs String(localized:):" >&2
