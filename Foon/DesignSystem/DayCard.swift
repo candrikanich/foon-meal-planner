@@ -28,6 +28,8 @@ struct DayCard: View {
     var today = CalendarDay(Date())
     var actions: Actions?
     var offer: ClaimOffer? = nil
+    /// "What can we make?" on tonight's card: anyone can look, so it's apart from the planner's actions.
+    var rescue: (() -> Void)? = nil
 
     private var isTonight: Bool { model.date == today }
 
@@ -39,6 +41,7 @@ struct DayCard: View {
             if !model.attendance.isEmpty { attendance }
             if let cook = model.cook { cookRow(cook) } else if let offer { claimButton(offer) }
             if !model.jobs.isEmpty { jobs }
+            if let rescue { rescueButton(rescue) }
             if let actions, actions.hasNightActions { actionRow(actions) }
         }
         .padding(16)
@@ -48,7 +51,7 @@ struct DayCard: View {
                 .strokeBorder(isTonight ? Palette.paprika : .clear, lineWidth: 2)
         }
         .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
-        .accessibilityElement(children: actions == nil && offer == nil ? .ignore : .contain)
+        .accessibilityElement(children: actions == nil && offer == nil && rescue == nil ? .ignore : .contain)
         .accessibilityLabel(DayCardText.accessibilitySummary(model, today: today))
     }
 
@@ -234,6 +237,15 @@ struct DayCard: View {
             .accessibilityHint(String(localized: "Tells the family you're cooking this night"))
     }
 
+    private func rescueButton(_ rescue: @escaping () -> Void) -> some View {
+        Button("What can we make?", systemImage: "lifepreserver", action: rescue)
+            .buttonStyle(.bordered)
+            .tint(Palette.paprika)
+            .controlSize(.small)
+            .accessibilityLabel(String(localized: "What can we make tonight?"))
+            .accessibilityHint(String(localized: "Shows a few quick ideas from what's in the house"))
+    }
+
     private var jobs: some View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(model.jobs, id: \.self) { job in
@@ -393,6 +405,20 @@ private enum DayCardPreview {
             actions: DayCard.Actions(toggleAttendance: { _ in }, cycleEffort: {}, open: {}))
         .padding()
         .background(Palette.cream)
+}
+
+#Preview("Tonight, with the rescue") {
+    VStack(spacing: 16) {
+        DayCard(model: .init(date: DayCardPreview.today, effort: .normal, slot: .meal(name: "Tacos", photoURL: nil,
+                                                                                      reason: "Due for a turn"),
+                             attendance: DayCardPreview.family, badges: [], isLocked: false),
+                actions: DayCardPreview.actions, rescue: {})
+        DayCard(model: .init(date: DayCardPreview.today, effort: .rushed, slot: .empty,
+                             attendance: DayCardPreview.family, badges: [], isLocked: false),
+                rescue: {})
+    }
+    .padding()
+    .background(Palette.cream)
 }
 
 #Preview("Read-only (member)") {

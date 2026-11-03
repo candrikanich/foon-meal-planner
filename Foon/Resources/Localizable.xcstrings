@@ -428,6 +428,9 @@
     "%lld meals can't be fully checked for allergies. Open them to see why." : {
 
     },
+    "%lld min" : {
+      "comment" : "Tonight rescue: how long there is to get dinner on the table\nTonight rescue: the dish's own time to dinner"
+    },
     "%lld minutes" : {
       "comment" : "How long a tonight poll runs"
     },
@@ -593,7 +596,7 @@
 
     },
     "A dish" : {
-      "comment" : "Poll option whose name couldn't be read"
+      "comment" : "Leftovers whose dish name couldn't be read\nPoll option whose name couldn't be read"
     },
     "A doubled or freezer night changed what to buy. Update the list." : {
 
@@ -632,6 +635,9 @@
 
     },
     "A planner can make it tonight's dinner." : {
+
+    },
+    "A planner can make one tonight's dinner." : {
 
     },
     "A planner has you out tonight, so ask them to change it." : {
@@ -871,6 +877,9 @@
     "Ask for a dish, a name, or a link (names up to 80 characters, notes up to 200)." : {
 
     },
+    "Ask the family" : {
+
+    },
     "Ask who's home at" : {
 
     },
@@ -920,7 +929,10 @@
 
     },
     "Backup dinner" : {
-
+      "comment" : "Tonight rescue: a dish tagged Backup dinner"
+    },
+    "Backup dinner, everything's in" : {
+      "comment" : "Tonight rescue: a backup dinner whose ingredients are all marked in stock"
     },
     "Backup dinners" : {
 
@@ -1480,6 +1492,9 @@
     "Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, votes on dinner, ratings and comments, and who cooked. Planners can see the reminder log; everyone else, only their own." : {
 
     },
+    "Everyone makes their own" : {
+      "comment" : "Tonight rescue: why Fend"
+    },
     "Everyone's here. You can invite people later from Family." : {
 
     },
@@ -1535,6 +1550,9 @@
 
     },
     "Fill remaining nights" : {
+
+    },
+    "Find something quick" : {
 
     },
     "Finish trip" : {
@@ -1657,6 +1675,9 @@
     },
     "Foon won't plan dinners for those nights, add them to the list, or send reminders about them. Everyone shows as out, and you'll see Away on This Week." : {
 
+    },
+    "For %@" : {
+      "comment" : "Tonight rescue: who's home tonight, e.g. For Ana, Ben and Nora"
     },
     "For a night" : {
 
@@ -2030,6 +2051,20 @@
     "Leave it empty" : {
 
     },
+    "Leftover %@ from %@ · %lld days old" : {
+      "comment" : "Tonight rescue: leftovers: the dish, the day it was cooked, and how many days ago",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Leftover %1$@ from %2$@ · %3$lld days old"
+          }
+        }
+      }
+    },
+    "Leftover %@ from yesterday" : {
+      "comment" : "Tonight rescue: leftovers, cooked yesterday"
+    },
     "Leftover nights a week: %lld" : {
 
     },
@@ -2154,6 +2189,9 @@
       "comment" : "Tonight poll: a planner puts the winner on tonight"
     },
     "Make it tonight's dinner" : {
+
+    },
+    "Makes it tonight's dinner" : {
 
     },
     "Makes leftovers" : {
@@ -2348,6 +2386,9 @@
     "No week yet" : {
 
     },
+    "Nobody cooks or cleans up" : {
+      "comment" : "Tonight rescue: why Eat out"
+    },
     "Nobody voted." : {
       "comment" : "Tonight poll closed with no votes"
     },
@@ -2431,6 +2472,9 @@
     },
     "Nothing to buy. Approve the week or add an item." : {
 
+    },
+    "Nothing to cook" : {
+      "comment" : "Tonight rescue: why Takeout"
     },
     "Nothing to plan or shop for. Enjoy it." : {
 
@@ -2646,6 +2690,9 @@
 
     },
     "Planning mix" : {
+
+    },
+    "Plans fell through? See what you can make in the time there is." : {
 
     },
     "Plans fell through? Start a quick vote on what's for dinner." : {
@@ -2948,7 +2995,13 @@
     "Shown with %@ on meals, lists, and in the store." : {
 
     },
+    "Shows a few quick ideas from what's in the house" : {
+
+    },
     "Shows the item's note, aisle, and keep on hand" : {
+
+    },
+    "Shows what you can make tonight in the time there is" : {
 
     },
     "Shuffle this night" : {
@@ -3094,6 +3147,9 @@
 
     },
     "Start your real family?" : {
+
+    },
+    "Starts a quick vote with these ideas and Takeout." : {
 
     },
     "Starts a timer; an alert goes off when it's done, even with the phone locked" : {
@@ -3488,6 +3544,9 @@
     "Those dates didn't work. The last night has to be on or after the first, up to a year later, and not already over." : {
 
     },
+    "Time" : {
+
+    },
     "Time to check on %@." : {
       "comment" : "Cook mode timer alert body: the dish's name"
     },
@@ -3735,6 +3794,12 @@
     "What Foon keeps" : {
 
     },
+    "What can we make tonight?" : {
+
+    },
+    "What can we make?" : {
+
+    },
     "What did you have?" : {
 
     },
@@ -3788,6 +3853,12 @@
     },
     "What's for dinner tonight?" : {
 
+    },
+    "Whatever's in the freezer" : {
+      "comment" : "Tonight rescue: why Freezer raid"
+    },
+    "Whatever's in the fridge" : {
+      "comment" : "Tonight rescue: why Leftovers"
     },
     "When" : {
 
@@ -3998,6 +4069,9 @@
     "Your rhythm" : {
 
     },
+    "around %lld min" : {
+      "comment" : "Tonight rescue: an estimated time to dinner"
+    },
     "cook.timer.finished" : {
       "comment" : "Cook mode: a timer that has finished",
       "extractionState" : "extracted_with_value",
@@ -4060,6 +4134,9 @@
     },
     "soy" : {
       "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "time not set" : {
+      "comment" : "Tonight rescue: a backup dinner with no cooking time"
     },
     "today" : {
       "comment" : "Freezer stash: made today"

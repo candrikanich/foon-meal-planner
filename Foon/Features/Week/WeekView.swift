@@ -19,6 +19,7 @@ struct WeekView: View {
     @State private var isApproving = false
     @State private var openNight: UUID?
     @State private var swappingNight: UUID?
+    @State private var rescuingNight: UUID?
     @State private var showingTraditions = false
     @State private var browsingIdeas = false
     @State private var showingPast = false
@@ -82,6 +83,9 @@ struct WeekView: View {
             }
             .sheet(item: Binding(get: { swappingNight.map(NightID.init) }, set: { swappingNight = $0?.id })) { night in
                 SwapSheet(nightID: night.id)
+            }
+            .sheet(item: Binding(get: { rescuingNight.map(NightID.init) }, set: { rescuingNight = $0?.id })) { night in
+                RescueSheet(nightID: night.id)
             }
             .sheet(item: Binding(get: { roundupWeek.map(RoundupWeek.init) }, set: { roundupWeek = $0?.week })) { roundup in
                 RatingRoundupSheet(week: roundup.week)
@@ -297,7 +301,9 @@ struct WeekView: View {
         model.jobs = DinnerJobs.lines(for: night, in: dinnerJobs, members: household.visibleMembers, today: week.todayDay)
         // An away night has nothing to open or change: planners shorten the dates in Family instead.
         return DayCard(model: model, today: week.todayDay, actions: canPlan && !isAway ? actions(for: night) : nil,
-                       offer: claimOffer(for: night, log: log))
+                       offer: claimOffer(for: night, log: log),
+                       rescue: TonightRescue.offers(night: night, logged: log != nil, isAway: isAway,
+                                                    today: week.todayDay) ? { rescuingNight = night.id } : nil)
             .contentShape(Rectangle())
             .onTapGesture { if !isAway { openNight = night.id } }
             .accessibilityAction(named: Text("Open night")) { if !isAway { openNight = night.id } }

@@ -11,14 +11,8 @@ struct TonightPollSection: View {
     @Environment(IdeasStore.self) private var ideas: IdeasStore?
     @AppStorage("foon.dismissedPolls") private var dismissedRaw = ""
     @State private var votingAs: UUID?
-    @State private var confirming: PendingChoice?
-
-    private struct PendingChoice: Identifiable {
-        let id = UUID()
-        let title: String
-        let warning: String
-        let choice: WeekStore.SwapChoice
-    }
+    @State private var confirming: TonightChoice?
+    @State private var rescuing = false
 
     private var tonight: WeekNight? {
         week.week?.nights.first { $0.date == week.todayDay }
@@ -43,12 +37,9 @@ struct TonightPollSection: View {
                 }
             }
             .task(id: poll.id) { await catchUpLibrary(for: poll) }
-            .confirmationDialog(confirming?.title ?? "", isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
-                                titleVisibility: .visible, presenting: confirming) { pending in
-                Button("Make it tonight's dinner") { Task { await apply(pending.choice, polls: polls) } }
-            } message: { pending in
-                Text(pending.warning)
-            }
+            .confirmingTonightChoice($confirming) { choice in Task { await apply(choice) } }
+            // Once the rescue settles tonight, "Nobody voted." has nothing left to say.
+            .sheet(isPresented: $rescuing) { RescueSheet(nightID: tonight.id, chosen: { dismiss(poll) }) }
         }
     }
 
@@ -151,6 +142,14 @@ struct TonightPollSection: View {
                 if !winners.isEmpty, !canPlan {
                     Text("A planner can make it tonight's dinner.").font(.foonCaption).foregroundStyle(.secondary)
                 }
+                // Nothing to make it from: the rescue's ideas take over from the vote.
+                if !winners.contains(where: isPlannable) {
+                    Button("Find something quick", systemImage: "lifepreserver") { rescuing = true }
+                        .font(.foonCaption)
+                        .buttonStyle(.bordered)
+                        .tint(Palette.paprika)
+                        .accessibilityHint("Shows what you can make tonight in the time there is")
+                }
             }
             if let message = polls.errorMessage {
                 Text(message).font(.callout).foregroundStyle(.red)
@@ -206,20 +205,25 @@ struct TonightPollSection: View {
             polls.note(String(localized: "\(option.title) can't be planned any more. Use Swap to pick something else."))
             return
         }
-        // Moving a doubled or freezer night moves another with it, and Swap says so before it does.
-        if let warning = DoubleIt.changeWarning(for: night, in: week.week?.nights ?? []) {
-            confirming = PendingChoice(title: option.title, warning: warning, choice: choice)
+        if let pending = TonightChoice.confirmation(title: option.title, choice: choice, night: night,
+                                                    week: week.week?.nights ?? []) {
+            confirming = pending
             return
         }
-        await apply(choice, polls: polls)
+        await apply(choice)
     }
 
-    private func apply(_ choice: WeekStore.SwapChoice, polls: PollStore) async {
+    private func apply(_ choice: WeekStore.SwapChoice) async {
         guard let nightID = tonight?.id else { return }
-        if await week.swap(nightID: nightID, to: choice) {
-            await ideas?.sync(with: week.week, today: week.todayDay, requestNights: week.requestNights, away: week.awayDates)
-            if case .freezer = choice { await freezer?.load() }
-        }
+        await TonightChoice.apply(choice, nightID: nightID, week: week, ideas: ideas, freezer: freezer)
+    }
+
+    /// Whether a winner can still go on tonight. A freezer item waits for the freezer to load before saying no.
+    private func isPlannable(_ option: TonightPoll.Option) -> Bool {
+        if option.freezerItemID != nil, freezer?.hasLoaded != true { return true }
+        if option.mealID != nil, !library.hasLoaded { return true }
+        return PollRules.swapChoice(for: option, library: library.meals, freezer: freezer?.items ?? [],
+                                    today: week.todayDay) != nil
     }
 
     private func allergyCheck(_ option: TonightPoll.Option, night: WeekNight) -> AllergyCheck {

@@ -115,7 +115,8 @@ struct CookCreditStoreTests {
         #expect(thanked.withLock { $0 } == [log.id])
     }
 
-    @Test func onTheFirstOfTheMonthLastNightStillLoads() async {
+    /// Last night, and tonight rescue's leftovers from the last three days.
+    @Test func onTheFirstOfTheMonthTheLastFewNightsStillLoad() async {
         let since = Mutex<CalendarDay?>(nil)
         var client = DinnerClient.preview
         client.logs = { _, day in since.withLock { $0 = day }; return [] }
@@ -123,7 +124,7 @@ struct CookCreditStoreTests {
             .date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 9))!
         let store = DinnerStore(householdID: UUID(), client: client, now: { first })
         await store.load(settings: HouseholdSettings())
-        #expect(since.withLock { $0 } == CalendarDay(year: 2026, month: 10, day: 31))
+        #expect(since.withLock { $0 } == CalendarDay(year: 2026, month: 10, day: 29))
     }
 }
 

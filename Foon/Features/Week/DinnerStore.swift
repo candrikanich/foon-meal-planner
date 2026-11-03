@@ -13,7 +13,8 @@ final class DinnerStore {
     }
 
     private(set) var nights: [WeekNight] = []
-    /// Logged dinners since the start of the month (or yesterday, if earlier): the cards and the cook tally.
+    /// Logged dinners since the start of the month (or three days ago, if earlier): the cards, the cook tally, and
+    /// tonight rescue's leftovers.
     private(set) var logs: [DinnerLog] = []
     private(set) var thanks: [ChefThanks] = []
     /// Open offers to cook, for nights from a week ago on: dinner jobs read the whole week's.
@@ -58,7 +59,9 @@ final class DinnerStore {
         loadGeneration += 1
         let generation = loadGeneration
         let today = today
-        let since = min(today.adding(days: -1), CalendarDay(year: today.year, month: today.month, day: 1))
+        // Tonight rescue's leftovers reach back a few days; the cook tally keeps to the month itself.
+        let since = min(today.adding(days: -TonightRescue.leftoversMaxAgeDays),
+                        CalendarDay(year: today.year, month: today.month, day: 1))
         do {
             async let nights = client.nights(householdID, today.adding(days: -1), today)
             async let logs = client.logs(householdID, since)
