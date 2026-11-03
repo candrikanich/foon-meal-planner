@@ -64,6 +64,9 @@ targets:
             CFBundleURLSchemes: [foon]
         # Only the OS's own encryption (HTTPS, Sign in with Apple): exempt, so App Store Connect skips the question.
         ITSAppUsesNonExemptEncryption: false
+        # A background refresh sends the after-dinner card's answers (#122, AnswerRefresh). iOS only; the Mac ignores them.
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [com.andrikanich.foon.answers]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon

@@ -2,14 +2,15 @@ import Foundation
 import Testing
 @testable import Foon
 
-/// The after-dinner prompt's own card (#122): it answers into the same waiting list the app sends from, in the App Group.
+/// The after-dinner prompt's own card (#122): the same answer as the notification's buttons.
 @Suite struct DinnerPromptAnswerTests {
     private let night = UUID()
     private let member = UUID()
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
-
     private let id: String
+
     init() { id = ReminderID.afterDinner(me: member, night: night, meal: UUID()) }
+
     private var payload: ReminderPayload { ReminderPayload(route: .rate(night: night, member: member), dinnerAt: nil) }
 
     @Test func aReactionIsTheSameAnswerAsTheNotificationsButton() throws {
@@ -47,92 +48,106 @@ import Testing
                 "a cook-mode timer isn't a prompt")
     }
 
-    @Test func savingPutsBothOnTheWaitingLists() throws {
-        let device = ReminderDevice(defaults: suite(), shared: suite())
-        let answered = try #require(DinnerPrompt.answer(.reaction(.favorite), id: id, payload: payload, now: now))
-        device.add(answered)
-        #expect(device.dinnerAnswers == [answered.dinner])
-        #expect(device.answers == [answered.answer])
-    }
-
     @Test func theCardReadsThePayloadTheAppWrote() throws {
         let read = try #require(ReminderPayload(userInfo: payload.userInfo))
         #expect(read == payload)
     }
 }
 
-/// The waiting lists live in the App Group, so the content extension and the app share them. What an older build left in the
-/// app's own defaults moves over once.
-@Suite struct ReminderDeviceSharedQueueTests {
-    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
-    private func dinner(_ answer: DinnerAnswer.Answer) -> DinnerAnswer {
-        DinnerAnswer(nightID: UUID(), memberID: UUID(), answer: answer, at: now)
-    }
-
-    @Test func answersGoToTheSharedSuiteAndChoicesStayOnThePhone() {
-        let own = suite(), shared = suite()
-        let device = ReminderDevice(defaults: own, shared: shared)
-        let member = UUID()
-        device.add(dinner(.wasntHome))
-        device.add(ReminderAnswer(id: "foon.reminder.x", response: "done", at: now))
-        device.add(CheckInAnswer(nightID: UUID(), memberID: member, home: true))
-        device.setOptedIn(true, for: member)
-
-        let fromTheOtherSide = ReminderDevice(defaults: suite(), shared: shared)
-        #expect(fromTheOtherSide.dinnerAnswers.count == 1)
-        #expect(fromTheOtherSide.answers.count == 1)
-        #expect(fromTheOtherSide.checkIns.count == 1)
-        #expect(!fromTheOtherSide.isOptedIn(member))
-        #expect(device.isOptedIn(member))
-    }
-
-    @Test func whatAnOlderBuildLeftMovesOverOlderFirst() {
-        let own = suite(), shared = suite()
-        let old = ReminderDevice(defaults: own, shared: own)
-        let waiting = dinner(.reaction(.good)), checkIn = CheckInAnswer(nightID: UUID(), memberID: UUID(), home: false)
-        let tapped = ReminderAnswer(id: "foon.reminder.a", response: "done", at: now)
-        old.add(waiting)
-        old.add(checkIn)
-        old.add(tapped)
-        old.setOptedIn(true, for: checkIn.memberID)
-        // The new card answered before the app had run since the update.
-        let fromTheCard = dinner(.reaction(.favorite))
-        ReminderDevice(defaults: suite(), shared: shared).add(fromTheCard)
-
-        ReminderDevice.moveQueues(from: own, to: shared)
-
-        let device = ReminderDevice(defaults: own, shared: shared)
-        #expect(device.dinnerAnswers == [waiting, fromTheCard])
-        #expect(device.checkIns == [checkIn])
-        #expect(device.answers == [tapped])
-        #expect(old.dinnerAnswers.isEmpty && old.checkIns.isEmpty && old.answers.isEmpty, "gone from the old place")
-        #expect(device.isOptedIn(checkIn.memberID), "choices aren't moved")
-    }
-
-    @Test func movingAgainChangesNothing() {
-        let own = suite(), shared = suite()
-        let waiting = dinner(.wasntHome)
-        ReminderDevice(defaults: own, shared: own).add(waiting)
-        ReminderDevice.moveQueues(from: own, to: shared)
-        ReminderDevice.moveQueues(from: own, to: shared)
-        #expect(ReminderDevice(defaults: own, shared: shared).dinnerAnswers == [waiting])
-    }
-
-    @Test func clearingEmptiesBoth() {
-        let own = suite(), shared = suite()
-        let device = ReminderDevice(defaults: own, shared: shared)
-        let member = UUID()
-        device.add(dinner(.wasntHome))
-        device.add(ReminderAnswer(id: "foon.reminder.b", response: "done", at: now))
-        device.add(CheckInAnswer(nightID: UUID(), memberID: member, home: true))
-        device.setOptedIn(true, for: member)
-        device.clear()
-        #expect(device.dinnerAnswers.isEmpty && device.answers.isEmpty && device.checkIns.isEmpty)
-        #expect(!device.isOptedIn(member))
-    }
+private func inbox() -> DinnerCardInbox {
+    DinnerCardInbox(directory: FileManager.default.temporaryDirectory.appending(path: "foon-card-\(UUID().uuidString)"))
 }
 
 private func suite() -> UserDefaults {
-    UserDefaults(suiteName: "foon.tests.shared.\(UUID().uuidString)")!
+    UserDefaults(suiteName: "foon.tests.card.\(UUID().uuidString)")!
+}
+
+private func card(_ answer: DinnerAnswer.Answer, night: UUID = UUID(), member: UUID = UUID(),
+                  at: Date = now) -> DinnerPrompt.Answered {
+    let id = ReminderID.afterDinner(me: member, night: night, meal: UUID())
+    return DinnerPrompt.answer(answer, id: id, payload: ReminderPayload(route: .rate(night: night, member: member), dinnerAt: nil),
+                               now: at)!
+}
+
+/// One file per answer in the App Group, like the share sheet's inbox, so the card and the app never write the same list.
+@Suite struct DinnerCardInboxTests {
+    @Test func whatTheCardSavedIsTakenOnceOldestFirst() throws {
+        let inbox = inbox()
+        let later = card(.wasntHome, at: now.addingTimeInterval(60)), earlier = card(.reaction(.good))
+        try inbox.add(later)
+        try inbox.add(earlier)
+        #expect(inbox.takeAll() == [earlier, later])
+        #expect(inbox.takeAll().isEmpty, "taking deletes them")
+    }
+
+    @Test func aFileThatCantBeReadIsThrownAway() throws {
+        let inbox = inbox()
+        try inbox.add(card(.reaction(.favorite)))
+        try Data("not json".utf8).write(to: inbox.directory.appending(path: "junk.json"))
+        #expect(inbox.takeAll().count == 1)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: inbox.directory.path()).isEmpty)
+    }
+
+    @Test func nothingSavedIsNothingToTake() {
+        #expect(inbox().takeAll().isEmpty)
+    }
+}
+
+/// The app takes the card's answers onto its own waiting lists, in the app's own defaults.
+@Suite @MainActor struct CardAnswerIntakeTests {
+    @Test func theyJoinTheWaitingListsAndLeaveTheInbox() throws {
+        let inbox = inbox(), device = ReminderDevice(defaults: suite(), cardInbox: inbox)
+        let answered = card(.reaction(.favorite))
+        try inbox.add(answered)
+        device.takeInCardAnswers()
+        #expect(device.dinnerAnswers == [answered.dinner])
+        #expect(device.answers == [answered.answer])
+        #expect(inbox.takeAll().isEmpty)
+    }
+
+    @Test func aLaterAnswerForTheSameNightWins() throws {
+        let inbox = inbox(), device = ReminderDevice(defaults: suite(), cardInbox: inbox)
+        let night = UUID(), me = UUID()
+        let other = DinnerAnswer(nightID: UUID(), memberID: me, answer: .wasntHome, at: now)
+        device.add(DinnerAnswer(nightID: night, memberID: me, answer: .reaction(.notForMe), at: now))
+        device.add(other)
+        let fromTheCard = card(.reaction(.good), night: night, member: me, at: now.addingTimeInterval(60))
+        try inbox.add(fromTheCard)
+        device.takeInCardAnswers()
+        #expect(device.dinnerAnswers == [other, fromTheCard.dinner])
+    }
+
+    @Test func anOlderCardAnswerDoesntWriteOverANewerOne() throws {
+        let inbox = inbox(), device = ReminderDevice(defaults: suite(), cardInbox: inbox)
+        let night = UUID(), me = UUID()
+        let newer = DinnerAnswer(nightID: night, memberID: me, answer: .wasntHome, at: now.addingTimeInterval(60))
+        device.add(newer)
+        try inbox.add(card(.reaction(.good), night: night, member: me))
+        device.takeInCardAnswers()
+        #expect(device.dinnerAnswers == [newer])
+    }
+
+    @Test func noInboxIsNothingToTakeIn() {
+        let device = ReminderDevice(defaults: suite())
+        device.takeInCardAnswers()
+        #expect(device.dinnerAnswers.isEmpty)
+    }
+
+    @Test func theStoreSendsTheCardsAnswersBeforeAScreenReads() async throws {
+        actor Sent {
+            var answers: [DinnerAnswer] = []
+            func add(_ answer: DinnerAnswer) { answers.append(answer) }
+        }
+        let inbox = inbox(), device = ReminderDevice(defaults: suite(), cardInbox: inbox), sent = Sent()
+        let answered = card(.reaction(.good), at: .now)
+        try inbox.add(answered)
+        var client = NotificationClient.preview
+        client.answerDinner = { await sent.add($0) }
+        let store = ReminderStore(householdID: UUID(), client: client, center: .none, device: device, session: ReminderSession())
+        await store.sendWaitingAnswers()
+        #expect(await sent.answers == [answered.dinner])
+        #expect(device.dinnerAnswers.isEmpty)
+    }
 }

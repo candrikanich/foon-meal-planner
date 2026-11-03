@@ -84,8 +84,7 @@ final class ReminderStore {
 
     /// Before a screen reads the week, so it sees what was said on the lock screen.
     func sendWaitingAnswers() async {
-        await CheckInDelivery.send(device: device, client: client)
-        await DinnerAnswerDelivery.send(device: device, client: client)
+        await WaitingAnswers.send(device: device, client: client)
     }
 
     /// The card's answer reached the server, and it's newer than anything still waiting for that night.
@@ -152,9 +151,8 @@ final class ReminderStore {
     private func run(_ wanted: Context) async {
         guard let context else { return }
         let permission = await center.permission()
-        // Before the read, so it sees them.
-        await CheckInDelivery.send(device: device, client: client)
-        await DinnerAnswerDelivery.send(device: device, client: client)
+        // Before the read, so it sees them. The after-dinner card's are taken in first, so they're filed and sent with the rest.
+        await WaitingAnswers.send(device: device, client: client)
         let weeks = await fetchWeeks(settings: wanted.settings)
         // Offline, the server's pushes can't be counted: the budget can run a few over until the next read.
         let pushesSent = (try? await client.pushesSent(householdID, wanted.me.id, now().addingTimeInterval(-8 * 24 * 60 * 60))) ?? []

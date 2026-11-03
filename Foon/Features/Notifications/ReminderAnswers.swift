@@ -1,13 +1,135 @@
 import Foundation
 import Observation
 import Supabase
+import Synchronization
 import UserNotifications
 
-/// Each person's choice about reminders, on this phone. System permission is shared with cook-mode timers, so a yes there isn't
-/// a yes to reminders: that's the opt-in, and it's per person. The answers waiting to be sent are in ReminderQueue.
-extension ReminderDevice {
+/// What's kept on this device outside the cache: answers waiting to be filed, and each person's choice about reminders. System
+/// permission is shared with cook-mode timers, so a yes there isn't a yes to reminders: that's the opt-in, and it's per person.
+/// The after-dinner card can't write here (it's another process): it leaves its answers in `cardInbox` to be taken in.
+struct ReminderDevice: @unchecked Sendable {
+    private let defaults: UserDefaults
+    let cardInbox: DinnerCardInbox?
+    private static let answersKey = "foon.reminder.answers"
+    private static let checkInsKey = "foon.reminder.checkIns"
+    private static let dinnerAnswersKey = "foon.reminder.dinnerAnswers"
     private static let declinedKey = "foon.reminder.declined"
     private static let optedInKey = "foon.reminder.optedIn"
+    /// Answers can be written and read from different threads.
+    private static let answersLock = Mutex(())
+
+    /// Tests hand in their own defaults, and no inbox unless they say.
+    init(defaults: UserDefaults, cardInbox: DinnerCardInbox? = nil) {
+        self.defaults = defaults
+        self.cardInbox = cardInbox
+    }
+
+    /// This device's.
+    init() {
+        self.init(defaults: .standard, cardInbox: .shared)
+    }
+
+    var answers: [ReminderAnswer] {
+        Self.answersLock.withLock { _ in storedAnswers }
+    }
+
+    private var storedAnswers: [ReminderAnswer] {
+        defaults.data(forKey: Self.answersKey).flatMap { try? JSONDecoder().decode([ReminderAnswer].self, from: $0) } ?? []
+    }
+
+    private func store(_ answers: [ReminderAnswer]) {
+        defaults.set(try? JSONEncoder().encode(answers), forKey: Self.answersKey)
+    }
+
+    func add(_ answer: ReminderAnswer) {
+        Self.answersLock.withLock { _ in store(Array((storedAnswers + [answer]).suffix(100))) }
+    }
+
+    /// Takes these off the waiting list, now they're filed. One that arrived since stays.
+    func removeAnswers(_ filed: [ReminderAnswer]) {
+        Self.answersLock.withLock { _ in store(storedAnswers.filter { !filed.contains($0) }) }
+    }
+
+    /// Oldest first, so a change of mind lands last.
+    var checkIns: [CheckInAnswer] {
+        Self.answersLock.withLock { _ in storedCheckIns }
+    }
+
+    private var storedCheckIns: [CheckInAnswer] {
+        defaults.data(forKey: Self.checkInsKey).flatMap { try? JSONDecoder().decode([CheckInAnswer].self, from: $0) } ?? []
+    }
+
+    func add(_ checkIn: CheckInAnswer) {
+        Self.answersLock.withLock { _ in
+            defaults.set(try? JSONEncoder().encode(Array((storedCheckIns + [checkIn]).suffix(20))), forKey: Self.checkInsKey)
+        }
+    }
+
+    /// Takes this one off, oldest first. A later answer for the same night stays, and is sent after it.
+    func removeCheckIn(_ sent: CheckInAnswer) {
+        Self.answersLock.withLock { _ in
+            var waiting = storedCheckIns
+            if let index = waiting.firstIndex(of: sent) { waiting.remove(at: index) }
+            defaults.set(try? JSONEncoder().encode(waiting), forKey: Self.checkInsKey)
+        }
+    }
+
+    func removeCheckIns(night: UUID, member: UUID) {
+        Self.answersLock.withLock { _ in
+            let waiting = storedCheckIns.filter { $0.nightID != night || $0.memberID != member }
+            defaults.set(try? JSONEncoder().encode(waiting), forKey: Self.checkInsKey)
+        }
+    }
+
+    /// Oldest first, so a change of mind lands last.
+    var dinnerAnswers: [DinnerAnswer] {
+        Self.answersLock.withLock { _ in storedDinnerAnswers }
+    }
+
+    private var storedDinnerAnswers: [DinnerAnswer] {
+        defaults.data(forKey: Self.dinnerAnswersKey).flatMap { try? JSONDecoder().decode([DinnerAnswer].self, from: $0) } ?? []
+    }
+
+    private func storeDinnerAnswers(_ answers: [DinnerAnswer]) {
+        defaults.set(try? JSONEncoder().encode(Array(answers.suffix(20))), forKey: Self.dinnerAnswersKey)
+    }
+
+    func add(_ answer: DinnerAnswer) {
+        Self.answersLock.withLock { _ in storeDinnerAnswers(storedDinnerAnswers + [answer]) }
+    }
+
+    func removeDinnerAnswer(_ sent: DinnerAnswer) {
+        Self.answersLock.withLock { _ in
+            var waiting = storedDinnerAnswers
+            if let index = waiting.firstIndex(of: sent) { waiting.remove(at: index) }
+            storeDinnerAnswers(waiting)
+        }
+    }
+
+    func removeDinnerAnswers(night: UUID, member: UUID) {
+        Self.answersLock.withLock { _ in
+            storeDinnerAnswers(storedDinnerAnswers.filter { $0.nightID != night || $0.memberID != member })
+        }
+    }
+
+    /// The card's answers join the waiting lists. For one person's night the later answer wins, as an answer on the app's card
+    /// replaces one still waiting: so a card answer drops older ones for that night, and one older than what's waiting is
+    /// dropped itself.
+    func takeInCardAnswers() {
+        guard let taken = cardInbox?.takeAll(), !taken.isEmpty else { return }
+        for answered in taken {
+            add(answered.answer)
+            let dinner = answered.dinner
+            Self.answersLock.withLock { _ in
+                let waiting = storedDinnerAnswers
+                let sameNight = { (other: DinnerAnswer) in other.nightID == dinner.nightID && other.memberID == dinner.memberID }
+                guard !waiting.contains(where: { sameNight($0) && $0.at > dinner.at }) else { return }
+                storeDinnerAnswers(waiting.filter { !sameNight($0) } + [dinner])
+            }
+        }
+    }
+
+    var hasWaitingAnswers: Bool { !checkIns.isEmpty || !dinnerAnswers.isEmpty }
 
     func isOptedIn(_ member: UUID) -> Bool {
         defaults.stringArray(forKey: Self.optedInKey)?.contains(member.uuidString) ?? false
@@ -58,7 +180,13 @@ extension ReminderDevice {
 
     /// Signing out leaves nothing of this person's.
     func clear() {
-        clearQueues()
+        Self.answersLock.withLock { _ in
+            defaults.removeObject(forKey: Self.answersKey)
+            defaults.removeObject(forKey: Self.checkInsKey)
+            defaults.removeObject(forKey: Self.dinnerAnswersKey)
+        }
+        // Someone else's answers from the card would be sent as the next person.
+        _ = cardInbox?.takeAll()
         defaults.removeObject(forKey: Self.declinedKey)
         defaults.removeObject(forKey: Self.optedInKey)
         defaults.removeObject(forKey: Self.ratingCadenceKey)
