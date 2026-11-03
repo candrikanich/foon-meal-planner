@@ -66,9 +66,15 @@ enum RecipeImportError: Error, Equatable {
     case notAllowed
     /// The page couldn't be reached or read.
     case unavailable
+    /// This account has used its imports for the (UTC) day.
+    case rateLimited
 
     init(status: Int?) {
-        self = status == 400 ? .notAllowed : .unavailable
+        switch status {
+        case 400: self = .notAllowed
+        case 429: self = .rateLimited
+        default: self = .unavailable
+        }
     }
 }
 

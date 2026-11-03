@@ -5,6 +5,8 @@ import { BlockedURL } from "./fetch.ts";
 import { parsePage } from "./recipe.ts";
 
 export interface ImportDeps {
+  /** Counts this import against the caller's daily cap, as the caller; false when they're over it (#116). */
+  claimSlot(authorization: string): Promise<boolean>;
   fetchPage(link: string): Promise<{ html: string; url: string }>;
   log(message: string, error?: unknown): void;
 }
@@ -35,6 +37,14 @@ export async function handleImport(req: Request, deps: ImportDeps): Promise<Resp
   const link = body?.url;
   if (typeof link !== "string" || link.length === 0 || link.length > 2048) {
     return json(400, { error: "url_required" });
+  }
+
+  // Before any fetch, so a capped account costs nothing. A failed check refuses too: it isn't a free pass.
+  try {
+    if (!(await deps.claimSlot(req.headers.get("Authorization")!))) return json(429, { error: "rate_limited" });
+  } catch (error) {
+    deps.log("import cap check failed", error instanceof Error ? error.constructor.name : typeof error);
+    return json(502, { error: "page_unavailable" });
   }
 
   try {
