@@ -24,6 +24,15 @@ enum OfflineChange: Codable, Equatable, Sendable {
     /// since stays, and the server decides whether it's a staple (#201).
     case restoreStock(itemID: UUID, to: StockState)
 
+    /// The line a server answer can re-point: a new line merged into an existing one, or a check-off that followed a move.
+    var repointableLine: UUID? {
+        switch self {
+        case .addToList(_, _, _, _, _, _, let lineID, _, _, _): lineID
+        case .setChecked(let listItemID, true): listItemID
+        default: nil
+        }
+    }
+
     /// The same change aimed at the line a server merge kept instead of the device's line.
     func repointed(_ aliases: [UUID: UUID]) -> OfflineChange {
         switch self {
@@ -51,7 +60,8 @@ enum OfflineReplay {
 
     enum SendResult: Equatable {
         case sent
-        /// Sent, and the server merged the new line into an existing open one with this id.
+        /// Sent, and the line now lives under this id: the server merged the new line into an existing open one, or a
+        /// check-off followed a line "Couldn't find it" had moved to the quick list (#201).
         case merged(into: UUID)
         /// The network isn't there: stop, and keep this change and everything after it.
         case offline
@@ -79,19 +89,24 @@ enum OfflineReplay {
         var rewritten: [Int: OfflineChange] = [:]
     }
 
-    static func replay(_ queue: [Entry], send: @Sendable (OfflineChange) async -> SendResult) async -> Report {
+    /// `aliases` are lines earlier replays re-pointed: a change queued since, say an undo tapped while a check-off that
+    /// followed a move was on its way, goes to where the line is now.
+    static func replay(_ queue: [Entry], aliases known: [UUID: UUID] = [:],
+                       send: @Sendable (OfflineChange) async -> SendResult) async -> Report {
         var report = Report()
+        var aliases = known
         let ordered = queue.sorted { $0.sequence < $1.sequence }
         for (index, entry) in ordered.enumerated() {
-            let change = entry.change.repointed(report.aliases)
+            let change = entry.change.repointed(aliases)
             let result = await send(change)
             switch result {
             case .sent:
                 report.sent.append(entry.sequence)
             case .merged(let existing):
                 report.sent.append(entry.sequence)
-                if case .addToList(_, _, _, _, _, _, let lineID, _, _, _) = change, lineID != existing {
+                if let lineID = change.repointableLine, lineID != existing {
                     report.aliases[lineID] = existing
+                    aliases[lineID] = existing
                 }
             case .rejected:
                 report.rejected.append(entry.sequence)
@@ -102,8 +117,8 @@ enum OfflineReplay {
                 let waiting = ordered[index...]
                 report.remaining = waiting.map(\.sequence)
                 report.failedAttempt = result == .retryLater ? entry.sequence : nil
-                for queued in waiting where queued.change.repointed(report.aliases) != queued.change {
-                    report.rewritten[queued.sequence] = queued.change.repointed(report.aliases)
+                for queued in waiting where queued.change.repointed(aliases) != queued.change {
+                    report.rewritten[queued.sequence] = queued.change.repointed(aliases)
                 }
                 return report
             }

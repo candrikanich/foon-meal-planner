@@ -451,6 +451,63 @@ struct SyncServiceTests {
         #expect(lines.contains { $0.id == existing && $0.itemID == eggsItem })
     }
 
+    /// Bob's check-off reached the server after "Couldn't find it" moved the line to the quick list (#201).
+    @Test func aCheckOffThatFollowedAMoveSticksToTheMovedLine() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let moved = UUID()
+        let followed = Mutex(false)
+        let base = snapshot, householdID = household, milkItem = milkItem, milkLine = milkLine
+        let service = makeService(container: container, client: .fake(
+            snapshot: {
+                guard followed.withLock({ $0 }) else { return base }
+                let line = ListItemRow(id: moved, householdID: householdID, itemID: milkItem, list: .quick,
+                                       urgency: .whenever, source: .manual, note: "Couldn't find it", checkedAt: .now)
+                return SyncSnapshot(plan: base.plan, nights: [], listItems: [line], items: base.items)
+            },
+            mergedInto: { change in
+                guard change == .setChecked(listItemID: milkLine, checked: true) else { return nil }
+                followed.withLock { $0 = true }
+                return moved
+            }
+        ))
+        await service.pull()
+        await service.perform(.setChecked(listItemID: milkLine, checked: true))
+        let lines = try container.mainContext.fetch(FetchDescriptor<CachedListItem>())
+        #expect(lines.count == 1)
+        #expect(lines.first?.id == moved && lines.first?.checkedAt != nil, "the cart shows the line it went to")
+        #expect(lines.first?.note == "Couldn't find it", "pulled again, so it shows the line as the server has it")
+    }
+
+    /// Bob puts milk back while his followed check-off is still on its way, or after: the undo goes where the check-off went.
+    @Test func anUndoTappedDuringAFollowedCheckOffReachesTheMovedLine() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let moved = UUID()
+        let sent = Mutex<[OfflineChange]>([])
+        let (gate, release) = AsyncStream<Void>.makeStream()
+        let service = makeService(container: container, client: .fake(
+            snapshot: { snapshot },
+            send: { change in
+                if change == .setChecked(listItemID: milkLine, checked: true) {
+                    for await _ in gate { break }  // hold the check-off until the undo is queued
+                }
+                sent.withLock { $0.append(change) }
+            },
+            mergedInto: { change in change == .setChecked(listItemID: milkLine, checked: true) ? moved : nil }
+        ))
+        await service.pull()
+        let checkOff = Task { await service.perform(.setChecked(listItemID: milkLine, checked: true)) }
+        await Task.yield()
+        let undo = Task { await service.perform(.setChecked(listItemID: milkLine, checked: false)) }
+        await Task.yield()
+        release.yield()
+        await checkOff.value
+        await undo.value
+        #expect(sent.withLock { $0 } == [.setChecked(listItemID: milkLine, checked: true),
+                                         .setChecked(listItemID: moved, checked: false)])
+        await service.perform(.setChecked(listItemID: milkLine, checked: true))
+        #expect(sent.withLock { $0.last } == .setChecked(listItemID: moved, checked: true), "and after it, too")
+    }
+
     @Test func changesMadeDuringAReplayAreSentOnceInOrder() async throws {
         let container = try SyncService.inMemoryContainer()
         let sent = Mutex<[OfflineChange]>([])
