@@ -55,7 +55,8 @@ One project for the alpha is enough. Prod gets its own project before external t
 ### 4. Xcode Cloud: automatic builds (15 min, needs your Apple ID in Xcode)
 1. Open `Foon.xcodeproj` and go to Product → Xcode Cloud → Create Workflow. Grant access to the GitHub repo `candrikanich/foon-meal-planner`.
 2. Workflow settings:
-   - Start condition: **branch changes on `main`**.
+   - Start condition: **tags matching `testflight/*`** (changed from branch changes on `main` on 2026-10-30; see
+     Shipping a TestFlight build below).
    - Action: **Archive**, iOS, scheme `Foon`, configuration **Staging**.
    - Post-action: **TestFlight Internal Testing**, group "Family".
    - Xcode version: **latest beta**, which matches what we build with.
