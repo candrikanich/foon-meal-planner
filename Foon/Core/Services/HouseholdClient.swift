@@ -65,6 +65,9 @@ struct HouseholdClient: Sendable {
     /// The Family tab's "This month" counts for these days, both included, as the caller's row-level security allows.
     var familyStats: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ to: CalendarDay) async throws -> FamilyStats
         = { _, _, _ in FamilyStats() }
+    /// This Week's recap of a finished week (`week_recap`): who cooked, the hit, and a forgotten favorite.
+    var weekRecap: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ to: CalendarDay) async throws
+        -> WeekRecapFacts = { _, _, _ in WeekRecapFacts() }
     /// Someone's own notification preset (`set_member_preset`); nil follows the household's.
     var setMemberPreset: @Sendable (_ memberID: UUID, _ preset: HouseholdSettings.NotificationPreset?) async throws -> Void
         = { _, _ in }
@@ -291,6 +294,11 @@ extension HouseholdClient {
                     targetHousehold: householdID, fromDate: from, toDate: to
                 )).execute().value
             },
+            weekRecap: { householdID, from, to in
+                try await client.rpc("week_recap", params: FamilyStatsParams(
+                    targetHousehold: householdID, fromDate: from, toDate: to
+                )).execute().value
+            },
             setMemberPreset: { memberID, preset in
                 try await client.rpc("set_member_preset", params: MemberPresetParams(targetMember: memberID, preset: preset))
                     .execute()
@@ -426,7 +434,7 @@ private struct AwayDatesParams: Encodable, Sendable {
     }
 }
 
-/// Every argument is sent: PostgREST picks the function by its argument names.
+/// Every argument is sent: PostgREST picks the function by its argument names. `week_recap` takes the same ones.
 private struct FamilyStatsParams: Encodable, Sendable {
     let targetHousehold: UUID
     let fromDate: CalendarDay
