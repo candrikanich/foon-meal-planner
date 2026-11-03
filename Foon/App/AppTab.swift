@@ -32,7 +32,7 @@ extension ReminderRoute {
         switch self {
         case .lists: .lists
         case .ideas: .ideas
-        case .week, .night, .swap, .dinnerCard, .rate, .checkIn: .week
+        case .week, .night, .swap, .dinnerCard, .rate, .checkIn, .roundup: .week
         }
     }
 }

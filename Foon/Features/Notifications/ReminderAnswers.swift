@@ -166,6 +166,23 @@ struct ReminderDevice: @unchecked Sendable {
     }
 
     private static let pushTokenKey = "foon.push.token"
+    private static let ratingCadenceKey = "foon.reminder.ratingCadence"
+
+    /// How often this person is asked to rate dinner on this phone (RatingCadence). Each night until it changes.
+    func ratingCadence(_ member: UUID) -> RatingCadence {
+        storedCadences[member.uuidString] ?? RatingCadence()
+    }
+
+    func setRatingCadence(_ cadence: RatingCadence, for member: UUID) {
+        var all = storedCadences
+        all[member.uuidString] = cadence
+        defaults.set(try? JSONEncoder().encode(all), forKey: Self.ratingCadenceKey)
+    }
+
+    private var storedCadences: [String: RatingCadence] {
+        defaults.data(forKey: Self.ratingCadenceKey).flatMap { try? JSONDecoder().decode([String: RatingCadence].self, from: $0) }
+            ?? [:]
+    }
 
     /// Signing out leaves nothing of this person's.
     func clear() {
@@ -176,6 +193,7 @@ struct ReminderDevice: @unchecked Sendable {
         }
         defaults.removeObject(forKey: Self.declinedKey)
         defaults.removeObject(forKey: Self.optedInKey)
+        defaults.removeObject(forKey: Self.ratingCadenceKey)
     }
 }
 

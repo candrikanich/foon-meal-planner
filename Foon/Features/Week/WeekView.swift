@@ -22,6 +22,8 @@ struct WeekView: View {
     @State private var showingTraditions = false
     @State private var browsingIdeas = false
     @State private var showingPast = false
+    /// The week a tapped "Rate this week's dinners" is about.
+    @State private var roundupWeek: CalendarDay?
 
     private var canPlan: Bool {
         LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID)
@@ -35,6 +37,7 @@ struct WeekView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     if reminders?.shouldAsk == true { ReminderAskCard() }
+                    if reminders?.shouldOfferRatingsBack == true { RatingsBackCard() }
                     if !week.showingNextWeek {
                         RequestNewsSection()
                         ClaimNewsSection()
@@ -79,6 +82,9 @@ struct WeekView: View {
             }
             .sheet(item: Binding(get: { swappingNight.map(NightID.init) }, set: { swappingNight = $0?.id })) { night in
                 SwapSheet(nightID: night.id)
+            }
+            .sheet(item: Binding(get: { roundupWeek.map(RoundupWeek.init) }, set: { roundupWeek = $0?.week })) { roundup in
+                RatingRoundupSheet(week: roundup.week)
             }
             .sheet(isPresented: $showingTraditions) {
                 TraditionsView()
@@ -139,9 +145,17 @@ struct WeekView: View {
             if canPlan { swappingNight = night } else { openNight = night }
         case .dinnerCard, .rate, .checkIn:
             week.showingNextWeek = false
+        case .roundup(let start):
+            week.showingNextWeek = false
+            roundupWeek = start
         case .lists, .ideas:
             break
         }
+    }
+
+    private struct RoundupWeek: Identifiable {
+        let week: CalendarDay
+        var id: String { week.isoString }
     }
 
     private struct NightID: Identifiable {

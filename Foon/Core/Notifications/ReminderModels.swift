@@ -7,13 +7,17 @@ enum ReminderKind: String, Codable, CaseIterable, Sendable {
     case prep = "prep_reminder"
     case afterDinner = "after_dinner"
     case checkIn = "day_of_check_in"
+    /// Rating, once a week, for someone who stopped answering each night (RatingCadence).
+    case ratingRoundup = "rating_roundup"
 
     /// Who loses out when a week's budget runs short: forgetting to thaw means no dinner, and a check-in or a rating prompt
     /// can wait for its card on This Week. Those two share a place, so each night gets both while the budget lasts rather than
-    /// one kind using it all up. Nothing about allergies or safety is ever a reminder, so a budget can't drop one.
+    /// one kind using it all up. The weekly roundup goes with Time to plan: it's one a week standing in for seven prompts, and
+    /// at the week's end it would otherwise lose to every check-in before it. Nothing about allergies or safety is ever a
+    /// reminder, so a budget can't drop one.
     var budgetOrder: Int {
         switch self {
-        case .timeToPlan: 0
+        case .timeToPlan, .ratingRoundup: 0
         case .prep: 1
         case .afterDinner, .checkIn: 2
         }
@@ -176,6 +180,8 @@ enum ReminderRoute: Equatable, Sendable {
     case lists
     /// The Ideas tab: the server's digest of new dinner ideas.
     case ideas
+    /// This Week's roundup of the week's dinners still to rate, for the week that starts that day.
+    case roundup(CalendarDay)
 }
 
 /// One notification to schedule. Its text is fixed words (`ReminderText`).
@@ -214,6 +220,10 @@ enum ReminderID {
 
     static func checkIn(me: UUID, night: UUID) -> String {
         "\(prefix)\(me.uuidString).checkin.\(night.uuidString)"
+    }
+
+    static func roundup(me: UUID, week: CalendarDay) -> String {
+        "\(prefix)\(me.uuidString).roundup.\(week.isoString)"
     }
 
     /// Whether this is an after-dinner prompt for that night, whichever dish it's about.
