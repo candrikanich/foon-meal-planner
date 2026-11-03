@@ -90,8 +90,8 @@ struct HouseholdGate: View {
                 CreateHouseholdView()
                     .task {
                         // No household for this account (the owner deleted it, or this person was removed): nothing
-                        // of the old one may stay on the device. This runs once the old screens are gone, after
-                        // SyncGate stopped their service, so no late pull can refill the cache.
+                        // of the old one may stay on the device. Their sync service stops first, so no late
+                        // pull can refill the cache.
                         SyncServices.shared.stopCurrent()
                         try? SyncService.clearCache(in: context)
                         ReminderStore.clearDevice()

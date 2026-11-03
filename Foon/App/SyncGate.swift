@@ -17,6 +17,8 @@ struct SyncGate<Content: View>: View {
             .environment(service)
             .task(id: householdID) {
                 // Shared with Siri's intents, which may have started it before the app opened.
+                // Not stopped when this goes off screen (a full-screen cover can do that while store mode still uses it):
+                // RootView stops it before each cache wipe, and a household switch stops the old one here.
                 let service = SyncServices.shared.service(for: householdID, context: context, client: client)
                 self.service = service
                 await service.start()
@@ -24,10 +26,6 @@ struct SyncGate<Content: View>: View {
             .onChange(of: scenePhase) { _, phase in
                 // Back in the foreground: send anything queued and refresh.
                 if phase == .active, let service { Task { await service.sync() } }
-            }
-            .onDisappear {
-                // Signed out (or switched household): nothing still in flight may write to the cache.
-                if let service { SyncServices.shared.stop(service) }
             }
     }
 }

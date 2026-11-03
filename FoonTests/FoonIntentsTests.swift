@@ -153,7 +153,7 @@ import Testing
         let services = SyncServices()
         let household = UUID()
         let first = services.service(for: household, context: container.mainContext, client: client)
-        services.stop(first)
+        services.stopCurrent()
         #expect(first.isStopped)
         let second = services.service(for: household, context: container.mainContext, client: client)
         #expect(first !== second)
@@ -170,15 +170,5 @@ import Testing
         await service.addToList(itemID: UUID(), list: .quick)
         #expect(try container.mainContext.fetch(FetchDescriptor<PendingChange>()).isEmpty)
         #expect(services.service(for: household, context: container.mainContext, client: client) !== service)
-    }
-
-    @Test func stoppingAnOldServiceLeavesTheCurrentOne() throws {
-        let container = try SyncService.inMemoryContainer()
-        let services = SyncServices()
-        let household = UUID()
-        let old = services.service(for: UUID(), context: container.mainContext, client: client)
-        let current = services.service(for: household, context: container.mainContext, client: client)
-        services.stop(old)
-        #expect(services.service(for: household, context: container.mainContext, client: client) === current)
     }
 }

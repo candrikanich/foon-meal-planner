@@ -20,7 +20,10 @@ struct RequestMealIntent: AppIntent {
             let households = HouseholdClient.live(client)
             guard let household = try await households.myHousehold(),
                   let me = try await households.members(household.id).first(where: { $0.userID == userID })
-            else { return .result(dialog: "Open Foon first to join your family.") }
+            else {
+                return .result(dialog: IntentDialog(LocalizedStringResource("Open Foon first to join your family.",
+                                                                            comment: "Siri: no household for this account")))
+            }
             guard let request = NewRequest.build(kind: .name, from: me.id, mealID: nil, title: dinner, link: "",
                                                  note: "", date: nil) else {
                 return .result(dialog: "That's a long name. Try a shorter one.")

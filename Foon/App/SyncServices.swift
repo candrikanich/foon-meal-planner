@@ -18,13 +18,7 @@ final class SyncServices {
         return service
     }
 
-    /// Signed out or switched household: it never writes again, and the next ask gets a fresh one.
-    func stop(_ service: SyncService) {
-        service.stop()
-        if current === service { current = nil }
-    }
-
-    /// Before the cache is wiped: one Siri started, which no screen owns, stops too.
+    /// Before the cache is wiped (sign-out, or no household): it never writes again, and the next ask gets a fresh one.
     func stopCurrent() {
         current?.stop()
         current = nil
