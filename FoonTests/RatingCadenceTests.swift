@@ -132,10 +132,12 @@ struct RatingCadenceTests {
     }
 
     @Test func aKidsRoundupStillBeatsHerWeeksCheckInsButNotPrep() throws {
-        // Prep on every night, for a kid who's the only one home: prep fills the budget before the roundup.
+        // Prep on every night for a teen who's a planner (prep goes to planners), home alone: prep fills her five first.
+        var teen = F.kim
+        teen.role = .planner
         let steps = [PlannerFixture.thaw]
-        let kidOnly = (8...14).map { F.night($0, steps: steps, home: [F.kim]) }
-        var inputs = F.inputs(me: F.kim, members: [F.kim], weeks: [F.week(kidOnly)], now: F.at(8, 12))
+        let teenOnly = (8...14).map { F.night($0, steps: steps, home: [teen]) }
+        var inputs = F.inputs(me: teen, members: [teen], weeks: [F.week(teenOnly)], now: F.at(8, 12))
         inputs.cadence = RatingCadence(weeklySince: F.at(7, 12))
         let plan = NotificationPlanner.plan(inputs)
         #expect(F.of(.ratingRoundup, plan).isEmpty, "five prep reminders come first")
