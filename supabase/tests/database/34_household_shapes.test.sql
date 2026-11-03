@@ -116,18 +116,19 @@ select pg_temp.as_admin();
 select is(pg_temp.defaults('00000000-0000-0000-0000-0000000000a5'), '{}'::jsonb, 'not someone else''s');
 select is(pg_temp.defaults('00000000-0000-0000-0000-0000000000a7'), '{}'::jsonb, 'nor can another household');
 
--- The pattern reaches new weeks. 2026-11-01 is a Sunday, the week's first night; Bob's first away night is the Monday.
+-- The pattern reaches new weeks, a year out so they never meet the past week above (it moves with today). 2027-10-31 is a
+-- Sunday, the week's first night; 2027-11-01 is 52 weeks after the pattern's start, so Bob is out that Monday to Sunday.
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
-select public.create_week('00000000-0000-0000-0000-0000000000a0', '2026-11-01');
-select public.create_week('00000000-0000-0000-0000-0000000000a0', '2026-11-08');
+select public.create_week('00000000-0000-0000-0000-0000000000a0', '2027-10-31');
+select public.create_week('00000000-0000-0000-0000-0000000000a0', '2027-11-07');
 select is((select array_agg(extract(day from n.date)::int order by n.date) from public.night_attendance a
            join public.plan_nights n on n.id = a.plan_night_id
            where a.member_id = '00000000-0000-0000-0000-0000000000a2' and not a.expected
-             and n.date between '2026-11-01' and '2026-11-14'),
-          array[2, 3, 4, 5, 6, 7, 8], 'each new week starts with their nights out, and only those');
+             and n.date between '2027-10-31' and '2027-11-13'),
+          array[1, 2, 3, 4, 5, 6, 7], 'each new week starts with their nights out, and only those');
 select is((select count(*)::int from public.night_attendance a join public.plan_nights n on n.id = a.plan_night_id
            where a.member_id = '00000000-0000-0000-0000-0000000000a1' and not a.expected
-             and n.date between '2026-11-01' and '2026-11-14'),
+             and n.date between '2027-10-31' and '2027-11-13'),
           0, 'nobody else''s nights change');
 
 -- An older app sends the whole schedule, and knows nothing of the pattern. So does a stale phone changing its days.
@@ -295,15 +296,15 @@ select is(public.export_household('00000000-0000-0000-0000-0000000000a0') -> 'ho
 -- Two seatings: the model only ------------------------------------------------------------------
 select pg_temp.as_admin();
 select is((select seating from public.night_attendance a join public.plan_nights n on n.id = a.plan_night_id
-           where n.date = '2026-11-02' and a.member_id = '00000000-0000-0000-0000-0000000000a1'), 1::smallint,
+           where n.date = '2027-11-01' and a.member_id = '00000000-0000-0000-0000-0000000000a1'), 1::smallint,
   'create_week puts everyone in the first seating');
-select is((select count(*)::int from public.plan_nights where date = '2026-11-02' and second_seating_time is not null), 0,
+select is((select count(*)::int from public.plan_nights where date = '2027-11-01' and second_seating_time is not null), 0,
   'and no night has a second one');
 select throws_ok($$ update public.night_attendance set seating = 3 $$, '23514', null, 'there are only two');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select throws_ok($$ update public.night_attendance set seating = 2 where member_id = '00000000-0000-0000-0000-0000000000a1' $$,
   '42501', null, 'nothing writes a seating yet, not even a planner');
-select throws_ok($$ update public.plan_nights set second_seating_time = '19:30' where date = '2026-11-02' $$,
+select throws_ok($$ update public.plan_nights set second_seating_time = '19:30' where date = '2027-11-01' $$,
   '42501', null, 'or a second time');
 select ok(public.export_household('00000000-0000-0000-0000-0000000000a0') -> 'attendance' -> 0 ? 'seating',
   'the export has the seating');
