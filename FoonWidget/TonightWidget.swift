@@ -107,8 +107,8 @@ private struct NightColumn: View {
                 .lineLimit(3)
                 .minimumScaleFactor(0.8)
             Spacer(minLength: 0)
-            if let time = night.flatMap(\.dinnerTime).flatMap(DinnerTimeText.init) {
-                Label(time.text, systemImage: "clock")
+            if let time = night?.dinnerTimeText {
+                Label(time, systemImage: "clock")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -135,18 +135,6 @@ private struct NightTitle: View {
         } else {
             Text("Open Foon to see the plan")
         }
-    }
-}
-
-/// "18:30" from the plan, in the phone's own time style ("6:30 PM").
-private struct DinnerTimeText {
-    let text: String
-
-    init?(_ time: String) {
-        let parts = time.split(separator: ":").compactMap { Int($0) }
-        guard parts.count >= 2, let date = Calendar.current.date(from: DateComponents(hour: parts[0], minute: parts[1]))
-        else { return nil }
-        text = date.formatted(date: .omitted, time: .shortened)
     }
 }
 

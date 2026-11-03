@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@" : {
+
+    },
     "%@ %lld times next week" : {
       "comment" : "Variety note on the week: Pasta 3 times next week",
       "localizations" : {
@@ -712,7 +715,13 @@
     "Add the dinners your family already makes." : {
 
     },
+    "Add to List" : {
+
+    },
     "Add to our meals" : {
+
+    },
+    "Add to the List" : {
 
     },
     "Add to the freezer" : {
@@ -735,6 +744,12 @@
     },
     "Added %@ to the quick list." : {
       "comment" : "After a swap: what's missing for that night's dish"
+    },
+    "Added %@." : {
+      "comment" : "Siri, after adding to the quick list"
+    },
+    "Added %@. It'll reach the family when you're back online." : {
+      "comment" : "Siri, after adding to the quick list offline"
     },
     "Added an allergy note to %@." : {
       "comment" : "After a swap: an item already listed gained an allergy note"
@@ -857,6 +872,12 @@
 
     },
     "Ask who's home at" : {
+
+    },
+    "Asked for %@. It's on the Ideas tab." : {
+
+    },
+    "Asks your family's planner for a dinner." : {
 
     },
     "At" : {
@@ -1169,6 +1190,9 @@
 
     },
     "Couldn't plan it right now. Try again in a moment." : {
+
+    },
+    "Couldn't reach Foon. Try again." : {
 
     },
     "Couldn't read that page. Check your connection and try again." : {
@@ -1964,6 +1988,9 @@
     "It's undone, but the week didn't refresh. Pull down to see it." : {
 
     },
+    "Items" : {
+
+    },
     "Join family" : {
 
     },
@@ -2396,6 +2423,9 @@
     "Nothing to add from that text." : {
 
     },
+    "Nothing to add." : {
+
+    },
     "Nothing to buy" : {
 
     },
@@ -2407,6 +2437,9 @@
     },
     "Nothing yet. Favorites show up here after dinners get rated." : {
 
+    },
+    "Nothing's planned for tonight yet." : {
+      "comment" : "Siri: tonight has no dinner"
     },
     "Notifications" : {
 
@@ -2472,6 +2505,18 @@
 
     },
     "Open" : {
+
+    },
+    "Open Foon and sign in first." : {
+      "comment" : "Siri, with no one signed in"
+    },
+    "Open Foon first to join your family." : {
+      "comment" : "Siri: no household for this account"
+    },
+    "Open Foon first, so this phone has your family's lists." : {
+      "comment" : "Siri, signed in but nothing synced yet"
+    },
+    "Open Foon to see the plan." : {
 
     },
     "Open night" : {
@@ -2656,6 +2701,9 @@
     "Puts back what this night held before its last change" : {
 
     },
+    "Puts things on your family's quick list." : {
+
+    },
     "Quick" : {
 
     },
@@ -2747,6 +2795,9 @@
 
     },
     "Replaces what's planned" : {
+
+    },
+    "Request a Dinner" : {
 
     },
     "Requested" : {
@@ -3169,6 +3220,9 @@
     "Tells the family you're shopping, so they can add anything in the next 10 minutes." : {
 
     },
+    "Tells you tonight's dinner from your family's plan." : {
+
+    },
     "Tex-Mex" : {
       "comment" : "Dish category in a variety note"
     },
@@ -3261,6 +3315,9 @@
 
     },
     "That's a different Apple ID from the one you use with Foon. Confirm with the Apple ID you signed in with. Nothing was deleted." : {
+
+    },
+    "That's a long name. Try a shorter one." : {
 
     },
     "That's changed since this phone last looked. Here's the latest." : {
@@ -3476,11 +3533,28 @@
     "Tonight" : {
 
     },
+    "Tonight's Dinner" : {
+
+    },
     "Tonight's dinner is already logged." : {
 
     },
     "Tonight's dinner stays, in case you've eaten it. Swap it off if you won't be home." : {
 
+    },
+    "Tonight: %@, at %@." : {
+      "comment" : "Siri: tonight's dinner and its time",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Tonight: %1$@, at %2$@."
+          }
+        }
+      }
+    },
+    "Tonight: %@." : {
+      "comment" : "Siri: tonight's dinner"
     },
     "Too many tries. Wait 15 minutes and try again." : {
 
@@ -3676,6 +3750,9 @@
     "What leaves this device" : {
 
     },
+    "What should go on the list?" : {
+
+    },
     "What stays on this device" : {
 
     },
@@ -3683,6 +3760,9 @@
 
     },
     "What to do" : {
+
+    },
+    "What would you like for dinner?" : {
 
     },
     "What you add goes to Foon's servers, so your family sees it too. Meal photos lose their location and camera details first." : {
@@ -3701,6 +3781,9 @@
 
     },
     "What's added now is marked in store mode." : {
+
+    },
+    "What's for Dinner" : {
 
     },
     "What's for dinner tonight?" : {
@@ -3837,6 +3920,9 @@
     },
     "You're away those nights" : {
 
+    },
+    "You're away tonight." : {
+      "comment" : "Siri: the household's away dates cover tonight"
     },
     "You're cooking" : {
 

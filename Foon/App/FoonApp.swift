@@ -14,9 +14,9 @@ struct FoonApp: App {
         ? SessionStore(auth: .live(SupabaseService.shared.client)) : nil
 
     // Nonisolated: the background refresh reads it off the main actor.
-    nonisolated private static let configured = (try? SupabaseConfig.fromMainBundle()) != nil
-    // The offline cache. If the store can't open, the app still runs with an in-memory cache.
-    private static let cache = (try? SyncService.persistentContainer()) ?? (try! SyncService.inMemoryContainer())
+    nonisolated static let configured = (try? SupabaseConfig.fromMainBundle()) != nil
+    // The offline cache, which Siri's intents use too. If the store can't open, the app still runs with an in-memory one.
+    static let cache = (try? SyncService.persistentContainer()) ?? (try! SyncService.inMemoryContainer())
 
     init() {
         // Cook-mode timer alerts show (with sound) even while Foon is in front.

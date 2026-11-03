@@ -24,7 +24,7 @@ final class SyncService {
     private let today: @Sendable () -> CalendarDay
 
     /// Set on sign-out: no write may land in the cache after it is wiped.
-    private var isStopped = false
+    private(set) var isStopped = false
     private var isRunning = false
     /// Work requested while the runner was busy (true: pull too); the runner picks it up before it stops.
     private var requestedPull: Bool?
@@ -107,6 +107,8 @@ final class SyncService {
     /// One tap's changes, applied and queued together before anything waits on the network, so a second tap can't land
     /// between them (a check-off's restock after its own undo).
     func perform(_ changes: [OfflineChange]) async {
+        // Stopped: the cache was (or is about to be) wiped, and a change landing now would outlive it.
+        guard !isStopped else { return }
         var sequence = pendingChanges().map(\.sequence).max() ?? 0
         for change in changes {
             sequence += 1

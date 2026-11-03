@@ -27,6 +27,15 @@ struct TonightSnapshot: Codable, Equatable, Sendable {
             self.dinnerTime = dinnerTime
             self.isAway = isAway
         }
+
+        /// "18:30" from the plan, in the phone's own time style ("6:30 PM").
+        var dinnerTimeText: String? {
+            let parts = dinnerTime?.split(separator: ":").compactMap { Int($0) } ?? []
+            guard parts.count >= 2,
+                  let time = Calendar.current.date(from: DateComponents(hour: parts[0], minute: parts[1]))
+            else { return nil }
+            return time.formatted(date: .omitted, time: .shortened)
+        }
     }
 
     let householdID: UUID
@@ -83,13 +92,17 @@ struct TonightSnapshot: Codable, Equatable, Sendable {
 struct TonightFile: Sendable {
     let url: URL
 
-    /// Nil where there's no App Group: on the Mac (no widget yet) and in unsigned builds.
+    /// In the App Group on iPhone and iPad (nil in unsigned builds). The Mac has no widget yet, so its file is the app's
+    /// own, for Siri's "What's for dinner?".
     static var shared: TonightFile? {
         #if os(iOS)
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AppGroup.id)
             .map { TonightFile(url: $0.appending(path: "Tonight.json")) }
         #else
-        nil
+        let directory = URL.applicationSupportDirectory.appending(path: Bundle.main.bundleIdentifier ?? "Foon")
+        guard (try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)) != nil
+        else { return nil }
+        return TonightFile(url: directory.appending(path: "Tonight.json"))
         #endif
     }
 
