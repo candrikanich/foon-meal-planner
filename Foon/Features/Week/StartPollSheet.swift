@@ -11,6 +11,8 @@ struct StartPollSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var items: [CachedItem]
     let nightID: UUID
+    /// What to start with ticked instead of the usual: the rescue's ideas, when it asks the family.
+    var preselected: [PollChoice]? = nil
     var started: () -> Void = {}
 
     @State private var chosen: Set<PollChoice> = []
@@ -39,10 +41,17 @@ struct StartPollSheet: View {
             .filter { !inFreezer.contains($0.id) }
     }
 
-    /// Ideas that aren't already offered above: the server takes a dish once.
+    /// Ideas that aren't already offered above: the server takes a dish once. Dishes it was handed come first, so
+    /// each ticked one has its row.
     private var ideas: [LibraryMeal] {
         let offered = Set(backups.map(\.id)).union(freezerOffers.map(\.meal.id))
-        return suggestions.compactMap { library.meal($0.mealID) }.filter { !offered.contains($0.id) }
+        let handed = (preselected ?? []).compactMap { choice -> UUID? in
+            if case .meal(let id) = choice { id } else { nil }
+        }
+        var seen = offered
+        return (handed + suggestions.map(\.mealID))
+            .filter { seen.insert($0).inserted }
+            .compactMap { library.meal($0) }
     }
 
     var body: some View {
@@ -103,7 +112,8 @@ struct StartPollSheet: View {
                 await freezer?.load()
                 suggest()
                 if !hasStartingChoices {
-                    chosen = PollRules.startingChoices(freezer: freezerOffers, backups: backups)
+                    chosen = preselected.map { Set($0.prefix(PollRules.optionLimit)) }
+                        ?? PollRules.startingChoices(freezer: freezerOffers, backups: backups)
                     hasStartingChoices = true
                 }
             }

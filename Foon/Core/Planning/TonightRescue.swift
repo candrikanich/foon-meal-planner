@@ -229,6 +229,11 @@ private struct Pools {
         StartCooking.minutes(for: meal).map { $0.minutes <= minutes }
     }
 
+    /// No marinade or thaw to start: it's too late for one tonight.
+    private func hasNothingAhead(_ meal: LibraryMeal) -> Bool {
+        BuildMyWeek.leadHours(meal, settings: settings) == 0
+    }
+
     /// Dinners in the last few days that left leftovers, oldest first, unless a later Leftovers dinner ate them. A dish
     /// the library no longer has still shows, its allergies unchecked; it can't break a food rule anyone can see.
     func leftovers(_ logs: [DinnerLog]) -> [Idea] {
@@ -270,14 +275,15 @@ private struct Pools {
         })
     }
 
-    /// The poll's backup dinners within the time, timed ones first; one with no time set is kept, since it's a backup
-    /// for a reason. Then never made, then least recently made; ties are a seeded shuffle.
+    /// The poll's backup dinners within the time and with nothing to start ahead, timed ones first; one with no time
+    /// set is kept, since it's a backup for a reason. Then never made, then least recently made; ties are a seeded
+    /// shuffle.
     func backups(excluding inFreezer: Set<UUID>, rng: inout SeededGenerator) -> [Idea] {
         let lastMade = Dictionary(planning.history.map { ($0.mealID, $0.lastMade) }, uniquingKeysWith: { max($0, $1) })
         let meals = PollRules.backupDinners(library: library, night: night, week: week, stock: stock,
                                             notForMe: planning.notForMe, snoozed: planning.snoozedMealIDs,
                                             foodRules: settings.foodRules)
-            .filter { !inFreezer.contains($0.id) && fits($0) != false }
+            .filter { !inFreezer.contains($0.id) && fits($0) != false && hasNothingAhead($0) }
             .sorted { $0.id.uuidString < $1.id.uuidString }
             .shuffled(using: &rng)
         let ranked = meals.enumerated().sorted { lhs, rhs in
@@ -306,7 +312,7 @@ private struct Pools {
         let eligible = library.filter { meal in
             meal.status == .active && !meal.tags.contains(.backup) && !inFreezer.contains(meal.id)
                 && fits(meal) == true
-                && BuildMyWeek.leadHours(meal, settings: settings) == 0
+                && hasNothingAhead(meal)
                 && PollRules.isInStock(meal, stock: stock)
                 && DishTraits(name: meal.name, tags: meal.tags).equipment.isDisjoint(with: settings.missingEquipment)
                 && !breaksFoodRule(meal)

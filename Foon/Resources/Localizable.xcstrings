@@ -429,7 +429,7 @@
 
     },
     "%lld min" : {
-      "comment" : "Tonight rescue: the dish's own time to dinner"
+      "comment" : "Tonight rescue: how long there is to get dinner on the table\nTonight rescue: the dish's own time to dinner"
     },
     "%lld minutes" : {
       "comment" : "How long a tonight poll runs"
@@ -635,6 +635,9 @@
 
     },
     "A planner can make it tonight's dinner." : {
+
+    },
+    "A planner can make one tonight's dinner." : {
 
     },
     "A planner has you out tonight, so ask them to change it." : {
@@ -872,6 +875,9 @@
 
     },
     "Ask for a dish, a name, or a link (names up to 80 characters, notes up to 200)." : {
+
+    },
+    "Ask the family" : {
 
     },
     "Ask who's home at" : {
@@ -1546,6 +1552,9 @@
     "Fill remaining nights" : {
 
     },
+    "Find something quick" : {
+
+    },
     "Finish trip" : {
 
     },
@@ -1666,6 +1675,9 @@
     },
     "Foon won't plan dinners for those nights, add them to the list, or send reminders about them. Everyone shows as out, and you'll see Away on This Week." : {
 
+    },
+    "For %@" : {
+      "comment" : "Tonight rescue: who's home tonight, e.g. For Ana, Ben and Nora"
     },
     "For a night" : {
 
@@ -2179,6 +2191,9 @@
     "Make it tonight's dinner" : {
 
     },
+    "Makes it tonight's dinner" : {
+
+    },
     "Makes leftovers" : {
 
     },
@@ -2677,6 +2692,9 @@
     "Planning mix" : {
 
     },
+    "Plans fell through? See what you can make in the time there is." : {
+
+    },
     "Plans fell through? Start a quick vote on what's for dinner." : {
 
     },
@@ -2977,7 +2995,13 @@
     "Shown with %@ on meals, lists, and in the store." : {
 
     },
+    "Shows a few quick ideas from what's in the house" : {
+
+    },
     "Shows the item's note, aisle, and keep on hand" : {
+
+    },
+    "Shows what you can make tonight in the time there is" : {
 
     },
     "Shuffle this night" : {
@@ -3123,6 +3147,9 @@
 
     },
     "Start your real family?" : {
+
+    },
+    "Starts a quick vote with these ideas and Takeout." : {
 
     },
     "Starts a timer; an alert goes off when it's done, even with the phone locked" : {
@@ -3517,6 +3544,9 @@
     "Those dates didn't work. The last night has to be on or after the first, up to a year later, and not already over." : {
 
     },
+    "Time" : {
+
+    },
     "Time to check on %@." : {
       "comment" : "Cook mode timer alert body: the dish's name"
     },
@@ -3762,6 +3792,12 @@
 
     },
     "What Foon keeps" : {
+
+    },
+    "What can we make tonight?" : {
+
+    },
+    "What can we make?" : {
 
     },
     "What did you have?" : {

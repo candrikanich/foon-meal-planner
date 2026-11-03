@@ -36,6 +36,21 @@ struct DinnerStoreTests {
         #expect(asked.withLock { $0 }?.1 == today)
     }
 
+    /// Tonight rescue offers leftovers from three days back, and the cook tally wants the whole month.
+    @Test func logsReachBackThreeDaysOrToTheFirstOfTheMonth() async {
+        let asked = Mutex<CalendarDay?>(nil)
+        var client = DinnerClient.preview
+        client.logs = { _, since in
+            asked.withLock { $0 = since }
+            return []
+        }
+        await DinnerStore(householdID: UUID(), client: client, now: { self.noon }).load(settings: HouseholdSettings())
+        #expect(asked.withLock { $0 } == CalendarDay(year: 2026, month: 10, day: 31))
+        let midMonth = noon.addingTimeInterval(17 * 86_400)
+        await DinnerStore(householdID: UUID(), client: client, now: { midMonth }).load(settings: HouseholdSettings())
+        #expect(asked.withLock { $0 } == CalendarDay(year: 2026, month: 11, day: 1))
+    }
+
     @Test func aReactionSavesThenReloads() async {
         let reacted = Mutex<[ReactionKind]>([])
         let loads = Mutex(0)

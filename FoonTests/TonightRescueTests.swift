@@ -222,6 +222,20 @@ struct TonightRescueTests {
         #expect(ideas(meals: [burgers], settings: settings).first?.title == "Burgers")
     }
 
+    @Test func aBackupWithAPrepStepAheadIsLeftOut() {
+        let marinated = dish("Kebabs", 15, tags: [.backup], prepSteps: [PrepStep(step: "Marinate the chicken",
+                                                                                   leadHours: 2)])
+        #expect(ideas(meals: [marinated]).allSatisfy { $0.title != "Kebabs" })
+    }
+
+    @Test func aThawFirstBackupIsLeftOutWhenMeatIsKeptFrozen() {
+        let burgers = dish("Burgers", 15, tags: [.backup, .thawFirst])
+        #expect(ideas(meals: [burgers]).allSatisfy { $0.title != "Burgers" })
+        var settings = HouseholdSettings()
+        settings.keepsMeatFrozen = false
+        #expect(ideas(meals: [burgers], settings: settings).first?.title == "Burgers")
+    }
+
     // MARK: - Dislikes and snoozes
 
     private var everyPool: (meals: [LibraryMeal], freezer: [FreezerItem], logs: [DinnerLog]) {
@@ -398,6 +412,24 @@ struct TonightRescueTests {
         #expect(ideas[3].swapChoice == .meal(id: eggs.id, name: "Eggs"))
         #expect(ideas[4].swapChoice == .quickPick(.takeout))
         #expect(Set(ideas.map(\.id)).count == ideas.count)
+    }
+
+    // MARK: - What the sheet's rows say
+
+    @Test func aStaleLibrarySaysAllergiesMayBeOutOfDateOnDishesOnly() throws {
+        let ideas = ideas(meals: [backup("Pizza")])
+        let pizza = try #require(ideas.first)
+        let takeout = try #require(ideas.last)
+        #expect(RescueRow.allergyCheck(pizza, lookup: .loaded).note == nil)
+        #expect(RescueRow.allergyCheck(pizza, lookup: .failed).note == AllergyMatcher.outOfDateNote)
+        #expect(RescueRow.allergyCheck(takeout, lookup: .failed).note == nil)
+    }
+
+    @Test func itsForWhoeverHasntSaidTheyreOut() {
+        let members = [Member.fixture(id: ana, firstName: "Ana"), Member.fixture(id: ben, firstName: "Ben"),
+                       Member.fixture(firstName: "Nora")]
+        #expect(RescueRow.forWhom(tonight(attendance: [ana: true, ben: false]), members: members) == "For Ana and Nora")
+        #expect(RescueRow.forWhom(tonight(attendance: [ana: false]), members: Array(members.prefix(1))) == nil)
     }
 
     // MARK: - When it's offered
