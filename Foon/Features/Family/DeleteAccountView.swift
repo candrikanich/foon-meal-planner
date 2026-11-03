@@ -7,7 +7,8 @@ enum AccountDeletion: Equatable {
     case household(name: String)
     /// An adult: their profile leaves; ratings stay as "Former member."
     case adult(householdName: String)
-    /// A kid: their account and comments go; the profile their parents entered stays, with their ratings.
+    /// A kid: their account and their own words (comments, poll votes, serving notes, request notes) go; the profile their
+    /// parents entered stays, with their ratings.
     case kid
     case noHousehold
 
@@ -25,7 +26,7 @@ enum AccountDeletion: Equatable {
         case .adult(let householdName):
             String(localized: "Your profile leaves \(householdName), and your ratings stay as \"Former member.\" Your allergies and settings are deleted. This can't be undone.")
         case .kid:
-            String(localized: "Your account and your comments are deleted. Your profile and ratings stay in the family, and your parents manage them.")
+            String(localized: "Your account is deleted, along with your comments, your votes, and the notes you wrote. Your profile and ratings stay in the family, and your parents manage them.")
         case .noHousehold:
             String(localized: "Your account is deleted. This can't be undone.")
         }
