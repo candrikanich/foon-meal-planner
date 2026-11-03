@@ -469,8 +469,17 @@ private typealias F = PlannerFixture
 
     @Test func theServersPushesShareTheBudget() {
         var inputs = F.inputs(me: F.kim, weeks: [everyNight], now: F.at(8, 12))
-        inputs.pushesSent = [F.at(8, 9), F.at(8, 10), F.at(1, 10)]
+        inputs.pushesSent = [F.at(8, 9), F.at(8, 10), F.at(1, 10)].map { SentPush(sentAt: $0, type: "tonight_poll") }
         #expect(NotificationPlanner.plan(inputs).count == 3, "two pushes this week, and last week's doesn't count")
+    }
+
+    @Test func plansSetAndUrgentItemsSitOutsideTheBudget() {
+        var inputs = F.inputs(me: F.kim, weeks: [everyNight], now: F.at(8, 12))
+        inputs.pushesSent = [SentPush(sentAt: F.at(8, 9), type: "plan_set"), SentPush(sentAt: F.at(8, 10), type: "urgent_item"),
+                             SentPush(sentAt: F.at(8, 11), type: "urgent_item")]
+        #expect(NotificationPlanner.plan(inputs).count == 5, "none of them use up the week's five")
+        #expect(!SentPush(sentAt: .now, type: "plan_set").countsTowardBudget)
+        #expect(SentPush(sentAt: .now, type: "heading_to_store").countsTowardBudget)
     }
 
     @Test func nextWeekHasItsOwnBudget() {

@@ -14,8 +14,9 @@ enum NotificationPlanner {
         /// Nil until this device has read the plan once.
         var snapshot: ReminderSnapshot?
         var history: [ReminderHistory] = []
-        /// When the server's pushes to this person went out (`notification_log`, channel push). They share the week's budget.
-        var pushesSent: [Date] = []
+        /// The server's pushes to this person (`notification_log`, channel push). They share the week's budget, apart from
+        /// Plan's set and urgent items, which sit outside it.
+        var pushesSent: [SentPush] = []
         var now: Date
     }
 
@@ -255,7 +256,7 @@ enum NotificationPlanner {
         /// A snoozed reminder has already been counted.
         func withinBudget(_ due: [Candidate]) -> [PlannedReminder] {
             var used: [CalendarDay: Int] = [:]
-            for sent in inputs.history.compactMap(\.sentAt) + inputs.pushesSent { used[week(of: sent), default: 0] += 1 }
+            for sent in inputs.history.compactMap(\.sentAt) + inputs.pushesSent.filter(\.countsTowardBudget).map(\.sentAt) { used[week(of: sent), default: 0] += 1 }
             let ordered = due.sorted { lhs, rhs in
                 let left = (lhs.isFollowUp ? 1 : 0, lhs.reminder.kind.budgetOrder), right = (rhs.isFollowUp ? 1 : 0, rhs.reminder.kind.budgetOrder)
                 if left != right { return left < right }

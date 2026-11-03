@@ -139,5 +139,7 @@ staging as `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` (Sign in with 
 4. Car 4: are 7:30pm and once a day right for the ideas digest? Should Balanced get it too?
 5. Car 4: should urgent items and Plan's set be exempt from budgets rather than first in line? Today a person at budget
    misses an urgent item.
+   Decided yes (Chris, 2026-11-02): both sit outside the budget on the server and the device (`push_outside_budget`,
+   `SentPush.outsideBudget`). Also decided: a withdrawn kid is never named; the pushes about them say "Someone".
 6. Car 4: should the server read per-person presets once #47 writes them, so the server and the device agree on a budget?
    Defaulted yes (#47 car 6 part A): `member_preset` reads each person's own, for every preset-dependent push and the budget.

@@ -206,10 +206,25 @@ Deno.test("a store run opens the list", async () => {
   }]);
 });
 
+Deno.test("a push with no name says Someone", async () => {
+  const payloads: ApnsPayload[] = [];
+  const nameless: OutboxRow = { ...row([sandbox], "not_home"), week_start: null, night_id: "night-1",
+    night_date: "2026-11-05", args: null };
+  const { deps, steps } = fakeDeps([nameless], {}, {
+    deliver: (_device, payload) => {
+      payloads.push(payload);
+      return Promise.resolve("delivered");
+    },
+  });
+  await handleSendPush(request(), deps);
+  assertEquals(payloads[0].aps.alert.title, "Someone won't be home tonight.");
+  assertEquals(steps, ["complete row-1 sent"]);
+});
+
 Deno.test("a push whose words can't be made fails without a post", async () => {
-  const nameless = fakeDeps([{ ...row([sandbox], "not_home"), args: null }]);
-  await handleSendPush(request(), nameless.deps);
-  assertEquals(nameless.steps, ["complete row-1 no_words"]);
+  const countless = fakeDeps([{ ...row([sandbox], "new_requests"), args: null }]);
+  await handleSendPush(request(), countless.deps);
+  assertEquals(countless.steps, ["complete row-1 no_words"]);
   const dateless = fakeDeps([{ ...row([sandbox], "claim"), args: { name: "Ben" }, night_date: null }]);
   const response = await handleSendPush(request(), dateless.deps);
   assertEquals(dateless.steps, ["complete row-1 no_words"]);
