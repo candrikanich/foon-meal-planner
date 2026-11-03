@@ -34,6 +34,8 @@ enum NotificationPlanner {
     static let newIdeasWindow: TimeInterval = 7 * 24 * 60 * 60
     /// The weekly roundup's time on the week's last day: after most dinners, before quiet hours.
     static let roundupTime = "19:30"
+    /// The weekly recap's time, the morning after the week: late enough not to wake anyone on a weekend.
+    static let recapTime = "10:00"
     /// How far before a quiet stretch a prep reminder moves to, so it isn't the last thing at bedtime.
     static let quietMargin: TimeInterval = 15 * 60
 
@@ -78,7 +80,7 @@ enum NotificationPlanner {
 
         func candidates() -> [Candidate] {
             let rating = inputs.cadence.isWeekly ? roundup() : afterDinner()
-            let first = timeToPlan() + prep() + rating + checkIn()
+            let first = timeToPlan() + prep() + rating + checkIn() + weeklyRecap()
             return rules.followsUp ? first + first.compactMap(followUp) : first
         }
 
@@ -182,6 +184,25 @@ enum NotificationPlanner {
             }
         }
 
+        /// The morning after an approved week with dinners logged in it, as of the last read, unless the household was
+        /// away all week. The card it opens is on This Week for everyone; this only says it's there. Last week is read
+        /// for it alone, since by that morning the week it's about has left `weeks`.
+        private func weeklyRecap() -> [Candidate] {
+            guard rules.kinds.contains(.weeklyRecap) else { return [] }
+            return (snapshot.weeks + [snapshot.lastWeek].compactMap { $0 }).filter(\.isApproved).compactMap { week in
+                let days = (0..<7).map { week.start.adding(days: $0, calendar: calendar) }
+                let after = week.start.adding(days: 7, calendar: calendar)
+                guard week.nights.contains(where: { $0.hasLog && !settings.isAway(on: $0.date) }),
+                      !days.allSatisfy(settings.isAway(on:)),
+                      let fire = DinnerPrompts.moment(NotificationPlanner.recapTime, on: after, calendar: calendar)
+                else { return nil }
+                return Candidate(reminder: PlannedReminder(
+                    id: ReminderID.weeklyRecap(me: me.id, week: week.start), kind: .weeklyRecap, nightID: nil,
+                    fireAt: fire, dinnerAt: nil, title: ReminderText.recapTitle, body: ReminderText.recapBody,
+                    route: .week(after)))
+            }
+        }
+
         /// "Home tonight?", to whoever's expected, at the household's check-in time. Only with a dinner to come home to: not an
         /// empty night, not Fend for yourselves, and not once dinner's logged or they've answered on any phone.
         private func checkIn() -> [Candidate] {
@@ -200,13 +221,13 @@ enum NotificationPlanner {
         }
 
         /// One more an hour later, unless they've answered, and only after a first that went or is still to go: on its own
-        /// it would be a reminder that came too late to send. Never after dinner, and never for a check-in, where no answer
-        /// is an answer.
+        /// it would be a reminder that came too late to send. Only Time to plan and prep have one: never after dinner,
+        /// never for a check-in, where no answer is an answer, and never for the roundup or the recap, which wait on
+        /// This Week.
         private func followUp(_ first: Candidate) -> Candidate? {
             let reminder = first.reminder
             let known = history[reminder.id]
-            guard reminder.kind != .afterDinner, reminder.kind != .checkIn, reminder.kind != .ratingRoundup,
-                  known?.respondedAt == nil,
+            guard [.timeToPlan, .prep].contains(reminder.kind), known?.respondedAt == nil,
                   let moved = settled(time: reminder.fireAt, for: reminder),
                   known?.sentAt != nil || moved > inputs.now else { return nil }
             return Candidate(reminder: PlannedReminder(
@@ -289,7 +310,7 @@ enum NotificationPlanner {
                               dinner.timeIntervalSince(quiet.end) >= dinner.timeIntervalSince(time) / 2 else { return nil }
                         moved = quiet.end
                     }
-                case .timeToPlan, .checkIn, .ratingRoundup: moved = quiet.end
+                case .timeToPlan, .checkIn, .ratingRoundup, .weeklyRecap: moved = quiet.end
                 case .afterDinner: return nil
                 }
             }
@@ -343,6 +364,12 @@ enum ReminderText {
     static var roundupBody: String {
         String(localized: "Tap to rate the ones you were home for.", comment: "Reminder body: the weekly rating roundup")
     }
+
+    /// No dish and no name: the recap itself is on This Week.
+    static var recapTitle: String {
+        String(localized: "Your week of dinners is ready.", comment: "Reminder title: the weekly recap")
+    }
+    static var recapBody: String { String(localized: "Tap to see it.", comment: "Reminder body: the weekly recap") }
 
     /// Fixed words like the rest: the dish shows on the card, after a tap.
     static var checkInTitle: String { String(localized: "Home tonight?", comment: "Reminder title: the day-of check-in") }

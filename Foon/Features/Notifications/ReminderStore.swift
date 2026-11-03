@@ -167,7 +167,8 @@ final class ReminderStore {
         isOptedIn = device.isOptedIn(wanted.me.id)
         // A count that couldn't be read keeps the last one.
         if let weeks {
-            saveSnapshot(weeks, ideas: ideas ?? loadSnapshot(in: context)?.ideas ?? [], in: context)
+            saveSnapshot(weeks.current, lastWeek: weeks.last, ideas: ideas ?? loadSnapshot(in: context)?.ideas ?? [],
+                         in: context)
         } else if !countsIdeas {
             forgetIdeas(in: context)
         }
@@ -235,16 +236,21 @@ final class ReminderStore {
         await upload(member: wanted.me.id, in: context)
     }
 
-    /// This week and next by the household's calendar. Nil when they can't be read: the plan comes from the cache, offline
-    /// included, until it's too old to trust.
-    private func fetchWeeks(settings: HouseholdSettings) async -> [ReminderWeek]? {
+    /// This week and next by the household's calendar, and last week apart, for the weekly recap the morning after it.
+    /// Nil when they can't be read: the plan comes from the cache, offline included, until it's too old to trust.
+    private func fetchWeeks(settings: HouseholdSettings) async -> (current: [ReminderWeek], last: ReminderWeek?)? {
         let calendar = DinnerPrompts.calendar(for: settings)
-        let thisWeek = WeekMath.start(of: CalendarDay(now(), calendar: calendar), weekStart: settings.weekStart, calendar: calendar)
-        return try? await client.weeks(householdID, thisWeek, thisWeek.adding(days: 7, calendar: calendar))
+        let thisWeek = WeekMath.start(of: CalendarDay(now(), calendar: calendar), weekStart: settings.weekStart,
+                                      calendar: calendar)
+        guard let weeks = try? await client.weeks(householdID, thisWeek.adding(days: -7, calendar: calendar),
+                                                  thisWeek.adding(days: 7, calendar: calendar)) else { return nil }
+        return (weeks.filter { $0.start >= thisWeek }, weeks.last { $0.start < thisWeek })
     }
 
-    private func saveSnapshot(_ weeks: [ReminderWeek], ideas: [ReminderIdea], in context: ModelContext) {
-        guard let payload = try? JSONEncoder().encode(ReminderSnapshot(pulledAt: now(), weeks: weeks, ideas: ideas))
+    private func saveSnapshot(_ weeks: [ReminderWeek], lastWeek: ReminderWeek?, ideas: [ReminderIdea],
+                              in context: ModelContext) {
+        let snapshot = ReminderSnapshot(pulledAt: now(), weeks: weeks, ideas: ideas, lastWeek: lastWeek)
+        guard let payload = try? JSONEncoder().encode(snapshot)
         else { return }
         let household = householdID
         let cached = try? context.fetch(FetchDescriptor<CachedReminders>(predicate: #Predicate { $0.householdID == household })).first

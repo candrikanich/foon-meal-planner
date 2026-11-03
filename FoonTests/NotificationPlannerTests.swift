@@ -519,7 +519,7 @@ private typealias F = PlannerFixture
     }
 
     @Test func allergyRemindersDontExistToBeDropped() {
-        #expect(Set(ReminderKind.allCases) == [.timeToPlan, .prep, .afterDinner, .checkIn, .ratingRoundup],
+        #expect(Set(ReminderKind.allCases) == [.timeToPlan, .prep, .afterDinner, .checkIn, .ratingRoundup, .weeklyRecap],
                 "if a safety reminder joins these, it must be exempt from the budget")
     }
 }

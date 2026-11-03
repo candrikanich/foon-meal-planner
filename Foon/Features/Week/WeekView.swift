@@ -24,6 +24,7 @@ struct WeekView: View {
     @State private var showingPast = false
     /// The week a tapped "Rate this week's dinners" is about.
     @State private var roundupWeek: CalendarDay?
+    @State private var recap = WeekRecapStore()
 
     private var canPlan: Bool {
         LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID)
@@ -39,6 +40,7 @@ struct WeekView: View {
                     if reminders?.shouldAsk == true { ReminderAskCard() }
                     if reminders?.shouldOfferRatingsBack == true { RatingsBackCard() }
                     if !week.showingNextWeek {
+                        WeekRecapSection(store: recap)
                         RequestNewsSection()
                         ClaimNewsSection()
                         CheckInNewsSection(swap: { swappingNight = $0 })
@@ -182,10 +184,13 @@ struct WeekView: View {
         async let libraryLoad: Void = loadsLibrary ? library.load(members: household.members) : ()
         async let dinnerLoad: Void = dinner.load(settings: settings)
         async let ideasLoad: Void = ideas.load()
+        async let recapLoad: Void = recap.load(client: household.client, household: household.household,
+                                               members: household.members, today: week.todayDay)
         await week.load(settings: settings)
         await libraryLoad
         await dinnerLoad
         await ideasLoad
+        await recapLoad
         // The week it just read can hold a dish this phone hasn't read, and a card's note promises one pull is enough.
         if library.needsLoad(afterFullLoad: loadsLibrary, holding: heldMeals) {
             await library.load(members: household.members)
