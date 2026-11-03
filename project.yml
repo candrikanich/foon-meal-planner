@@ -73,6 +73,10 @@ targets:
         # so this is full access; Foon only reads, and nothing from the calendar leaves the device.
         NSCalendarsFullAccessUsageDescription: >-
           Foon looks at your calendar on this device to spot busy evenings. Nothing from it leaves your device.
+        # Scan a receipt (#61): the iPhone's document camera. Photos come through the system picker, which needs no
+        # permission, and the Mac only picks photos, so it needs no camera entitlement.
+        NSCameraUsageDescription: >-
+          Foon reads a receipt you photograph to mark what you bought. The photo stays on this device and isn't kept.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon
@@ -89,9 +93,6 @@ targets:
           UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown
           UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.lifestyle
-        # Scan a receipt (#61). Photos come through the system picker, which needs no permission.
-        INFOPLIST_KEY_NSCameraUsageDescription: >-
-          Foon reads a receipt you photograph to mark what you bought. The photo stays on this device and isn't kept.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SWIFT_EMIT_LOC_STRINGS: YES
