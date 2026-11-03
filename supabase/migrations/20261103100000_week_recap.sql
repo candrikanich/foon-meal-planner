@@ -38,7 +38,10 @@ as $$
     from logs l
     join public.reactions r on r.meal_log_id = l.id
     join public.members m on m.id = r.member_id and m.household_id = target_household
+    -- A dish retired by the dislike rule (or archived) since isn't celebrated, however well others liked it.
+    join public.meals ml on ml.id = l.meal_id and ml.household_id = target_household
     where l.meal_id is not null
+      and ml.status in ('active', 'trial')
       and r.reaction in ('favorite', 'good')
       and m.status <> 'removed'
       and not m.eats_separately

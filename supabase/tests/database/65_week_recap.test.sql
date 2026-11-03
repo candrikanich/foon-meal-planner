@@ -1,6 +1,6 @@
 -- The weekly recap (#63): who cooked, the week's hit, and a forgotten favorite, for the week of October 25, 2026.
 begin;
-select plan(14);
+select plan(16);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -181,6 +181,12 @@ select is(pg_temp.recap() -> 'forgotten_favorite' ->> 'name', 'Pot roast', 'a ti
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select is(pg_temp.recap() -> 'top_dish' ->> 'name', 'Chili', 'the owner sees the same recap');
 
+-- Chili retired by the dislike rule that week: no longer the week's hit, however well others liked it.
+reset role;
+update public.meals set status = 'retired' where id = '00000000-0000-0000-0000-0000000001c0';
+select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
+select ok(coalesce(pg_temp.recap() -> 'top_dish' ->> 'name', '') <> 'Chili', 'a retired dish isn''t the week''s hit');
+
 -- Another household learns nothing.
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
 select is(pg_temp.recap(),
@@ -193,6 +199,8 @@ select ok(not has_function_privilege('public', 'public.week_recap(uuid, date, da
 select ok(has_function_privilege('authenticated', 'public.week_recap(uuid, date, date)', 'execute'),
   'for signed-in people');
 select is((select provolatile from pg_proc where proname = 'week_recap'), 's', 'read-only');
+select ok((select not prosecdef and proconfig @> array['search_path=""'] from pg_proc where proname = 'week_recap'),
+  'security invoker, with an empty search_path');
 
 select * from finish();
 rollback;
