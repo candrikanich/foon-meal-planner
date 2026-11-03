@@ -60,7 +60,7 @@ struct ReminderRules: Equatable, Sendable {
             kinds = [.timeToPlan, .prep, .afterDinner, .checkIn]
             weeklyBudget = isKid ? 5 : 12
         case .engaged:
-            kinds = [.timeToPlan, .prep, .afterDinner, .checkIn]
+            kinds = [.timeToPlan, .prep, .afterDinner, .checkIn, .weeklyRecap]
             weeklyBudget = isKid ? 6 : 16
         }
         followsUp = preset == .engaged

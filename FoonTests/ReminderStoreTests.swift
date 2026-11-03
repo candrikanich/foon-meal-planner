@@ -967,7 +967,8 @@ struct ReminderPresetWordingTests {
         #expect(engaged.contains("follow-up"))
         #expect(engaged.contains("tonight polls"))
         #expect(engaged.contains("new ideas"))
-        #expect(engaged.contains("on the way"), "the store run and the recap aren't built")
+        #expect(engaged.contains("weekly recap"))
+        #expect(!engaged.contains("on the way"), "the store run and the recap are both built")
     }
 }
 

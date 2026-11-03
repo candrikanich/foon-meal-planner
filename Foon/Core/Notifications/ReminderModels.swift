@@ -9,18 +9,22 @@ enum ReminderKind: String, Codable, CaseIterable, Sendable {
     case checkIn = "day_of_check_in"
     /// Rating, once a week, for someone who stopped answering each night (RatingCadence).
     case ratingRoundup = "rating_roundup"
+    /// "Your week of dinners is ready.", the morning after the week, on Engaged.
+    case weeklyRecap = "weekly_recap"
 
     /// Who loses out when a week's budget runs short: forgetting to thaw means no dinner, and a check-in or a rating prompt
     /// can wait for its card on This Week. Those two share a place, so each night gets both while the budget lasts rather than
     /// one kind using it all up. The weekly roundup sits between: it's one a week standing in for seven prompts, and at the
     /// week's end it would otherwise lose to every check-in before it, but it still waits behind a thaw. Nothing about
-    /// allergies or safety is ever a reminder, so a budget can't drop one.
+    /// allergies or safety is ever a reminder, so a budget can't drop one. The weekly recap is the one nobody would
+    /// miss: its card is on This Week either way.
     var budgetOrder: Int {
         switch self {
         case .timeToPlan: 0
         case .prep: 1
         case .ratingRoundup: 2
         case .afterDinner, .checkIn: 3
+        case .weeklyRecap: 4
         }
     }
 }
@@ -138,6 +142,9 @@ struct ReminderSnapshot: Codable, Equatable, Sendable {
     let weeks: [ReminderWeek]
     /// The household's open ideas from the past week, as of the last read that got them, for Balanced's Time to plan.
     var ideas: [ReminderIdea] = []
+    /// The week before this one, read for the weekly recap alone: it goes the morning after a week ends, when that week
+    /// has left `weeks`. Kept apart so nothing else reads a week that's over.
+    var lastWeek: ReminderWeek?
 
     /// With answers the server hasn't got yet counted as if it had. They're what this person last said, and planning from the
     /// read alone would ask again, and bring back the prompt for a dinner they said they'd miss.
@@ -155,21 +162,22 @@ struct ReminderSnapshot: Codable, Equatable, Sendable {
             }
             return week
         }
-        return ReminderSnapshot(pulledAt: pulledAt, weeks: answered, ideas: ideas)
+        return ReminderSnapshot(pulledAt: pulledAt, weeks: answered, ideas: ideas, lastWeek: lastWeek)
     }
 }
 
 extension ReminderSnapshot {
     private enum CodingKeys: String, CodingKey {
-        case pulledAt, weeks, ideas
+        case pulledAt, weeks, ideas, lastWeek
     }
 
-    /// A cache saved before ideas were read has none.
+    /// A cache saved before ideas, or last week, were read has none.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         pulledAt = try container.decode(Date.self, forKey: .pulledAt)
         weeks = try container.decode([ReminderWeek].self, forKey: .weeks)
         ideas = try container.decodeIfPresent([ReminderIdea].self, forKey: .ideas) ?? []
+        lastWeek = try container.decodeIfPresent(ReminderWeek.self, forKey: .lastWeek)
     }
 }
 
@@ -233,6 +241,10 @@ extension ReminderID {
 
     static func roundup(me: UUID, week: CalendarDay) -> String {
         "\(prefix)\(me.uuidString).roundup.\(week.isoString)"
+    }
+
+    static func weeklyRecap(me: UUID, week: CalendarDay) -> String {
+        "\(prefix)\(me.uuidString).recap.\(week.isoString)"
     }
 
     /// Whether this is an after-dinner prompt (or its follow-up), for any night.

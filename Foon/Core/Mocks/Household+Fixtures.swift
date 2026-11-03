@@ -76,7 +76,8 @@ extension HouseholdClient {
             revokeParentalConsent: { _ in },
             addAwayDates: { _, new in [new] },
             attendanceTemplates: { _ in AttendanceTemplate.samples(for: members) },
-            familyStats: { _, _, _ in .sample }
+            familyStats: { _, _, _ in .sample },
+            weekRecap: { _, _, _ in .sample(cooks: members) }
         )
     }
 }

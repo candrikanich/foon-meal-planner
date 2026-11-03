@@ -604,6 +604,9 @@
     "A family favorite" : {
       "comment" : "Reason chip"
     },
+    "A favorite you haven't had in a while: %@" : {
+      "comment" : "Weekly recap: a family favorite not made in six weeks or more"
+    },
     "A kid removed from the family becomes \"Former member\" after 12 months, and their ratings stay as anonymous history." : {
 
     },
@@ -1036,6 +1039,9 @@
     },
     "Close" : {
 
+    },
+    "Close last week's recap" : {
+      "comment" : "Weekly recap: dismiss the card"
     },
     "Coming up" : {
 
@@ -1507,10 +1513,10 @@
     "Everything" : {
       "comment" : "Family: the household has all the kitchen equipment"
     },
-    "Everything so far: Balanced, plus tonight polls, \"your idea made Friday,\" an evening note to planners about new ideas, \"heading to the store,\" and one follow-up on reminders. The weekly recap is on the way." : {
+    "Everything's in the cart" : {
 
     },
-    "Everything's in the cart" : {
+    "Everything: Balanced, plus tonight polls, \"your idea made Friday,\" an evening note to planners about new ideas, \"heading to the store,\" the weekly recap, and one follow-up on reminders." : {
 
     },
     "Expect leftovers." : {
@@ -2040,6 +2046,9 @@
 
     },
     "Last night away" : {
+
+    },
+    "Last week's dinners" : {
 
     },
     "Lately it's been a weekly roundup, since the nightly ones went unanswered." : {
@@ -3261,6 +3270,9 @@
     "Tap to rate the ones you were home for." : {
       "comment" : "Reminder body: the weekly rating roundup"
     },
+    "Tap to see it." : {
+      "comment" : "Reminder body: the weekly recap"
+    },
     "Tap to see what's for dinner." : {
       "comment" : "Reminder body: the day-of check-in"
     },
@@ -3306,6 +3318,9 @@
     },
     "Thanks for cooking the %@" : {
 
+    },
+    "Thanks for cooking, %@." : {
+      "comment" : "Weekly recap: thanks to last week's cooks; first names, never counted or ranked"
     },
     "Thanks! Anything left over?" : {
 
@@ -3441,6 +3456,9 @@
     },
     "The week starts on your shopping day." : {
 
+    },
+    "The week's hit: %@" : {
+      "comment" : "Weekly recap: the dish the family liked most last week; the food, not the cook"
     },
     "The whole week" : {
 
@@ -4068,6 +4086,9 @@
     },
     "Your rhythm" : {
 
+    },
+    "Your week of dinners is ready." : {
+      "comment" : "Reminder title: the weekly recap"
     },
     "around %lld min" : {
       "comment" : "Tonight rescue: an estimated time to dinner"
