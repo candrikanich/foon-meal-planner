@@ -75,6 +75,8 @@ Data used to track you: **None.**
 
 Not collected: precise or coarse location, contacts, browsing history, search history, financial info, sensitive info beyond allergies, calendar data (read on device only, never collected).
 
+Calendar awareness (#64): in App Privacy, don't add a calendar or "Other data" type for it. Apple counts data as collected only when it's sent off the device, and Foon reads event times on the device, keeps them in memory, and never sends, saves, or logs them. The permission is a separate matter from the label: the `NSCalendarsFullAccessUsageDescription` prompt ("Foon looks at your calendar on this device to spot busy evenings. Nothing from it leaves your device.") shows only when a planner turns on Family → Spot busy evenings. EventKit has no read-only level, so it asks for full access; Foon only reads. The Mac build adds the sandbox's calendars entitlement (`ENABLE_RESOURCE_ACCESS_CALENDARS`). EventKit isn't a required-reason API, so it adds nothing to a privacy manifest.
+
 ## Age rating
 
 Target: the lowest available rating. Answer the questionnaire honestly: no mature content, no gambling, no web browsing, no public user-generated content. Family comments are private to a household with no public sharing or messaging strangers. Confirm the resulting rating in App Store Connect.
@@ -106,7 +108,7 @@ Captions use the tagline voice.
 
 Foon uses Sign in with Apple only, so the reviewer signs in with their own Apple ID and creates a household in onboarding (about 2 minutes). To see a populated app instantly, tap "Load a sample family" on the first onboarding screen, which creates demo members, meals, and a planned week.
 
-Key flows: This Week tab, Fill my week, approve, then the cart icon for the shopping list. AI features use Apple's on-device Foundation Models and appear only on eligible devices; every feature has a non-AI path. The subscription starts with a 30-day free trial; sandbox purchase works from Family, Subscription. Account deletion: Family, Your data, Delete my account (also on the first screen before a household exists). It confirms with Sign in with Apple and revokes the token.
+Key flows: This Week tab, Fill my week, approve, then the cart icon for the shopping list. Calendar access is optional and off by default: Family, Spot busy evenings asks for it, and This Week then suggests marking busy evenings rushed. AI features use Apple's on-device Foundation Models and appear only on eligible devices; every feature has a non-AI path. The subscription starts with a 30-day free trial; sandbox purchase works from Family, Subscription. Account deletion: Family, Your data, Delete my account (also on the first screen before a household exists). It confirms with Sign in with Apple and revokes the token.
 
 ## Compliance checklist
 
@@ -116,6 +118,7 @@ Key flows: This Week tab, Fill my week, approve, then the cart icon for the shop
 - [x] Share extension: App IDs `com.andrikanich.foon` and `com.andrikanich.foon.share` both have App Groups on, with `group.com.andrikanich.foon`
 - [x] After-dinner card (#122): App ID `com.andrikanich.foon.dinner` registered with App Groups on, with `group.com.andrikanich.foon`
 - [x] Tonight widget (#62): App ID `com.andrikanich.foon.widget` registered with App Groups on, with `group.com.andrikanich.foon`
+- [x] Calendar awareness (#64): `NSCalendarsFullAccessUsageDescription` in Info.plist (via project.yml), the Mac's calendars entitlement, and no App Privacy data type (never leaves the device)
 - [ ] Privacy policy and terms live at the URLs above
 - [ ] Sign in with Apple private email relay: sending domain registered
 - [ ] Content rights: imported recipes are user-provided and private to the household

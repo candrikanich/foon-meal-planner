@@ -979,6 +979,9 @@
     "Build my week fills these in and locks them. Swapping one changes just that week." : {
 
     },
+    "Busy evening? Mark it rushed" : {
+
+    },
     "Can't do it tonight? Just trade. Foon doesn't keep score." : {
 
     },
@@ -998,6 +1001,9 @@
 
     },
     "Changes the night's effort" : {
+
+    },
+    "Changes the night's effort to rushed" : {
 
     },
     "Changing dinner time moves tonight and every night after it." : {
@@ -1399,6 +1405,9 @@
     "Dismiss" : {
 
     },
+    "Dismiss the busy evening suggestion" : {
+
+    },
     "Dismiss: %@" : {
       "comment" : "Check-in news: close the note\nClaim news: close the note\nRequest news: close the note"
     },
@@ -1595,6 +1604,9 @@
 
     },
     "Foon can't open that link. Try the recipe's web page." : {
+
+    },
+    "Foon can't see your calendar. Allow it in Settings." : {
 
     },
     "Foon cleared %@" : {
@@ -1872,6 +1884,9 @@
     "Hide %@'s comment" : {
 
     },
+    "Hides this suggestion for this night" : {
+
+    },
     "Home" : {
       "comment" : "Check-in action\nCheck-in answer"
     },
@@ -1944,6 +1959,9 @@
 
     },
     "Ideas wait in the Ideas tab for a planner to plan." : {
+
+    },
+    "If a planner turns on Spot busy evenings, Foon reads the times of this device's calendar events to suggest rushed nights. It never saves or sends them." : {
 
     },
     "In" : {
@@ -2129,6 +2147,9 @@
 
     },
     "Looking for a recipe…" : {
+
+    },
+    "Looks at this device's calendar for plans around dinner and suggests marking those nights rushed. Nothing from your calendar leaves this device or is saved." : {
 
     },
     "Looks like it has meat" : {
@@ -2432,6 +2453,9 @@
 
     },
     "Not sure" : {
+
+    },
+    "Not this time" : {
 
     },
     "Not this week" : {
@@ -3119,6 +3143,9 @@
       "comment" : "Dish category in a variety note"
     },
     "Special occasion" : {
+
+    },
+    "Spot busy evenings" : {
 
     },
     "Staples like milk or paper towels stay on the keep-on-hand list, marked in, low, or out." : {
@@ -4047,6 +4074,9 @@
 
     },
     "Your account is deleted. This can't be undone." : {
+
+    },
+    "Your calendar has plans around dinner. Nothing changes unless you tap." : {
 
     },
     "Your data" : {

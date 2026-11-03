@@ -12,6 +12,7 @@ struct NightDetailView: View {
     @Environment(IdeasStore.self) private var ideas: IdeasStore?
     @Environment(PlanActivityStore.self) private var activity: PlanActivityStore?
     @Environment(PollStore.self) private var polls: PollStore?
+    @Environment(CalendarBusyStore.self) private var calendarBusy: CalendarBusyStore?
     @State private var swapping = false
     @State private var choosingLeftovers = false
     @State private var startingPoll = false
@@ -66,6 +67,26 @@ struct NightDetailView: View {
         }
     }
 
+    private func isBusy(_ night: WeekNight) -> Bool {
+        let settings = household.household?.planningSettings ?? HouseholdSettings()
+        return calendarBusy?.suggestions(nights: week.week?.nights ?? [], settings: settings).contains(night.id) == true
+    }
+
+    /// Calendar awareness (#64): the same suggestion as the card, accepted through the usual effort change.
+    @ViewBuilder
+    private func busySuggestion(_ night: WeekNight) -> some View {
+        if let calendarBusy, isBusy(night) {
+            Button("Busy evening? Mark it rushed", systemImage: "calendar.badge.clock") {
+                Task { await week.setEffort(.rushed, nightID: night.id) }
+            }
+            .tint(Palette.paprika)
+            .accessibilityHint("Changes the night's effort to rushed")
+            Button("Not this time", systemImage: "xmark") { calendarBusy.dismiss(night.id) }
+                .tint(.secondary)
+                .accessibilityHint("Hides this suggestion for this night")
+        }
+    }
+
     private func form(_ night: WeekNight) -> some View {
         Form {
             Section {
@@ -90,7 +111,7 @@ struct NightDetailView: View {
 
             cookOnceEatTwice(night)
 
-            Section("Effort") {
+            Section {
                 if canPlan {
                     Picker("Effort", selection: Binding(
                         get: { night.effort },
@@ -99,8 +120,15 @@ struct NightDetailView: View {
                         ForEach(Self.efforts, id: \.self) { Text(DayCardText.effortLabel($0)).tag($0) }
                     }
                     .pickerStyle(.segmented)
+                    busySuggestion(night)
                 } else {
                     Text(DayCardText.effortLabel(night.effort))
+                }
+            } header: {
+                Text("Effort")
+            } footer: {
+                if canPlan, isBusy(night) {
+                    Text("Your calendar has plans around dinner. Nothing changes unless you tap.")
                 }
             }
 
