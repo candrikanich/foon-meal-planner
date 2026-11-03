@@ -156,7 +156,11 @@ final class ReminderStore {
         await CheckInDelivery.send(device: device, client: client)
         await DinnerAnswerDelivery.send(device: device, client: client)
         let weeks = await fetchWeeks(settings: wanted.settings)
-        let ideas = try? await client.ideas(householdID, now().addingTimeInterval(-NotificationPlanner.newIdeasWindow))
+        // Only for someone whose Time to plan shows the count: other phones never read or keep the household's ideas.
+        let countsIdeas = wanted.me.role == .planner
+            && ReminderRules(member: wanted.me, settings: wanted.settings).countsNewIdeas
+        let ideas = countsIdeas
+            ? try? await client.ideas(householdID, now().addingTimeInterval(-NotificationPlanner.newIdeasWindow)) : []
         // Offline, the server's pushes can't be counted: the budget can run a few over until the next read.
         let pushesSent = (try? await client.pushesSent(householdID, wanted.me.id, now().addingTimeInterval(-8 * 24 * 60 * 60))) ?? []
         guard !isStopped else { return }
@@ -164,7 +168,11 @@ final class ReminderStore {
         hasDeclined = device.hasDeclined(wanted.me.id)
         isOptedIn = device.isOptedIn(wanted.me.id)
         // A count that couldn't be read keeps the last one.
-        if let weeks { saveSnapshot(weeks, ideas: ideas ?? loadSnapshot(in: context)?.ideas ?? [], in: context) }
+        if let weeks {
+            saveSnapshot(weeks, ideas: ideas ?? loadSnapshot(in: context)?.ideas ?? [], in: context)
+        } else if !countsIdeas {
+            forgetIdeas(in: context)
+        }
         let snapshot = loadSnapshot(in: context)?.applying(device.checkIns)
         if let nights = snapshot?.weeks.flatMap(\.nights) {
             center.removeDelivered(ReminderID.answeredAfterDinner(await center.deliveredIDs(), me: wanted.me.id, nights: nights))
@@ -240,6 +248,19 @@ final class ReminderStore {
         } else {
             context.insert(CachedReminders(householdID: household, payload: payload))
         }
+        try? context.save()
+    }
+
+    /// Offline, the weeks stay as they were read, but ideas this phone no longer shows don't stay with them.
+    private func forgetIdeas(in context: ModelContext) {
+        guard var snapshot = loadSnapshot(in: context), !snapshot.ideas.isEmpty else { return }
+        snapshot.ideas = []
+        let household = householdID
+        guard let payload = try? JSONEncoder().encode(snapshot),
+              let cached = try? context.fetch(FetchDescriptor<CachedReminders>(predicate: #Predicate {
+                  $0.householdID == household
+              })).first else { return }
+        cached.payload = payload
         try? context.save()
     }
 

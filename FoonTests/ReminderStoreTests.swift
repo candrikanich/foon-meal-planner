@@ -77,6 +77,7 @@ private final class SpyServer: Sendable {
         var weeks: [ReminderWeek] = []
         var ideas: [ReminderIdea] = []
         var ideasFail = false
+        var ideaReads = 0
         var offline = false
         var uploadsFail = false
         var uploads: [[NotificationLogEntry]] = []
@@ -99,6 +100,7 @@ private final class SpyServer: Sendable {
             },
             ideas: { _, _ in
                 try self.state.withLock {
+                    $0.ideaReads += 1
                     if $0.offline || $0.ideasFail { throw URLError(.notConnectedToInternet) }
                     return $0.ideas
                 }
@@ -127,6 +129,7 @@ private final class SpyServer: Sendable {
     var uploads: [[NotificationLogEntry]] { state.withLock { $0.uploads } }
     func set(weeks: [ReminderWeek]) { state.withLock { $0.weeks = weeks } }
     func set(offline: Bool) { state.withLock { $0.offline = offline } }
+    var ideaReads: Int { state.withLock { $0.ideaReads } }
     func set(ideas: [ReminderIdea], failing: Bool = false) {
         state.withLock {
             $0.ideas = ideas
@@ -1128,6 +1131,43 @@ struct IdeasWaitingStoreTests {
         test.server.set(ideas: [ReminderIdea(createdAt: Harness.at(9, 8), requestedBy: test.kim.id, enteredBy: test.kim.id)])
         await test.store().replan(test.wanted())
         #expect(timeToPlan(test)?.body == "1 new idea is waiting.")
+    }
+
+    private func cachedIdeas(_ test: Harness) throws -> [ReminderIdea] {
+        let cached = try #require(try test.context.fetch(FetchDescriptor<CachedReminders>()).first)
+        return try JSONDecoder().decode(ReminderSnapshot.self, from: cached.payload).ideas
+    }
+
+    @Test func onlyAPlannerOnBalancedReadsOrKeepsIdeas() async throws {
+        let test = try Harness()
+        test.set(now: Harness.at(9, 10))
+        test.server.set(weeks: [test.week()])
+        test.server.set(ideas: [ReminderIdea(createdAt: Harness.at(9, 8), requestedBy: test.kim.id, enteredBy: test.kim.id)])
+        var light = test.settings
+        light.notificationPreset = .light
+        await test.store().replan(ReminderStore.Context(me: test.ann, members: [test.ann, test.kim], settings: light))
+        #expect(test.server.ideaReads == 0, "a planner on Light never shows the count")
+        #expect(try cachedIdeas(test).isEmpty)
+
+        await test.store().replan(test.wanted(me: test.kim))
+        #expect(test.server.ideaReads == 0, "nor does someone who isn't a planner")
+        #expect(try cachedIdeas(test).isEmpty)
+    }
+
+    @Test func turningToLightDropsTheIdeasItHad() async throws {
+        let test = try Harness()
+        test.set(now: Harness.at(9, 10))
+        test.server.set(weeks: [test.week()])
+        test.server.set(ideas: [ReminderIdea(createdAt: Harness.at(9, 8), requestedBy: test.kim.id, enteredBy: test.kim.id)])
+        let store = test.store()
+        await store.replan(test.wanted())
+        #expect(try cachedIdeas(test).count == 1)
+
+        var light = test.settings
+        light.notificationPreset = .light
+        test.server.set(offline: true)
+        await store.replan(ReminderStore.Context(me: test.ann, members: [test.ann, test.kim], settings: light))
+        #expect(try cachedIdeas(test).isEmpty, "even offline, with the weeks kept as they were")
     }
 
     @Test func withoutAFreshCountItKeepsTheLastOne() async throws {
