@@ -48,6 +48,14 @@ enum BuildMyWeek {
         static let thawFirstLeadHours = 24
     }
 
+    /// Hours of prep before dinner: its longest prep step the household does, or a day's thaw for a thaw-first dish
+    /// when they keep meat frozen.
+    static func leadHours(_ meal: LibraryMeal, settings: HouseholdSettings) -> Int {
+        let steps = meal.prepSteps.filter { settings.usesPrep(PrepKind(step: $0.step)) }
+            .compactMap(\.leadHours).max() ?? 0
+        return settings.keepsMeatFrozen && meal.tags.contains(.thawFirst) ? max(steps, Prep.thawFirstLeadHours) : steps
+    }
+
     static func draft(_ inputs: PlanningInputs, seed: UInt64) -> [NightPlan] {
         let planner = Planner(inputs)
         var rng = SeededGenerator(seed: seed)
@@ -248,9 +256,7 @@ private struct Planner {
     }
 
     private func leadHours(_ meal: LibraryMeal) -> Int {
-        let settings = inputs.settings
-        let steps = meal.prepSteps.filter { settings.usesPrep(PrepKind(step: $0.step)) }.compactMap(\.leadHours).max() ?? 0
-        return settings.keepsMeatFrozen && meal.tags.contains(.thawFirst) ? max(steps, BuildMyWeek.Prep.thawFirstLeadHours) : steps
+        BuildMyWeek.leadHours(meal, settings: inputs.settings)
     }
 
     // MARK: Scoring

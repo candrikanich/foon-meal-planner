@@ -15,6 +15,7 @@ struct NightDetailView: View {
     @State private var swapping = false
     @State private var choosingLeftovers = false
     @State private var startingPoll = false
+    @State private var rescuing = false
     @State private var pollStarted = false
 
     private static let efforts: [NightEffort] = [.normal, .rushed, .full, .event]
@@ -32,17 +33,35 @@ struct NightDetailView: View {
         }
     }
 
-    /// Tonight, before dinner's logged, with at least two people to ask. One poll at a time: an open one is on This Week.
+    /// Tonight, before dinner's logged: what can we make, for anyone, and a vote when there are at least two people
+    /// to ask. One poll at a time: an open one is on This Week.
     @ViewBuilder
-    private func pollSection(_ night: WeekNight) -> some View {
-        if polls != nil, night.date == week.todayDay, !dinnerStore.logs.contains(where: { $0.nightID == night.id }),
-           polls?.poll(for: night.id)?.isOpen(at: .now) != true,
-           PollRules.voters(on: night, members: household.visibleMembers).count >= 2 {
+    private func tonightSection(_ night: WeekNight) -> some View {
+        let logged = dinnerStore.logs.contains(where: { $0.nightID == night.id })
+        let settings = household.household?.planningSettings ?? HouseholdSettings()
+        let offersRescue = TonightRescue.offers(night: night, logged: logged,
+                                                isAway: night.readsAway(in: settings.awayDates, today: week.todayDay),
+                                                today: week.todayDay)
+        let offersPoll = polls != nil && night.date == week.todayDay && !logged
+            && polls?.poll(for: night.id)?.isOpen(at: .now) != true
+            && PollRules.voters(on: night, members: household.visibleMembers).count >= 2
+        if offersRescue || offersPoll {
             Section {
-                Button("Vote on dinner", systemImage: "checklist") { startingPoll = true }
-                    .tint(Palette.paprika)
+                if offersRescue {
+                    Button("What can we make?", systemImage: "lifepreserver") { rescuing = true }
+                        .tint(Palette.paprika)
+                        .accessibilityHint("Shows a few quick ideas from what's in the house")
+                }
+                if offersPoll {
+                    Button("Vote on dinner", systemImage: "checklist") { startingPoll = true }
+                        .tint(Palette.paprika)
+                }
             } footer: {
-                Text("Plans fell through? Start a quick vote on what's for dinner.")
+                if offersPoll {
+                    Text("Plans fell through? Start a quick vote on what's for dinner.")
+                } else {
+                    Text("Plans fell through? See what you can make in the time there is.")
+                }
             }
         }
     }
@@ -63,7 +82,7 @@ struct NightDetailView: View {
                 Text(DayCardText.dateLabel(for: night.date))
             }
 
-            pollSection(night)
+            tonightSection(night)
 
             NightClaimSection(night: night, canPlan: canPlan)
 
@@ -136,6 +155,12 @@ struct NightDetailView: View {
             if pollStarted { dismiss() }
         }) {
             StartPollSheet(nightID: nightID) { pollStarted = true }
+        }
+        // Asking the family from here starts a poll too, and this screen steps aside for it the same way.
+        .sheet(isPresented: $rescuing, onDismiss: {
+            if pollStarted { dismiss() }
+        }) {
+            RescueSheet(nightID: nightID) { pollStarted = true }
         }
         // Again when the swap sheet closes, by when its write has landed. The pick shows before it does.
         .task(id: swapping) {

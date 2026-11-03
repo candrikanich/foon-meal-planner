@@ -203,10 +203,15 @@ enum PollRules {
                 }
                 let dislikes = notForMe[meal.id] ?? [:]
                 return !home.contains { (dislikes[$0] ?? 0) >= 1 }
-                    && !meal.ingredients.contains { stock[$0.itemID] == .out }
+                    && isInStock(meal, stock: stock)
                     && FoodRuleMatcher.broken(by: meal, on: night.date, rules: foodRules, library: library).isEmpty
             }
             .sorted { $0.name.lowercased() < $1.name.lowercased() }
+    }
+
+    /// Nothing in it is marked out. Low still makes dinner, and an item nobody tracks counts as there.
+    static func isInStock(_ meal: LibraryMeal, stock: [UUID: StockState]) -> Bool {
+        !meal.ingredients.contains { stock[$0.itemID] == .out }
     }
 
     /// Two batches of chili are one choice on a vote, and the server takes a dish once. The oldest stays: offers come oldest first.
