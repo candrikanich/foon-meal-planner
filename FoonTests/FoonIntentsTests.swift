@@ -48,7 +48,7 @@ import Testing
     @Test func tonightTurnsOverAtTheHouseholdsMidnight() {
         let saved = snapshot([.init(date: today, title: "Tacos", isDish: true),
                               .init(date: today.adding(days: 1, calendar: calendar), title: "Chili", isDish: true)])
-        // 11pm in Chicago on the 4th is the 5th in UTC: still Tacos.
+        // 11pm on the household's clock is still the 4th, whatever this phone's zone: still Tacos.
         #expect(TonightAnswer.text(saved, now: at(day: 4, hour: 23)) == "Tonight: Tacos.")
         #expect(TonightAnswer.text(saved, now: at(day: 5, hour: 1)) == "Tonight: Chili.")
     }
@@ -97,6 +97,30 @@ import Testing
         #expect(result.failed == ["kale"])
         #expect(result.newItemsOffline)
         #expect(sync.isOffline)
+        // Whenever, on the quick list: nobody gets a push.
+        let lines = try container.mainContext.fetch(FetchDescriptor<CachedListItem>())
+        #expect(lines.map(\.itemID) == [milk])
+        #expect(lines.map(\.listRaw) == [ListKind.quick.rawValue])
+        #expect(lines.map(\.urgencyRaw) == [ListUrgency.whenever.rawValue])
+    }
+}
+
+/// Spoken lists (#62): dictation puts "and" where typing puts a comma.
+@Suite struct SpokenItemsTests {
+    @Test(arguments: [
+        ("milk and eggs", ["milk", "eggs"]),
+        ("milk, eggs, and bread", ["milk", "eggs", "bread"]),
+        ("2 gallons of milk and a dozen eggs", ["milk", "eggs"]),
+        ("Milk", ["Milk"]),
+    ])
+    func andSplitsWhatWasSaid(text: String, names: [String]) {
+        #expect(SpokenItems.names(text, known: []) == names)
+    }
+
+    @Test func somethingTheHouseholdHasStaysWhole() {
+        #expect(SpokenItems.names("Mac and cheese", known: ["mac and cheese"]) == ["Mac and cheese"])
+        #expect(SpokenItems.names("mac and cheese, and milk", known: ["mac and cheese"]) == ["mac and cheese", "milk"])
+        #expect(SpokenItems.names("salt and pepper", known: ["salt and pepper"]) == ["salt and pepper"])
     }
 }
 
@@ -134,6 +158,18 @@ import Testing
         let second = services.service(for: household, context: container.mainContext, client: client)
         #expect(first !== second)
         #expect(!second.isStopped)
+    }
+
+    @Test func aWipeStopsTheCurrentOneAndItQueuesNothingAfter() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let services = SyncServices()
+        let household = UUID()
+        let service = services.service(for: household, context: container.mainContext, client: client)
+        services.stopCurrent()
+        #expect(service.isStopped)
+        await service.addToList(itemID: UUID(), list: .quick)
+        #expect(try container.mainContext.fetch(FetchDescriptor<PendingChange>()).isEmpty)
+        #expect(services.service(for: household, context: container.mainContext, client: client) !== service)
     }
 
     @Test func stoppingAnOldServiceLeavesTheCurrentOne() throws {

@@ -35,6 +35,7 @@ struct RootView: View {
                 switch state {
                 case .signedOut:
                     // The next person to sign in on this device must never see this household's week or lists.
+                    SyncServices.shared.stopCurrent()
                     try? SyncService.clearCache(in: context)
                     // And no reminder of theirs goes off for them.
                     ReminderStore.clearDevice()
@@ -91,6 +92,7 @@ struct HouseholdGate: View {
                         // No household for this account (the owner deleted it, or this person was removed): nothing
                         // of the old one may stay on the device. This runs once the old screens are gone, after
                         // SyncGate stopped their service, so no late pull can refill the cache.
+                        SyncServices.shared.stopCurrent()
                         try? SyncService.clearCache(in: context)
                         ReminderStore.clearDevice()
                         TonightFile.shared?.clear()

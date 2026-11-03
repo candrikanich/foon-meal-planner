@@ -23,4 +23,10 @@ final class SyncServices {
         service.stop()
         if current === service { current = nil }
     }
+
+    /// Before the cache is wiped: one Siri started, which no screen owns, stops too.
+    func stopCurrent() {
+        current?.stop()
+        current = nil
+    }
 }

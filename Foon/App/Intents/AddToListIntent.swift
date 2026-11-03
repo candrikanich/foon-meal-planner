@@ -12,11 +12,11 @@ struct AddToListIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let household = IntentHousehold.current() else { return .result(dialog: "\(IntentHousehold.signedOut)") }
-        let names = IngredientParser.parse(items).map(\.name)
+        guard let household = IntentHousehold.current() else { return .result(dialog: "\(IntentHousehold.unavailable)") }
+        let known = (try? household.context.fetch(FetchDescriptor<CachedItem>())) ?? []
+        let names = SpokenItems.names(items, known: Set(known.map { $0.name.lowercased() }))
         guard !names.isEmpty else { return .result(dialog: "Nothing to add.") }
         let sync = household.sync
-        let known = (try? household.context.fetch(FetchDescriptor<CachedItem>())) ?? []
         let result = await QuickListAdder.add(names, items: known, householdID: household.id,
                                               itemClient: .live(household.client), sync: sync)
         return .result(dialog: "\(result.spoken(waitingForSignal: sync.isOffline))")

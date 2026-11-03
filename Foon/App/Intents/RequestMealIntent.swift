@@ -12,17 +12,20 @@ struct RequestMealIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let household = IntentHousehold.current() else { return .result(dialog: "\(IntentHousehold.signedOut)") }
+        // Online anyway, so the household comes from the server rather than this phone's cache.
+        guard let client = IntentHousehold.signedInClient, let userID = client.auth.currentUser?.id else {
+            return .result(dialog: "\(IntentHousehold.unavailable)")
+        }
         do {
-            let members = try await HouseholdClient.live(household.client).members(household.id)
-            guard let me = members.first(where: { $0.userID == household.userID }) else {
-                return .result(dialog: "\(IntentHousehold.signedOut)")
-            }
+            let households = HouseholdClient.live(client)
+            guard let household = try await households.myHousehold(),
+                  let me = try await households.members(household.id).first(where: { $0.userID == userID })
+            else { return .result(dialog: "Open Foon first to join your family.") }
             guard let request = NewRequest.build(kind: .name, from: me.id, mealID: nil, title: dinner, link: "",
                                                  note: "", date: nil) else {
                 return .result(dialog: "That's a long name. Try a shorter one.")
             }
-            _ = try await IdeasClient.live(household.client).make(household.id, request)
+            _ = try await IdeasClient.live(client).make(household.id, request)
             return .result(dialog: "Asked for \(request.title ?? dinner). It's on the Ideas tab.")
         } catch {
             return .result(dialog: "Couldn't reach Foon. Try again.")

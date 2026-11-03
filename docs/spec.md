@@ -338,9 +338,9 @@ v1 rules (#24, `Foon/Core/Planning/BuildMyWeek.swift`, a pure function of the in
 
 **Siri and Shortcuts (#62).** Three things to say, each with "Foon" in it (Apple requires the app's name). All three need the phone unlocked first, so a locked phone never speaks a dish (the widget's rule). They run without opening the app.
 - **"What's for dinner in Foon":** tonight as the widget shows it, from what this phone last saw, with no network: "Tonight: Tacos, at 6:30 PM.", a quick pick, "You're away tonight.", "Nothing's planned for tonight yet.", or "Open Foon to see the plan." before the app has opened on this phone.
-- **"Add to the Foon list":** Siri asks what, then puts it on the quick list as whenever, so nobody gets a push. Anyone in the family may, kids too. Things the household already has go on offline too: Siri says "Added milk. It'll reach the family when you're back online." A new item needs a connection, as on the list screen. It's the same sync as the open app, so nothing is sent twice.
+- **"Add to the Foon list":** Siri asks what, then puts it on the quick list as whenever, so nobody gets a push. Spoken, "and" separates things ("milk and eggs" is two), except in something the household already has ("mac and cheese"). Anyone in the family may, kids too. Things the household already has go on offline too: Siri says "Added milk. It'll reach the family when you're back online." A new item needs a connection, as on the list screen. It's the same sync as the open app, so nothing is sent twice.
 - **"Request a dinner in Foon":** Siri asks what, then adds a named idea from you, as on the Ideas tab. Anyone in the family may, kids too. Needs a connection.
-- Signed out, Siri says to open Foon and sign in.
+- Signed out, Siri says to open Foon and sign in. Signed in on a phone that hasn't synced the family yet, adding says to open Foon first.
 
 ## After-dinner loop
 

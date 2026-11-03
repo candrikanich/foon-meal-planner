@@ -9,6 +9,7 @@ struct WhatsForDinnerIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard IntentHousehold.signedInClient != nil else { return .result(dialog: "\(IntentHousehold.unavailable)") }
         let answer = TonightAnswer.text(TonightFile.shared?.load(), now: .now)
         return .result(dialog: "\(answer)")
     }

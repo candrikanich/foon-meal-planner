@@ -107,6 +107,8 @@ final class SyncService {
     /// One tap's changes, applied and queued together before anything waits on the network, so a second tap can't land
     /// between them (a check-off's restock after its own undo).
     func perform(_ changes: [OfflineChange]) async {
+        // Stopped: the cache was (or is about to be) wiped, and a change landing now would outlive it.
+        guard !isStopped else { return }
         var sequence = pendingChanges().map(\.sequence).max() ?? 0
         for change in changes {
             sequence += 1

@@ -2510,6 +2510,12 @@
     "Open Foon and sign in first." : {
       "comment" : "Siri, with no one signed in"
     },
+    "Open Foon first to join your family." : {
+
+    },
+    "Open Foon first, so this phone has your family's lists." : {
+      "comment" : "Siri, signed in but nothing synced yet"
+    },
     "Open Foon to see the plan." : {
 
     },
