@@ -49,7 +49,7 @@ struct ShowTipsAgainSection: View {
             .disabled(pending)
         } footer: {
             if pending {
-                Text("Tips come back the next time you open Foon.")
+                Text("Tips come back after you close Foon and open it again.")
             } else {
                 Text("The short notes that show where things are, each shown once.")
             }

@@ -903,9 +903,9 @@ One subscription per household: $5.99 a month or $49.99 a year after a 30-day fr
 
 **Tips (#63, built).** A few short notes that show where things are, each one shown once and before first use. They use Apple's TipKit, so each person closes them on their own device and nothing syncs or leaves the device.
 - **Share to Foon:** at the top of Ideas: "Found a recipe in another app? Tap Share, then Foon, and it lands in your ideas." It goes away for good once Foon sees something shared to it. It doesn't show on the Mac, which has no share extension yet.
-- **Store mode:** on Lists, pointing at Shop, and only while Shop can open. It goes away once store mode is opened.
+- **Store mode:** on Lists, pointing at Shop, and only while Shop can open. It goes away once store mode is opened. Not on the Mac, whose store mode doesn't keep the screen awake.
 - **AI pick:** comes with the AI pick, and only on devices where it can run.
-- **Show tips again:** in Family, for everyone. Tips come back the next time Foon opens, since TipKit can only start over at launch, and the row says so.
+- **Show tips again:** in Family, for everyone. Tips come back once Foon is closed and opened again, since TipKit can only start over at launch, and the row says so ("Tips come back after you close Foon and open it again.").
 
 **Success metrics: internal.** North star: share of dinners where someone other than the planner contributed (request, vote, claim, or cook). Also: onboarding completion, time to first plan, weekly active households, plans approved per week, after-dinner response rate, contributors per household, shopping trips completed, week-1 and week-4 retention, trial-to-paid conversion. All anonymized; no individual tracking.
 

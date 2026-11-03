@@ -8,13 +8,12 @@ enum FoonTip: Hashable, CaseIterable {
 }
 
 enum TipRules {
-    /// The Mac has no share extension yet, and store mode opens only while there's something to buy or a trip to
-    /// finish, so a tip never points at something that isn't there.
+    /// Phone and iPad tips: the Mac has no share extension yet, and its store mode doesn't keep the screen awake. Store
+    /// mode opens only while there's something to buy or a trip to finish, so a tip never points at something that isn't
+    /// there.
     static func eligible(onMac: Bool, canShop: Bool) -> Set<FoonTip> {
-        var tips: Set<FoonTip> = []
-        if !onMac { tips.insert(.shareToFoon) }
-        if canShop { tips.insert(.storeMode) }
-        return tips
+        guard !onMac else { return [] }
+        return canShop ? [.shareToFoon, .storeMode] : [.shareToFoon]
     }
 }
 

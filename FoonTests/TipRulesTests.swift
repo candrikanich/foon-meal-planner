@@ -11,8 +11,9 @@ struct TipRulesTests {
         #expect(TipRules.eligible(onMac: false, canShop: false) == [.shareToFoon])
     }
 
-    @Test func theMacHasNoShareExtensionSoNoShareTip() {
-        #expect(TipRules.eligible(onMac: true, canShop: true) == [.storeMode])
+    @Test func theMacGetsNeitherTip() {
+        // No share extension, and store mode there is a sheet without the phone's screen-awake or tap wording.
+        #expect(TipRules.eligible(onMac: true, canShop: true).isEmpty)
         #expect(TipRules.eligible(onMac: true, canShop: false).isEmpty)
     }
 

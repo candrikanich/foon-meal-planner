@@ -19,7 +19,7 @@ The recap half merged as #242. This branch (`feat/63-tips`) adds the tips.
   - `TipReset` holds the pending-reset flag.
 - **"Show tips again":** in Family, for everyone. TipKit can only clear its datastore before `configure`, and
   calling it afterwards throws. So the button sets a flag in `UserDefaults`, and the next launch clears the store
-  and then configures it. The footer confirms: "Tips come back the next time you open Foon."
+  and then configures it. The footer confirms: "Tips come back after you close Foon and open it again."
 - **Previews:** the app's previews don't call `configure`, so they show no tips. That's deliberate: screen previews
   look the way they do after the tips are gone. A separate "Tips" preview shows both with `showAllTipsForTesting`.
 
