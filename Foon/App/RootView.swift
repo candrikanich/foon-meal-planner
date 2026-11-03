@@ -38,6 +38,8 @@ struct RootView: View {
                     try? SyncService.clearCache(in: context)
                     // And no reminder of theirs goes off for them.
                     ReminderStore.clearDevice()
+                    // Nor does the Tonight widget keep showing their dinners.
+                    TonightFile.shared?.clear()
                     // Signing out drops what's waiting. Launching signed out doesn't: someone may have just shared
                     // something and be on their way to sign in.
                     if case .signedIn = previous { SharedInbox.shared?.clear() }
@@ -91,6 +93,7 @@ struct HouseholdGate: View {
                         // SyncGate stopped their service, so no late pull can refill the cache.
                         try? SyncService.clearCache(in: context)
                         ReminderStore.clearDevice()
+                        TonightFile.shared?.clear()
                     }
             case .ready(let household):
                 SyncGate(householdID: household.id, client: syncClient) {

@@ -330,6 +330,12 @@ v1 rules (#24, `Foon/Core/Planning/BuildMyWeek.swift`, a pure function of the in
 - **Older apps:** their writes are logged, and nothing they do is refused because of this. They don't show the log or offer Undo. A failure writing the log never stops a plan write; that entry is just missing.
 - **Stored:** `plan_changes`, written only by the trigger and read by the family. Eight weeks are kept, and the daily retention job deletes the rest. A device reads the latest 300.
 
+**Tonight widget (#62).** Tonight's dinner on the home screen (small: tonight; medium: tonight and tomorrow) and the lock screen (a rectangle, or a line by the clock: "Tonight: Tacos").
+- **What it shows:** the night as This Week shows it: the dish, a quick pick ("Takeout"), Away for the household's away dates (by This Week's rule: a dinner planned for tonight or earlier stays itself), or "Nothing planned yet". Small and medium add the dinner time. A draft shows like an approved week, as it does on This Week. Before the app has opened on this phone, or after signing out, it says "Open Foon to see the plan." A tap opens Foon.
+- **Locked phones:** a dish is something the family typed, so the widget marks it private (decided 2026-11-03, Chris). On a locked phone (the lock screen, StandBy) iOS hides it and the rest still shows; once Face ID unlocks, the dish shows. A quick pick or "Nothing planned yet" isn't hidden. This keeps "a lock screen never names a dish" while the phone is locked.
+- **Where it comes from:** the app writes the nights it last saw (This Week and next, from yesterday through two weeks out) to a file in the App Group whenever the week it holds changes, and asks the widget to reload. The widget has no network, sign-in or database of its own, and turns over at midnight on the household's clock. So it shows what this phone last saw: a swap made on another phone shows once this phone opens Foon. The file holds dish names, quick picks, dates and dinner times: no people, attendance or allergies. Signing out, or leaving the household, deletes it.
+- **iPhone and iPad only:** the Mac has no App Group, so no widget yet.
+
 ## After-dinner loop
 
 The plan is the log by default; one notification per person confirms it, rates it, and captures leftovers.
