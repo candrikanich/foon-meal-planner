@@ -8,7 +8,7 @@ The mission test still applies: does it make it easier for more people to contri
 - **Built:** the family loop on staging, through build 53.
 - **Still open in M2:**
   - #41, #43 and #44 need a second family phone;
-  - #122 needs a device check of the after-dinner card;
+  - the after-dinner card (#122, closed) still needs a device check;
   - #56's recap half waits on #63, so it moves into car 3 here.
 - **Already in place for M3:**
   - Vision text recognition (`Core/Share/TextRecognizer`) and the recipe text parser;
