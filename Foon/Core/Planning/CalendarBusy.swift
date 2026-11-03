@@ -24,7 +24,8 @@ enum CalendarBusy {
 
     /// The night's dinner window on the household's clock, from its own dinner time or the household's.
     static func window(for night: WeekNight, settings: HouseholdSettings) -> DateInterval? {
-        let calendar = DinnerPrompts.calendar(for: settings)
+        // The same clock as the night's day: with no time zone saved yet, that's this device's.
+        let calendar = settings.dayCalendar
         guard let dinner = DinnerPrompts.moment(night.dinnerTime ?? settings.dinnerTime, on: night.date,
                                                 calendar: calendar) else { return nil }
         let start = dinner.addingTimeInterval(-TimeInterval(minutesBefore * 60))

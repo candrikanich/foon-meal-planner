@@ -64,6 +64,15 @@ struct CalendarBusyTests {
 
     // MARK: - Which events count
 
+    @Test func withNoSavedTimeZoneTheWindowIsOnThisDevicesClockLikeTheDays() throws {
+        // An older household with no time zone saved reads its days on the phone's clock, so dinner does too.
+        var unzoned = HouseholdSettings()
+        unzoned.dinnerTime = "18:00"
+        let window = try #require(CalendarBusy.window(for: night(), settings: unzoned))
+        let dinner = try #require(DinnerPrompts.moment("18:00", on: today, calendar: .current))
+        #expect(window.start == dinner.addingTimeInterval(-90 * 60))
+    }
+
     @Test func anEventInsideTheWindowSuggestsRushed() {
         let tonight = night()
         #expect(suggested([event(at(17), at(18))], [tonight]) == [tonight.id])
