@@ -48,6 +48,8 @@ struct RescueSheet: View {
     let nightID: UUID
     /// Asking the family started a poll; whoever opened this can step aside for it.
     var pollStarted: () -> Void = {}
+    /// Tonight's dinner was chosen here.
+    var chosen: () -> Void = {}
 
     @State private var minutes = TonightRescue.defaultMinutes
     @State private var seed = UInt64.random(in: .min ... .max)
@@ -146,6 +148,7 @@ struct RescueSheet: View {
         isWorking = true
         defer { isWorking = false }
         if await TonightChoice.apply(choice, nightID: nightID, week: week, ideas: ideaStore, freezer: freezer) {
+            chosen()
             dismiss()
         } else if case .freezer = choice {
             // Most likely someone took it out already: read the freezer again so it drops out of the ideas.

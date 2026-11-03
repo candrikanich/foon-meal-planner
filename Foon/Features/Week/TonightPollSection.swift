@@ -38,7 +38,8 @@ struct TonightPollSection: View {
             }
             .task(id: poll.id) { await catchUpLibrary(for: poll) }
             .confirmingTonightChoice($confirming) { choice in Task { await apply(choice) } }
-            .sheet(isPresented: $rescuing) { RescueSheet(nightID: tonight.id) }
+            // Once the rescue settles tonight, "Nobody voted." has nothing left to say.
+            .sheet(isPresented: $rescuing) { RescueSheet(nightID: tonight.id, chosen: { dismiss(poll) }) }
         }
     }
 
