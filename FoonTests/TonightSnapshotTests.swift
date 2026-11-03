@@ -52,9 +52,10 @@ import Testing
         #expect(dates.map { CalendarDay($0, calendar: calendar) } == [day(0), day(1), day(2), day(3)])
     }
 
-    @Test func nothingAheadMeansNoLaterEntries() {
+    @Test func tonightAsTheLastNightStillTurnsOverAtMidnight() {
         let now = day(0).date(in: calendar).addingTimeInterval(3600)
-        #expect(snapshot([night(0, "Tacos")]).refreshDates(from: now) == [now])
+        #expect(snapshot([night(0, "Tacos")]).refreshDates(from: now) == [now, day(1).date(in: calendar)])
+        #expect(snapshot([night(-1, "Chili")]).refreshDates(from: now) == [now])
         #expect(snapshot([]).refreshDates(from: now) == [now])
     }
 
@@ -63,12 +64,29 @@ import Testing
         func make(_ offset: Int, meal: String? = nil, pick: QuickPick? = nil) -> TonightSnapshot.Night {
             TonightSnapshot.Night(WeekNight(id: UUID(), date: day(offset), effort: .normal, dinnerTime: "18:30",
                                             mealID: meal == nil ? nil : UUID(), mealName: meal, quickPick: pick,
-                                            locked: false, attendance: [:]), awayDates: [away])
+                                            locked: false, attendance: [:]), awayDates: [away], today: day(2))
         }
         #expect(make(0, meal: "Tacos") == .init(date: day(0), title: "Tacos", isDish: true, dinnerTime: "18:30"))
         #expect(make(1, pick: .takeout) == .init(date: day(1), title: "Takeout", dinnerTime: "18:30"))
-        #expect(make(2, meal: "Tacos") == .init(date: day(2), isAway: true))
+        // Away dates marked after tonight was planned don't erase it, as on This Week; an empty night is away.
+        #expect(make(2, meal: "Tacos") == .init(date: day(2), title: "Tacos", isDish: true, dinnerTime: "18:30"))
+        #expect(make(2) == .init(date: day(2), isAway: true))
+        #expect(make(3, meal: "Tacos") == .init(date: day(3), isAway: true))
         #expect(make(4) == .init(date: day(4), dinnerTime: "18:30"))
+    }
+
+    @Test func updatedFromAWeekUsesTheHouseholdsDayAndKeepsTheOtherWeek() throws {
+        var settings = HouseholdSettings()
+        settings.timeZone = zone
+        // 11pm in Chicago on the 4th: yesterday is the 3rd there, so the 3rd stays and the 2nd goes.
+        let late = try #require(calendar.date(from: DateComponents(year: 2026, month: 11, day: 4, hour: 23)))
+        let saved = snapshot([night(-2, "Old"), night(-1, "Yesterday"), night(8, "Next week")])
+        let week = Week(planID: UUID(), start: day(0), nights: [
+            WeekNight(id: UUID(), date: day(0), effort: .normal, mealName: "Soup", locked: false, attendance: [:]),
+        ])
+        let updated = TonightSnapshot.updated(saved, week: week, householdID: household, settings: settings, now: late)
+        #expect(updated.timeZone == zone)
+        #expect(updated.nights.map(\.title) == ["Yesterday", "Soup", "Next week"])
     }
 
     @Test func savedAndLoadedFromItsFile() throws {

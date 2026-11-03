@@ -66,7 +66,8 @@ struct TonightSnapshot: Codable, Equatable, Sendable {
     func refreshDates(from now: Date) -> [Date] {
         let calendar = calendar
         let today = CalendarDay(now, calendar: calendar)
-        guard let last = nights.last?.date, last > today else { return [now] }
+        // Through the midnight after the last night it has, so a night gone by never stays up as tonight.
+        guard let last = nights.last?.date, last >= today else { return [now] }
         var dates = [now]
         var day = today.adding(days: 1, calendar: calendar)
         while day <= last.adding(days: 1, calendar: calendar) {

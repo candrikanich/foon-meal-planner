@@ -75,10 +75,16 @@ struct TonightWidgetView: View {
     }
 
     @ViewBuilder private var inline: some View {
-        if let title = entry.tonight?.title, entry.tonight?.isDish == true {
-            Text("Tonight: \(title)").privacySensitive()
-        } else if let title = entry.tonight?.title {
-            Text("Tonight: \(title)")
+        if entry.snapshot == nil {
+            Text("Open Foon to see the plan")
+        } else if let night = entry.tonight, let title = night.title {
+            if night.isDish {
+                Text("Tonight: \(title)").privacySensitive()
+            } else {
+                Text("Tonight: \(title)")
+            }
+        } else if entry.tonight?.isAway == true {
+            Text("Tonight: away")
         } else {
             Text("Tonight: nothing planned yet")
         }
