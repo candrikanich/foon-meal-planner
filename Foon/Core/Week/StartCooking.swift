@@ -26,12 +26,19 @@ struct StartCooking: Equatable, Sendable {
                       today: CalendarDay, minuteNow: Int) -> StartCooking? {
         guard settings.showsStartCooking, night.date >= today,
               night.attendance.isEmpty || night.attendance.values.contains(true),
-              let minutes = meal.cookMinutes ?? estimate(for: meal),
-              let dinner = minuteOfDay(night.dinnerTime ?? settings.dinnerTime), dinner >= minutes else { return nil }
-        let start = dinner - minutes
+              let time = minutes(for: meal),
+              let dinner = minuteOfDay(night.dinnerTime ?? settings.dinnerTime), dinner >= time.minutes
+        else { return nil }
+        let start = dinner - time.minutes
         if night.date == today, minuteNow > start { return nil }
-        return StartCooking(cookMinutes: minutes, isEstimate: meal.cookMinutes == nil, startMinute: start,
+        return StartCooking(cookMinutes: time.minutes, isEstimate: time.isEstimate, startMinute: start,
                             dinnerMinute: dinner)
+    }
+
+    /// How long a dish takes: its own time, else the estimate from its tags or name. Nil when there's nothing to go on.
+    static func minutes(for meal: LibraryMeal) -> (minutes: Int, isEstimate: Bool)? {
+        if let own = meal.cookMinutes { return (own, false) }
+        return estimate(for: meal).map { ($0, true) }
     }
 
     private static func estimate(for meal: LibraryMeal) -> Int? {

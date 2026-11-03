@@ -428,6 +428,9 @@
     "%lld meals can't be fully checked for allergies. Open them to see why." : {
 
     },
+    "%lld min" : {
+      "comment" : "Tonight rescue: the dish's own time to dinner"
+    },
     "%lld minutes" : {
       "comment" : "How long a tonight poll runs"
     },
@@ -593,7 +596,7 @@
 
     },
     "A dish" : {
-      "comment" : "Poll option whose name couldn't be read"
+      "comment" : "Leftovers whose dish name couldn't be read\nPoll option whose name couldn't be read"
     },
     "A doubled or freezer night changed what to buy. Update the list." : {
 
@@ -920,7 +923,10 @@
 
     },
     "Backup dinner" : {
-
+      "comment" : "Tonight rescue: a dish tagged Backup dinner"
+    },
+    "Backup dinner, everything's in" : {
+      "comment" : "Tonight rescue: a backup dinner whose ingredients are all marked in stock"
     },
     "Backup dinners" : {
 
@@ -1480,6 +1486,9 @@
     "Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, votes on dinner, ratings and comments, and who cooked. Planners can see the reminder log; everyone else, only their own." : {
 
     },
+    "Everyone makes their own" : {
+      "comment" : "Tonight rescue: why Fend"
+    },
     "Everyone's here. You can invite people later from Family." : {
 
     },
@@ -2030,6 +2039,20 @@
     "Leave it empty" : {
 
     },
+    "Leftover %@ from %@ · %lld days old" : {
+      "comment" : "Tonight rescue: leftovers: the dish, the day it was cooked, and how many days ago",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Leftover %1$@ from %2$@ · %3$lld days old"
+          }
+        }
+      }
+    },
+    "Leftover %@ from yesterday" : {
+      "comment" : "Tonight rescue: leftovers, cooked yesterday"
+    },
     "Leftover nights a week: %lld" : {
 
     },
@@ -2348,6 +2371,9 @@
     "No week yet" : {
 
     },
+    "Nobody cooks or cleans up" : {
+      "comment" : "Tonight rescue: why Eat out"
+    },
     "Nobody voted." : {
       "comment" : "Tonight poll closed with no votes"
     },
@@ -2431,6 +2457,9 @@
     },
     "Nothing to buy. Approve the week or add an item." : {
 
+    },
+    "Nothing to cook" : {
+      "comment" : "Tonight rescue: why Takeout"
     },
     "Nothing to plan or shop for. Enjoy it." : {
 
@@ -3789,6 +3818,12 @@
     "What's for dinner tonight?" : {
 
     },
+    "Whatever's in the freezer" : {
+      "comment" : "Tonight rescue: why Freezer raid"
+    },
+    "Whatever's in the fridge" : {
+      "comment" : "Tonight rescue: why Leftovers"
+    },
     "When" : {
 
     },
@@ -3998,6 +4033,9 @@
     "Your rhythm" : {
 
     },
+    "around %lld min" : {
+      "comment" : "Tonight rescue: an estimated time to dinner"
+    },
     "cook.timer.finished" : {
       "comment" : "Cook mode: a timer that has finished",
       "extractionState" : "extracted_with_value",
@@ -4060,6 +4098,9 @@
     },
     "soy" : {
       "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "time not set" : {
+      "comment" : "Tonight rescue: a backup dinner with no cooking time"
     },
     "today" : {
       "comment" : "Freezer stash: made today"
