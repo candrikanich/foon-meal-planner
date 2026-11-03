@@ -158,4 +158,21 @@ struct OfflineReplayMergeTests {
         #expect(report.remaining == [2])
         #expect(report.rewritten == [2: .setChecked(listItemID: existing, checked: true)])
     }
+
+    /// Bob checked milk off, then put it back, offline. "Couldn't find it" on Alice's phone moved the line first (#201).
+    @Test func aCheckOffThatFollowedAMovedLineTakesTheUndoWithIt() async {
+        let weekly = UUID(), quick = UUID()
+        let sent = Mutex<[OfflineChange]>([])
+        let queue = [
+            OfflineReplay.Entry(sequence: 1, change: .setChecked(listItemID: weekly, checked: true), attempts: 0),
+            OfflineReplay.Entry(sequence: 2, change: .setChecked(listItemID: weekly, checked: false), attempts: 0)
+        ]
+        let report = await OfflineReplay.replay(queue) { change in
+            sent.withLock { $0.append(change) }
+            return change == .setChecked(listItemID: weekly, checked: true) ? .merged(into: quick) : .sent
+        }
+        #expect(sent.withLock { $0.last } == .setChecked(listItemID: quick, checked: false))
+        #expect(report.aliases == [weekly: quick])
+        #expect(report.sent == [1, 2])
+    }
 }

@@ -8,7 +8,8 @@ struct SyncClient: Sendable {
     /// The current week (the latest plan that has started and hasn't ended), its nights, the open
     /// lists plus the last day's check-offs, and the household's items.
     var fetchSnapshot: @Sendable (_ householdID: UUID, _ today: CalendarDay) async throws -> SyncSnapshot
-    /// Sends one change. Returns the existing line's id when the server merged an added line into it.
+    /// Sends one change. Returns the line's id when it's now another: an added line the server merged into an existing one, or
+    /// the quick line a check-off followed after "Couldn't find it" moved its line.
     var send: @Sendable (_ change: OfflineChange) async throws -> UUID?
     /// Fires once the subscription is ready, then whenever the household's lists or items change on
     /// the server (Realtime). Payloads are ignored: the service re-pulls, which also keeps it safe
@@ -61,11 +62,15 @@ extension SyncClient {
                 switch change {
                 case .setChecked(let listItemID, let checked):
                     // The database stamps who checked it and when.
-                    try await client.from("list_items")
-                        .update(CheckPatch(checkedAt: checked ? Date() : nil))
-                        .eq("id", value: listItemID)
-                        .execute()
-                    return nil
+                    let patch = CheckPatch(checkedAt: checked ? Date() : nil)
+                    let updated: [LineID] = try await client.from("list_items").update(patch)
+                        .eq("id", value: listItemID).select("id").execute().value
+                    guard updated.isEmpty, checked else { return nil }
+                    // Gone: "Couldn't find it" may have moved it to the quick list first (#201). What was bought is in the cart, so
+                    // the line it moved to is checked off, if nobody has since. A line that went any other way has no trail.
+                    let followed: [LineID] = try await client.from("list_items").update(patch)
+                        .eq("moved_from", value: listItemID).is("checked_at", value: nil).select("id").execute().value
+                    return followed.first?.id
                 case .addToList(let householdID, let itemID, let list, let urgency, let source, let note, let lineID, let quantity, let planID, let replacing):
                     if let replacing {
                         let line: LineID = try await client.rpc("move_to_quick_list", params: MoveToQuickListParams(

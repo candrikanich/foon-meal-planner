@@ -200,7 +200,7 @@ struct SyncServiceTests {
     @Test func checkingOffANonStapleDoesntPull() async throws {
         let container = try SyncService.inMemoryContainer()
         let pulls = Mutex(0)
-        let base = snapshot
+        let base = snapshot, householdID = household, milkItem = milkItem, milkLine = milkLine
         let service = makeService(container: container, client: .fake(snapshot: {
             pulls.withLock { $0 += 1 }
             return base
@@ -449,6 +449,33 @@ struct SyncServiceTests {
         _ = await service.addToList(itemID: eggsItem, list: .quick)
         let lines = try container.mainContext.fetch(FetchDescriptor<CachedListItem>())
         #expect(lines.contains { $0.id == existing && $0.itemID == eggsItem })
+    }
+
+    /// Bob's check-off reached the server after "Couldn't find it" moved the line to the quick list (#201).
+    @Test func aCheckOffThatFollowedAMoveSticksToTheMovedLine() async throws {
+        let container = try SyncService.inMemoryContainer()
+        let moved = UUID()
+        let followed = Mutex(false)
+        let base = snapshot, householdID = household, milkItem = milkItem, milkLine = milkLine
+        let service = makeService(container: container, client: .fake(
+            snapshot: {
+                guard followed.withLock({ $0 }) else { return base }
+                let line = ListItemRow(id: moved, householdID: householdID, itemID: milkItem, list: .quick,
+                                       urgency: .whenever, source: .manual, note: "Couldn't find it", checkedAt: .now)
+                return SyncSnapshot(plan: base.plan, nights: [], listItems: [line], items: base.items)
+            },
+            mergedInto: { change in
+                guard change == .setChecked(listItemID: milkLine, checked: true) else { return nil }
+                followed.withLock { $0 = true }
+                return moved
+            }
+        ))
+        await service.pull()
+        await service.perform(.setChecked(listItemID: milkLine, checked: true))
+        let lines = try container.mainContext.fetch(FetchDescriptor<CachedListItem>())
+        #expect(lines.count == 1)
+        #expect(lines.first?.id == moved && lines.first?.checkedAt != nil, "the cart shows the line it went to")
+        #expect(lines.first?.note == "Couldn't find it", "pulled again, so it shows the line as the server has it")
     }
 
     @Test func changesMadeDuringAReplayAreSentOnceInOrder() async throws {

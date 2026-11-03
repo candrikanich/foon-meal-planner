@@ -117,6 +117,45 @@ struct SyncLiveTests {
         #expect(breadChecked, "the check-off reached the row the device created")
         following.cancel()
     }
+
+    /// Bob checked milk off offline; Alice's "Couldn't find it" got to the server first (#201).
+    @Test func aCheckOffFollowsALineThatMovedToTheQuickList() async throws {
+        let config = try SupabaseConfig.fromMainBundle()
+        let supabase = SupabaseClient(
+            supabaseURL: config.url, supabaseKey: config.anonKey,
+            options: SupabaseClientOptions(auth: .init(storage: MemoryStorage(), emitLocalSessionAsInitialSession: true))
+        )
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: "local-test-password-1")
+        let household = try await HouseholdClient.live(supabase).createHousehold("Move family", nil, "Ann", HouseholdSettings())
+        let client = SyncClient.live(supabase)
+        func item(_ name: String) async throws -> UUID {
+            let row: IDRow = try await supabase.rpc("ensure_item", params: ["target_household": household.id.uuidString,
+                                                                          "item_name": name]).select("id").single().execute().value
+            return row.id
+        }
+        func weeklyLine(_ itemID: UUID) async throws -> UUID {
+            let line = UUID()
+            _ = try await client.send(.addToList(householdID: household.id, itemID: itemID, list: .weekly, urgency: .whenever,
+                                                 source: .manual, note: nil, lineID: line))
+            return line
+        }
+
+        let milk = try await item("Milk")
+        let weekly = try await weeklyLine(milk)
+        let quick = UUID()
+        _ = try await client.send(.addToList(householdID: household.id, itemID: milk, list: .quick, urgency: .whenever,
+                                             source: .manual, note: "Couldn't find it", lineID: quick, replacing: weekly))
+        let followed = try await client.send(.setChecked(listItemID: weekly, checked: true))
+        #expect(followed == quick, "the check-off went to the line it moved to")
+        let rows: [CheckRow] = try await supabase.from("list_items").select("checked_at").eq("id", value: quick).execute().value
+        #expect(rows.first?.checkedAt != nil)
+
+        let eggs = try await item("Eggs")
+        let removed = try await weeklyLine(eggs)
+        _ = try await client.send(.removeFromList(listItemID: removed))
+        #expect(try await client.send(.setChecked(listItemID: removed, checked: true)) == nil, "a removed line has no trail")
+    }
 }
 
 private struct IDRow: Decodable { let id: UUID }

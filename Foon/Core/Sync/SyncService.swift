@@ -227,7 +227,11 @@ final class SyncService {
             default: false
             }
         }
-        if !report.rejected.isEmpty || keptMaybe { requestedPull = true }
+        // A check-off that followed a moved line: this phone still has the line where it was.
+        let followedMove = entries.contains { entry in
+            if case .setChecked(let line, true) = entry.change { report.aliases[line] != nil } else { false }
+        }
+        if !report.rejected.isEmpty || keptMaybe || followedMove { requestedPull = true }
         pendingCount = pendingChanges().count
         isOffline = !report.remaining.isEmpty
     }
