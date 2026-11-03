@@ -10,6 +10,8 @@ final class LibraryStore {
     private(set) var isLoading = false
     private(set) var hasLoaded = false
     private(set) var errorMessage: String?
+    /// The last link read was turned away by the daily cap, so it says nothing about the page itself (#116).
+    private(set) var importWasCapped = false
     /// The last full load failed, so what's showing may be old. `errorMessage` also carries other actions' failures.
     private(set) var lastLoadFailed = false
     /// Whether a dish missing from `meals` means anything yet, and whether the allergies can be trusted. It's loaded only if
@@ -437,6 +439,7 @@ final class LibraryStore {
 
     /// Reads a recipe link. Nil (with a message) when the link can't be opened or read.
     func importRecipe(_ link: String) async -> RecipeImport? {
+        importWasCapped = false
         guard let url = Self.webLink(link) else {
             errorMessage = String(localized: "That doesn't look like a web link.")
             return nil
@@ -448,7 +451,8 @@ final class LibraryStore {
         } catch RecipeImportError.notAllowed {
             errorMessage = String(localized: "Foon can't open that link. Try the recipe's web page.")
         } catch RecipeImportError.rateLimited {
-            errorMessage = String(localized: "Try again tomorrow.")
+            importWasCapped = true
+            errorMessage = String(localized: "You've read 30 links today. Try again tomorrow, or save just the link.")
         } catch {
             errorMessage = String(localized: "Couldn't read that page. Check your connection and try again.")
         }

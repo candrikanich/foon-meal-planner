@@ -125,7 +125,12 @@ struct LinkImportStoreTests {
             throw RecipeImportError.rateLimited
         }))
         #expect(await capped.importRecipe("https://recipes.example") == nil)
-        #expect(capped.errorMessage == "Try again tomorrow.")
+        #expect(capped.errorMessage == "You've read 30 links today. Try again tomorrow, or save just the link.")
+        #expect(capped.importWasCapped)
+
+        let down = LibraryStore(householdID: UUID(), client: .fake())
+        #expect(await down.importRecipe("https://recipes.example") == nil)
+        #expect(!down.importWasCapped)
     }
 
     @Test func linksAreWebAddresses() {
