@@ -88,6 +88,22 @@ struct RatingCadenceTests {
                 "unanswered; tapped; rated on any phone; said they weren't home. Not an open card, a check-in, or an unread night")
     }
 
+    @Test func aPromptTakenBackBecauseSomethingElseWasLoggedIsntIgnored() {
+        let me = UUID()
+        var nights = (0..<3).map { index in
+            ReminderNight(id: UUID(), date: CalendarDay(year: 2026, month: 11, day: 2 + index), attendance: [me: true])
+        }
+        nights[1].hasLog = true
+        nights[1].loggedMealID = nil
+        let records = nights.enumerated().map { index, night in
+            ReminderRecordSummary(kind: .afterDinner, nightID: night.id,
+                                  sentAt: start.addingTimeInterval(-Double(4 - index) * day), respondedAt: nil)
+        }
+        let outcomes = PromptOutcome.outcomes(records, nights: nights, me: me, now: start)
+        #expect(outcomes.count == 2, "takeout logged instead: that prompt was taken out of Notification Center")
+        #expect(!RatingCadence().after(outcomes, now: start).isWeekly)
+    }
+
     // MARK: - The plan
 
     @Test func weeklyMeansOneRoundupInsteadOfEachNight() throws {
@@ -122,6 +138,27 @@ struct RatingCadenceTests {
         var inputs = F.inputs(me: F.kim, weeks: [F.week(nights)], now: F.at(8, 12))
         inputs.cadence = RatingCadence(weeklySince: F.at(7, 12))
         #expect(F.of(.ratingRoundup, NotificationPlanner.plan(inputs)).isEmpty, "a quick pick logged instead: nothing to rate")
+    }
+
+    @Test func aRoundupWhenADishWasLoggedOnAPlannedQuickPickOrAnEmptyNight() {
+        func weekWith(_ odd: ReminderNight) -> NotificationPlanner.Inputs {
+            var nights = (8...14).map { F.night($0) }
+            for index in nights.indices { nights[index].ratedBy = [F.kim.id] }
+            nights[2] = odd
+            var inputs = F.inputs(me: F.kim, weeks: [F.week(nights)], now: F.at(8, 12))
+            inputs.cadence = RatingCadence(weeklySince: F.at(7, 12))
+            return inputs
+        }
+        var takeout = F.night(10, meal: nil)
+        takeout.quickPick = .takeout
+        takeout.hasLog = true
+        takeout.loggedMealID = UUID()
+        #expect(!F.of(.ratingRoundup, NotificationPlanner.plan(weekWith(takeout))).isEmpty, "we had something else: a dish")
+
+        var empty = F.night(10, meal: nil)
+        empty.hasLog = true
+        empty.loggedMealID = UUID()
+        #expect(!F.of(.ratingRoundup, NotificationPlanner.plan(weekWith(empty))).isEmpty, "a dish logged on an empty night")
     }
 
     @Test func theRoundupRanksBelowPrepAndAboveTheNightlyOnes() {

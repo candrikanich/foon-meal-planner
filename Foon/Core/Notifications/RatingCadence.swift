@@ -56,12 +56,14 @@ struct PromptOutcome: Equatable, Sendable {
     /// From what this phone knows: its own record of each prompt, and the nights it has read. A prompt counts once it went out
     /// and its card has closed (a day after it went). It was answered if it was tapped or answered from the lock screen, or the
     /// night was rated on any phone, or they said they weren't home. A night this phone hasn't read (an earlier week) goes by
-    /// the tap alone, so only this week and next are looked at.
+    /// the tap alone, so only this week and next are looked at. One whose night was then logged with no dish (takeout instead)
+    /// doesn't count either way: it was taken out of Notification Center, so there was nothing left to answer.
     static func outcomes(_ records: [ReminderRecordSummary], nights: [ReminderNight], me: UUID, now: Date) -> [PromptOutcome] {
         let byID = Dictionary(nights.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return records.compactMap { record in
             guard record.kind == .afterDinner, let sent = record.sentAt, let nightID = record.nightID,
-                  let night = byID[nightID], now >= sent.addingTimeInterval(24 * 60 * 60) else { return nil }
+                  let night = byID[nightID], !night.hasLog || night.loggedMealID != nil,
+                  now >= sent.addingTimeInterval(24 * 60 * 60) else { return nil }
             let answered = record.respondedAt != nil || night.ratedBy.contains(me) || night.attendance[me] == false
             return PromptOutcome(firedAt: sent, answered: answered)
         }

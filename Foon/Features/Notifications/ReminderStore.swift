@@ -291,12 +291,12 @@ final class ReminderStore {
         try? context.save()
     }
 
-    /// Three after-dinner prompts in a row with nothing back turns rating weekly (RatingCadence).
     private func storedCadence(for member: UUID) -> RatingCadence {
         ratingCadence = device.ratingCadence(member)
         return ratingCadence
     }
 
+    /// Three after-dinner prompts in a row with nothing back turns rating weekly (RatingCadence).
     private func updatedCadence(for member: UUID, nights: [ReminderNight], in context: ModelContext) -> RatingCadence {
         let summaries = records(member: member, in: context).map {
             ReminderRecordSummary(kind: ReminderKind(rawValue: $0.kindRaw), nightID: $0.nightID, sentAt: $0.sentAt,
