@@ -71,8 +71,7 @@ struct YearRecapTests {
         let full = try #require(recap(facts))
         #expect(full.lines == [
             .stat(.atTable(170)),
-            .topDishes([.init(name: "Tacos", times: 22), .init(name: "Chili", times: 15),
-                        .init(name: "Pie", times: 9)]),
+            .topDishes(top.map { .init(id: $0.id, name: $0.name, times: $0.times) }),
             .thanks(["Maya", "Ben"]),
             .stat(.newDishes(24)),
             .triedNew(["Ben"]),
@@ -104,10 +103,27 @@ struct YearRecapTests {
     }
 
     @Test func theTopDishesAreAboutTheFood() {
-        let top = YearRecap.Line.topDishes([.init(name: "Tacos", times: 22)])
+        let top = YearRecap.Line.topDishes([.init(id: UUID(), name: "Tacos", times: 22)])
         #expect(top.title(locale: english) == "The year's top dishes")
-        #expect(YearRecap.TopDish(name: "Tacos", times: 22).detail == "Made 22 times")
-        #expect(YearRecap.TopDish(name: "Pie", times: 1).detail == "Made 1 time", "the catalog's plural")
+        #expect(YearRecap.TopDish(id: UUID(), name: "Tacos", times: 22).detail == "Made 22 times")
+        #expect(YearRecap.TopDish(id: UUID(), name: "Pie", times: 1).detail == "Made 1 time", "the catalog's plural")
+    }
+
+    @Test func twoDishesWithTheSameNameStayTwo() throws {
+        let top = [dish("Tacos", 9), dish("Tacos", 7)]
+        let lines = try #require(recap(YearRecapFacts(logged: 16, topDishes: top))).lines
+        guard case .topDishes(let dishes) = lines.first else {
+            Issue.record("expected the top dishes first")
+            return
+        }
+        #expect(dishes.map(\.id) == top.map(\.id), "each keeps its meal's id")
+        #expect(Set(dishes.map(\.id)).count == 2, "so each gets its own row")
+    }
+
+    @Test func theYearSoFarEndsTodayAndAFinishedYearRunsToDecember31() {
+        let today = day(2026, 11, 3)
+        #expect(YearRecap.through(year: 2026, today: today) == today, "not weeks approved ahead of time")
+        #expect(YearRecap.through(year: 2025, today: day(2026, 1, 3)) == nil)
     }
 
     @Test func statLinesReadAsTheStatsCardDoes() {
@@ -141,11 +157,14 @@ struct YearRecapTests {
 /// Loading the year: quiet about it, never in the way, and a retry when it fails.
 @MainActor
 struct YearRecapStoreTests {
+    private let today = CalendarDay(year: 2026, month: 11, day: 3)
+
     private func client(fails: Bool = false, logged: Int = 6) -> HouseholdClient {
         var client = HouseholdClient.preview()
-        client.yearRecap = { _, year in
+        client.yearRecap = { _, year, through in
             if fails { throw URLError(.notConnectedToInternet) }
             #expect(year == 2026)
+            #expect(through == CalendarDay(year: 2026, month: 11, day: 3), "the year so far ends today")
             return YearRecapFacts(logged: logged, stats: FamilyStats(dinners: logged, atTable: logged))
         }
         return client
@@ -154,30 +173,36 @@ struct YearRecapStoreTests {
     @Test func itLoadsTheYear() async {
         let store = YearRecapStore()
         #expect(store.phase == .loading)
-        await store.load(client: client(), householdID: Household.sample.id, year: 2026, members: [])
+        await store.load(client: client(), householdID: Household.sample.id, year: 2026, today: today,
+                         members: [])
         #expect(store.recap?.year == 2026)
         #expect(store.recap?.lines == [.stat(.atTable(6))])
     }
 
     @Test func aYearWithNothingLoggedLoadsAsNothing() async {
         let store = YearRecapStore()
-        await store.load(client: client(logged: 0), householdID: Household.sample.id, year: 2026, members: [])
+        await store.load(client: client(logged: 0), householdID: Household.sample.id, year: 2026, today: today,
+                         members: [])
         #expect(store.phase == .loaded(nil))
         #expect(store.recap == nil)
     }
 
     @Test func aFailureSaysSoUntilARetryWorks() async {
         let store = YearRecapStore()
-        await store.load(client: client(fails: true), householdID: Household.sample.id, year: 2026, members: [])
+        await store.load(client: client(fails: true), householdID: Household.sample.id, year: 2026, today: today,
+                         members: [])
         #expect(store.phase == .failed)
-        await store.load(client: client(), householdID: Household.sample.id, year: 2026, members: [])
+        await store.load(client: client(), householdID: Household.sample.id, year: 2026, today: today,
+                         members: [])
         #expect(store.recap != nil)
     }
 
     @Test func aFailedRefreshKeepsWhatShows() async {
         let store = YearRecapStore()
-        await store.load(client: client(), householdID: Household.sample.id, year: 2026, members: [])
-        await store.load(client: client(fails: true), householdID: Household.sample.id, year: 2026, members: [])
+        await store.load(client: client(), householdID: Household.sample.id, year: 2026, today: today,
+                         members: [])
+        await store.load(client: client(fails: true), householdID: Household.sample.id, year: 2026, today: today,
+                         members: [])
         #expect(store.recap != nil)
     }
 }

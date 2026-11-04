@@ -3,9 +3,11 @@
 --
 -- One calendar year by the household's day: a night's date is its household day, so a dinner late on December 31
 -- counts in that year whenever it was logged. Only logs on nights of approved plans count, as on the stats card.
+-- through, when given, ends the range early (the household's today, for the year so far), so weeks already planned
+-- but not yet had don't count; the range never runs past December 31.
 --   * logged: how many dinners were logged that year. None means no recap.
---   * stats: family_stats for the year: at the table, someone else's idea, new dishes, weeks planned. (Its
---     cooked_by_others measures the usual cook over the 90 days ending December 31, so the recap doesn't show it.)
+--   * stats: family_stats for the range: at the table, someone else's idea, new dishes, weeks planned. (Its
+--     cooked_by_others measures the usual cook over the 90 days ending the range, so the recap doesn't show it.)
 --   * top_dishes: up to 3 dishes, most times logged first; a tie goes to the dish with more favorite and good reactions
 --     that year (removed members and people who eat separately don't count, as for verdicts), then the name. Archived
 --     and retired dishes still count: it's a memory, and it's about the food.
@@ -13,12 +15,13 @@
 --     picks aren't cooking, and someone since removed isn't thanked.
 --   * tried: who tried a dish new to them that year, from tried_new, in the order they first did. No counts.
 
-create function public.year_recap(target_household uuid, target_year int)
+create function public.year_recap(target_household uuid, target_year int, through date default null)
 returns jsonb
 language sql stable security invoker set search_path = ''
 as $$
   with bounds as (
-    select make_date(target_year, 1, 1) as from_date, make_date(target_year, 12, 31) as to_date
+    select make_date(target_year, 1, 1) as from_date,
+           least(make_date(target_year, 12, 31), coalesce(through, make_date(target_year, 12, 31))) as to_date
   ),
   logs as (
     select l.id, l.meal_id, l.cooked_by_member_id, n.date
@@ -74,5 +77,5 @@ as $$
   );
 $$;
 
-revoke execute on function public.year_recap(uuid, int) from public, anon;
-grant execute on function public.year_recap(uuid, int) to authenticated;
+revoke execute on function public.year_recap(uuid, int, date) from public, anon;
+grant execute on function public.year_recap(uuid, int, date) to authenticated;

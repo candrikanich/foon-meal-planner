@@ -43,7 +43,9 @@ extension YearRecapFacts {
 /// whoever cooked and cheers whoever tried something new without counting or ranking anyone; the counts are about the
 /// food.
 struct YearRecap: Equatable, Sendable {
-    struct TopDish: Hashable, Sendable {
+    /// Identified by its meal, since two dishes in a library can share a name.
+    struct TopDish: Hashable, Identifiable, Sendable {
+        let id: UUID
         let name: String
         let times: Int
 
@@ -78,7 +80,8 @@ struct YearRecap: Equatable, Sendable {
         func stat(_ matches: (FamilyStats.Line) -> Bool) -> Line? { stats.first(where: matches).map(Line.stat) }
         let candidates: [Line?] = [
             stat { if case .atTable = $0 { true } else { false } },
-            facts.topDishes.isEmpty ? nil : .topDishes(facts.topDishes.map { TopDish(name: $0.name, times: $0.times) }),
+            facts.topDishes.isEmpty
+                ? nil : .topDishes(facts.topDishes.map { TopDish(id: $0.id, name: $0.name, times: $0.times) }),
             cooks.isEmpty ? nil : .thanks(cooks),
             stat { if case .newDishes = $0 { true } else { false } },
             tried.isEmpty ? nil : .triedNew(tried),
@@ -102,6 +105,12 @@ struct YearRecap: Equatable, Sendable {
         case (1, ...7): today.year - 1
         default: nil
         }
+    }
+
+    /// Where the server's range ends: today while the year is still going, so weeks approved ahead of time don't count
+    /// before they happen; nil (December 31) for a year that's over.
+    static func through(year: Int, today: CalendarDay) -> CalendarDay? {
+        year >= today.year ? today : nil
     }
 
     /// "2026 so far" while the year is still going; "2025" once it's over.

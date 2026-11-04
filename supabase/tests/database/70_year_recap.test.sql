@@ -1,14 +1,14 @@
 -- The yearly recap (#65, part 2): "Your year in dinners" for 2026, and the year either side of it.
 begin;
-select plan(18);
+select plan(22);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
          set_config('role', 'authenticated', true);
 $$;
 
-create function pg_temp.recap(target_year int = 2026) returns jsonb language sql as $$
-  select public.year_recap('00000000-0000-0000-0000-0000000000a0', target_year);
+create function pg_temp.recap(target_year int = 2026, through date = null) returns jsonb language sql as $$
+  select public.year_recap('00000000-0000-0000-0000-0000000000a0', target_year, through);
 $$;
 
 create function pg_temp.top(target_year int = 2026) returns jsonb language sql as $$
@@ -53,7 +53,9 @@ insert into public.plans (id, household_id, week_start, approved_at) values
   ('00000000-0000-0000-0000-0000000002a0', '00000000-0000-0000-0000-0000000000a0', '2025-12-28', now()),
   ('00000000-0000-0000-0000-0000000002a1', '00000000-0000-0000-0000-0000000000a0', '2026-03-01', now()),
   ('00000000-0000-0000-0000-0000000002a2', '00000000-0000-0000-0000-0000000000a0', '2026-06-07', null),  -- a draft
-  ('00000000-0000-0000-0000-0000000002a3', '00000000-0000-0000-0000-0000000000a0', '2026-12-27', now());
+  ('00000000-0000-0000-0000-0000000002a3', '00000000-0000-0000-0000-0000000000a0', '2026-12-27', now()),
+  -- Approved ahead of time: still to come on November 3.
+  ('00000000-0000-0000-0000-0000000002a4', '00000000-0000-0000-0000-0000000000a0', '2026-11-08', now());
 
 insert into public.plan_nights (id, household_id, plan_id, date, meal_id, quick_pick) values
   ('00000000-0000-0000-0000-000000000301', '00000000-0000-0000-0000-0000000000a0',
@@ -81,7 +83,16 @@ insert into public.plan_nights (id, household_id, plan_id, date, meal_id, quick_
   ('00000000-0000-0000-0000-000000000331', '00000000-0000-0000-0000-0000000000a0',
    '00000000-0000-0000-0000-0000000002a3', '2026-12-31', '00000000-0000-0000-0000-0000000001c3', null),
   ('00000000-0000-0000-0000-000000000332', '00000000-0000-0000-0000-0000000000a0',
-   '00000000-0000-0000-0000-0000000002a3', '2027-01-01', '00000000-0000-0000-0000-0000000001c2', null);
+   '00000000-0000-0000-0000-0000000002a3', '2027-01-01', '00000000-0000-0000-0000-0000000001c2', null),
+  ('00000000-0000-0000-0000-000000000341', '00000000-0000-0000-0000-0000000000a0',
+   '00000000-0000-0000-0000-0000000002a4', '2026-11-10', '00000000-0000-0000-0000-0000000001c0', null);
+
+-- Bob, a member, asked for tacos on March 3 and chili on November 10.
+insert into public.requests (household_id, requested_by_member_id, title, status, planned_night_id) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'Tacos', 'planned',
+   '00000000-0000-0000-0000-000000000313'),
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'Chili', 'planned',
+   '00000000-0000-0000-0000-000000000341');
 
 -- Pie on December 31 was logged at 11:30 that night in New York: already January 1 in UTC.
 insert into public.meal_logs (id, household_id, night_id, meal_id, quick_pick, cooked_by_member_id, created_at) values
@@ -167,8 +178,16 @@ select is(pg_temp.recap() -> 'tried',
 select is((pg_temp.recap() -> 'stats' ->> 'at_table')::int, 7, 'at the table: every dinner but the night out');
 select is((pg_temp.recap() -> 'stats' ->> 'new_dishes')::int, 3,
   'new dishes: tacos, chili, and pie, not stew, first had in 2025');
-select is((pg_temp.recap() -> 'stats' ->> 'weeks_planned')::int, 3,
-  'weeks planned: the three approved weeks touching 2026, not the draft');
+select is((pg_temp.recap() -> 'stats' ->> 'weeks_planned')::int, 4,
+  'weeks planned: the four approved weeks touching 2026, not the draft');
+select is((pg_temp.recap() -> 'stats' ->> 'ideas')::int, 2, 'the whole year: both of Bob''s ideas');
+
+-- The year so far, through November 3: weeks approved ahead of time haven't happened yet.
+select is((pg_temp.recap(2026, '2026-11-03') -> 'stats' ->> 'weeks_planned')::int, 2,
+  'so far: not November 8''s week, approved ahead, nor December 27''s');
+select is((pg_temp.recap(2026, '2026-11-03') -> 'stats' ->> 'ideas')::int, 1,
+  'so far: Bob''s tacos, not the chili still to come');
+select is((pg_temp.recap(2026, '2026-11-03') ->> 'logged')::int, 7, 'so far: not December 31''s pie');
 
 -- Either side of the year.
 select is(pg_temp.top(2027), '[["Soup", 1]]'::jsonb, '2027 starts with January 1''s soup, not December 31''s pie');
@@ -187,9 +206,10 @@ select is(pg_temp.recap(),
   'another household''s member gets nothing');
 
 reset role;
-select ok(not has_function_privilege('anon', 'public.year_recap(uuid, int)', 'execute'), 'not for anon');
-select ok(not has_function_privilege('public', 'public.year_recap(uuid, int)', 'execute'), 'not for public');
-select ok(has_function_privilege('authenticated', 'public.year_recap(uuid, int)', 'execute'), 'for signed-in people');
+select ok(not has_function_privilege('anon', 'public.year_recap(uuid, int, date)', 'execute'), 'not for anon');
+select ok(not has_function_privilege('public', 'public.year_recap(uuid, int, date)', 'execute'), 'not for public');
+select ok(has_function_privilege('authenticated', 'public.year_recap(uuid, int, date)', 'execute'),
+  'for signed-in people');
 select is((select provolatile from pg_proc where proname = 'year_recap'), 's', 'read-only');
 select ok((select not prosecdef and proconfig @> array['search_path=""'] from pg_proc where proname = 'year_recap'),
   'security invoker, with an empty search_path');

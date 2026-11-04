@@ -24,12 +24,13 @@ final class YearRecapStore {
         if case .loaded(let recap) = phase { recap } else { nil }
     }
 
-    func load(client: HouseholdClient, householdID: UUID, year: Int, members: [Member]) async {
+    /// `today` is the household's day: the year shown ends there while it's still going.
+    func load(client: HouseholdClient, householdID: UUID, year: Int, today: CalendarDay, members: [Member]) async {
         let key = Key(household: householdID, year: year)
         if key != self.key || phase == .failed { phase = .loading }
         self.key = key
         do {
-            let facts = try await client.yearRecap(householdID, year)
+            let facts = try await client.yearRecap(householdID, year, YearRecap.through(year: year, today: today))
             guard self.key == key else { return }
             phase = .loaded(YearRecap(year: year, facts: facts, members: members))
         } catch {
@@ -92,7 +93,8 @@ struct YearRecapView: View {
 
     private func load() async {
         guard let id = household.household?.id else { return }
-        await store.load(client: household.client, householdID: id, year: year, members: household.members)
+        await store.load(client: household.client, householdID: id, year: year, today: today,
+                         members: household.members)
     }
 }
 
@@ -122,7 +124,7 @@ private struct YearRecapLineCard: View {
                 .foregroundStyle(Palette.ink)
                 .accessibilityAddTraits(isHeading ? .isHeader : [])
             if case .topDishes(let dishes) = line {
-                ForEach(dishes, id: \.self) { dish in
+                ForEach(dishes) { dish in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(dish.name).font(.foonBody).foregroundStyle(Palette.ink)
                         Text(dish.detail).font(.foonCaption).foregroundStyle(.secondary)
@@ -157,13 +159,13 @@ private struct YearRecapLineCard: View {
 
 #Preview("Couldn't load") {
     var client = HouseholdClient.preview()
-    client.yearRecap = { _, _ in throw URLError(.notConnectedToInternet) }
+    client.yearRecap = { _, _, _ in throw URLError(.notConnectedToInternet) }
     return YearRecapPreview(store: HouseholdStore(userID: .previewUser, client: client))
 }
 
 #Preview("Nothing logged yet") {
     var client = HouseholdClient.preview()
-    client.yearRecap = { _, _ in YearRecapFacts() }
+    client.yearRecap = { _, _, _ in YearRecapFacts() }
     return YearRecapPreview(store: HouseholdStore(userID: .previewUser, client: client))
 }
 

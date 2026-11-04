@@ -226,8 +226,10 @@ struct WeekView: View {
 
     /// Only in the days the year's card can show (December 26 through January 7), quiet on failure like the recap.
     private func loadYearRecap() async {
-        guard let id = household.household?.id, let year = YearRecap.cardYear(today: week.todayDay) else { return }
-        await yearRecap.load(client: household.client, householdID: id, year: year, members: household.members)
+        let today = week.todayDay
+        guard let id = household.household?.id, let year = YearRecap.cardYear(today: today) else { return }
+        await yearRecap.load(client: household.client, householdID: id, year: year, today: today,
+                             members: household.members)
     }
 
     /// Only planners change effort, so only their devices read the calendar.
