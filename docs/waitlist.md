@@ -10,6 +10,28 @@ How the waitlist behaves is in [spec.md](spec.md) (Marketing presence). This is 
 | Edge Function secret | `WAITLIST_SITE_URL` | Optional. Defaults to `https://getfoon.com`; set it to point the emailed links at a preview |
 | Vercel env (build time) | `NUXT_PUBLIC_WAITLIST_URL` | `https://<project-ref>.supabase.co/functions/v1/waitlist` |
 
+## Production
+
+The live site uses Foon production (`itnhdikhdsujklaimqqd`), not staging. Merges to main only reach staging; production
+is updated by hand with **Deploy production** (`.github/workflows/deploy-production.yml`): Actions → Deploy production
+→ Run workflow on `main`, type `production`, then approve the `production` environment. It refuses any other branch,
+any other text, and any project but `itnhdikhdsujklaimqqd`, then runs the same steps as staging (migrations, starter
+catalog, all Edge Functions).
+
+One-time setup, done by Chris (values never go in the repo or a chat):
+
+1. GitHub → Settings → Environments → `production`, with Chris as required reviewer, deployment branches limited to
+   `main` (a run from another branch, whose copy of the workflow could drop the checks, never gets the secrets), and
+   these secrets: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD` (production's), `SUPABASE_PROJECT_REF`
+   (`itnhdikhdsujklaimqqd`).
+2. Production Edge Function secrets `RESEND_API_KEY` and `WAITLIST_FROM`, before the first run so the waitlist can
+   send as soon as it's deployed.
+3. After the first run, Vercel production gets
+   `NUXT_PUBLIC_WAITLIST_URL=https://itnhdikhdsujklaimqqd.supabase.co/functions/v1/waitlist`, then a redeploy.
+
+Push (Apple key, vault secrets) and App Store notification secrets aren't needed for the waitlist; they're set when the
+app itself moves to production. Until then those functions are deployed but idle.
+
 ## What the emailed links do
 
 Mail scanners (Safe Links, Mimecast and the like) open every link in a message, so a GET never changes anything. The
