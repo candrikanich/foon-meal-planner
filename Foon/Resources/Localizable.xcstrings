@@ -844,6 +844,9 @@
     "All rated. Thanks!" : {
 
     },
+    "All tidied up. Check it over before you save it." : {
+
+    },
     "Allergies" : {
 
     },
@@ -854,6 +857,9 @@
 
     },
     "Allergy flags" : {
+
+    },
+    "Almost there…" : {
 
     },
     "Already listed, so check the amount: %@." : {
@@ -1495,6 +1501,9 @@
     "Does anyone have food allergies?" : {
 
     },
+    "Don't wait, I'll finish it myself" : {
+
+    },
     "Done" : {
       "comment" : "Prep reminder action"
     },
@@ -1746,6 +1755,9 @@
 
     },
     "Foon is still tidying up this recipe. Anything you change stays as you leave it." : {
+
+    },
+    "Foon is tidying this up on this device, so you don't have to fix it by hand." : {
 
     },
     "Foon is tidying this up on this device. Change anything you like: your changes stay." : {
@@ -3020,6 +3032,9 @@
     "Reading the receipt…" : {
 
     },
+    "Reading the recipe…" : {
+
+    },
     "Reading…" : {
 
     },
@@ -3297,6 +3312,9 @@
     "Shows the photo larger" : {
 
     },
+    "Shows the recipe as it was read. Foon keeps tidying what you don't change." : {
+
+    },
     "Shows what you can make tonight in the time there is" : {
 
     },
@@ -3394,6 +3412,9 @@
 
     },
     "Sort" : {
+
+    },
+    "Sorting out the ingredients…" : {
 
     },
     "Soup" : {
@@ -3876,7 +3897,13 @@
     "This month" : {
 
     },
+    "This one's being stubborn. Here's what Foon found. Check the amounts." : {
+
+    },
     "This one's for whoever's home tonight." : {
+
+    },
+    "This one's got a lot going on. Worth the wait…" : {
 
     },
     "This phone tidies it up as it lands: the name, the amounts and the steps." : {
@@ -3898,9 +3925,6 @@
       "comment" : "Who's pitching in: what someone did this plan week, like \"sent 2 ideas\""
     },
     "Those dates didn't work. The last night has to be on or after the first, up to a year later, and not already over." : {
-
-    },
-    "Tidying it up on this phone…" : {
 
     },
     "Time" : {

@@ -38,6 +38,9 @@ struct SharedItemSheet: View {
     @State private var tidyPayload: RecipeJobPayload?
     @State private var baseline: RecipeBaseline?
     @State private var tidyToken: UUID?
+    @State private var tidyStarted = Date.now
+    /// "Don't wait": the draft shows while the tidy-up carries on (#256).
+    @State private var finishingByHand = false
     @State private var resultTaken = false
     @State private var aiPrep: [PrepStep] = []
     @State private var savedMeal = false
@@ -89,9 +92,16 @@ struct SharedItemSheet: View {
             }
             .onChange(of: tidiedRecipe) { _, recipe in
                 guard let recipe, let baseline, let draft = readDraft, !resultTaken else { return }
-                if let merged = RecipeMerge.merged(draft, baseline: baseline, recipe: recipe) { readDraft = merged }
+                let merged = RecipeMerge.merged(draft, baseline: baseline, recipe: recipe)
+                if let merged { readDraft = merged }
+                // Someone waiting on the card hears it went, even when the tidy recipe matched the plain read.
+                if merged != nil || !finishingByHand { TidyProgressCard.announce(TidyProgress.landed) }
                 aiPrep = recipe.prepSteps
                 resultTaken = true
+            }
+            .onChange(of: isTidyingHere) { wasTidying, tidying in
+                guard wasTidying, !tidying, let tidyToken, let aiQueue, aiQueue.gaveUp(tidyToken) else { return }
+                TidyProgressCard.announce(TidyProgress.stubborn)
             }
             .onDisappear {
                 // Closed without a dish: a run here has nobody waiting for it.
@@ -136,19 +146,29 @@ struct SharedItemSheet: View {
         prepareTidy(capture, sourceURL: nil, nameIsTheirs: false)
     }
 
-    /// The plain read is already showing. This device tidies it up now if it can run the model, and sends nothing; one that
-    /// can't sends the parsed lines for a family device only when the dish is saved (docs/spec.md → Household AI queue).
-    /// Planners only, like reading a post's caption: the tidy-up is for a dish.
+    /// The plain read is in. This device tidies it up now if it can run the model, and sends nothing, while a
+    /// progress card stands in for the draft (#256); one that can't shows the draft at once and sends the parsed lines
+    /// for a family device only when the dish is saved (docs/spec.md → Household AI queue). Planners only, like
+    /// reading a post's caption: the tidy-up is for a dish.
     private func prepareTidy(_ capture: RecipeTextParser.Capture, sourceURL: URL?, nameIsTheirs: Bool) {
         guard canAddToLibrary, let draft = readDraft, let payload = RecipeJobPayload(capture, sourceURL: sourceURL) else { return }
         tidyPayload = payload
         baseline = RecipeBaseline(draft, nameIsTheirs: nameIsTheirs)
+        tidyStarted = .now
         tidyToken = aiQueue?.tidyHere(payload)
     }
 
     private var tidiedRecipe: StructuredRecipe? {
         tidyToken.flatMap { aiQueue?.tidied[$0] }
     }
+
+    private var isTidyingHere: Bool {
+        guard let tidyToken, let aiQueue else { return false }
+        return aiQueue.isTidying(tidyToken)
+    }
+
+    /// Told what's happening, people would rather wait for the tidy recipe than start fixing the rough one by hand.
+    private var isWaitingForTidy: Bool { isTidyingHere && !finishingByHand }
 
     /// Planners only, since it's the same read as adding a link. Sites often turn apps away, and then this was just an
     /// idea all along, so a failure says nothing.
@@ -188,17 +208,14 @@ struct SharedItemSheet: View {
                     Text("Foon couldn't find any text in that. If it's a locked PDF, remove the password and share it again.")
                         .foregroundStyle(.secondary)
                 }
-            } else {
-                if let tidyToken, let aiQueue, aiQueue.isTidying(tidyToken) {
-                    Section {
-                        Label {
-                            Text("Foon is tidying this up on this device. Change anything you like: your changes stay.")
-                        } icon: {
-                            ProgressView()
-                        }
-                        .foregroundStyle(.secondary)
+            } else if isWaitingForTidy {
+                Section {
+                    TidyProgressCard(startedAt: tidyStarted, limit: aiQueue?.tidyLimit ?? RecipeStructuring.timeLimit) {
+                        finishingByHand = true
                     }
                 }
+            } else {
+                tidyNotice
                 Section {
                     TextField("Meal name", text: draft.name)
                 } footer: {
@@ -234,6 +251,26 @@ struct SharedItemSheet: View {
             }
         } else {
             Section { ProgressView("Reading…") }
+        }
+    }
+
+    /// Over the draft: the tidy-up still running after "Don't wait", or an honest word when it gave up.
+    @ViewBuilder
+    private var tidyNotice: some View {
+        if isTidyingHere {
+            Section {
+                Label {
+                    Text("Foon is tidying this up on this device. Change anything you like: your changes stay.")
+                } icon: {
+                    ProgressView()
+                }
+                .foregroundStyle(.secondary)
+            }
+        } else if let tidyToken, let aiQueue, aiQueue.gaveUp(tidyToken) {
+            Section {
+                Label(TidyProgress.stubborn, systemImage: "exclamationmark.bubble")
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 

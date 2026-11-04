@@ -172,6 +172,13 @@ struct OnboardingShowcaseTests {
         }
     }
 
+    @Test func theDemoWaitsAsLongAsARealShareAndSaysTheSameThings() {
+        #expect(OnboardingShowcase.tidyTimeout == RecipeStructuring.timeLimit)
+        for line in TidyProgress.Stage.allCases.map(TidyProgress.message) {
+            #expect(OnboardingShowcase.allCopy.contains(line))
+        }
+    }
+
     @Test func theFallbackLineSaysItIsHowItWillLookNotThisPhonesWork() {
         let line = OnboardingShowcase.recipeFallback
         #expect(OnboardingShowcase.allCopy.contains(line))

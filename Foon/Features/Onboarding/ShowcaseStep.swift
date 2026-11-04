@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// "What Foon does for you" (#236): two cards, each optional to try, and one button on. Nothing here waits on the
-/// network or saves anything; a slow tidy-up or friendly line just leaves the plain one showing.
+/// network or saves anything. The tidy-up waits like a real share does (#256); a slow friendly line just leaves the
+/// plain one showing.
 struct ShowcaseStep: View {
     let model: ShowcaseModel
     let onNext: () -> Void
@@ -51,6 +52,7 @@ private struct CardHeader: View {
 private struct RecipeCard: View {
     let model: ShowcaseModel
     let onTry: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         CardHeader(title: OnboardingShowcase.recipeTitle, systemImage: "square.and.arrow.down",
@@ -79,26 +81,30 @@ private struct RecipeCard: View {
 
     private var landed: some View {
         let shown = Landed(model.tidied, plain: model.recipe.plain)
+        let caption = Text(OnboardingShowcase.recipeLands).font(.foonCaption).foregroundStyle(.secondary)
         return VStack(alignment: .leading, spacing: 6) {
-            Text(OnboardingShowcase.recipeLands).font(.foonCaption).foregroundStyle(.secondary)
+            // The share sheet's own wait, so the demo is what sharing is really like.
             if model.isTidying {
-                Label(OnboardingShowcase.recipeTidying, systemImage: "hourglass")
-                    .font(.foonCaption)
-                    .foregroundStyle(Palette.paprika)
-            }
-            if let note = model.tidyNote {
-                Text(note).font(.foonCaption).foregroundStyle(.secondary)
-            }
-            Text(shown.name).font(.foonBody.weight(.semibold))
-            ForEach(Array(shown.ingredients.enumerated()), id: \.offset) { _, line in
-                Label(line, systemImage: "circle.fill").labelStyle(Bullet())
-            }
-            ForEach(Array(shown.steps.enumerated()), id: \.offset) { index, step in
-                Text("\(index + 1). \(step)", comment: "Onboarding: a numbered recipe step").font(.callout)
+                caption
+                TidyProgressCard(startedAt: model.tidyStarted, limit: OnboardingShowcase.tidyTimeout)
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    caption
+                    if let note = model.tidyNote {
+                        Text(note).font(.foonCaption).foregroundStyle(.secondary)
+                    }
+                    Text(shown.name).font(.foonBody.weight(.semibold))
+                    ForEach(Array(shown.ingredients.enumerated()), id: \.offset) { _, line in
+                        Label(line, systemImage: "circle.fill").labelStyle(Bullet())
+                    }
+                    ForEach(Array(shown.steps.enumerated()), id: \.offset) { index, step in
+                        Text("\(index + 1). \(step)", comment: "Onboarding: a numbered recipe step").font(.callout)
+                    }
+                }
+                .accessibilityElement(children: .combine)
             }
         }
-        .animation(.default, value: model.tidied)
-        .accessibilityElement(children: .combine)
+        .animation(reduceMotion ? nil : .default, value: model.isTidying)
     }
 
     /// The tidy recipe when there is one, otherwise the plain read as it would land.
@@ -180,6 +186,12 @@ private struct RescueCard: View {
 
 #Preview("On a phone that can") {
     NavigationStack { ShowcaseStep(model: previewModel(.previewCapable), onNext: {}) }
+}
+
+#Preview("Tidying on a phone that can") {
+    let model = previewModel(.previewTidying)
+    NavigationStack { ShowcaseStep(model: model, onNext: {}) }
+        .task { await model.showRecipe() }
 }
 
 #Preview("On any other phone") {

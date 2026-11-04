@@ -34,6 +34,8 @@ final class AIQueueStore {
     var isPlanner = false
 
     let householdID: UUID
+    /// How long a tidy-up here may run: someone may be waiting on it, so it gets longer than the queue's jobs.
+    let tidyLimit: Duration
     private let runner: AIJobRunner
     private let shelf: AIWatchShelf
     private let now: @Sendable () -> Date
@@ -41,10 +43,13 @@ final class AIQueueStore {
     private var settling = false
     private var settleAgain = false
     private var tidying: [UUID: Task<Void, Never>] = [:]
+    /// Runs here that stopped because this device stopped being able to run the model (Apple Intelligence turned off).
+    private var cutOff: Set<UUID> = []
 
     init(householdID: UUID, runner: AIJobRunner, shelf: AIWatchShelf = .memory(),
-         now: @escaping @Sendable () -> Date = { .now }) {
+         tidyLimit: Duration = RecipeStructuring.timeLimit, now: @escaping @Sendable () -> Date = { .now }) {
         self.householdID = householdID
+        self.tidyLimit = tidyLimit
         self.runner = runner
         self.shelf = shelf
         self.now = now
@@ -72,9 +77,14 @@ final class AIQueueStore {
     func tidyHere(_ payload: RecipeJobPayload) -> UUID? {
         guard runsHere else { return nil }
         let token = UUID()
-        let ai = runner.ai
+        var ai = runner.ai
+        ai.timeout = tidyLimit
         tidying[token] = Task {
-            if case .done(let recipe) = await RecipeStructuring.structure(payload, ai) { tidied[token] = recipe }
+            switch await RecipeStructuring.structure(payload, ai) {
+            case .done(let recipe): tidied[token] = recipe
+            case .unavailable: cutOff.insert(token)
+            case .timedOut, .failed: break
+            }
             tidying[token] = nil
             await settle()
         }
@@ -82,6 +92,10 @@ final class AIQueueStore {
     }
 
     func isTidying(_ token: UUID) -> Bool { tidying[token] != nil }
+
+    /// The run here ended without a recipe: it ran out of time or found nothing it could use. Not when this device
+    /// stopped being able to run it, which says nothing about the recipe.
+    func gaveUp(_ token: UUID) -> Bool { tidying[token] == nil && tidied[token] == nil && !cutOff.contains(token) }
 
     func isProcessing(meal: UUID) -> Bool {
         watches.contains { $0.mealID == meal }
@@ -107,6 +121,7 @@ final class AIQueueStore {
         tidying[token]?.cancel()
         tidying[token] = nil
         tidied[token] = nil
+        cutOff.remove(token)
     }
 
     /// Waits for the tidy-ups running on this device.

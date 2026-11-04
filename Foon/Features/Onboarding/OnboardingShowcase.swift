@@ -37,8 +37,8 @@ enum OnboardingShowcase {
         }
     }
 
-    /// Long enough for a short recipe on a phone that's warmed up, short enough that the demo never feels stuck.
-    static let tidyTimeout: Duration = .seconds(10)
+    /// The same wait as a real share (#256), so the demo shows what sharing a recipe is really like.
+    static let tidyTimeout = RecipeStructuring.timeLimit
     static let wordingTimeout: Duration = .seconds(6)
     /// The middle choice, so a fresh library's dishes have time to fit.
     static let rescueMinutes = 30
@@ -190,7 +190,6 @@ enum OnboardingShowcase {
     }
     static var recipeShared: String { String(localized: "What you shared") }
     static var recipeLands: String { String(localized: "What lands in your ideas") }
-    static var recipeTidying: String { String(localized: "Tidying it up on this phone…") }
     static var recipeFallback: String { String(localized: "Here's how it'll look once it's tidied.") }
     static var recipeExample: String { String(localized: "An example post. Nothing is saved.") }
 
@@ -208,11 +207,12 @@ enum OnboardingShowcase {
 
     static var showMe: String { String(localized: "Show me") }
 
-    /// Everything the step can say, for the test that keeps "AI" out of it.
+    /// Everything the step can say, for the test that keeps "AI" out of it. The wait is the share sheet's own card.
     static var allCopy: [String] {
         [title, intro, recipeTitle, recipeBody, recipeOnThisPhone, recipeWhenReady, recipeFamilyCanHelp, recipeShared,
-         recipeLands, recipeTidying, recipeFallback, recipeExample, rescueTitle, rescueBody, rescueOnThisPhone,
+         recipeLands, recipeFallback, recipeExample, rescueTitle, rescueBody, rescueOnThisPhone,
          rescueEveryPhone, rescueExample, showMe, continueTitle(tried: false), continueTitle(tried: true)]
+            + TidyProgress.Stage.allCases.map(TidyProgress.message) + [TidyProgress.detail]
     }
 }
 
@@ -233,6 +233,7 @@ final class ShowcaseModel {
     let recipe: RecipeDemo
     private(set) var recipeShown = false
     private(set) var isTidying = false
+    private(set) var tidyStarted = Date.now
     /// The tidy recipe on a phone that can, once it's back. Nil means the plain read is what shows.
     private(set) var tidyResult: OnboardingShowcase.Tidied?
     /// Nil until the rescue card's tried.
@@ -264,6 +265,7 @@ final class ShowcaseModel {
         guard !recipeShown else { return }
         recipeShown = true
         guard variant == .onThisPhone else { return }
+        tidyStarted = .now
         isTidying = true
         tidyResult = await OnboardingShowcase.tidy(recipe, ai: ai)
         isTidying = false
