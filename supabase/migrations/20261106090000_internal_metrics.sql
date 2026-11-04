@@ -9,8 +9,9 @@
 -- exposes (supabase/config.toml → api.schemas), and usage on it and execute on the function are revoked from public, anon
 -- and authenticated. Security definer so it reads past row-level security, with an empty search path.
 --
--- Rules, reused from family_stats, engagement and week_recap:
---   * Sample families (settings.sample, or settings.sample_pending while one is being filled in) aren't counted.
+-- Rules (the planner, household-day and dinner rules are reused from is_household_planner, engagement and family_stats):
+--   * Sample families (settings.sample, or settings.sample_pending while one is being filled in) aren't counted. This rule
+--     is new here: the family-facing functions count a sample family's own data for that family.
 --   * A planner is a member whose role is planner, or whose account owns the household (is_household_planner's rule).
 --     It's the role as it stands now; the database doesn't keep role history.
 --   * Days are the household's: a night's date is already its household day, and a timestamp is read in the household's
@@ -178,8 +179,7 @@ as $$
     select w.week, k.min_households as k,
            (select count(*) from homes h where (h.created_at at time zone h.zone)::date <= w.week + 6) as households,
            (select count(*) from active_weeks a where a.week = w.week) as active,
-           (select count(*) from public.plans p join homes h on h.id = p.household_id
-            where p.approved_at is not null and p.week_start between w.week and w.week + 6) as plans_approved,
+           pa.plans as plans_approved, pa.households as plan_households,
            ns.households as dinner_households, ns.dinners, ns.shared,
            (select percentile_cont(0.5) within group (order by hc.contributors)
             from household_contributors hc where hc.week = w.week) as median_contributors,
@@ -191,6 +191,13 @@ as $$
       select count(*) as households, coalesce(sum(hw.dinners), 0) as dinners, coalesce(sum(hw.shared), 0) as shared
       from household_weeks hw where hw.week = w.week
     ) ns
+    -- A plan's week can start on any day (Sunday by default), so it goes in the ISO week of its middle day, the one
+    -- holding most of its dinners.
+    cross join lateral (
+      select count(*) as plans, count(distinct p.household_id) as households
+      from public.plans p join homes h on h.id = p.household_id
+      where p.approved_at is not null and date_trunc('week', (p.week_start + 3)::timestamp)::date = w.week
+    ) pa
     cross join lateral (
       select count(*) as households, coalesce(sum(r.eaters), 0) as eaters, coalesce(sum(r.answered), 0) as answered
       from responses r where r.week = w.week
@@ -211,9 +218,10 @@ as $$
     'weeks', coalesce(jsonb_agg(jsonb_build_object(
       'week', pw.week,
       'iso_week', to_char(pw.week, 'IYYY-"W"IW'),
-      'households', case when pw.households >= pw.k then pw.households end,
+      -- Rounded down to tens: week-to-week differences in an exact running total would give away suppressed signups.
+      'households', case when pw.households >= pw.k then (pw.households / 10) * 10 end,
       'active_households', case when pw.active >= pw.k then pw.active end,
-      'plans_approved', case when pw.plans_approved >= pw.k then pw.plans_approved end,
+      'plans_approved', case when pw.plan_households >= pw.k then pw.plans_approved end,
       'dinners', case when pw.dinner_households >= pw.k then pw.dinners end,
       'shared_dinners', case when pw.dinner_households >= pw.k then pw.shared end,
       'north_star', case when pw.dinner_households >= pw.k
@@ -227,10 +235,11 @@ as $$
                                     then round(pw.onboarded::numeric / pw.signups, 3) end,
       'first_plan_rate', case when pw.signups >= pw.k then round(pw.planned::numeric / pw.signups, 3) end,
       'median_hours_to_first_plan', case when pw.planned >= pw.k then round(pw.median_hours::numeric, 1) end,
-      -- A cohort's week 1 or week 4 has to be over before it's a number.
-      'retention_w1', case when pw.signups >= pw.k and pw.week + 13 < current_date
+      -- A cohort's week 1 or week 4 has to be over before it's a number, in every time zone: current_date is UTC's, so
+      -- a day's margin covers households behind it.
+      'retention_w1', case when pw.signups >= pw.k and pw.week + 13 < current_date - 1
                            then round(pw.back_week_1::numeric / pw.signups, 3) end,
-      'retention_w4', case when pw.signups >= pw.k and pw.week + 34 < current_date
+      'retention_w4', case when pw.signups >= pw.k and pw.week + 34 < current_date - 1
                            then round(pw.back_week_4::numeric / pw.signups, 3) end,
       'shopping_trips', null,
       'trial_to_paid', null

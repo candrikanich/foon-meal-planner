@@ -1,6 +1,6 @@
 -- Internal metrics (#36): pooled, anonymous, and only for service_role.
 begin;
-select plan(38);
+select plan(45);
 
 create function pg_temp.id(kind int, i int) returns uuid language sql immutable as $$
   select format('00000000-0000-0000-%s-%s', lpad(kind::text, 4, '0'), lpad(i::text, 12, '0'))::uuid;
@@ -11,7 +11,8 @@ create function pg_temp.week(result jsonb, monday date) returns jsonb language s
 $$;
 
 -- Kinds of id: 1 household, 2 account, 3 planner, 4 kid, 5 another adult, 6 dish, 7 plan, 8 and 9 that week's nights,
--- 10 and 11 their logs, 12 next week's plan, 13 its night, 14 its log, 15 request, 16 poll.
+-- 10 and 11 their logs, 12 next week's plan, 13 its night, 14 its log, 15 request, 16 poll, 17 to 19 an unapproved plan,
+-- its night and log, 20 to 23 nights out and their logs.
 --
 -- Six families signed up on Monday, August 3 (noon in New York). 1 to 3 live on Pacific time. 5 hasn't finished
 -- onboarding, and its owner's profile says member: owning the household still makes them a planner. 6 is a sample family.
@@ -128,6 +129,32 @@ select pg_temp.id(14, i), pg_temp.id(1, i), pg_temp.id(13, i), pg_temp.id(6, i),
        '2026-08-18 01:00Z'::timestamptz, '2026-08-18 01:00Z'::timestamptz
 from generate_series(1, 4) i;
 
+-- Family 1 also ate out on Wednesday and fended for themselves on Thursday, both logged: neither is a dinner at home.
+insert into public.plan_nights (id, household_id, plan_id, date, quick_pick)
+values (pg_temp.id(20, 1), pg_temp.id(1, 1), pg_temp.id(7, 1), '2026-08-12', 'eat_out'),
+       (pg_temp.id(21, 1), pg_temp.id(1, 1), pg_temp.id(7, 1), '2026-08-13', 'fend_for_yourselves');
+insert into public.meal_logs (id, household_id, night_id, quick_pick, created_at, updated_at)
+values (pg_temp.id(22, 1), pg_temp.id(1, 1), pg_temp.id(20, 1), 'eat_out', '2026-08-14 01:00Z', '2026-08-14 01:00Z'),
+       (pg_temp.id(23, 1), pg_temp.id(1, 1), pg_temp.id(21, 1), 'fend_for_yourselves', '2026-08-14 01:00Z',
+        '2026-08-14 01:00Z');
+
+-- Families 1 to 5 draft the week of August 24 and log a dinner in it, but never approve it.
+insert into public.plans (id, household_id, week_start, approved_at)
+select pg_temp.id(17, i), pg_temp.id(1, i), '2026-08-24'::date, null::timestamptz from generate_series(1, 5) i;
+insert into public.plan_nights (id, household_id, plan_id, date, meal_id)
+select pg_temp.id(18, i), pg_temp.id(1, i), pg_temp.id(17, i), '2026-08-24'::date, pg_temp.id(6, i)
+from generate_series(1, 5) i;
+insert into public.meal_logs (id, household_id, night_id, meal_id, cooked_by_member_id, created_at, updated_at)
+select pg_temp.id(19, i), pg_temp.id(1, i), pg_temp.id(18, i), pg_temp.id(6, i), pg_temp.id(4, i),
+       '2026-08-25 01:00Z'::timestamptz, '2026-08-25 01:00Z'::timestamptz
+from generate_series(1, 5) i;
+
+-- Two more families sign up the week of August 10: too few for that week's sign-up numbers.
+insert into public.households (id, name, owner, settings, created_at)
+select pg_temp.id(1, i), format('Household %s', i), null::uuid, '{"onboarded": true}'::jsonb,
+       '2026-08-12 16:00Z'::timestamptz
+from generate_series(7, 8) i;
+
 -- Families 1 and 2 are back four weeks after signing up.
 insert into public.requests (household_id, requested_by_member_id, title, created_at)
 select pg_temp.id(1, i), pg_temp.id(4, i), 'Pie', '2026-09-01 16:00Z'::timestamptz from generate_series(1, 2) i;
@@ -169,7 +196,7 @@ select ok((select m::text !~* '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[
 select ok((select m::text !~ '(Pat|Kit|Bob|Tacos|Ramen|Pie|Household)' from result), 'no names or dishes anywhere');
 
 select is((select pg_temp.week(m, '2026-08-10') -> 'dinners' from result), '10'::jsonb,
-  'ten dinners, the sample family''s left out');
+  'ten dinners: the sample family''s left out, and so are eating out and fending for yourselves');
 select is((select pg_temp.week(m, '2026-08-10') -> 'shared_dinners' from result), '5'::jsonb,
   'a kid''s request, claim, cooking, me too and vote each count; a planner''s or the owner''s own, or a claim taken back, don''t');
 select is((select (pg_temp.week(m, '2026-08-10') ->> 'north_star')::numeric from result), 0.5,
@@ -181,8 +208,8 @@ select is((select (pg_temp.week(m, '2026-08-10') ->> 'after_dinner_response_rate
 select is((select pg_temp.week(m, '2026-08-10') -> 'plans_approved' from result), '5'::jsonb, 'plans approved');
 select is((select pg_temp.week(m, '2026-08-10') -> 'active_households' from result), '5'::jsonb,
   'weekly active households');
-select is((select pg_temp.week(m, '2026-08-10') -> 'households' from result), '5'::jsonb,
-  'households signed up by the week''s end');
+select is((select pg_temp.week(m, '2026-08-10') -> 'households' from result), '0'::jsonb,
+  'households signed up by the week''s end, rounded down to tens: 7 is 0');
 
 select is((select pg_temp.week(m, '2026-08-03') -> 'signups' from result), '5'::jsonb, 'signups that week');
 select is((select (pg_temp.week(m, '2026-08-03') ->> 'onboarding_completion')::numeric from result), 0.8,
@@ -196,6 +223,18 @@ select is((select (pg_temp.week(m, '2026-08-03') ->> 'retention_w1')::numeric fr
 select is((select (pg_temp.week(m, '2026-08-03') ->> 'retention_w4')::numeric from result), 0.4,
   'week-4 retention: two of five were back');
 
+select is((select jsonb_build_object(
+             'signups', w -> 'signups', 'onboarding_completion', w -> 'onboarding_completion',
+             'first_plan_rate', w -> 'first_plan_rate', 'retention_w1', w -> 'retention_w1',
+             'retention_w4', w -> 'retention_w4')
+           from result, pg_temp.week(m, '2026-08-10') w),
+  '{"signups": null, "onboarding_completion": null, "first_plan_rate": null, "retention_w1": null,
+    "retention_w4": null}'::jsonb,
+  'two sign-ups in a week: none of that week''s sign-up numbers show');
+select is((select jsonb_build_object('dinners', w -> 'dinners', 'plans_approved', w -> 'plans_approved')
+           from result, pg_temp.week(m, '2026-08-24') w),
+  '{"dinners": null, "plans_approved": null}'::jsonb,
+  'a week that was never approved has no dinners and no plans');
 select is((select pg_temp.week(m, '2026-08-03') -> 'dinners' from result), 'null'::jsonb,
   'no dinners that week is no number, not zero');
 select is((select pg_temp.week(m, '2026-08-10') -> 'shopping_trips' from result), 'null'::jsonb,
@@ -214,24 +253,42 @@ select is((select jsonb_build_object(
     "contributors_per_household": null}'::jsonb,
   'four households in a week: every number is suppressed');
 
--- Family 5 plans and logs that week too. Its owner cooks: still a planner, so the dinner isn't shared.
+-- Family 5 plans and logs that week too, with a week that starts on Sunday the 16th: it belongs with the ISO week of its
+-- middle day, August 19, not the week its Sunday is in. Its owner cooks: still a planner, so the dinner isn't shared.
 insert into public.plans (id, household_id, week_start, approved_at)
-values (pg_temp.id(12, 5), pg_temp.id(1, 5), '2026-08-17', '2026-08-16 12:00Z');
+values (pg_temp.id(12, 5), pg_temp.id(1, 5), '2026-08-16', '2026-08-16 12:00Z');
 insert into public.plan_nights (id, household_id, plan_id, date, meal_id)
 values (pg_temp.id(13, 5), pg_temp.id(1, 5), pg_temp.id(12, 5), '2026-08-17', pg_temp.id(6, 5));
 insert into public.meal_logs (id, household_id, night_id, meal_id, cooked_by_member_id, created_at, updated_at)
 values (pg_temp.id(14, 5), pg_temp.id(1, 5), pg_temp.id(13, 5), pg_temp.id(6, 5), pg_temp.id(3, 5),
         '2026-08-18 01:00Z', '2026-08-18 01:00Z');
 
-create temp table five as select pg_temp.week(internal.metrics('2026-08-17', '2026-08-17'), '2026-08-17') as w;
+create temp table five_weeks as select internal.metrics('2026-08-10', '2026-08-17') as m;
+create temp table five as select pg_temp.week(m, '2026-08-17') as w from five_weeks;
 select is((select w -> 'dinners' from five), '5'::jsonb, 'five households: the dinners show');
 select is((select (w ->> 'north_star')::numeric from five), 0.0, 'and none were shared: the owner cooked');
-select is((select w -> 'plans_approved' from five), '5'::jsonb, 'plans approved show');
+select is((select w -> 'plans_approved' from five), '5'::jsonb,
+  'plans approved show, the Sunday-start week counted with its middle');
+select is((select pg_temp.week(m, '2026-08-10') -> 'plans_approved' from five_weeks), '5'::jsonb,
+  'and not in the week its Sunday falls in');
 select is((select w -> 'active_households' from five), '5'::jsonb, 'active households show');
 select is((select (w ->> 'contributors_per_household')::numeric from five), 0.0,
   'nobody but planners pitched in that week');
 
 select is(internal.metrics('2026-08-17', '2026-08-03') -> 'weeks', '[]'::jsonb, 'a backwards range is empty');
+
+-- Five families sign up this week, on UTC so their week is the server's. None has planned yet.
+insert into public.households (id, name, owner, settings)
+select pg_temp.id(1, i), format('Household %s', i), null::uuid, '{"time_zone": "UTC"}'::jsonb
+from generate_series(9, 13) i;
+
+create temp table this_week as select pg_temp.week(internal.metrics(current_date, current_date),
+                                                   date_trunc('week', current_date::timestamp)::date) as w;
+select is((select w -> 'signups' from this_week), '5'::jsonb, 'this week''s five sign-ups show');
+select is((select w -> 'retention_w1' from this_week), 'null'::jsonb, 'week-1 retention waits for next week to be over');
+select is((select w -> 'median_hours_to_first_plan' from this_week), 'null'::jsonb,
+  'five signed up but none has a plan: no median time to one');
+select is((select w -> 'households' from this_week), '10'::jsonb, '12 households so far, rounded down to 10');
 
 select * from finish();
 rollback;
