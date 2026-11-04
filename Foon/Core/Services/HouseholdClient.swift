@@ -81,6 +81,8 @@ struct HouseholdClient: Sendable {
     /// table" are judged in `DinnerMemories`, so a page with no logs at all can tell the timeline it's reached the end.
     var dinnerMemories: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ through: CalendarDay) async throws
         -> [MemoryLog] = { _, _, _ in [] }
+    /// The household's oldest night with a dinner logged, nil if none: where the timeline's paging can stop.
+    var oldestDinnerLog: @Sendable (_ householdID: UUID) async throws -> CalendarDay? = { _ in nil }
 }
 
 /// Why Delete household didn't go through.
@@ -331,6 +333,17 @@ extension HouseholdClient {
                     .lte("plan_nights.date", value: through.isoString)
                     .execute()
                     .value
+            },
+            oldestDinnerLog: { householdID in
+                // From plan_nights, so the order sorts the rows: ordering by an embedded column wouldn't.
+                let rows: [NightDate] = try await client.from("plan_nights")
+                    .select("date, meal_logs!inner(id)")
+                    .eq("household_id", value: householdID)
+                    .order("date")
+                    .limit(1)
+                    .execute()
+                    .value
+                return rows.first?.date
             }
         )
     }
@@ -478,6 +491,10 @@ private struct FamilyStatsParams: Encodable, Sendable {
 }
 
 /// `through` is always sent, null for a whole year, so PostgREST matches the function by all three argument names.
+private struct NightDate: Decodable, Sendable {
+    let date: CalendarDay
+}
+
 private struct YearRecapParams: Encodable, Sendable {
     let targetHousehold: UUID
     let targetYear: Int

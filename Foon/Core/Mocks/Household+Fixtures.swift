@@ -83,7 +83,8 @@ extension HouseholdClient {
             // One page of dinners, then nothing further back.
             dinnerMemories: { _, from, through in
                 from < CalendarDay(.now).adding(days: -100) ? [] : MemoryLog.samples(through: through)
-            }
+            },
+            oldestDinnerLog: { _ in CalendarDay(.now).adding(days: -20) }
         )
     }
 }

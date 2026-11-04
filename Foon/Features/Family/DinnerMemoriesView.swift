@@ -126,6 +126,7 @@ struct DinnerMemoriesView: View {
         guard let id = household.household?.id else { return }
         let client = household.client
         await store.loadMore(logs: { from, through in try await client.dinnerMemories(id, from, through) },
+                             oldestLogged: { try await client.oldestDinnerLog(id) },
                              settings: settings, today: today)
     }
 

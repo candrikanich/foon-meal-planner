@@ -306,21 +306,66 @@ struct DinnerMemoriesStoreTests {
         #expect(store.dinners.first?.photoIDs == ["a"])
     }
 
-    @Test func pagingGoesBackUntilAPageHasNoLogs() async {
+    @Test func pagingGoesBackUntilItReachesTheOldestLoggedDinner() async {
         let asked = Locked<[CalendarDay]>([])
+        let oldestRead = Locked(0)
         let store = DinnerMemoriesStore(source: library(), defaults: defaults())
         await store.turnOn()
         let logs: @Sendable (CalendarDay, CalendarDay) async throws -> [MemoryLog] = { from, _ in
             asked.value.append(from)
-            return asked.value.count == 1 ? [MemoryLog(nightID: UUID(), date: from, dinnerTime: nil, mealName: "Soup",
-                                                       quickPick: nil, hasMeal: true, approved: true)] : []
+            return [Self.log(from)]
         }
-        await store.loadMore(logs: logs, settings: settings, today: today)
+        // Page 0 starts Sep 1, page 1 Jun 1: the oldest dinner, Jul 4, is in page 1.
+        let oldest: @Sendable () async throws -> CalendarDay? = {
+            oldestRead.value += 1
+            return CalendarDay(year: 2026, month: 7, day: 4)
+        }
+        await store.loadMore(logs: logs, oldestLogged: oldest, settings: settings, today: today)
         #expect(!store.reachedEnd)
-        await store.loadMore(logs: logs, settings: settings, today: today)
+        await store.loadMore(logs: logs, oldestLogged: oldest, settings: settings, today: today)
         #expect(store.reachedEnd)
-        await store.loadMore(logs: logs, settings: settings, today: today)
+        await store.loadMore(logs: logs, oldestLogged: oldest, settings: settings, today: today)
         #expect(asked.value.count == 2)
+        #expect(oldestRead.value == 1)
+        #expect(store.isEmpty)
+    }
+
+    @Test func aGapOfMoreThanThreeMonthsStillReachesOlderDinners() async {
+        let march = CalendarDay(year: 2026, month: 3, day: 10)
+        let store = DinnerMemoriesStore(source: library(photos: { windows in
+            windows.map { PhotoStamp(id: "\($0.start)", createdAt: $0.start) }
+        }), defaults: defaults())
+        await store.turnOn()
+        // Nothing logged June through November; one dinner in March.
+        let logs: @Sendable (CalendarDay, CalendarDay) async throws -> [MemoryLog] = { from, through in
+            from <= march && march <= through ? [Self.log(march)] : []
+        }
+        let oldest: @Sendable () async throws -> CalendarDay? = { march }
+        for _ in 0..<3 where !store.reachedEnd {
+            await store.loadMore(logs: logs, oldestLogged: oldest, settings: settings, today: today)
+        }
+        #expect(store.dinners.map(\.night.date) == [march])
+        #expect(store.reachedEnd)
+        #expect(store.pagesLoaded == 3)
+    }
+
+    @Test func withoutTheOldestDinnerAnEmptyPageEndsTheTimeline() async {
+        struct Offline: Error {}
+        let store = DinnerMemoriesStore(source: library(), defaults: defaults())
+        await store.turnOn()
+        await store.loadMore(logs: { [today] _, _ in [Self.log(today)] }, oldestLogged: { throw Offline() },
+                             settings: settings, today: today)
+        #expect(!store.failed)
+        #expect(!store.reachedEnd)
+        await store.loadMore(logs: { _, _ in [] }, oldestLogged: { throw Offline() }, settings: settings,
+                             today: today)
+        #expect(store.reachedEnd)
+    }
+
+    @Test func aHouseholdThatNeverLoggedADinnerEndsAfterOnePage() async {
+        let store = DinnerMemoriesStore(source: library(), defaults: defaults())
+        await store.turnOn()
+        await store.loadMore(logs: { _, _ in [] }, oldestLogged: { nil }, settings: settings, today: today)
         #expect(store.isEmpty)
     }
 
