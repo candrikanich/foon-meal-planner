@@ -66,6 +66,8 @@ insert into public.member_allergies (household_id, member_id, category) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'eggs');
 insert into public.items (id, household_id, canonical_name) values
   ('00000000-0000-0000-0000-0000000001a1', '00000000-0000-0000-0000-0000000000a0', 'Taco shells');
+insert into public.receipt_aliases (household_id, raw_text, item_id) values
+  ('00000000-0000-0000-0000-0000000000a0', 'ortega tco shls', '00000000-0000-0000-0000-0000000001a1');
 insert into public.meals (id, household_id, name) values
   ('00000000-0000-0000-0000-0000000002a1', '00000000-0000-0000-0000-0000000000a0', 'Tacos'),
   ('00000000-0000-0000-0000-0000000002a2', '00000000-0000-0000-0000-0000000000a0', 'Salad'),

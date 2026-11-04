@@ -359,6 +359,16 @@
     "%@, away" : {
 
     },
+    "%@, from %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, from %2$@"
+          }
+        }
+      }
+    },
     "%@, home" : {
 
     },
@@ -748,6 +758,9 @@
     "Add “%@” as a new dish" : {
 
     },
+    "Add “%@” as a new item" : {
+
+    },
     "Added %@ to the list for tonight." : {
       "comment" : "After a swap: what's missing for tonight's dish"
     },
@@ -958,6 +971,12 @@
     "Beginner-friendly" : {
 
     },
+    "Bought" : {
+
+    },
+    "Bought again" : {
+
+    },
     "Breakfast for dinner" : {
       "comment" : "Dish category in a variety note"
     },
@@ -1040,6 +1059,9 @@
         }
       }
     },
+    "Choose a photo" : {
+
+    },
     "Clear the note" : {
 
     },
@@ -1056,6 +1078,9 @@
 
     },
     "Comments" : {
+
+    },
+    "Confirm" : {
 
     },
     "Confirm with Apple to delete. Foon also stops using Sign in with Apple for your account." : {
@@ -1159,6 +1184,9 @@
     "Couldn't find a side for this dish, so allergies can't be checked" : {
 
     },
+    "Couldn't find any groceries on that receipt. Try a flat, well-lit photo." : {
+
+    },
     "Couldn't find it" : {
 
     },
@@ -1214,6 +1242,9 @@
 
     },
     "Couldn't open that photo. Try another one." : {
+
+    },
+    "Couldn't open that photo. Try another." : {
 
     },
     "Couldn't plan it right now. Try again in a moment." : {
@@ -1306,6 +1337,9 @@
     "Couldn't withdraw consent. Check your connection and try again." : {
 
     },
+    "Count %@" : {
+
+    },
     "Crab legs, Grandma's pie..." : {
 
     },
@@ -1367,6 +1401,9 @@
 
     },
     "Deleting…" : {
+
+    },
+    "Didn't recognize" : {
 
     },
     "Different tastes. Same table." : {
@@ -1570,6 +1607,9 @@
     "Fill remaining nights" : {
 
     },
+    "Find or type an item" : {
+
+    },
     "Find something quick" : {
 
     },
@@ -1686,6 +1726,9 @@
       }
     },
     "Foon reads dish names and ingredients, so it can miss what they don't say, and it can't promise a dish is free of anything. Kosher and halal depend on how food is made and prepared, so Foon can't check them." : {
+
+    },
+    "Foon reads the receipt on this device and doesn't keep the photo. You'll check what it found before anything changes." : {
 
     },
     "Foon signs out on every phone, tablet, and Mac using your account, including this one." : {
@@ -2051,6 +2094,12 @@
     "Just added" : {
       "comment" : "Store mode: put on the list during this store run"
     },
+    "Keep %@ on hand" : {
+
+    },
+    "Keep %@ on hand?" : {
+
+    },
     "Keep it weekly" : {
 
     },
@@ -2248,6 +2297,12 @@
     "Marks it in the cart" : {
 
     },
+    "Marks these bought and checks them off the lists" : {
+
+    },
+    "Marks what you bought, checks it off the lists, and puts staples back in stock." : {
+
+    },
     "Me too" : {
 
     },
@@ -2318,6 +2373,9 @@
 
     },
     "New finds" : {
+
+    },
+    "New items need a connection. Pick one you have, or try again." : {
 
     },
     "Next" : {
@@ -2450,6 +2508,12 @@
 
     },
     "Not now" : {
+
+    },
+    "Not now for %@" : {
+
+    },
+    "Not recognized: %@" : {
 
     },
     "Not sure" : {
@@ -2692,10 +2756,16 @@
     "Pick an emoji" : {
 
     },
+    "Pick an item" : {
+
+    },
     "Pick for me" : {
 
     },
     "Pick today or an earlier day: it has to be made already." : {
+
+    },
+    "Picks the item this line is" : {
 
     },
     "Pizza" : {
@@ -2820,10 +2890,19 @@
     "Read recipe" : {
 
     },
+    "Reading the receipt…" : {
+
+    },
     "Reading…" : {
 
     },
     "Rebuild unlocked nights" : {
+
+    },
+    "Receipt lines someone in the family corrected, and the item each one is, so the next receipt reads right." : {
+
+    },
+    "Receipt photos. They're read here and never kept or uploaded." : {
 
     },
     "Recent changes" : {
@@ -2952,6 +3031,9 @@
           }
         }
       }
+    },
+    "Scan a receipt" : {
+
     },
     "Schedule names need 1 to 40 characters." : {
 
@@ -3082,6 +3164,9 @@
     "Skip shellfish" : {
       "comment" : "Shopping note for a shellfish allergy"
     },
+    "Skipped unless you pick an item. Foon remembers what you pick, for everyone's next receipt." : {
+
+    },
     "Slow cooker" : {
       "comment" : "Kitchen equipment"
     },
@@ -3152,6 +3237,9 @@
 
     },
     "Staples running low" : {
+
+    },
+    "Staples show under Keep on hand, so anyone can mark them low or out." : {
 
     },
     "Staples you never want to run out of. Anyone can mark them low or out." : {
@@ -3279,6 +3367,9 @@
     "Tags" : {
 
     },
+    "Take a photo" : {
+
+    },
     "Take back your me too" : {
 
     },
@@ -3301,6 +3392,9 @@
 
     },
     "Takes you off as the cook for this dinner" : {
+
+    },
+    "Tap a line to change its item, or switch it off to skip it." : {
 
     },
     "Tap the dinners your family already makes. You can add your own anytime." : {
@@ -3524,6 +3618,9 @@
 
     },
     "They lose access right away. Their ratings and history stay." : {
+
+    },
+    "They're checked off the lists, and staples are back in stock." : {
 
     },
     "They're down as out that night. A planner can change who's home." : {
@@ -4004,6 +4101,9 @@
     "Would rather skip" : {
 
     },
+    "Yes" : {
+
+    },
     "Yes, each night" : {
 
     },
@@ -4141,6 +4241,9 @@
     "Your week of dinners is ready." : {
       "comment" : "Reminder title: the weekly recap"
     },
+    "^[%lld item](inflect: true) marked bought" : {
+
+    },
     "around %lld min" : {
       "comment" : "Tonight rescue: an estimated time to dinner"
     },
@@ -4206,6 +4309,9 @@
     },
     "soy" : {
       "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "this" : {
+
     },
     "time not set" : {
       "comment" : "Tonight rescue: a backup dinner with no cooking time"

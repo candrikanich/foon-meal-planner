@@ -60,6 +60,7 @@ struct FoonApp: App {
                 .environment(session)
                 .environment(\.itemClient, .live(SupabaseService.shared.client))
                 .environment(\.storeRunClient, .live(SupabaseService.shared.client))
+                .environment(\.receiptClient, .live(SupabaseService.shared.client))
                 .modelContainer(Self.cache)
                 .task { await session.start() }
                 .onOpenURL { session.open($0) }

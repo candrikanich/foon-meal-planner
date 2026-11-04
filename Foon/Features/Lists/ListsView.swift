@@ -18,6 +18,8 @@ struct ListsView: View {
     @State private var errorMessage: String?
     @Environment(\.storeRunClient) private var storeRunClient
     @State private var storeRuns: StoreRunStore?
+    @Environment(\.receiptClient) private var receiptClient
+    @State private var receiptScan: ReceiptScanStore?
     private let storeModeTip = StoreModeTip()
 
     private var entries: [ListEntry] { ListEntry.entries(lines: lines, items: items) }
@@ -44,6 +46,14 @@ struct ListsView: View {
                 }
                 onTheList
                 runningLow
+                Section {
+                    Button { scanReceipt() } label: {
+                        Label("Scan a receipt", systemImage: "doc.text.viewfinder")
+                    }
+                    .disabled(household.household == nil)
+                } footer: {
+                    Text("Marks what you bought, checks it off the lists, and puts staples back in stock.")
+                }
                 Section {
                     NavigationLink { KeepOnHandView() } label: {
                         Label("Keep on hand", systemImage: "basket")
@@ -80,6 +90,12 @@ struct ListsView: View {
             }
             .sheet(item: $openItem) { item in
                 ItemSheet(item: item, canRecategorize: canRecategorize, client: itemClient) { await sync?.pull() }
+            }
+            .sheet(item: $receiptScan) { scan in
+                ReceiptScanView(store: scan)
+                    #if os(macOS)
+                    .frame(minWidth: 420, minHeight: 560)
+                    #endif
             }
             #if os(iOS)
             .fullScreenCover(isPresented: $shopping) { storeMode }
@@ -188,6 +204,12 @@ struct ListsView: View {
         Task { await sync?.perform(ListBoard.gotIt(entry)) }
     }
 
+    /// A fresh scan each time, so nothing from the last receipt is left over.
+    private func scanReceipt() {
+        guard let householdID = household.household?.id else { return }
+        receiptScan = ReceiptScanStore(householdID: householdID, client: receiptClient, itemClient: itemClient)
+    }
+
     private func remove(_ entry: ListEntry) {
         Task { await sync?.perform(ListBoard.remove(entry)) }
     }
@@ -266,6 +288,7 @@ struct ListEntryRow: View {
         .environment(HouseholdStore.preview())
         .environment(\.itemClient, .preview)
         .environment(\.storeRunClient, .preview)
+        .environment(\.receiptClient, .preview())
         .environment(FreezerStore(householdID: Household.sample.id, client: .preview))
         .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .modelContainer(try! SyncService.inMemoryContainer())

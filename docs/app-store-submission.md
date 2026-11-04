@@ -66,14 +66,16 @@ Data used to track you: **None.**
 | Email address (Sign in with Apple, may be relay) | Yes | App functionality, account | Yes |
 | Health (allergies) | Yes | App functionality | Yes |
 | Photos | Yes (meal photos) | App functionality | Yes |
-| Other user content (meals, comments, requests) | Yes | App functionality | Yes |
+| Other user content (meals, comments, requests, receipt lines the family corrected) | Yes | App functionality | Yes |
 | User ID | Yes | App functionality | Yes |
 | Purchase history | Yes | App functionality | Yes |
 | Product interaction | Yes | Analytics | No (anonymized) |
 | Product interaction (which reminders went out and were answered: kind, night, time) | Yes | App functionality | Yes |
 | Crash and performance data | Yes | App functionality | No (scrubbed) |
 
-Not collected: precise or coarse location, contacts, browsing history, search history, financial info, sensitive info beyond allergies, calendar data (read on device only, never collected).
+Not collected: precise or coarse location, contacts, browsing history, search history, financial info, sensitive info beyond allergies, calendar data (read on device only, never collected), receipt photos (read on device only, never uploaded or kept; what's kept is "Other user content": receipt lines the family corrected and the item each is).
+
+**Permission prompts.** Camera (`NSCameraUsageDescription` in Info.plist, via `project.yml`): "Foon reads a receipt you photograph to mark what you bought. The photo stays on this device and isn't kept." Asked the first time someone takes a receipt photo (#61). Choosing a photo uses the system photo picker, which needs no permission.
 
 Calendar awareness (#64): in App Privacy, don't add a calendar or "Other data" type for it. Apple counts data as collected only when it's sent off the device, and Foon reads event times on the device, keeps them in memory, and never sends, saves, or logs them. The permission is a separate matter from the label: the `NSCalendarsFullAccessUsageDescription` prompt ("Foon looks at your calendar on this device to spot busy evenings. Nothing from it leaves your device.") shows only when a planner turns on Family → Spot busy evenings. EventKit has no read-only level, so it asks for full access; Foon only reads. The Mac build adds the sandbox's calendars entitlement (`ENABLE_RESOURCE_ACCESS_CALENDARS`). EventKit isn't a required-reason API, so it adds nothing to a privacy manifest.
 
@@ -119,6 +121,7 @@ Key flows: This Week tab, Fill my week, approve, then the cart icon for the shop
 - [x] After-dinner card (#122): App ID `com.andrikanich.foon.dinner` registered with App Groups on, with `group.com.andrikanich.foon`
 - [x] Tonight widget (#62): App ID `com.andrikanich.foon.widget` registered with App Groups on, with `group.com.andrikanich.foon`
 - [x] Calendar awareness (#64): `NSCalendarsFullAccessUsageDescription` in Info.plist (via project.yml), the Mac's calendars entitlement, and no App Privacy data type (never leaves the device)
+- [x] Receipt scanning (#61): `NSCameraUsageDescription` in Info.plist (via project.yml), iPhone and iPad only (the Mac picks a photo, so no camera entitlement), and no App Privacy type for the photo (never leaves the device)
 - [ ] Privacy policy and terms live at the URLs above
 - [ ] Sign in with Apple private email relay: sending domain registered
 - [ ] Content rights: imported recipes are user-provided and private to the household

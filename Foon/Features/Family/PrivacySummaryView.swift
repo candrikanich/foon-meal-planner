@@ -13,6 +13,7 @@ struct PrivacySummaryView: View {
                 Text("Your Apple sign-in: an account ID, an email, which can be Apple's private relay address, and your first name if Apple shares it.")
                 Text("Who agreed and when, if a parent agrees to keep allergies or to invite a kid.")
                 Text("Which reminders each person's device sent and whether they answered: the kind, the night, and the time, never the words.")
+                Text("Receipt lines someone in the family corrected, and the item each one is, so the next receipt reads right.")
                 Text("Foon doesn't ask for birthdays, phone numbers, or your location.")
             }
 
@@ -20,6 +21,7 @@ struct PrivacySummaryView: View {
                 Text("A copy of this week's and next week's plan and your lists, so they work offline and reminders can go out. It's erased when you sign out or your household is gone.")
                 Text("Photos and PDFs you share to Foon. They're read here and then deleted, and only the text you keep is saved.")
                 Text("If a planner turns on Spot busy evenings, Foon reads the times of this device's calendar events to suggest rushed nights. It never saves or sends them.")
+                Text("Receipt photos. They're read here and never kept or uploaded.")
             }
 
             Section("What leaves this device") {

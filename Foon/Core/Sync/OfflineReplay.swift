@@ -23,6 +23,9 @@ enum OfflineChange: Codable, Equatable, Sendable {
     /// A check-off undone: a staple goes back to the low or out it was before, if it's still in stock. A low or out marked
     /// since stays, and the server decides whether it's a staple (#201).
     case restoreStock(itemID: UUID, to: StockState)
+    /// A receipt line corrected on review: this text is this item from now on, for the whole household (#61). Upserted by
+    /// `teach_receipt_alias`, never deleted. Changes nothing this phone shows.
+    case teachReceiptAlias(householdID: UUID, rawText: String, itemID: UUID)
 
     /// The line a server answer can re-point: a new line merged into an existing one, or a check-off that followed a move.
     var repointableLine: UUID? {
