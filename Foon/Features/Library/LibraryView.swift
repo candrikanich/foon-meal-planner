@@ -5,6 +5,7 @@ import SwiftUI
 struct LibraryView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(HouseholdStore.self) private var household
+    @Environment(SubscriptionStore.self) private var subscription
     @Environment(IdeasStore.self) private var ideas: IdeasStore?
     @State private var browsingCatalog = false
     @State private var quickAdding = false
@@ -15,7 +16,7 @@ struct LibraryView: View {
     @State private var path: [UUID] = []
 
     private var canEdit: Bool {
-        LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID)
+        subscription.canEdit(asPlanner: LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID))
     }
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: 12)]
@@ -302,6 +303,7 @@ extension LibraryText {
     let household = HouseholdStore.preview()
     let library = LibraryStore(householdID: Household.sample.id, client: .preview())
     LibraryView()
+        .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
         .environment(household)
         .environment(library)
         .task { await household.load() }
@@ -311,6 +313,7 @@ extension LibraryText {
     let household = HouseholdStore.preview()
     let library = LibraryStore(householdID: Household.sample.id, client: .preview(meals: []))
     LibraryView()
+        .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
         .environment(household)
         .environment(library)
         .task { await household.load() }

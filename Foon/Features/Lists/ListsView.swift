@@ -8,6 +8,7 @@ import TipKit
 struct ListsView: View {
     @Environment(SyncService.self) private var sync: SyncService?
     @Environment(HouseholdStore.self) private var household
+    @Environment(SubscriptionStore.self) private var subscription
     @Environment(\.itemClient) private var itemClient
     @Query private var lines: [CachedListItem]
     @Query private var items: [CachedItem]
@@ -40,7 +41,7 @@ struct ListsView: View {
                 if let storeRuns {
                     StoreRunSection(store: storeRuns, me: household.me, members: household.members)
                 }
-                addSection
+                if canEditLists { addSection }
                 if let errorMessage {
                     Text(errorMessage).font(.callout).foregroundStyle(.red)
                 }
@@ -50,7 +51,7 @@ struct ListsView: View {
                     Button { scanReceipt() } label: {
                         Label("Scan a receipt", systemImage: "doc.text.viewfinder")
                     }
-                    .disabled(household.household == nil)
+                    .disabled(household.household == nil || !canEditLists)
                 } footer: {
                     Text("Marks what you bought, checks it off the lists, and puts staples back in stock.")
                 }
@@ -125,6 +126,9 @@ struct ListsView: View {
             || household.household.map { ShoppingTrip.inProgress($0.id) } == true
     }
 
+    /// Adding and removing items stop when the household has lapsed; checking things off on a trip keeps working.
+    private var canEditLists: Bool { subscription.access.allowsEditing }
+
     private var canRecategorize: Bool {
         LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID)
     }
@@ -164,13 +168,15 @@ struct ListsView: View {
                     }
                     .swipeActions(edge: .trailing) {
                         Button("Remove", systemImage: "trash", role: .destructive) { remove(entry) }
+                            .disabled(!canEditLists)
                     }
                     .contextMenu {
                         Button("Got it", systemImage: "checkmark") { gotIt(entry) }
                         Button("Remove", systemImage: "trash", role: .destructive) { remove(entry) }
+                            .disabled(!canEditLists)
                     }
                     .accessibilityAction(named: Text("Got it")) { gotIt(entry) }
-                    .accessibilityAction(named: Text("Remove")) { remove(entry) }
+                    .accessibilityAction(named: Text("Remove")) { if canEditLists { remove(entry) } }
             }
         }
     }
@@ -188,6 +194,7 @@ struct ListsView: View {
                         Button("Add", systemImage: "plus.circle") {
                             Task { await sync?.addToList(itemID: staple.itemID, list: .quick, source: .staple) }
                         }
+                        .disabled(!canEditLists)
                         .labelStyle(.iconOnly)
                         .buttonStyle(.borderless)
                         .tint(Palette.paprika)
@@ -285,6 +292,7 @@ struct ListEntryRow: View {
 
 #Preview {
     ListsView()
+        .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
         .environment(HouseholdStore.preview())
         .environment(\.itemClient, .preview)
         .environment(\.storeRunClient, .preview)

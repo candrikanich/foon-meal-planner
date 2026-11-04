@@ -6,6 +6,7 @@ import SwiftUI
 struct WeekView: View {
     @Environment(WeekStore.self) private var week
     @Environment(HouseholdStore.self) private var household
+    @Environment(SubscriptionStore.self) private var subscription
     @Environment(LibraryStore.self) private var library
     @Environment(DinnerStore.self) private var dinner
     @Environment(IdeasStore.self) private var ideas
@@ -30,7 +31,7 @@ struct WeekView: View {
     @State private var yearRecap = YearRecapStore()
 
     private var canPlan: Bool {
-        LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID)
+        subscription.canEdit(asPlanner: LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID))
     }
 
     private var settings: HouseholdSettings { household.household?.planningSettings ?? HouseholdSettings() }
@@ -607,6 +608,7 @@ struct WeekView: View {
 #Preview("Planner, no week yet") {
     let household = HouseholdStore.preview()
     WeekView()
+        .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
         .environment(household)
         .environment(WeekStore(householdID: Household.sample.id, client: .preview()))
         .environment(DinnerStore(householdID: Household.sample.id, client: .preview))
@@ -620,6 +622,7 @@ struct WeekView: View {
     let household = HouseholdStore.preview()
     let library = LibraryStore(householdID: Household.sample.id, client: .preview())
     WeekView()
+        .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
         .environment(household)
         .environment(WeekStore(householdID: Household.sample.id, client: .preview(started: true)))
         .environment(DinnerStore(householdID: Household.sample.id, client: .preview))

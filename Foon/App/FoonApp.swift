@@ -16,6 +16,8 @@ struct FoonApp: App {
     // Nonisolated: the background refresh reads it off the main actor.
     nonisolated static let configured = (try? SupabaseConfig.fromMainBundle()) != nil
     // The offline cache, which Siri's intents use too. If the store can't open, the app still runs with an in-memory one.
+    // Held for the app's lifetime; nothing reads it.
+    private static var storeListener: Task<Void, Never>?
     static let cache = (try? SyncService.persistentContainer()) ?? (try! SyncService.inMemoryContainer())
 
     init() {
@@ -23,6 +25,8 @@ struct FoonApp: App {
         UNUserNotificationCenter.current().delegate = CookAlertPresenter.shared
         ReminderCenter.registerActions()
         FoonTips.configure()
+        // StoreKit wants a listener from launch, so a renewal or an approved Ask to Buy is never missed.
+        Self.storeListener = StoreListener.start()
     }
 
     // One window (Mac) or scene (iPad): each would run its own sync service against the same cache.
@@ -64,7 +68,9 @@ struct FoonApp: App {
                      ideasClient: .live(SupabaseService.shared.client),
                      freezerClient: .live(SupabaseService.shared.client),
                      notificationClient: .live(SupabaseService.shared.client),
-                     pollClient: .live(SupabaseService.shared.client))
+                     pollClient: .live(SupabaseService.shared.client),
+                     subscriptionClient: .live(SupabaseService.shared.client),
+                     storeKit: .live)
                 .environment(session)
                 .environment(\.itemClient, .live(SupabaseService.shared.client))
                 .environment(\.storeRunClient, .live(SupabaseService.shared.client))

@@ -60,6 +60,16 @@
         }
       }
     },
+    "%@ / %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ / %2$@"
+          }
+        }
+      }
+    },
     "%@ Each person's device asks before it sends anything. You can change this anytime in Family." : {
 
     },
@@ -326,6 +336,26 @@
         }
       }
     },
+    "%@ · ends %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · ends %2$@"
+          }
+        }
+      }
+    },
+    "%@ · renews %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · renews %2$@"
+          }
+        }
+      }
+    },
     "%@'s allergies" : {
 
     },
@@ -535,6 +565,18 @@
     },
     "%lld weeks ago" : {
       "comment" : "Freezer stash: how long ago"
+    },
+    "%lld-day free trial" : {
+      "comment" : "Paywall: the introductory free trial"
+    },
+    "%lld-month free trial" : {
+      "comment" : "Paywall: the introductory free trial"
+    },
+    "%lld-week free trial" : {
+      "comment" : "Paywall: the introductory free trial"
+    },
+    "%lld-year free trial" : {
+      "comment" : "Paywall: the introductory free trial"
     },
     "%lld." : {
 
@@ -922,6 +964,12 @@
     "Archived meals leave the rotation but keep their history." : {
 
     },
+    "Ask %@" : {
+
+    },
+    "Ask %@ to unlock Foon" : {
+
+    },
     "Ask for a dish, a name, or a link (names up to 80 characters, notes up to 200)." : {
 
     },
@@ -1297,6 +1345,9 @@
     "Couldn't reach Foon. Try again." : {
 
     },
+    "Couldn't reach the App Store. Check your connection and try again." : {
+
+    },
     "Couldn't read that page. Check your connection and try again." : {
 
     },
@@ -1304,6 +1355,9 @@
 
     },
     "Couldn't record your consent. Check your connection and try again." : {
+
+    },
+    "Couldn't restore purchases. Check your connection and try again." : {
 
     },
     "Couldn't restore that meal. Check your connection and try again." : {
@@ -1687,6 +1741,18 @@
     "Foon" : {
 
     },
+    "Foon Family" : {
+
+    },
+    "Foon Family, monthly" : {
+
+    },
+    "Foon Family, yearly" : {
+
+    },
+    "Foon Founding Family" : {
+
+    },
     "Foon can draft it in a tap, and you can change any night." : {
       "comment" : "Reminder body: time to plan"
     },
@@ -1754,6 +1820,9 @@
     "Foon is building the week. Try again in a moment." : {
 
     },
+    "Foon is free for every family while we test it. If you'd like to subscribe early, you can. Nothing is charged until any trial ends." : {
+
+    },
     "Foon is still tidying up this recipe. Anything you change stays as you leave it." : {
 
     },
@@ -1761,6 +1830,9 @@
 
     },
     "Foon is tidying this up on this device. Change anything you like: your changes stay." : {
+
+    },
+    "Foon is view-only for now. Everything is still here." : {
 
     },
     "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime." : {
@@ -1836,6 +1908,12 @@
 
     },
     "Found a recipe in another app? Tap Share, then Foon, and it lands in your ideas." : {
+
+    },
+    "Founding Family" : {
+
+    },
+    "Free during the beta" : {
 
     },
     "Freezer raid" : {
@@ -2082,6 +2160,9 @@
 
     },
     "If you turn on Dinner memories, Foon shows photos from this device's library taken around dinner on nights your family logged. It never saves or uploads them." : {
+
+    },
+    "If your household subscribes: Apple's subscription status for it, which plan, when it ends, and Apple's original transaction ID. Apple holds your payment details; Foon never sees them." : {
 
     },
     "In" : {
@@ -2394,6 +2475,9 @@
     "Makes leftovers for tomorrow" : {
       "comment" : "Reason chip: a big-batch meal"
     },
+    "Manage subscription" : {
+
+    },
     "Marinate" : {
       "comment" : "Suggested prep step"
     },
@@ -2469,6 +2553,9 @@
     "Names can be up to %lld characters." : {
 
     },
+    "Needs a subscription" : {
+
+    },
     "Needs grill" : {
 
     },
@@ -2506,6 +2593,9 @@
 
     },
     "Night not found" : {
+
+    },
+    "No Foon subscription found on this Apple Account." : {
 
     },
     "No allergies" : {
@@ -2740,6 +2830,15 @@
 
     },
     "One step per line" : {
+
+    },
+    "One subscription covers the whole family. %@ looks after it." : {
+
+    },
+    "One subscription covers the whole family. Apple holds your payment details; Foon never sees them." : {
+
+    },
+    "One subscription covers the whole family. Until then you can still see everything and export or delete your data. Cancel anytime in Settings." : {
 
     },
     "Only an adult in the family can say they're heading to the store." : {
@@ -3111,6 +3210,9 @@
       "comment" : "Reason chip: someone asked for this dish"
     },
     "Restore %@ and plan it" : {
+
+    },
+    "Restore purchases" : {
 
     },
     "Return date" : {
@@ -3524,6 +3626,12 @@
     "Store run: 1 min left" : {
 
     },
+    "Subscribes your family" : {
+
+    },
+    "Subscription" : {
+
+    },
     "Suggestions" : {
 
     },
@@ -3787,6 +3895,9 @@
 
     },
     "The night stays locked, so Rebuild keeps it." : {
+
+    },
+    "The purchase didn't go through, and you haven't been charged. Try again in a moment." : {
 
     },
     "The recipe steps are too long." : {
@@ -4099,7 +4210,16 @@
     "Undo: leave it empty" : {
 
     },
+    "Unlock" : {
+
+    },
+    "Unlock Foon" : {
+
+    },
     "Unlock night" : {
+
+    },
+    "Until then you can still see everything and export or delete your data." : {
 
     },
     "Up to %lld characters." : {
@@ -4177,6 +4297,9 @@
       }
     },
     "Waiting" : {
+
+    },
+    "Waiting for approval. Foon unlocks as soon as the App Store says yes." : {
 
     },
     "Want a copy first? Export saves everything as a file." : {
@@ -4616,6 +4739,9 @@
         }
       }
     },
+    "day" : {
+      "comment" : "Paywall: price period, as in $5.99 / month"
+    },
     "dinner" : {
 
     },
@@ -4636,6 +4762,9 @@
     },
     "milk" : {
       "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "month" : {
+      "comment" : "Paywall: price period, as in $5.99 / month"
     },
     "other" : {
       "comment" : "Allergen, lowercase inside a sentence"
@@ -4736,6 +4865,9 @@
     "soy" : {
       "comment" : "Allergen, lowercase inside a sentence"
     },
+    "the owner" : {
+
+    },
     "this" : {
 
     },
@@ -4748,11 +4880,17 @@
     "tree nuts" : {
       "comment" : "Allergen, lowercase inside a sentence"
     },
+    "week" : {
+      "comment" : "Paywall: price period, as in $5.99 / month"
+    },
     "wheat" : {
       "comment" : "Allergen, lowercase inside a sentence"
     },
     "with %@" : {
       "comment" : "Side dishes after a meal name: a list of sides"
+    },
+    "year" : {
+      "comment" : "Paywall: price period, as in $5.99 / month"
     },
     "yesterday" : {
       "comment" : "Freezer stash: made yesterday"
