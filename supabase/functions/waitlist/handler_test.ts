@@ -26,6 +26,7 @@ function fakeDeps(
   const joins: Array<
     { email: string; firstName: string | null; ipHash: string }
   > = [];
+  const released: string[] = [];
   const marked: Array<
     {
       signupId: string;
@@ -48,6 +49,10 @@ function fakeDeps(
     join: (input) => {
       joins.push(input);
       return Promise.resolve(join);
+    },
+    releaseSend: ({ signupId }) => {
+      released.push(signupId);
+      return Promise.resolve();
     },
     markSent: (input) => {
       marked.push(input);
@@ -75,6 +80,7 @@ function fakeDeps(
   return {
     deps,
     joins,
+    released,
     marked,
     sent,
     logs,
@@ -150,13 +156,14 @@ Deno.test("a signup answers without waiting for the email, which is marked sent 
 });
 
 Deno.test("a failed send is not marked, so a retry sends and the cap isn't filled", async () => {
-  const { deps, marked, logs, settle } = fakeDeps({
+  const { deps, marked, released, logs, settle } = fakeDeps({
     sendConfirmation: () => Promise.reject(new Error("Resend answered 500")),
   });
   const response = await handleWaitlist(post({ email: "a@example.com" }), deps);
   assertEquals(response.status, 200);
   await settle();
   assertEquals(marked.length, 0);
+  assertEquals(released, [id], "the reservation is given back");
   assertEquals(logs.some((line) => line.includes("a@example.com")), false);
 });
 
@@ -227,7 +234,7 @@ Deno.test("the rate limit is a 429 and sends nothing", async () => {
 });
 
 Deno.test("without email configured the signup still succeeds, nothing is marked sent, and the log says email is off", async () => {
-  const { deps, logs, marked, settle } = fakeDeps({
+  const { deps, logs, marked, released, settle } = fakeDeps({
     sendConfirmation: () => Promise.resolve("off"),
   });
   assertEquals(
@@ -236,8 +243,22 @@ Deno.test("without email configured the signup still succeeds, nothing is marked
   );
   await settle();
   assertEquals(marked.length, 0);
+  assertEquals(released, [id]);
   assertEquals(logs.length, 1);
   assertStringIncludes(logs[0], "email is off");
+});
+
+Deno.test("an email that went out but couldn't be recorded keeps its reservation instead of inviting a second send", async () => {
+  const { deps, released, logs, settle } = fakeDeps({
+    markSent: () => Promise.reject(new Error("db down")),
+  });
+  assertEquals(
+    (await handleWaitlist(post({ email: "a@example.com" }), deps)).status,
+    200,
+  );
+  await settle();
+  assertEquals(released.length, 0);
+  assertEquals(logs, ["waitlist: sent but not recorded"]);
 });
 
 Deno.test("a storage failure is a retryable 500", async () => {

@@ -22,7 +22,9 @@ export interface WaitlistDeps {
   join(
     input: { email: string; firstName: string | null; ipHash: string },
   ): Promise<JoinResult>;
-  // Called only after the email went out, so the throttle and the overall cap count real sends.
+  // join reserves the send under the database's lock. markSent confirms it once the email went out; releaseSend gives it
+  // back when it didn't, so a retry sends and failures never fill the cap. A reservation nobody settles lapses on its own.
+  releaseSend(input: { signupId: string; attemptId: number }): Promise<void>;
   markSent(
     input: {
       signupId: string;
@@ -91,8 +93,8 @@ export function unsubscribeUrl(
   return `${deps.functionUrl}?unsubscribe=${id}.${signature}`;
 }
 
-// Mails the link and, only if that worked, records it. A failure leaves the attempt unmarked, so the person's next try
-// sends again and the overall cap isn't filled by failures.
+// Mails the link and, only if that worked, records it. If it didn't go out the reservation is released, so the person's
+// next try sends again and the overall cap isn't filled by failures.
 async function sendAndMark(
   deps: WaitlistDeps,
   send: {
@@ -103,8 +105,12 @@ async function sendAndMark(
     token: string;
   },
 ): Promise<void> {
+  const release = () =>
+    deps.releaseSend({ signupId: send.signupId, attemptId: send.attemptId })
+      .catch((error) => deps.log("waitlist: could not release a send", error));
+  let result: "sent" | "off";
   try {
-    const result = await deps.sendConfirmation({
+    result = await deps.sendConfirmation({
       to: send.email,
       confirmUrl: `${deps.functionUrl}?confirm=${send.token}`,
       unsubscribeUrl: unsubscribeUrl(
@@ -113,12 +119,17 @@ async function sendAndMark(
         await deps.sign(send.signupId),
       ),
     });
-    if (result === "off") {
-      deps.log(
-        "waitlist: email is off (RESEND_API_KEY or WAITLIST_FROM unset); signup stored, nothing sent",
-      );
-      return;
-    }
+  } catch (error) {
+    deps.log("waitlist: confirmation not sent", error);
+    return release();
+  }
+  if (result === "off") {
+    deps.log(
+      "waitlist: email is off (RESEND_API_KEY or WAITLIST_FROM unset); signup stored, nothing sent",
+    );
+    return release();
+  }
+  try {
     await deps.markSent({
       signupId: send.signupId,
       attemptId: send.attemptId,
@@ -126,7 +137,8 @@ async function sendAndMark(
       firstName: send.firstName,
     });
   } catch (error) {
-    deps.log("waitlist: confirmation not sent", error);
+    // The email is out but its token wasn't saved; the reservation lapses by itself and a retry sends a working one.
+    deps.log("waitlist: sent but not recorded", error);
   }
 }
 

@@ -49,6 +49,13 @@ Deno.serve((req) =>
         }
         : { outcome: data.outcome };
     },
+    releaseSend: async ({ signupId, attemptId }) => {
+      const { error } = await admin.rpc("waitlist_release_send", {
+        p_signup_id: signupId,
+        p_attempt_id: attemptId,
+      });
+      if (error) throw error;
+    },
     markSent: async ({ signupId, attemptId, tokenHash, firstName }) => {
       const { error } = await admin.rpc("waitlist_mark_sent", {
         p_signup_id: signupId,

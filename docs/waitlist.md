@@ -23,7 +23,7 @@ The 5-an-hour limit is per client address, kept as a keyed hash (IPv6 by its /64
 client-address headers a hosted Edge Function can trust (nothing in its docs; GitHub discussions #7884 and #34647 leave
 it open, and report a client-sent `x-forwarded-for` getting through). So the function prefers `cf-connecting-ip`, falls
 back to the last `x-forwarded-for` entry, and ignores `x-real-ip`. If those turn out to be spoofable, the only loss is
-the per-address limit: the 200-emails-an-hour cap counts real sends and doesn't depend on the address.
+the per-address limit: the 200-emails-an-hour cap counts reserved and sent emails and doesn't depend on the address.
 
 ## Verify the address headers on staging (after the function is deployed)
 
