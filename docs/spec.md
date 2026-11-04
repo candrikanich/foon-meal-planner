@@ -20,7 +20,12 @@ In most families, one person carries dinner: the weekly plan, the nightly "what'
 
 One adult buys and sets up the app; one subscription covers the whole household.
 
-**Onboarding (v1, #17).** For the household's owner, right after creating it, and resumed if interrupted: who's at your table (add everyone, kids too); "Does anyone have food allergies?" (No is one tap; Yes shows the one consent sentence and allergen chips plus Other per person); "Which of these does your family make?" (popular first, category tabs, search, Show more; flagged dishes warn but stay selectable; tapped dishes copy into the library); your rhythm (planning day and time, week start, dinner time, notification preset Light, Balanced, or Engaged); invite your family (skippable); then This Week with Build my week up front. "Load a sample family" on the first screen creates a demo household (four members, a kid's milk allergy, ten starter dishes, a planned week) for App Review and the curious; it asks first, since it becomes the person's one household. The onboarding flags are written with the household, in the same transaction, so a closed app still resumes setup. Someone who joins by invite skips the owner's setup.
+**Onboarding (v1, #17).** For the household's owner, right after creating it, and resumed if interrupted: who's at your table (add everyone, kids too); "Does anyone have food allergies?" (No is one tap; Yes shows the one consent sentence and allergen chips plus Other per person); "Which of these does your family make?" (popular first, category tabs, search, Show more; flagged dishes warn but stay selectable; tapped dishes copy into the library); your rhythm (planning day and time, week start, dinner time, notification preset Light, Balanced, or Engaged); what Foon does for you (skippable, see below); invite your family (skippable); then This Week with Build my week up front. "Load a sample family" on the first screen creates a demo household (four members, a kid's milk allergy, ten starter dishes, a planned week) for App Review and the curious; it asks first, since it becomes the person's one household. The onboarding flags are written with the household, in the same transaction, so a closed app still resumes setup. Someone who joins by invite skips the owner's setup.
+
+**What Foon does for you (#236, built).** One short step before the invites, with two cards: "Share any recipe" (#59) and "Tonight's a mess? Foon has a plan." (#60). Each card is optional to try (Show me), and one button moves on: Skip until a card's been tried, then Got it. It sells what happens, never how: no copy says AI, Apple Intelligence or model (see AI strategy). It uses the family's own dinners: the first one tapped in "Which of these does your family make?", in the picker's order, or any dish already in the library when none was tapped (a resumed setup), or a bundled example with none at all. Nothing in it waits on the network, and nothing is saved or sent.
+- **Share any recipe.** An example social post for that dish (the page's counts, a shouted title, emoji, an ask, hashtags), and what lands in the family's ideas. On a phone that can run the model, the plain read shows with "Tidying it up on this phone…", then the real on-device tidy-up over the parsed lines only (as #59 sends), with a 10-second limit; slow or failed, the dish as the family saved it shows instead. On any other phone, the plain read is what lands, and the card says a planner's phone in the family that can do more tidies it up (the household queue; planners only, as #59 holds). The example is never saved.
+- **Tonight's a mess?** The real `TonightRescue.ideas` over the family's library, at 30 minutes, on a made-up tonight with everyone home that isn't in any week, so the plan doesn't change; allergy flags come from code as usual. On a phone that can, the friendly lines come through the rescue sheet's own prompt (no names, allergies or who's home), with a 6-second limit, and the code lines stay if they don't. On any other phone, the code ideas are the feature, and the card says they work on every phone. The rescue never uses the queue, so this card doesn't promise a family phone's help.
+- **Who sees it.** Only the owner's setup: someone who joins by invite skips it, and "Load a sample family" fills itself in without it. It isn't saved anywhere, so an app closed on this step resumes setup from the start, as the other steps do.
 
 **Profiles first, accounts second.** During onboarding the owner creates a profile (first name, avatar, adult or kid, parent or not, role) for each family member before anyone installs. Attendance, ratings, and favorites attach to profiles from day one. When a member installs, they claim their profile. Kids without phones still participate via "pass the phone."
 
@@ -642,7 +647,7 @@ The app is mostly code; Apple's on-device Foundation Models framework is a helpe
 | Plan explanations and pattern picks | Build my week algorithm alone | \~70% | None |
 | Prep-step detection from recipe text | Keyword detection ("marinate," "overnight," "slow cooker") | \~70% | Low |
 
-**Onboarding sells outcomes, not "AI."** "Share any recipe and it lands in your ideas" is true on every device; capable devices just do it better.
+**Onboarding sells outcomes, not "AI."** "Share any recipe and it lands in your ideas" is true on every device; capable devices just do it better (see Onboarding → What Foon does for you, #236).
 
 **Positioning.** Your family's data, including your kids' data, never leaves your devices for AI processing.
 
@@ -842,7 +847,7 @@ Build everything, in order: Phase 1 (the Sunday flow) is what to sit down with y
 - [x] Receipt scanning from a photo (#61); the image stays on the phone (forwarded email receipts moved to External TestFlight, #237)
 - [ ] Widgets, Siri and App Intents
 - [x] Weekly recap and one-time tips (built, #63); planner engagement view (built, #235)
-- [ ] Polished onboarding that demonstrates the AI features (#236)
+- [x] Polished onboarding that demonstrates the AI features (built, #236)
 
 * [x] Calendar awareness (EventKit, on-device, read-only; built, #64)
 * [x] Picky-eater wins (built, #65 part 1); yearly recap (built, #65 part 2); dinner memories timeline (built, #65 part 3)

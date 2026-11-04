@@ -1,16 +1,19 @@
 import SwiftUI
 
 /// First-run setup for the household's owner (docs/spec.md → Households and members, Meal library): who's at the
-/// table, allergies (one question, skippable), the dinners they make, the household's rhythm, and invites
-/// (skippable). Ends on This Week, ready for Build my week. A sample family fills itself in instead.
+/// table, allergies (one question, skippable), the dinners they make, the household's rhythm, what Foon does for
+/// you (skippable, #236), and invites (skippable). Ends on This Week, ready for Build my week. A sample family fills
+/// itself in instead, without the showcase: nobody's there to try it.
 struct OnboardingFlow: View {
     @Environment(HouseholdStore.self) private var household
     @Environment(LibraryStore.self) private var library
     @Environment(WeekStore.self) private var week
     let onFinish: () -> Void
+    /// Whether the showcase shows recipes tidied and rescue ideas worded on this phone.
+    var ai: AIService = .live
 
     enum Step: Int, CaseIterable {
-        case family, allergies, dinners, rhythm, invite
+        case family, allergies, dinners, rhythm, showcase, invite
     }
 
     @State private var step: Step = .family
@@ -18,6 +21,7 @@ struct OnboardingFlow: View {
     @State private var settings = HouseholdSettings()
     @State private var isWorking = false
     @State private var errorMessage: String?
+    @State private var showcase: ShowcaseModel?
 
     var body: some View {
         NavigationStack {
@@ -54,7 +58,14 @@ struct OnboardingFlow: View {
         case .dinners:
             DinnersStep(model: model) { step = .rhythm }
         case .rhythm:
-            RhythmStep(settings: $settings) { step = .invite }
+            RhythmStep(settings: $settings) {
+                showcase = makeShowcase()
+                step = .showcase
+            }
+        case .showcase:
+            if let showcase {
+                ShowcaseStep(model: showcase) { step = .invite }
+            }
         case .invite:
             InviteStep {
                 Task {
@@ -63,11 +74,18 @@ struct OnboardingFlow: View {
             }
         }
     }
+
+    /// Built once, from the library as the dinner step left it, so the demo uses the dishes just tapped.
+    private func makeShowcase() -> ShowcaseModel {
+        let dish = OnboardingShowcase.demoDish(picked: model.picked, library: library.meals, catalog: library.catalog)
+        return ShowcaseModel(dish: dish, library: library.meals, allergies: library.allergies, settings: settings,
+                             today: CalendarDay(Date()), ai: ai)
+    }
 }
 
 // MARK: - Steps
 
-private struct StepFooter: View {
+struct StepFooter: View {
     let primary: String
     var secondary: String?
     var isWorking = false
