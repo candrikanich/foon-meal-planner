@@ -219,7 +219,8 @@ as $$
       'week', pw.week,
       'iso_week', to_char(pw.week, 'IYYY-"W"IW'),
       -- Rounded down to tens: week-to-week differences in an exact running total would give away suppressed signups.
-      'households', case when pw.households >= pw.k then (pw.households / 10) * 10 end,
+      -- Under 10 is null rather than 0, which would read as no households at all.
+      'households', case when pw.households >= 10 then (pw.households / 10) * 10 end,
       'active_households', case when pw.active >= pw.k then pw.active end,
       'plans_approved', case when pw.plan_households >= pw.k then pw.plans_approved end,
       'dinners', case when pw.dinner_households >= pw.k then pw.dinners end,

@@ -29,7 +29,7 @@ Only the dashboard (`postgres`) and `service_role` can run it. The function live
 ## What it never shows
 
 - No household or member ids, names, dish names, or any row about one household. Every number is pooled across households.
-- **Small cells are hidden:** any number built from fewer than 5 households is `null`, never a small count (k-anonymity, k = 5, given as `min_households` in the output). A week with no households doing something is `null` too, not 0. The running total `households` is also rounded down to the nearest 10, because the difference between two weeks' exact totals would give away a week's suppressed signups.
+- **Small cells are hidden:** any number built from fewer than 5 households is `null`, never a small count (k-anonymity, k = 5, given as `min_households` in the output). A week with no households doing something is `null` too, not 0. The running total `households` is also null under 10 and otherwise rounded down to the nearest 10, because the difference between two weeks' exact totals would give away a week's suppressed signups.
 - Sample families (made with "Load a sample family") aren't counted.
 
 ## What each number means
@@ -47,7 +47,7 @@ Per week (by the night's date or the activity's household day):
 | `after_dinner_response_rate` | reactions left on logged dishes, by people marked home that night, divided by the people marked home for those dishes. Removed members and people who eat separately (who don't rate) aren't counted on either side; someone with no attendance row isn't counted | households with a logged dish and someone marked home |
 | `plans_approved` | approved plans whose middle day (`week_start + 3`) falls in this week. A plan's week can start on any day, Sunday by default, so it's counted in the ISO week that holds most of its dinners | distinct households with an approved plan in this week, at least 5 |
 | `active_households` | households where anyone did something stored that week: added a member, asked, said me too, reacted, voted or started a poll, claimed or released a night, confirmed a dinner, thanked the cook, answered a check-in, made or approved a plan, added a dish, or added or checked off a list line. The overnight job's unconfirmed logs don't count | itself |
-| `households` | households signed up by the end of the week, rounded down to the nearest 10 (12 shows as 10, 7 as 0) | itself, at least 5 before rounding |
+| `households` | households signed up by the end of the week, rounded down to the nearest 10 (12 shows as 10). Under 10 it's `null`, since a rounded 0 would read as none | itself, at least 10 |
 
 Per sign-up week (households made that week, by their own day):
 

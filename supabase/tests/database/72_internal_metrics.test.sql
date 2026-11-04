@@ -208,8 +208,8 @@ select is((select (pg_temp.week(m, '2026-08-10') ->> 'after_dinner_response_rate
 select is((select pg_temp.week(m, '2026-08-10') -> 'plans_approved' from result), '5'::jsonb, 'plans approved');
 select is((select pg_temp.week(m, '2026-08-10') -> 'active_households' from result), '5'::jsonb,
   'weekly active households');
-select is((select pg_temp.week(m, '2026-08-10') -> 'households' from result), '0'::jsonb,
-  'households signed up by the week''s end, rounded down to tens: 7 is 0');
+select is((select pg_temp.week(m, '2026-08-10') -> 'households' from result), 'null'::jsonb,
+  'households signed up by the week''s end: under 10 is null, not a rounded 0');
 
 select is((select pg_temp.week(m, '2026-08-03') -> 'signups' from result), '5'::jsonb, 'signups that week');
 select is((select (pg_temp.week(m, '2026-08-03') ->> 'onboarding_completion')::numeric from result), 0.8,
