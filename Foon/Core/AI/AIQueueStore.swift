@@ -34,6 +34,8 @@ final class AIQueueStore {
     var isPlanner = false
 
     let householdID: UUID
+    /// How long a tidy-up here may run: someone may be waiting on it, so it gets longer than the queue's jobs.
+    let tidyLimit: Duration
     private let runner: AIJobRunner
     private let shelf: AIWatchShelf
     private let now: @Sendable () -> Date
@@ -43,8 +45,9 @@ final class AIQueueStore {
     private var tidying: [UUID: Task<Void, Never>] = [:]
 
     init(householdID: UUID, runner: AIJobRunner, shelf: AIWatchShelf = .memory(),
-         now: @escaping @Sendable () -> Date = { .now }) {
+         tidyLimit: Duration = RecipeStructuring.timeLimit, now: @escaping @Sendable () -> Date = { .now }) {
         self.householdID = householdID
+        self.tidyLimit = tidyLimit
         self.runner = runner
         self.shelf = shelf
         self.now = now
@@ -72,7 +75,8 @@ final class AIQueueStore {
     func tidyHere(_ payload: RecipeJobPayload) -> UUID? {
         guard runsHere else { return nil }
         let token = UUID()
-        let ai = runner.ai
+        var ai = runner.ai
+        ai.timeout = tidyLimit
         tidying[token] = Task {
             if case .done(let recipe) = await RecipeStructuring.structure(payload, ai) { tidied[token] = recipe }
             tidying[token] = nil
@@ -82,6 +86,9 @@ final class AIQueueStore {
     }
 
     func isTidying(_ token: UUID) -> Bool { tidying[token] != nil }
+
+    /// The run here ended without a recipe: it ran out of time or found nothing it could use.
+    func gaveUp(_ token: UUID) -> Bool { tidying[token] == nil && tidied[token] == nil }
 
     func isProcessing(meal: UUID) -> Bool {
         watches.contains { $0.mealID == meal }

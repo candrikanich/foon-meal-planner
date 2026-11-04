@@ -25,9 +25,10 @@ struct AIQueueStoreTests {
     }
 
     private func store(_ queue: FakeAIQueue, ai: AIService, shelf: AIWatchShelf = .memory(),
+                       tidyLimit: Duration = RecipeStructuring.timeLimit,
                        now: @escaping @Sendable () -> Date = { .now }) -> AIQueueStore {
         let store = AIQueueStore(householdID: household, runner: AIJobRunner(client: queue.client, ai: ai), shelf: shelf,
-                                 now: now)
+                                 tidyLimit: tidyLimit, now: now)
         store.isPlanner = true
         return store
     }
@@ -115,6 +116,45 @@ struct AIQueueStoreTests {
         #expect(store.tidied[token] == nil)
         #expect(applied.calls.isEmpty)
         #expect(!store.isProcessing(meal: meal))
+    }
+
+    @Test func aRunThatEndsEmptyHandedSaysSoSoTheSheetCanBeHonest() async throws {
+        let gate = AsyncStream<Void>.makeStream()
+        let stuck = AIService(availability: { .available }, respond: { _, _, _ in
+            for await _ in gate.stream { break }
+            throw CancellationError()
+        })
+        let failing = store(FakeAIQueue(), ai: stuck)
+        let token = try #require(failing.tidyHere(payload))
+        #expect(!failing.gaveUp(token))
+        gate.continuation.finish()
+        await failing.tidyingFinished()
+        #expect(failing.gaveUp(token))
+
+        let working = store(FakeAIQueue(), ai: model(recipe))
+        let tidied = try #require(working.tidyHere(payload))
+        await working.tidyingFinished()
+        #expect(!working.gaveUp(tidied))
+    }
+
+    @Test func aRecipeTidiedHereGetsTheLongerRecipeLimit() async throws {
+        #expect(RecipeStructuring.timeLimit == .seconds(45))
+        let answer = GeneratedRecipe(name: "Chili", servings: 4, ingredients: recipe.ingredients, steps: recipe.steps,
+                                     prepSteps: [])
+        let unhurried = AIService(availability: { .available }, respond: { _, _, _ in
+            try await Task.sleep(for: .milliseconds(300))
+            return answer.generatedContent
+        }, timeout: .milliseconds(50))
+
+        let patient = store(FakeAIQueue(), ai: unhurried, tidyLimit: .seconds(5))
+        let token = try #require(patient.tidyHere(payload))
+        await patient.tidyingFinished()
+        #expect(patient.tidied[token] == recipe)
+
+        let hasty = store(FakeAIQueue(), ai: unhurried, tidyLimit: .milliseconds(50))
+        let cut = try #require(hasty.tidyHere(payload))
+        await hasty.tidyingFinished()
+        #expect(hasty.gaveUp(cut))
     }
 
     @Test func closingWithoutADishForgetsTheRun() async throws {

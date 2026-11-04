@@ -143,6 +143,10 @@ struct StructuredRecipe: Codable, Equatable, Sendable {
 
 /// Runs the model over a captured recipe: on the device that captured it when it can, or for a `recipe` job from the queue.
 enum RecipeStructuring {
+    /// For a tidy-up someone is waiting on (#256). On a Mac, a 4,000-character recipe took 16 to 21 seconds and one
+    /// near the 8,000-character cut about 42, so the queue's usual 30 would cut the long ones off.
+    static let timeLimit: Duration = .seconds(45)
+
     /// Nothing about the family: the model only ever sees the recipe.
     static let instructions = """
         You read recipes. The text was captured from a photo, a PDF or a social media post, so it may include unrelated \
