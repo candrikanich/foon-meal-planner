@@ -92,10 +92,10 @@ struct SharedItemSheet: View {
             }
             .onChange(of: tidiedRecipe) { _, recipe in
                 guard let recipe, let baseline, let draft = readDraft, !resultTaken else { return }
-                if let merged = RecipeMerge.merged(draft, baseline: baseline, recipe: recipe) {
-                    readDraft = merged
-                    TidyProgressCard.announce(TidyProgress.landed)
-                }
+                let merged = RecipeMerge.merged(draft, baseline: baseline, recipe: recipe)
+                if let merged { readDraft = merged }
+                // Someone waiting on the card hears it went, even when the tidy recipe matched the plain read.
+                if merged != nil || !finishingByHand { TidyProgressCard.announce(TidyProgress.landed) }
                 aiPrep = recipe.prepSteps
                 resultTaken = true
             }

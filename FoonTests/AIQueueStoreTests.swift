@@ -137,6 +137,22 @@ struct AIQueueStoreTests {
         #expect(!working.gaveUp(tidied))
     }
 
+    @Test func aRunCutShortBecauseTheDeviceStoppedBeingAbleIsntCalledStubborn() async throws {
+        let power = Switch()
+        let switchedOff = AIService(availability: {
+            power.isOn ? .available : .unavailable(.appleIntelligenceNotEnabled)
+        }, respond: { _, _, _ in throw CancellationError() })
+        let store = store(FakeAIQueue(), ai: switchedOff)
+
+        let token = try #require(store.tidyHere(payload))
+        power.isOn = false
+        await store.tidyingFinished()
+
+        #expect(!store.isTidying(token))
+        #expect(store.tidied[token] == nil)
+        #expect(!store.gaveUp(token))
+    }
+
     @Test func aRecipeTidiedHereGetsTheLongerRecipeLimit() async throws {
         #expect(RecipeStructuring.timeLimit == .seconds(45))
         let answer = GeneratedRecipe(name: "Chili", servings: 4, ingredients: recipe.ingredients, steps: recipe.steps,
@@ -320,5 +336,16 @@ private final class Clock: @unchecked Sendable {
     var now: Date {
         get { lock.withLock { stored } }
         set { lock.withLock { stored = newValue } }
+    }
+}
+
+/// Apple Intelligence, turned off once a run has started.
+private final class Switch: @unchecked Sendable {
+    private let lock = NSLock()
+    private var on = true
+
+    var isOn: Bool {
+        get { lock.withLock { on } }
+        set { lock.withLock { on = newValue } }
     }
 }
