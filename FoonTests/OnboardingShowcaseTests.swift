@@ -42,11 +42,21 @@ struct OnboardingShowcaseTests {
 
     @Test func aPhoneThatCanRunItShowsTheBetterWayAndEveryOtherShowsThePlainWay() {
         #expect(OnboardingShowcase.variant(.available) == .onThisPhone)
-        let reasons: [AIAvailability.Reason] = [.deviceNotEligible, .appleIntelligenceNotEnabled, .modelNotReady,
-                                                 .other]
+        let reasons: [AIAvailability.Reason] = [.deviceNotEligible, .appleIntelligenceNotEnabled, .other]
         for reason in reasons {
             #expect(OnboardingShowcase.variant(.unavailable(reason)) == .familyCanHelp)
         }
+    }
+
+    @Test func aCapablePhoneStillGettingReadySaysItWillTidyOnceReady() {
+        #expect(OnboardingShowcase.variant(.unavailable(.modelNotReady)) == .whenReady)
+        #expect(OnboardingShowcase.recipeDetail(.whenReady) == OnboardingShowcase.recipeWhenReady)
+        #expect(OnboardingShowcase.recipeDetail(.whenReady) != OnboardingShowcase.recipeFamilyCanHelp)
+        #expect(OnboardingShowcase.recipeDetail(.onThisPhone) == OnboardingShowcase.recipeOnThisPhone)
+        #expect(OnboardingShowcase.recipeDetail(.familyCanHelp) == OnboardingShowcase.recipeFamilyCanHelp)
+        #expect(OnboardingShowcase.rescueDetail(.whenReady) == OnboardingShowcase.rescueEveryPhone)
+        #expect(OnboardingShowcase.rescueDetail(.onThisPhone) == OnboardingShowcase.rescueOnThisPhone)
+        #expect(OnboardingShowcase.allCopy.contains(OnboardingShowcase.recipeWhenReady))
     }
 
     @Test func theButtonSaysSkipUntilACardIsTried() {
@@ -137,7 +147,8 @@ struct OnboardingShowcaseTests {
             return answer.generatedContent
         })
 
-        #expect(tidied == StructuredRecipe(answer))
+        #expect(tidied == .onThisPhone(StructuredRecipe(answer)))
+        #expect(tidied?.note == nil)
         let prompt = await prompts.all.first ?? ""
         #expect(prompt.contains("ground beef"))
         #expect(!prompt.contains("#"))
@@ -152,8 +163,20 @@ struct OnboardingShowcaseTests {
         }
         let failing = ai { _, _, _ in throw CancellationError() }
 
-        #expect(await OnboardingShowcase.tidy(demo, ai: slow, timeout: .milliseconds(50)) == demo.tidied)
-        #expect(await OnboardingShowcase.tidy(demo, ai: failing) == demo.tidied)
+        let timedOut = await OnboardingShowcase.tidy(demo, ai: slow, timeout: .milliseconds(50))
+        let failed = await OnboardingShowcase.tidy(demo, ai: failing)
+        for result in [timedOut, failed] {
+            #expect(result == .bundled(demo.tidied))
+            #expect(result?.recipe == demo.tidied)
+            #expect(result?.note == OnboardingShowcase.recipeFallback)
+        }
+    }
+
+    @Test func theFallbackLineSaysItIsHowItWillLookNotThisPhonesWork() {
+        let line = OnboardingShowcase.recipeFallback
+        #expect(OnboardingShowcase.allCopy.contains(line))
+        #expect(!line.localizedCaseInsensitiveContains("this phone"))
+        #expect(line.localizedCaseInsensitiveContains("once"))
     }
 
     @Test func aPhoneThatCannotRunItShowsThePlainReadAndNeverAsks() async {
@@ -235,6 +258,24 @@ struct OnboardingShowcaseTests {
         #expect(model.recipeShown)
         #expect(!model.isTidying)
         #expect(model.tidied == model.recipe.tidied)
+        #expect(model.tidyNote == OnboardingShowcase.recipeFallback)
+    }
+
+    @Test func aCapablePhoneStillGettingReadyShowsThePlainReadAndNeverAsks() async {
+        let prompts = Prompts()
+        let notReady = AIService(availability: { .unavailable(.modelNotReady) }, respond: { _, prompt, _ in
+            await prompts.add(prompt)
+            throw CancellationError()
+        })
+        let model = ShowcaseModel(dish: Self.tacos, library: [Self.tacos], allergies: [],
+                                  settings: HouseholdSettings(), today: Self.today, ai: notReady)
+
+        #expect(model.variant == .whenReady)
+        await model.showRecipe()
+
+        #expect(model.tidied == nil)
+        #expect(model.tidyNote == nil)
+        #expect(await prompts.all.isEmpty)
     }
 
     @Test func tryingOnAPhoneThatCannotRunItShowsThePlainWay() async {
@@ -246,6 +287,7 @@ struct OnboardingShowcaseTests {
         await model.showRescue()
 
         #expect(model.tidied == nil)
+        #expect(model.tidyNote == nil)
         #expect(!model.isTidying)
         #expect(model.rescue?.count == 3)
         #expect(model.wording.isEmpty)
