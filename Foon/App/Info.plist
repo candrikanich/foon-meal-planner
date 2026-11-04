@@ -40,6 +40,10 @@
 	<string>Foon looks at your calendar on this device to spot busy evenings. Nothing from it leaves your device.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Foon reads a receipt you photograph to mark what you bought. The photo stays on this device and isn't kept.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Foon shows your photos from around dinner, on this device only. It never uploads or saves them.</string>
+	<key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
+	<true/>
 	<key>SupabaseAnonKey</key>
 	<string>$(SUPABASE_ANON_KEY)</string>
 	<key>SupabaseURL</key>

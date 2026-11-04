@@ -77,6 +77,12 @@ struct HouseholdClient: Sendable {
     /// Someone's own notification preset (`set_member_preset`); nil follows the household's.
     var setMemberPreset: @Sendable (_ memberID: UUID, _ preset: HouseholdSettings.NotificationPreset?) async throws -> Void
         = { _, _ in }
+    /// Logged dinners with these night dates, both included, for the dinner memories timeline. Approval and "at the
+    /// table" are judged in `DinnerMemories`, so a page with no logs at all can tell the timeline it's reached the end.
+    var dinnerMemories: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ through: CalendarDay) async throws
+        -> [MemoryLog] = { _, _, _ in [] }
+    /// The household's oldest night with a dinner logged, nil if none: where the timeline's paging can stop.
+    var oldestDinnerLog: @Sendable (_ householdID: UUID) async throws -> CalendarDay? = { _ in nil }
 }
 
 /// Why Delete household didn't go through.
@@ -318,6 +324,26 @@ extension HouseholdClient {
             setMemberPreset: { memberID, preset in
                 try await client.rpc("set_member_preset", params: MemberPresetParams(targetMember: memberID, preset: preset))
                     .execute()
+            },
+            dinnerMemories: { householdID, from, through in
+                try await client.from("meal_logs")
+                    .select(MemoryLog.columns)
+                    .eq("household_id", value: householdID)
+                    .gte("plan_nights.date", value: from.isoString)
+                    .lte("plan_nights.date", value: through.isoString)
+                    .execute()
+                    .value
+            },
+            oldestDinnerLog: { householdID in
+                // From plan_nights, so the order sorts the rows: ordering by an embedded column wouldn't.
+                let rows: [NightDate] = try await client.from("plan_nights")
+                    .select("date, meal_logs!inner(id)")
+                    .eq("household_id", value: householdID)
+                    .order("date")
+                    .limit(1)
+                    .execute()
+                    .value
+                return rows.first?.date
             }
         )
     }
@@ -465,6 +491,10 @@ private struct FamilyStatsParams: Encodable, Sendable {
 }
 
 /// `through` is always sent, null for a whole year, so PostgREST matches the function by all three argument names.
+private struct NightDate: Decodable, Sendable {
+    let date: CalendarDay
+}
+
 private struct YearRecapParams: Encodable, Sendable {
     let targetHousehold: UUID
     let targetYear: Int

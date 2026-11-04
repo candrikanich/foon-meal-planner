@@ -453,6 +453,9 @@
     "%lld more people" : {
 
     },
+    "%lld more photos" : {
+      "comment" : "Dinner memories: photos from that night not shown"
+    },
     "%lld new dishes tried" : {
       "comment" : "Family stats: dishes the family had for the first time"
     },
@@ -571,6 +574,9 @@
     },
     "1 meal can't be fully checked for allergies. Open it to see why." : {
 
+    },
+    "1 more photo" : {
+      "comment" : "Dinner memories: a photo from that night not shown"
     },
     "1 new dish tried" : {
       "comment" : "Family stats: dishes the family had for the first time"
@@ -1235,6 +1241,9 @@
     "Couldn't load this week's dinners. Check your connection and try again." : {
 
     },
+    "Couldn't load your dinners. Check your connection and try again." : {
+
+    },
     "Couldn't load your household" : {
 
     },
@@ -1422,12 +1431,15 @@
 
     },
     "Dinner" : {
-
+      "comment" : "Dinner memories: a night whose dish has no name"
     },
     "Dinner at" : {
 
     },
     "Dinner jobs" : {
+
+    },
+    "Dinner memories" : {
 
     },
     "Dinner on %@" : {
@@ -1659,6 +1671,9 @@
 
     },
     "Foon can't see your calendar. Allow it in Settings." : {
+
+    },
+    "Foon can't see your photos. Allow it in Settings." : {
 
     },
     "Foon cleared %@" : {
@@ -2023,6 +2038,9 @@
 
     },
     "If a planner turns on Spot busy evenings, Foon reads the times of this device's calendar events to suggest rushed nights. It never saves or sends them." : {
+
+    },
+    "If you turn on Dinner memories, Foon shows photos from this device's library taken around dinner on nights your family logged. It never saves or uploads them." : {
 
     },
     "In" : {
@@ -2455,6 +2473,9 @@
     "No changes yet" : {
 
     },
+    "No dinner photos yet" : {
+
+    },
     "No dishes match. Add it to your library first." : {
 
     },
@@ -2692,6 +2713,9 @@
     "Only planners can hide a comment." : {
 
     },
+    "Only the photos you chose for Foon show here. Change that in Settings." : {
+
+    },
     "Only they or a planner can take that back." : {
 
     },
@@ -2796,6 +2820,9 @@
     },
     "Personal care" : {
 
+    },
+    "Photo from dinner, %@" : {
+      "comment" : "Dinner memories: VoiceOver label for a photo; the night's weekday and date"
     },
     "Photos and PDFs you share to Foon. They're read here and then deleted. Only the text you keep leaves this device, and the recipe lines of a dish you add, if this device can't tidy them up itself." : {
 
@@ -3103,6 +3130,9 @@
     "Search your meals or add one" : {
 
     },
+    "See the photos on this device that were taken around dinner on the nights your family logged. They show only here, on this device. Foon never uploads or saves them." : {
+
+    },
     "Send" : {
 
     },
@@ -3160,7 +3190,13 @@
     "Show %@'s comment" : {
 
     },
+    "Show dinner photos" : {
+
+    },
     "Show more" : {
+
+    },
+    "Show my dinner photos" : {
 
     },
     "Show tips again" : {
@@ -3172,6 +3208,9 @@
     "Shown on the day card when %@ is home." : {
 
     },
+    "Shown only on this device. Foon never uploads or saves them." : {
+
+    },
     "Shown with %@ on meals, lists, and in the store." : {
 
     },
@@ -3179,6 +3218,9 @@
 
     },
     "Shows the item's note, aisle, and keep on hand" : {
+
+    },
+    "Shows the photo larger" : {
 
     },
     "Shows what you can make tonight in the time there is" : {
@@ -3221,6 +3263,9 @@
       "comment" : "Kitchen equipment"
     },
     "Snacks" : {
+
+    },
+    "Snap a picture at the table some night. Once that dinner is logged, it shows up here." : {
 
     },
     "Some sites don't let apps read their recipes. You can add the ingredients yourself." : {

@@ -79,7 +79,12 @@ extension HouseholdClient {
             familyStats: { _, _, _ in .sample },
             weekRecap: { _, _, _ in .sample(cooks: members) },
             triedNew: { _, _, _ in TriedNewDishes.samples(for: members) },
-            yearRecap: { _, _, _ in .sample(members: members) }
+            yearRecap: { _, _, _ in .sample(members: members) },
+            // One page of dinners, then nothing further back.
+            dinnerMemories: { _, from, through in
+                from < CalendarDay(.now).adding(days: -100) ? [] : MemoryLog.samples(through: through)
+            },
+            oldestDinnerLog: { _ in CalendarDay(.now).adding(days: -20) }
         )
     }
 }

@@ -48,6 +48,11 @@ struct FamilyView: View {
                         } label: {
                             Label("Your year in dinners", systemImage: "book.pages")
                         }
+                        NavigationLink {
+                            DinnerMemoriesView()
+                        } label: {
+                            Label("Dinner memories", systemImage: "photo.on.rectangle")
+                        }
                     }
                 }
 
