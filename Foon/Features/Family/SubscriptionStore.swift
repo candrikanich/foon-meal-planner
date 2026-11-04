@@ -12,19 +12,24 @@ final class SubscriptionStore {
     private(set) var offers: [StoreOffer] = []
     private(set) var isWorking = false
     private(set) var message: String?
+    /// A plan just bought, kept through every refresh until the server has it, so a refresh racing the purchase can't
+    /// flash the household back to lapsed.
+    private var justBought: SubscriptionPlan?
 
     let householdID: UUID
     private let client: SubscriptionClient
     private let storeKit: StoreKitClient
     private let pause: @Sendable () async -> Void
     private let pollAttempts: Int
+    private let onEditingKnown: (Bool) -> Void
 
-    init(householdID: UUID, client: SubscriptionClient, storeKit: StoreKitClient, pollAttempts: Int = 5,
+    init(householdID: UUID, client: SubscriptionClient, storeKit: StoreKitClient, pollAttempts: Int = 5, onEditingKnown: @escaping (Bool) -> Void = { _ in },
          pause: @escaping @Sendable () async -> Void = { try? await Task.sleep(for: .seconds(1)) }) {
         self.householdID = householdID
         self.client = client
         self.storeKit = storeKit
         self.pollAttempts = pollAttempts
+        self.onEditingKnown = onEditingKnown
         self.pause = pause
     }
 
@@ -42,18 +47,15 @@ final class SubscriptionStore {
 
     /// On launch, on coming back to the foreground, and when a transaction arrives. Offline keeps what was known.
     func refresh() async {
-        await refresh(keeping: nil)
-    }
-
-    /// `keeping` is a plan from a transaction just verified, which StoreKit's entitlements may not list yet.
-    private func refresh(keeping justBought: SubscriptionPlan?) async {
         async let isEntitled = try? client.entitled(householdID)
         async let subscription = try? client.subscription(householdID)
         async let plan = storeKit.currentPlan(householdID)
         let (newEntitled, newServer, newLocal) = await (isEntitled, subscription, plan)
         entitled = newEntitled ?? entitled
         server = newServer ?? server
+        // A verified transaction StoreKit's entitlements may not list yet counts until the server has the plan.
         local = newLocal ?? justBought
+        if access != .checking { onEditingKnown(access.allowsEditing) }
     }
 
     func loadOffers() async {
@@ -74,12 +76,18 @@ final class SubscriptionStore {
             switch try await storeKit.purchase(productID, householdID) {
             case .purchased(let plan):
                 local = plan
-                await settle(keeping: plan)
+                justBought = plan
+                await settle()
+                justBought = nil
+            case .otherHousehold:
+                message = String(localized: "This Apple Account already subscribes for another household.")
             case .pending:
                 message = String(localized: "Waiting for approval. Foon unlocks as soon as the App Store says yes.")
             case .cancelled:
                 break
             }
+        } catch StorePurchaseError.unverified {
+            message = String(localized: "Your purchase went through but couldn't be confirmed on this device. Foon will unlock shortly; try Restore purchases if not.")
         } catch {
             message = String(localized: "The purchase didn't go through, and you haven't been charged. Try again in a moment.")
         }
@@ -99,14 +107,14 @@ final class SubscriptionStore {
         if local == nil, !access.isSubscribed {
             message = String(localized: "No Foon subscription found on this Apple Account.")
         } else {
-            await settle(keeping: nil)
+            await settle()
         }
     }
 
     /// Asks the server a few times whether Apple's notification has landed; if it hasn't, the local transaction stands.
-    private func settle(keeping justBought: SubscriptionPlan?) async {
+    private func settle() async {
         for _ in 0..<pollAttempts {
-            await refresh(keeping: justBought)
+            await refresh()
             if server?.hasPlan == true, entitled == true { return }
             await pause()
         }

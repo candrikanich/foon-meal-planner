@@ -72,6 +72,14 @@ enum SubscriptionAccess: Equatable, Sendable {
     }
 }
 
+extension PurchaseOutcome {
+    /// A verified transaction counts for this household only if it carries this household's id. Another token means
+    /// this Apple Account already subscribes for a different household, whose notifications go there, not here.
+    static func verified(_ plan: SubscriptionPlan, token: UUID?, household: UUID) -> PurchaseOutcome {
+        token == household ? .purchased(plan) : .otherHousehold
+    }
+}
+
 /// What the subscription section offers, from who is looking.
 enum PaywallMode: Equatable, Sendable {
     /// The owner can buy these, in this order.

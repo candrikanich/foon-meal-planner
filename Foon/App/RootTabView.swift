@@ -38,7 +38,8 @@ struct RootTabView: View {
         _polls = State(initialValue: PollStore(client: pollClient))
         _calendarBusy = State(initialValue: CalendarBusyStore(source: calendarSource))
         _subscription = State(initialValue: SubscriptionStore(householdID: householdID, client: subscriptionClient,
-                                                              storeKit: storeKit))
+                                                              storeKit: storeKit,
+                                                              onEditingKnown: EditingAllowed.save))
     }
 
     var body: some View {

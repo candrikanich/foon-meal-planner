@@ -393,7 +393,7 @@ struct SharedItemSheet: View {
         }
         Section {
             Button("Add to the quick list", systemImage: "cart.badge.plus") { Task { await addToList() } }
-                .disabled(isWorking || names.isEmpty || sync == nil)
+                .disabled(isWorking || names.isEmpty || sync == nil || !subscription.access.allowsEditing)
         }
     }
 

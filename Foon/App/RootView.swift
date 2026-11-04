@@ -42,6 +42,7 @@ struct RootView: View {
                     try? SyncService.clearCache(in: context)
                     // And no reminder of theirs goes off for them.
                     ReminderStore.clearDevice()
+                    EditingAllowed.clear()
                     // Nor does their calendar choice carry over.
                     CalendarBusyStore.clearDevice()
                     DinnerMemoriesStore.clearDevice()

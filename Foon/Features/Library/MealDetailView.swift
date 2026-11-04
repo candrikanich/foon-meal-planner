@@ -10,6 +10,7 @@ struct MealDetailView: View {
     @Environment(WeekStore.self) private var week: WeekStore?
     @Environment(IdeasStore.self) private var ideas: IdeasStore?
     @Environment(SyncService.self) private var sync: SyncService?
+    @Environment(SubscriptionStore.self) private var subscription
     @Environment(AIQueueStore.self) private var aiQueue: AIQueueStore?
     @Environment(\.dismiss) private var dismiss
     let mealID: UUID
@@ -344,12 +345,15 @@ struct MealDetailView: View {
         }
     }
 
+    /// Lists stop changing when the household has lapsed, whoever is looking.
+    private var canAddToList: Bool { sync != nil && subscription.access.allowsEditing }
+
     private func ingredients(_ meal: LibraryMeal) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Ingredients").font(.foonTitle)
                 Spacer()
-                if !meal.ingredients.isEmpty, sync != nil {
+                if !meal.ingredients.isEmpty, canAddToList {
                     Button("Add all to list") {
                         Task { for line in meal.ingredients { await addToList(line) } }
                     }
@@ -370,7 +374,7 @@ struct MealDetailView: View {
                     .buttonStyle(.plain)
                     .accessibilityHint("Shows the item's note, aisle, and keep on hand")
                     Spacer(minLength: 8)
-                    if sync != nil {
+                    if canAddToList {
                         addButton(for: line)
                     }
                 }
@@ -662,6 +666,7 @@ struct ServingNoteEditor: View {
     }
     .environment(library)
     .environment(household)
+    .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
     .task {
         await household.load()
         await library.load(members: Member.sampleFamily)
@@ -676,6 +681,7 @@ struct ServingNoteEditor: View {
     }
     .environment(library)
     .environment(household)
+    .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
     .task {
         await household.load()
         await library.load(members: Member.sampleFamily)

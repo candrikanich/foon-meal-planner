@@ -76,6 +76,19 @@ struct SubscriptionAccessTests {
         #expect(PaywallMode.resolve(isOwner: true, founding: true, access: .lapsed) == .buy(productIDs: [FoonProducts.founding]))
     }
 
+    @Test func aTransactionForAnotherHouseholdDoesNotCount() {
+        let mine = UUID()
+        #expect(PurchaseOutcome.verified(plan, token: mine, household: mine) == .purchased(plan))
+        #expect(PurchaseOutcome.verified(plan, token: UUID(), household: mine) == .otherHousehold)
+        #expect(PurchaseOutcome.verified(plan, token: nil, household: mine) == .otherHousehold)
+    }
+
+    @Test func theSiriGateAllowsWhenUnknown() {
+        #expect(EditingAllowed.decide(stored: nil))
+        #expect(EditingAllowed.decide(stored: true))
+        #expect(!EditingAllowed.decide(stored: false))
+    }
+
     @Test func anOwnerWhoSubscribesManagesInstead() {
         #expect(PaywallMode.resolve(isOwner: true, founding: false, access: .subscribed(plan)) == .manage)
     }
@@ -129,6 +142,23 @@ struct SubscriptionStoreTests {
         await store.purchase(FoonProducts.monthly)
         #expect(calls.withLock { $0 } == 2)
         #expect(store.server == known)
+    }
+
+    @Test func aTransactionForAnotherHouseholdSetsNothingAndSaysWhy() async {
+        let store = SubscriptionStore(householdID: household, client: .preview(entitled: false),
+                                      storeKit: storeKit(purchase: .otherHousehold), pollAttempts: 1, pause: {})
+        await store.purchase(FoonProducts.monthly)
+        #expect(store.local == nil)
+        #expect(store.message?.contains("another household") == true)
+    }
+
+    @Test func anUnverifiedPurchaseDoesNotClaimYouWereNotCharged() async {
+        let client = StoreKitClient(offers: { _ in [] }, purchase: { _, _ in throw StorePurchaseError.unverified },
+                                    restore: {}, currentPlan: { _ in nil })
+        let store = SubscriptionStore(householdID: household, client: .preview(), storeKit: client, pollAttempts: 1, pause: {})
+        await store.purchase(FoonProducts.monthly)
+        #expect(store.message?.contains("haven't been charged") == false)
+        #expect(store.message?.contains("Restore purchases") == true)
     }
 
     @Test func aCancelledPurchaseChangesNothingAndSaysNothing() async {

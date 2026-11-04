@@ -188,7 +188,8 @@ private struct OfferRow: View {
     }
 
     private var label: String {
-        [offer.name, "\(offer.price) per \(offer.period)", offer.trial].compactMap { $0 }.joined(separator: ", ")
+        [offer.name, String(localized: "\(offer.price) per \(offer.period)", comment: "VoiceOver: a plan's price, as in $5.99 per month"),
+         offer.trial].compactMap { $0 }.joined(separator: ", ")
     }
 }
 

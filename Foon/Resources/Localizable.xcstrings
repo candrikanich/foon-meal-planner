@@ -179,6 +179,17 @@
         }
       }
     },
+    "%@ per %@" : {
+      "comment" : "VoiceOver: a plan's price, as in $5.99 per month",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ per %2$@"
+          }
+        }
+      }
+    },
     "%@ planned %@ from the freezer" : {
       "localizations" : {
         "en" : {
@@ -1833,6 +1844,9 @@
 
     },
     "Foon is view-only for now. Everything is still here." : {
+
+    },
+    "Foon is view-only until your family's subscription is back. Open Foon to see why." : {
 
     },
     "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime." : {
@@ -3957,6 +3971,9 @@
     "They're signed out of the household on their own device now, and stay in the family on yours. If you don't consent again within 30 days, what they added themselves is erased." : {
 
     },
+    "This Apple Account already subscribes for another household." : {
+
+    },
     "This Week" : {
 
     },
@@ -4635,6 +4652,9 @@
 
     },
     "Your profile leaves %@, and your ratings stay as \"Former member.\" Your allergies and settings are deleted. This can't be undone." : {
+
+    },
+    "Your purchase went through but couldn't be confirmed on this device. Foon will unlock shortly; try Restore purchases if not." : {
 
     },
     "Your rhythm" : {

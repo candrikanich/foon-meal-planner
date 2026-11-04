@@ -167,8 +167,9 @@ struct ListsView: View {
                             .tint(Palette.herb)
                     }
                     .swipeActions(edge: .trailing) {
-                        Button("Remove", systemImage: "trash", role: .destructive) { remove(entry) }
-                            .disabled(!canEditLists)
+                        if canEditLists {
+                            Button("Remove", systemImage: "trash", role: .destructive) { remove(entry) }
+                        }
                     }
                     .contextMenu {
                         Button("Got it", systemImage: "checkmark") { gotIt(entry) }

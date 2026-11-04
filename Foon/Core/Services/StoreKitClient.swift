@@ -17,6 +17,8 @@ enum PurchaseOutcome: Equatable, Sendable {
     /// Ask to Buy or a payment that needs approval: it arrives later through `Transaction.updates`.
     case pending
     case cancelled
+    /// The transaction is for another household's id: this Apple Account already subscribes elsewhere.
+    case otherHousehold
 }
 
 enum StorePurchaseError: Error, Equatable {
@@ -62,8 +64,9 @@ extension StoreKitClient {
             case .success(let verification):
                 guard case .verified(let transaction) = verification else { throw StorePurchaseError.unverified }
                 await transaction.finish()
-                return .purchased(SubscriptionPlan(productID: transaction.productID, expiresAt: transaction.expirationDate,
-                                                   autoRenews: nil))
+                let plan = SubscriptionPlan(productID: transaction.productID, expiresAt: transaction.expirationDate,
+                                            autoRenews: nil)
+                return .verified(plan, token: transaction.appAccountToken, household: householdID)
             case .pending: return .pending
             case .userCancelled: return .cancelled
             @unknown default: return .cancelled
