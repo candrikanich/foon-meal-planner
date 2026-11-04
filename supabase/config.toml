@@ -391,6 +391,10 @@ deno_version = 2
 [functions.send-push]
 verify_jwt = false
 
+# Apple's App Store Server Notifications carry no JWT; the function verifies Apple's signature on the payload instead.
+[functions.app-store-notifications]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54427

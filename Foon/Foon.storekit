@@ -1,0 +1,140 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "6F0C6A1E-3B7D-4C2A-9E51-0D8B7F4A6C11",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "",
+    "_developerTeamID" : "G374A783RH",
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21566001",
+      "localizations" : [
+        {
+          "description" : "One subscription for the whole family",
+          "displayName" : "Foon Family",
+          "locale" : "en_US"
+        }
+      ],
+      "name" : "Foon Family",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "5.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "21566101",
+          "introductoryOffer" : {
+            "internalID" : "21566201",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1M"
+          },
+          "localizations" : [
+            {
+              "description" : "Foon for the whole family, billed monthly",
+              "displayName" : "Foon Family Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "foon.family.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Foon Family Monthly",
+          "subscriptionGroupID" : "21566001",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "49.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "21566102",
+          "introductoryOffer" : {
+            "internalID" : "21566202",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1M"
+          },
+          "localizations" : [
+            {
+              "description" : "Foon for the whole family, billed yearly",
+              "displayName" : "Foon Family Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "foon.family.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Foon Family Annual",
+          "subscriptionGroupID" : "21566001",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "24.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "21566103",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "The Founding Family price, billed yearly",
+              "displayName" : "Foon Founding Family",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "foon.family.founding",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Foon Founding Family",
+          "subscriptionGroupID" : "21566001",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}
