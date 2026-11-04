@@ -231,6 +231,9 @@
     "%@ signs out right away and can rejoin only with your consent and a new invite." : {
 
     },
+    "%@ so far" : {
+      "comment" : "Yearly recap: heading while the year is still going; the argument is a year, like 2026"
+    },
     "%@ swapped %@ to %@" : {
       "comment" : "Activity: the person, the night, what it holds now, as in Dad swapped Tuesday to Tacos",
       "localizations" : {
@@ -1077,6 +1080,9 @@
     "Close last week's recap" : {
       "comment" : "Weekly recap: dismiss the card"
     },
+    "Close the year in dinners card" : {
+      "comment" : "Yearly recap card on This Week: dismiss it for this year"
+    },
     "Coming up" : {
 
     },
@@ -1242,6 +1248,9 @@
 
     },
     "Couldn't load your traditions. Pull to refresh, then try again." : {
+
+    },
+    "Couldn't load your year" : {
 
     },
     "Couldn't open that photo. Try another one." : {
@@ -2204,6 +2213,9 @@
     "Locked" : {
 
     },
+    "Look back at the year's dinners together." : {
+
+    },
     "Looking for a recipe…" : {
 
     },
@@ -2253,6 +2265,29 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Made %1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "Made %lld times" : {
+      "comment" : "Yearly recap: how often a top dish was made that year; about the food",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Made %lld time"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Made %lld times"
+                }
+              }
+            }
           }
         }
       }
@@ -2621,6 +2656,9 @@
     "Once a week's plan is approved, this month's dinners show up here." : {
 
     },
+    "Once dinners are logged, the year's dinners show up here." : {
+
+    },
     "One step at a time, with timers" : {
 
     },
@@ -2689,6 +2727,9 @@
     },
     "Opens their profile to send an invite" : {
 
+    },
+    "Opens your year in dinners" : {
+      "comment" : "Yearly recap card: what tapping it does"
     },
     "Optional helper jobs that rotate among whoever's home." : {
 
@@ -3470,6 +3511,9 @@
     "Thanks for cooking the %@" : {
 
     },
+    "Thanks for cooking this year, %@." : {
+      "comment" : "Yearly recap: thanks to the year's cooks; first names, never counted or ranked"
+    },
     "Thanks for cooking, %@." : {
       "comment" : "Weekly recap: thanks to last week's cooks; first names, never counted or ranked"
     },
@@ -3616,6 +3660,9 @@
     },
     "The whole week" : {
 
+    },
+    "The year's top dishes" : {
+      "comment" : "Yearly recap: heading over the dishes made most that year; the food, not the cook"
     },
     "Their ratings and cooking history stay." : {
 
@@ -3836,6 +3883,9 @@
           }
         }
       }
+    },
+    "Tried something new this year: %@." : {
+      "comment" : "Yearly recap: who tried a dish new to them this year; first names, never counted"
     },
     "Tried something new: %@." : {
       "comment" : "Weekly recap: who tried a dish new to them last week; first names, never counted"
@@ -4287,6 +4337,12 @@
     },
     "Your week of dinners is ready." : {
       "comment" : "Reminder title: the weekly recap"
+    },
+    "Your year in dinners" : {
+
+    },
+    "Your year in dinners is ready" : {
+
     },
     "^[%lld item](inflect: true) marked bought" : {
 

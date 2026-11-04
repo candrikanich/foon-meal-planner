@@ -71,6 +71,9 @@ struct HouseholdClient: Sendable {
     /// Who tried a dish new to them in these days, both included (`tried_new`), for a member's profile.
     var triedNew: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ to: CalendarDay) async throws
         -> [TriedNewDishes] = { _, _, _ in [] }
+    /// "Your year in dinners" for one calendar year by the household's day (`year_recap`).
+    var yearRecap: @Sendable (_ householdID: UUID, _ year: Int) async throws -> YearRecapFacts
+        = { _, _ in YearRecapFacts() }
     /// Someone's own notification preset (`set_member_preset`); nil follows the household's.
     var setMemberPreset: @Sendable (_ memberID: UUID, _ preset: HouseholdSettings.NotificationPreset?) async throws -> Void
         = { _, _ in }
@@ -307,6 +310,11 @@ extension HouseholdClient {
                     targetHousehold: householdID, fromDate: from, toDate: to
                 )).execute().value
             },
+            yearRecap: { householdID, year in
+                try await client.rpc("year_recap", params: YearRecapParams(targetHousehold: householdID,
+                                                                           targetYear: year))
+                    .execute().value
+            },
             setMemberPreset: { memberID, preset in
                 try await client.rpc("set_member_preset", params: MemberPresetParams(targetMember: memberID, preset: preset))
                     .execute()
@@ -453,6 +461,16 @@ private struct FamilyStatsParams: Encodable, Sendable {
         case targetHousehold = "target_household"
         case fromDate = "from_date"
         case toDate = "to_date"
+    }
+}
+
+private struct YearRecapParams: Encodable, Sendable {
+    let targetHousehold: UUID
+    let targetYear: Int
+
+    enum CodingKeys: String, CodingKey {
+        case targetHousehold = "target_household"
+        case targetYear = "target_year"
     }
 }
 

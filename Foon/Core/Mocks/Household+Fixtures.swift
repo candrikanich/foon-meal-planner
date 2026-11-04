@@ -78,7 +78,8 @@ extension HouseholdClient {
             attendanceTemplates: { _ in AttendanceTemplate.samples(for: members) },
             familyStats: { _, _, _ in .sample },
             weekRecap: { _, _, _ in .sample(cooks: members) },
-            triedNew: { _, _, _ in TriedNewDishes.samples(for: members) }
+            triedNew: { _, _, _ in TriedNewDishes.samples(for: members) },
+            yearRecap: { _, _ in .sample(members: members) }
         )
     }
 }
