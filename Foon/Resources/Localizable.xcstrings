@@ -539,6 +539,17 @@
     "%lld." : {
 
     },
+    "%lld. %@" : {
+      "comment" : "Onboarding: a numbered recipe step",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld. %2$@"
+          }
+        }
+      }
+    },
     "+%lld" : {
 
     },
@@ -869,6 +880,9 @@
     "An estimate: %@ for each week planned in Foon." : {
       "comment" : "Family stats: footnote under the planning time saved; the argument is a duration like \"30 minutes\""
     },
+    "An example post. Nothing is saved." : {
+
+    },
     "An idea" : {
 
     },
@@ -1114,6 +1128,9 @@
           }
         }
       }
+    },
+    "Cook it the way your family likes it." : {
+      "comment" : "Onboarding: example recipe step 2"
     },
     "Cook once, eat twice" : {
 
@@ -1867,6 +1884,9 @@
     "From the freezer, made %@" : {
       "comment" : "Reason chip: a dish already cooked and frozen, and the date it was made"
     },
+    "From your dinners, for tonight. Your plan stays as it is." : {
+
+    },
     "From your meals" : {
 
     },
@@ -1881,6 +1901,9 @@
     },
     "Get egg-free" : {
       "comment" : "Shopping note for an egg allergy"
+    },
+    "Get everything out and ready." : {
+      "comment" : "Onboarding: example recipe step 1"
     },
     "Get gluten-free" : {
       "comment" : "Shopping note for a wheat allergy"
@@ -2095,6 +2118,9 @@
 
     },
     "It becomes your household. You can rename it and change the family, but you can't start a new one later." : {
+
+    },
+    "It lands just as it was shared. When a planner in your family has a phone that can do more, it tidies the recipe up for you." : {
 
     },
     "It may have been removed on another device." : {
@@ -2683,6 +2709,9 @@
     "On their own phones" : {
 
     },
+    "On this phone, each idea comes with a friendly word about the food." : {
+
+    },
     "Once a week's plan is approved, this month's dinners show up here." : {
 
     },
@@ -2784,6 +2813,9 @@
     },
     "Other households can't see any of it." : {
 
+    },
+    "Our family's favorite %@" : {
+      "comment" : "Onboarding: the example post's title, shouted in capitals; the dish's name"
     },
     "Out" : {
 
@@ -3157,6 +3189,9 @@
     "Separate them with commas or new lines. You can add them later too." : {
 
     },
+    "Serve it hot." : {
+      "comment" : "Onboarding: example recipe step 3"
+    },
     "Serves %lld" : {
 
     },
@@ -3176,6 +3211,12 @@
 
     },
     "Setting up the sample family…" : {
+
+    },
+    "Share a recipe from any app, a photo or a PDF, and it lands in your ideas." : {
+
+    },
+    "Share any recipe" : {
 
     },
     "Share or save the export" : {
@@ -3202,13 +3243,22 @@
     "Show %@'s comment" : {
 
     },
+    "Show a shared recipe landing in your ideas" : {
+
+    },
     "Show dinner photos" : {
+
+    },
+    "Show me" : {
 
     },
     "Show more" : {
 
     },
     "Show my dinner photos" : {
+
+    },
+    "Show three ideas for tonight from your dinners" : {
 
     },
     "Show tips again" : {
@@ -3257,6 +3307,9 @@
 
     },
     "Sign out of all devices?" : {
+
+    },
+    "Skip" : {
 
     },
     "Skip fish" : {
@@ -3504,6 +3557,9 @@
     "Takes you off as the cook for this dinner" : {
 
     },
+    "Tap What can we make? on tonight's card for three ideas from what's already in the house." : {
+
+    },
     "Tap a line to change its item, or switch it off to skip it." : {
 
     },
@@ -3688,6 +3744,9 @@
     "The family's away that night, so there's no dinner to plan. Pick another night, or send it without one." : {
 
     },
+    "The ideas come from your own dinners, so they work on every phone." : {
+
+    },
     "The last eight weeks. To undo a change, open that night on This Week." : {
 
     },
@@ -3808,6 +3867,9 @@
     "This one's for whoever's home tonight." : {
 
     },
+    "This phone tidies it up as it lands: the name, the amounts and the steps." : {
+
+    },
     "This poll has closed." : {
 
     },
@@ -3824,6 +3886,9 @@
       "comment" : "Who's pitching in: what someone did this plan week, like \"sent 2 ideas\""
     },
     "Those dates didn't work. The last night has to be on or after the first, up to a year later, and not already over." : {
+
+    },
+    "Tidying it up on this phone…" : {
 
     },
     "Time" : {
@@ -3878,6 +3943,9 @@
 
     },
     "Tonight's Dinner" : {
+
+    },
+    "Tonight's a mess? Foon has a plan." : {
 
     },
     "Tonight's dinner is already logged." : {
@@ -3972,6 +4040,9 @@
 
     },
     "Turn this off if you buy it fresh, and Foon skips thaw reminders and won't hold a dish back to give it time to thaw." : {
+
+    },
+    "Two ways Foon takes work off your plate, with your own dinners. Try one, or skip ahead." : {
 
     },
     "Type %@ to confirm" : {
@@ -4102,10 +4173,16 @@
     "Week starts" : {
 
     },
+    "Weeknight chili" : {
+      "comment" : "Onboarding: the example recipe when the family has no dinners yet"
+    },
     "Welcome to Foon" : {
 
     },
     "What" : {
+
+    },
+    "What Foon does for you" : {
 
     },
     "What Foon keeps" : {
@@ -4127,6 +4204,9 @@
 
     },
     "What is it? (optional)" : {
+
+    },
+    "What lands in your ideas" : {
 
     },
     "What leaves this device" : {
@@ -4154,6 +4234,9 @@
 
     },
     "What you have to cook with, and when to start." : {
+
+    },
+    "What you shared" : {
 
     },
     "What you skip" : {
