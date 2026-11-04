@@ -27,6 +27,7 @@ struct WeekView: View {
     /// The week a tapped "Rate this week's dinners" is about.
     @State private var roundupWeek: CalendarDay?
     @State private var recap = WeekRecapStore()
+    @State private var yearRecap = YearRecapStore()
 
     private var canPlan: Bool {
         LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID)
@@ -42,6 +43,7 @@ struct WeekView: View {
                     if reminders?.shouldAsk == true { ReminderAskCard() }
                     if reminders?.shouldOfferRatingsBack == true { RatingsBackCard() }
                     if !week.showingNextWeek {
+                        YearRecapCardSection(store: yearRecap, today: week.todayDay)
                         WeekRecapSection(store: recap)
                         RequestNewsSection()
                         ClaimNewsSection()
@@ -205,11 +207,13 @@ struct WeekView: View {
         async let ideasLoad: Void = ideas.load()
         async let recapLoad: Void = recap.load(client: household.client, household: household.household,
                                                members: household.members, today: week.todayDay)
+        async let yearRecapLoad: Void = loadYearRecap()
         await week.load(settings: settings)
         await libraryLoad
         await dinnerLoad
         await ideasLoad
         await recapLoad
+        await yearRecapLoad
         // The week it just read can hold a dish this phone hasn't read, and a card's note promises one pull is enough.
         if library.needsLoad(afterFullLoad: loadsLibrary, holding: heldMeals) {
             await library.load(members: household.members)
@@ -218,6 +222,14 @@ struct WeekView: View {
             await library.refreshReactions(members: household.members)
         }
         if canPlan { await week.fillInMissing(members: household.members) }
+    }
+
+    /// Only in the days the year's card can show (December 26 through January 7), quiet on failure like the recap.
+    private func loadYearRecap() async {
+        let today = week.todayDay
+        guard let id = household.household?.id, let year = YearRecap.cardYear(today: today) else { return }
+        await yearRecap.load(client: household.client, householdID: id, year: year, today: today,
+                             members: household.members)
     }
 
     /// Only planners change effort, so only their devices read the calendar.

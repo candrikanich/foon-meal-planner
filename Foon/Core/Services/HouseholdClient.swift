@@ -71,6 +71,9 @@ struct HouseholdClient: Sendable {
     /// Who tried a dish new to them in these days, both included (`tried_new`), for a member's profile.
     var triedNew: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ to: CalendarDay) async throws
         -> [TriedNewDishes] = { _, _, _ in [] }
+    /// "Your year in dinners" for one calendar year by the household's day (`year_recap`), through a day when given.
+    var yearRecap: @Sendable (_ householdID: UUID, _ year: Int, _ through: CalendarDay?) async throws -> YearRecapFacts
+        = { _, _, _ in YearRecapFacts() }
     /// Someone's own notification preset (`set_member_preset`); nil follows the household's.
     var setMemberPreset: @Sendable (_ memberID: UUID, _ preset: HouseholdSettings.NotificationPreset?) async throws -> Void
         = { _, _ in }
@@ -307,6 +310,11 @@ extension HouseholdClient {
                     targetHousehold: householdID, fromDate: from, toDate: to
                 )).execute().value
             },
+            yearRecap: { householdID, year, through in
+                try await client.rpc("year_recap", params: YearRecapParams(targetHousehold: householdID,
+                                                                           targetYear: year, through: through))
+                    .execute().value
+            },
             setMemberPreset: { memberID, preset in
                 try await client.rpc("set_member_preset", params: MemberPresetParams(targetMember: memberID, preset: preset))
                     .execute()
@@ -453,6 +461,26 @@ private struct FamilyStatsParams: Encodable, Sendable {
         case targetHousehold = "target_household"
         case fromDate = "from_date"
         case toDate = "to_date"
+    }
+}
+
+/// `through` is always sent, null for a whole year, so PostgREST matches the function by all three argument names.
+private struct YearRecapParams: Encodable, Sendable {
+    let targetHousehold: UUID
+    let targetYear: Int
+    let through: CalendarDay?
+
+    enum CodingKeys: String, CodingKey {
+        case targetHousehold = "target_household"
+        case targetYear = "target_year"
+        case through
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(targetHousehold, forKey: .targetHousehold)
+        try container.encode(targetYear, forKey: .targetYear)
+        try container.encode(through, forKey: .through)
     }
 }
 

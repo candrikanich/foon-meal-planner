@@ -41,6 +41,16 @@ struct FamilyView: View {
 
                 FamilyStatsSection(stats: store.stats)
 
+                if let household = store.household {
+                    Section {
+                        NavigationLink {
+                            YearRecapView(year: YearRecap.familyYear(today: household.planningSettings.today()))
+                        } label: {
+                            Label("Your year in dinners", systemImage: "book.pages")
+                        }
+                    }
+                }
+
                 Section("Family") {
                     ForEach(store.visibleMembers) { member in
                         NavigationLink {
