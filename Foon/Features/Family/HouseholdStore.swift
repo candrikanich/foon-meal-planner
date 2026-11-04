@@ -44,6 +44,9 @@ final class HouseholdStore {
     /// "This month" on the Family tab; nil until it loads, and left as it was if a refresh fails.
     private(set) var stats: FamilyStats?
     private var statsHouseholdID: UUID?
+    /// This month's picky-eater wins, for members' profiles.
+    private(set) var triedThisMonth: [TriedNewDishes]?
+    private var triedHouseholdID: UUID?
 
     /// Bumped per fetch and per save, so a fetch that started before a save can't put old settings back.
     private var loadGeneration = 0
@@ -165,6 +168,19 @@ final class HouseholdStore {
               self.household?.id == household.id else { return }
         stats = loaded
         statsHouseholdID = household.id
+    }
+
+    /// Who tried a new dish this month so far, by the household's day. Quiet on failure, like the stats.
+    func loadTriedThisMonth(now: Date = .now) async {
+        guard let household else { return }
+        if triedHouseholdID != household.id {
+            triedThisMonth = nil
+        }
+        let range = FamilyStats.monthToDate(today: household.planningSettings.today(now: now))
+        guard let loaded = try? await client.triedNew(household.id, range.from, range.to),
+              self.household?.id == household.id else { return }
+        triedThisMonth = loaded
+        triedHouseholdID = household.id
     }
 
     func load() async {

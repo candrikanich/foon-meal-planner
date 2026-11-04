@@ -25,6 +25,7 @@ struct MemberDetailView: View {
         .navigationTitle(member?.firstName ?? "")
         // Everyone's latest: a parent may have added an allergy since this phone last loaded the library.
         .task { await library.load(members: store.members) }
+        .task(id: store.household?.id) { await store.loadTriedThisMonth() }
         .onChange(of: member == nil) { _, gone in
             if gone { dismiss() }
         }
@@ -50,6 +51,12 @@ struct MemberDetailView: View {
                 }
             } else {
                 Section { ProgressView() }
+            }
+            // Left out at zero too, and while loading or offline: it celebrates trying, it never reports a lack of it.
+            if let tried = TriedNew.monthTitle(for: member.id, in: store.triedThisMonth ?? []) {
+                Section("Trying new things") {
+                    Label(tried, systemImage: "sparkles")
+                }
             }
             // No row at zero: this is credit, so nobody's profile says they didn't cook.
             if let tally = dinner.cookTally.first(where: { $0.memberID == member.id }) {
@@ -214,7 +221,11 @@ private struct MemberDetailPreview: View {
     }
 }
 
-#Preview("Nora, a kid with an allergy") {
+#Preview("Ben, tried one new dish this month") {
+    MemberDetailPreview(member: Member.sampleFamily[1])
+}
+
+#Preview("Nora, a kid with an allergy, trying new dishes") {
     MemberDetailPreview(member: Member.sampleFamily[4])
 }
 

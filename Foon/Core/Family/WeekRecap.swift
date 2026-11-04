@@ -1,7 +1,8 @@
 import Foundation
 
-/// What `week_recap` says about one week: how many dinners were logged, who cooked (in the order they first did), the
-/// dish people liked most, and a favorite not had in a while. The server picks; `WeekRecap` decides what shows.
+/// What `week_recap` says about one week: how many dinners were logged, who cooked and who tried a new dish (each in
+/// the order they first did), the dish people liked most, and a favorite not had in a while. The server picks;
+/// `WeekRecap` decides what shows.
 struct WeekRecapFacts: Decodable, Equatable, Sendable {
     struct Dish: Decodable, Equatable, Sendable {
         let id: UUID
@@ -15,23 +16,39 @@ struct WeekRecapFacts: Decodable, Equatable, Sendable {
 
     var logged = 0
     var cooks: [UUID] = []
+    var tried: [UUID] = []
     var topDish: Dish?
     var forgottenFavorite: Dish?
 
     enum CodingKeys: String, CodingKey {
-        case logged, cooks
+        case logged, cooks, tried
         case topDish = "top_dish"
         case forgottenFavorite = "forgotten_favorite"
     }
 }
 
+extension WeekRecapFacts {
+    /// `tried` came later (#65): a server without it yet still gives a recap, just without that line.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        logged = try container.decode(Int.self, forKey: .logged)
+        cooks = try container.decode([UUID].self, forKey: .cooks)
+        tried = try container.decodeIfPresent([UUID].self, forKey: .tried) ?? []
+        topDish = try container.decodeIfPresent(Dish.self, forKey: .topDish)
+        forgottenFavorite = try container.decodeIfPresent(Dish.self, forKey: .forgottenFavorite)
+    }
+}
+
 /// The weekly recap on This Week (docs/spec.md → Weekly recap): last week's dinners, for everyone, kids included. It
-/// thanks whoever cooked without counting or ranking anyone, and the rest is about the food.
+/// thanks whoever cooked and cheers whoever tried something new, without counting or ranking anyone, and the rest is
+/// about the food.
 struct WeekRecap: Equatable, Sendable {
     enum Line: Hashable, Sendable {
         case stat(FamilyStats.Line)
         /// First names, in the order they first cooked that week.
         case thanks([String])
+        /// First names, in the order they first tried a dish new to them that week.
+        case triedNew([String])
         case topDish(String)
         case forgottenFavorite(String)
     }
@@ -62,9 +79,11 @@ struct WeekRecap: Equatable, Sendable {
         let present = Dictionary(members.filter { $0.status != .removed }.map { ($0.id, $0.firstName) },
                                  uniquingKeysWith: { first, _ in first })
         let cooks = facts.cooks.compactMap { present[$0] }
+        let tried = facts.tried.compactMap { present[$0] }
         let statLines = stats.lines.map(Line.stat)
         let middle: [Line?] = [
             cooks.isEmpty ? nil : .thanks(cooks),
+            tried.isEmpty ? nil : .triedNew(tried),
             facts.topDish.map { .topDish($0.name) },
             facts.forgottenFavorite.map { .forgottenFavorite($0.name) }
         ]
@@ -85,11 +104,13 @@ extension WeekRecap.Line {
         case .stat(let line):
             return line.title
         case .thanks(let names):
-            var style: ListFormatStyle<StringStyle, [String]> = .list(type: .and, width: .standard)
-            style.locale = locale
-            let people = names.formatted(style)
+            let people = Self.list(names, locale: locale)
             return String(localized: "Thanks for cooking, \(people).",
                           comment: "Weekly recap: thanks to last week's cooks; first names, never counted or ranked")
+        case .triedNew(let names):
+            let people = Self.list(names, locale: locale)
+            return String(localized: "Tried something new: \(people).",
+                          comment: "Weekly recap: who tried a dish new to them last week; first names, never counted")
         case .topDish(let name):
             return String(localized: "The week's hit: \(name)",
                           comment: "Weekly recap: the dish the family liked most last week; the food, not the cook")
@@ -99,10 +120,17 @@ extension WeekRecap.Line {
         }
     }
 
+    private static func list(_ names: [String], locale: Locale) -> String {
+        var style: ListFormatStyle<StringStyle, [String]> = .list(type: .and, width: .standard)
+        style.locale = locale
+        return names.formatted(style)
+    }
+
     var systemImage: String {
         switch self {
         case .stat(let line): line.systemImage
         case .thanks: "hands.clap"
+        case .triedNew: "sparkles"
         case .topDish: "star"
         case .forgottenFavorite: "heart"
         }

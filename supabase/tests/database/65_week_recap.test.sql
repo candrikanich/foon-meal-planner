@@ -190,7 +190,7 @@ select ok(coalesce(pg_temp.recap() -> 'top_dish' ->> 'name', '') <> 'Chili', 'a 
 -- Another household learns nothing.
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
 select is(pg_temp.recap(),
-  '{"logged": 0, "cooks": [], "top_dish": null, "forgotten_favorite": null}'::jsonb,
+  '{"logged": 0, "cooks": [], "tried": [], "top_dish": null, "forgotten_favorite": null}'::jsonb,
   'another household''s member gets nothing');
 
 reset role;
