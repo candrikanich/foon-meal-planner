@@ -2,7 +2,7 @@
 -- lapses, never once it's expired, and finished only by whoever holds the claim; another household can't read, claim or
 -- finish one.
 begin;
-select plan(38);
+select plan(39);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -150,6 +150,9 @@ select throws_ok($$ select public.submit_ai_job('00000000-0000-0000-0000-0000000
 select is((select payload ->> 'text' from public.claim_ai_job(array['echo'])), 'paella',
   'a claim takes only the caller''s household''s jobs');
 reset role;
+
+select is((select schedule from cron.job where jobname = 'expire-ai-jobs'), '41 * * * *',
+  'open jobs past their time expire every hour');
 
 select * from finish();
 rollback;

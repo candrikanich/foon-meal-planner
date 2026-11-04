@@ -70,7 +70,18 @@ as $$
 declare
   me uuid := public.my_member_id(old.household_id);
 begin
+  -- A profile's deletion setting who submitted or claimed it to null arrives here from the foreign key's own trigger,
+  -- whatever state the job is in, so it's let through before the steps below.
+  if pg_trigger_depth() > 1 and new.status = old.status and new.result is not distinct from old.result
+     and new.error is not distinct from old.error and new.payload is not distinct from old.payload then
+    return new;
+  end if;
+
   if new.status = 'expired' then
+    if new.result is distinct from old.result or new.error is distinct from old.error
+       or new.claimed_by is distinct from old.claimed_by then
+      raise exception 'expiring a job changes nothing else' using errcode = '22023';
+    end if;
     if old.status not in ('queued', 'claimed') or now() < old.expires_at then
       raise exception 'only an open job past its time expires' using errcode = '22023';
     end if;
@@ -107,11 +118,6 @@ begin
     return new;
   end if;
 
-  -- A profile's deletion setting who submitted or claimed it to null arrives here from the foreign key's own trigger.
-  if (me is null or pg_trigger_depth() > 1) and new.status = old.status and new.result is not distinct from old.result
-     and new.error is not distinct from old.error then
-    return new;
-  end if;
   raise exception 'not a step a job can take' using errcode = '22023';
 end;
 $$;
