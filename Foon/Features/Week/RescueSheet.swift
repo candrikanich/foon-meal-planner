@@ -124,7 +124,7 @@ struct RescueSheet: View {
                 guard !current.isEmpty else { return }
                 let store = wording ?? RescueWordingStore(ai: ai)
                 wording = store
-                await store.word(current, minutes: minutes)
+                await store.word(current)
             }
             .confirmingTonightChoice($confirming) { choice in Task { await apply(choice) } }
             .sheet(isPresented: $askingFamily, onDismiss: {
@@ -143,7 +143,7 @@ struct RescueSheet: View {
     private func withLookup(_ idea: TonightRescue.Idea) -> TonightRescue.Idea {
         TonightRescue.Idea(kind: idea.kind, title: idea.title, why: idea.why, minutes: idea.minutes,
                            isEstimate: idea.isEstimate, allergies: RescueRow.allergyCheck(idea, lookup: library.lookup),
-                           swapChoice: idea.swapChoice)
+                           swapChoice: idea.swapChoice, reason: idea.reason, everythingIn: idea.everythingIn)
     }
 
     private func choose(_ idea: TonightRescue.Idea, on night: WeekNight) async {
@@ -253,11 +253,9 @@ struct RescueContent: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(idea.title).font(.foonBody).foregroundStyle(Palette.ink)
                 if let friendly = wording[idea.id] {
-                    Text(friendly).font(.foonCaption).foregroundStyle(.secondary)
-                    Text(idea.why).font(.caption2).foregroundStyle(.tertiary)
-                } else {
-                    Text(idea.why).font(.foonCaption).foregroundStyle(.secondary)
+                    Text(friendly).font(.foonCaption).italic().foregroundStyle(Palette.ink)
                 }
+                Text(idea.why).font(.foonCaption).foregroundStyle(.secondary)
                 AllergyChips(check: idea.allergies)
             }
             Spacer(minLength: 0)

@@ -37,6 +37,11 @@ enum TonightRescue {
         let isEstimate: Bool
         let allergies: AllergyCheck
         let swapChoice: WeekStore.SwapChoice
+        /// Why Build my week drew a quick dish. The AI wording reads it as words of its own, never `why`, which can
+        /// name someone ("Nora's favorite").
+        var reason: PlanReason? = nil
+        /// A backup dinner whose ingredients are all marked in stock.
+        var everythingIn = false
 
         var id: String {
             switch kind {
@@ -303,7 +308,7 @@ private struct Pools {
         return Idea(kind: .backup(mealID: meal.id), title: meal.name,
                     why: TonightRescue.backupWhy(minutes: time?.minutes, everythingIn: everythingIn),
                     minutes: time?.minutes, isEstimate: false, allergies: check(meal),
-                    swapChoice: .meal(id: meal.id, name: meal.name))
+                    swapChoice: .meal(id: meal.id, name: meal.name), everythingIn: everythingIn)
     }
 
     /// Library dishes that can be on the table in time with nothing started ahead, drawn as Swap draws them. Trial
@@ -334,7 +339,7 @@ private struct Pools {
                             why: TonightRescue.dishWhy(suggestion.reason, minutes: time.minutes,
                                                        isEstimate: time.isEstimate),
                             minutes: time.minutes, isEstimate: time.isEstimate, allergies: check(meal),
-                            swapChoice: .meal(id: meal.id, name: meal.name))
+                            swapChoice: .meal(id: meal.id, name: meal.name), reason: suggestion.reason)
             }
         return TonightRescue.unflaggedFirst(ideas)
     }
