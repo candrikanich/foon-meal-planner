@@ -12,6 +12,7 @@ struct SharedItemSheet: View {
     }
 
     @Environment(HouseholdStore.self) private var household
+    @Environment(SubscriptionStore.self) private var subscription
     @Environment(LibraryStore.self) private var library
     @Environment(IdeasStore.self) private var ideas
     @Environment(SyncService.self) private var sync: SyncService?
@@ -48,7 +49,7 @@ struct SharedItemSheet: View {
     private var route: ShareRouter.Route { ShareRouter.route(item.kind) }
 
     private var canAddToLibrary: Bool {
-        LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID)
+        subscription.canEdit(asPlanner: LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID))
     }
 
     var body: some View {
@@ -392,7 +393,7 @@ struct SharedItemSheet: View {
         }
         Section {
             Button("Add to the quick list", systemImage: "cart.badge.plus") { Task { await addToList() } }
-                .disabled(isWorking || names.isEmpty || sync == nil)
+                .disabled(isWorking || names.isEmpty || sync == nil || !subscription.access.allowsEditing)
         }
     }
 
@@ -439,6 +440,7 @@ struct SharedItemSheet: View {
 #Preview("A link") {
     let household = HouseholdStore.preview()
     SharedItemSheet(item: SharedItem(kind: .link(URL(string: "https://recipes.example/chili")!, title: "Best chili"))) { _ in }
+        .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
         .environment(household)
         .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .environment(IdeasStore(householdID: Household.sample.id, client: .preview()))
@@ -449,6 +451,7 @@ struct SharedItemSheet: View {
 #Preview("A photo that can't be read") {
     let household = HouseholdStore.preview()
     SharedItemSheet(item: SharedItem(kind: .file(.image))) { _ in }
+        .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
         .environment(household)
         .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .environment(IdeasStore(householdID: Household.sample.id, client: .preview()))
@@ -459,6 +462,7 @@ struct SharedItemSheet: View {
 #Preview("Text") {
     let household = HouseholdStore.preview()
     SharedItemSheet(item: SharedItem(kind: .text("milk, eggs, bread"))) { _ in }
+        .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
         .environment(household)
         .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .environment(IdeasStore(householdID: Household.sample.id, client: .preview()))

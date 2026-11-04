@@ -12,6 +12,9 @@ struct AddToListIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard EditingAllowed.current else {
+            return .result(dialog: "Foon is view-only until your family's subscription is back. Open Foon to see why.")
+        }
         guard let household = IntentHousehold.current() else { return .result(dialog: "\(IntentHousehold.unavailable)") }
         let known = (try? household.context.fetch(FetchDescriptor<CachedItem>())) ?? []
         let names = SpokenItems.names(items, known: Set(known.map { $0.name.lowercased() }))

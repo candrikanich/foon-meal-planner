@@ -26,7 +26,10 @@ struct FamilyView: View {
                     Section {
                         HStack(spacing: 12) {
                             Text(household.emoji ?? "🏡").font(.largeTitle).accessibilityHidden(true)
-                            Text(household.name).font(.title2.bold())
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(household.name).font(.title2.bold())
+                                if isOwner { SubscriptionHeaderLine() }
+                            }
                         }
                         .accessibilityElement(children: .combine)
                     }
@@ -171,6 +174,8 @@ struct FamilyView: View {
                         Text("From the dinners logged after each meal. Tap Thanks, chef on This Week to say so.")
                     }
                 }
+                SubscriptionSection()
+
                 Section {
                     NavigationLink("What Foon keeps") { PrivacySummaryView() }
                     if store.canExport {
@@ -333,5 +338,6 @@ struct MemberRow: View {
         .environment(DinnerStore(householdID: Household.sample.id, client: .preview))
         .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .environment(PlanActivityStore(householdID: Household.sample.id, client: .preview(started: true)))
+        .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
         .task { await store.load() }
 }

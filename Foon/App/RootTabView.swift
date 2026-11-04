@@ -13,6 +13,7 @@ struct RootTabView: View {
     @State private var reminders: ReminderStore
     @State private var polls: PollStore
     @State private var calendarBusy: CalendarBusyStore
+    @State private var subscription: SubscriptionStore
     private let router = ReminderRouter.shared
     private let householdID: UUID
     @Environment(\.aiJobClient) private var aiJobClient
@@ -24,7 +25,8 @@ struct RootTabView: View {
 
     init(householdID: UUID, libraryClient: LibraryClient, weekClient: WeekClient, dinnerClient: DinnerClient,
          ideasClient: IdeasClient, freezerClient: FreezerClient, notificationClient: NotificationClient = .preview,
-         pollClient: PollClient = .preview, calendarSource: CalendarSource = .system) {
+         pollClient: PollClient = .preview, calendarSource: CalendarSource = .system,
+         subscriptionClient: SubscriptionClient = .preview(), storeKit: StoreKitClient = .preview) {
         self.householdID = householdID
         _library = State(initialValue: LibraryStore(householdID: householdID, client: libraryClient))
         _week = State(initialValue: WeekStore(householdID: householdID, client: weekClient))
@@ -35,6 +37,9 @@ struct RootTabView: View {
         _reminders = State(initialValue: ReminderStore(householdID: householdID, client: notificationClient))
         _polls = State(initialValue: PollStore(client: pollClient))
         _calendarBusy = State(initialValue: CalendarBusyStore(source: calendarSource))
+        _subscription = State(initialValue: SubscriptionStore(householdID: householdID, client: subscriptionClient,
+                                                              storeKit: storeKit,
+                                                              onEditingKnown: EditingAllowed.save))
     }
 
     var body: some View {
@@ -42,7 +47,12 @@ struct RootTabView: View {
             ForEach(AppTab.allCases) { tab in
                 Tab(tab.title, systemImage: tab.systemImage, value: tab) {
                     screen(for: tab)
-                        .safeAreaInset(edge: .top, spacing: 0) { sharedBanner }
+                        .safeAreaInset(edge: .top, spacing: 0) {
+                            VStack(spacing: 0) {
+                                LapsedBanner()
+                                sharedBanner
+                            }
+                        }
                 }
             }
         }
@@ -55,6 +65,7 @@ struct RootTabView: View {
         .environment(reminders)
         .environment(polls)
         .environment(calendarBusy)
+        .environment(subscription)
         .environment(router)
         .environment(\.showTab) { selection = $0 }
         .modifier(ReminderRunner(store: reminders, week: week.week, logs: dinner.logs))
@@ -73,10 +84,19 @@ struct RootTabView: View {
                 .environment(household)
                 .environment(library)
                 .environment(ideas)
+                .environment(subscription)
         }
-        .task { refreshShared() }
+        .task {
+            refreshShared()
+            await subscription.refresh()
+        }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { refreshShared() }
+            guard phase == .active else { return }
+            refreshShared()
+            Task { await subscription.refresh() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .foonTransactionUpdated)) { _ in
+            Task { await subscription.refresh() }
         }
         #if os(iOS)
         .fullScreenCover(isPresented: onboarding) { onboardingFlow }

@@ -13,6 +13,8 @@ struct RootView: View {
     let freezerClient: FreezerClient
     var notificationClient: NotificationClient = .preview
     var pollClient: PollClient = .preview
+    var subscriptionClient: SubscriptionClient = .preview()
+    var storeKit: StoreKitClient = .preview
 
     @ViewBuilder
     private var content: some View {
@@ -24,7 +26,8 @@ struct RootView: View {
         case .signedIn(let userID):
             HouseholdGate(userID: userID, client: householdClient, syncClient: syncClient, libraryClient: libraryClient,
                           weekClient: weekClient, dinnerClient: dinnerClient, ideasClient: ideasClient,
-                          freezerClient: freezerClient, notificationClient: notificationClient, pollClient: pollClient)
+                          freezerClient: freezerClient, notificationClient: notificationClient, pollClient: pollClient,
+                          subscriptionClient: subscriptionClient, storeKit: storeKit)
                 .id(userID)
         }
     }
@@ -39,6 +42,7 @@ struct RootView: View {
                     try? SyncService.clearCache(in: context)
                     // And no reminder of theirs goes off for them.
                     ReminderStore.clearDevice()
+                    EditingAllowed.clear()
                     // Nor does their calendar choice carry over.
                     CalendarBusyStore.clearDevice()
                     DinnerMemoriesStore.clearDevice()
@@ -68,10 +72,13 @@ struct HouseholdGate: View {
     let freezerClient: FreezerClient
     let notificationClient: NotificationClient
     let pollClient: PollClient
+    let subscriptionClient: SubscriptionClient
+    let storeKit: StoreKitClient
 
     init(userID: UUID, client: HouseholdClient, syncClient: SyncClient, libraryClient: LibraryClient,
          weekClient: WeekClient, dinnerClient: DinnerClient, ideasClient: IdeasClient, freezerClient: FreezerClient,
-         notificationClient: NotificationClient, pollClient: PollClient) {
+         notificationClient: NotificationClient, pollClient: PollClient,
+         subscriptionClient: SubscriptionClient = .preview(), storeKit: StoreKitClient = .preview) {
         _store = State(initialValue: HouseholdStore(userID: userID, client: client))
         self.syncClient = syncClient
         self.libraryClient = libraryClient
@@ -81,6 +88,8 @@ struct HouseholdGate: View {
         self.freezerClient = freezerClient
         self.notificationClient = notificationClient
         self.pollClient = pollClient
+        self.subscriptionClient = subscriptionClient
+        self.storeKit = storeKit
     }
 
     var body: some View {
@@ -106,7 +115,8 @@ struct HouseholdGate: View {
                 SyncGate(householdID: household.id, client: syncClient) {
                     RootTabView(householdID: household.id, libraryClient: libraryClient, weekClient: weekClient,
                                 dinnerClient: dinnerClient, ideasClient: ideasClient, freezerClient: freezerClient,
-                                notificationClient: notificationClient, pollClient: pollClient)
+                                notificationClient: notificationClient, pollClient: pollClient,
+                                subscriptionClient: subscriptionClient, storeKit: storeKit)
                 }
             case .failed:
                 ContentUnavailableView {
