@@ -78,6 +78,12 @@ targets:
         # permission, and the Mac only picks photos, so it needs no camera entitlement.
         NSCameraUsageDescription: >-
           Foon reads a receipt you photograph to mark what you bought. The photo stays on this device and isn't kept.
+        # Dinner memories (#65, part 3), asked only when someone taps Show my dinner photos in Family. Foon only reads,
+        # and nothing from the library leaves the device.
+        NSPhotoLibraryUsageDescription: >-
+          Foon shows your photos from around dinner, on this device only. It never uploads or saves them.
+        # With limited access, the screen's own line points to Settings; the system's pick-more alert would repeat it.
+        PHPhotoLibraryPreventAutomaticLimitedAccessAlert: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon
@@ -103,6 +109,8 @@ targets:
         ENABLE_OUTGOING_NETWORK_CONNECTIONS: YES
         # The Mac's sandbox needs it for EventKit (#64); iOS ignores it.
         ENABLE_RESOURCE_ACCESS_CALENDARS: YES
+        # And for PhotoKit (#65, part 3).
+        ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY: YES
         ENABLE_HARDENED_RUNTIME: YES
 
   FoonShare:

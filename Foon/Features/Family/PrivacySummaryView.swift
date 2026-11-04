@@ -23,6 +23,7 @@ struct PrivacySummaryView: View {
                 Text("Photos and PDFs you share to Foon. They're read here and then deleted. Only the text you keep leaves this device, and the recipe lines of a dish you add, if this device can't tidy them up itself.")
                 Text("If a planner turns on Spot busy evenings, Foon reads the times of this device's calendar events to suggest rushed nights. It never saves or sends them.")
                 Text("Receipt photos. They're read here and never kept or uploaded.")
+                Text("If you turn on Dinner memories, Foon shows photos from this device's library taken around dinner on nights your family logged. It never saves or uploads them.")
             }
 
             Section("What leaves this device") {

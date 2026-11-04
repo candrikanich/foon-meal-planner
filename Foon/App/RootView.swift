@@ -41,6 +41,7 @@ struct RootView: View {
                     ReminderStore.clearDevice()
                     // Nor does their calendar choice carry over.
                     CalendarBusyStore.clearDevice()
+                    DinnerMemoriesStore.clearDevice()
                     // Nor does the Tonight widget keep showing their dinners.
                     TonightFile.shared?.clear()
                     // Signing out drops what's waiting. Launching signed out doesn't: someone may have just shared
@@ -98,6 +99,7 @@ struct HouseholdGate: View {
                         try? SyncService.clearCache(in: context)
                         ReminderStore.clearDevice()
                         CalendarBusyStore.clearDevice()
+                        DinnerMemoriesStore.clearDevice()
                         TonightFile.shared?.clear()
                     }
             case .ready(let household):
