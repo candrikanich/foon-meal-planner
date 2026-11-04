@@ -112,7 +112,7 @@ enum Engagement {
                     String(localized: "Last 4 weeks: \($0)",
                            comment: "Who's pitching in: what someone did in the 4 weeks ending today")
                 },
-                note: note(for: member, counts: counts, today: today, calendar: calendar)
+                note: note(for: member, counts: counts, thisWeek: weekCounts, today: today, calendar: calendar)
             )
             return row.thisWeek == nil && row.lately == nil && row.note == nil ? nil : row
         }
@@ -155,12 +155,14 @@ enum Engagement {
     }
 
     /// At most one note, and only for someone who's around to ask: not a planner (they plan), not away, not someone who
-    /// eats separately, and in the family at least 3 weeks.
-    static func note(for member: Member, counts: EngagementCounts, today: CalendarDay, calendar: Calendar) -> String? {
+    /// eats separately, and in the family at least 3 weeks. "Nothing lately" needs nothing this week too: the week runs
+    /// past today, so a claim on a night still ahead is only in its counts.
+    static func note(for member: Member, counts: EngagementCounts, thisWeek: EngagementCounts?,
+                     today: CalendarDay, calendar: Calendar) -> String? {
         let cutoff = today.adding(days: -(quietDays - 1), calendar: calendar)
         guard member.role == .member, member.status == .active, !member.eatsSeparately,
               (counts.joinedOn ?? cutoff) <= cutoff else { return nil }
-        if counts.isEmpty {
+        if counts.isEmpty && thisWeek?.isEmpty ?? true {
             return String(localized: "No ideas from \(member.firstName) lately. Maybe ask what sounds good?",
                           comment: "Who's pitching in: a quiet nudge for a parent; nothing from them in 4 weeks")
         }

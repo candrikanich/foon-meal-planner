@@ -128,6 +128,13 @@ struct EngagementTests {
         #expect(row.note == "No ideas from Owen lately. Maybe ask what sounds good?")
     }
 
+    @Test func aClaimLaterThisWeekIsntNothingLately() throws {
+        // Monday's claim on Thursday is this week's, but after today, so the 4 weeks ending today don't have it.
+        let row = try #require(rows([owen], thisWeek: [counts(owen, claimed: 1)], lately: [counts(owen)]).first)
+        #expect(row.thisWeek == "This week: claimed 1 night")
+        #expect(row.note == "No ideas from Owen in 3 weeks.", "never \"nothing lately\" beside something this week")
+    }
+
     @Test func busyButNoIdeasInThreeWeeks() throws {
         let quiet = try #require(rows([owen], lately: [counts(owen, rated: 4, lastIdeaOn: day(14, month: 10))]).first)
         #expect(quiet.note == "No ideas from Owen in 3 weeks.")
