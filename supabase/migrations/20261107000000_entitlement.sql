@@ -42,8 +42,9 @@ create table public.household_subscriptions (
 revoke all on public.household_subscriptions from anon, authenticated;
 alter table public.household_subscriptions enable row level security;
 
--- Whether a subscription in this state grants access. Trial and active run to their expiry plus 3 days, about as long as
--- Apple keeps retrying a notification we failed to take, so a lost EXPIRED can't leave a household unlocked for good.
+-- Whether a subscription in this state grants access. Trial and active run to their expiry plus 3 days: a buffer we
+-- chose for a late renewal notification, so a lost EXPIRED can't leave a household unlocked for good. (Apple's own
+-- retries of one we failed to take run longer, about 6.5 days: after 1, 12, 24, 48 and 72 hours.)
 -- Lapsed is billing retry: entitled through a grace period (its expiry), not after it.
 create function public.subscription_grants(status public.subscription_status, expires_at timestamptz)
 returns boolean
@@ -74,8 +75,9 @@ create table public.subscription_events (
   original_transaction_id text not null,
   environment text not null check (environment in ('Sandbox', 'Production')),
   signed_at timestamptz not null,
-  -- applied: its subscription took it. stale: older than one already applied to that subscription.
-  outcome text not null check (outcome in ('applied', 'stale')),
+  -- applied: its subscription took it. stale: older than one already applied to that subscription. older_period: a
+  -- refund or revocation of a period before the current one, which leaves the subscription as it is.
+  outcome text not null check (outcome in ('applied', 'stale', 'older_period')),
   created_at timestamptz not null default now()
 );
 
@@ -87,7 +89,8 @@ alter table public.subscription_events enable row level security;
 -- Applying a notification -----------------------------------------------------------------------------------------------
 
 -- The Edge Function has verified the signature and mapped the notification type to new_status (null: no change, as
--- when auto-renew is turned off) and expires_at. Returns 'no_household', 'duplicate', 'stale' or 'applied'.
+-- when auto-renew is turned off) and expires_at; period_ends_at is the transaction's own expiresDate. Returns
+-- 'no_household', 'duplicate', 'stale', 'older_period' or 'applied'.
 create function public.apply_subscription_notification(
   notification_uuid uuid,
   target_household uuid,
@@ -99,6 +102,7 @@ create function public.apply_subscription_notification(
   signed_at timestamptz,
   new_status public.subscription_status,
   expires_at timestamptz,
+  period_ends_at timestamptz,
   auto_renew boolean
 )
 returns text
@@ -121,14 +125,19 @@ begin
   select * into s from public.household_subscriptions hs
   where hs.household_id = target_household
     and hs.original_transaction_id = apply_subscription_notification.original_transaction_id;
-  outcome := case when s.notified_at > signed_at then 'stale' else 'applied' end;
+  outcome := case
+    when s.notified_at > signed_at then 'stale'
+    -- Refunding last month doesn't cancel the month that's paid for now: only the current period's refund ends it.
+    when notification_type in ('REFUND', 'REVOKE') and period_ends_at < s.expires_at then 'older_period'
+    else 'applied'
+  end;
 
   insert into public.subscription_events (notification_uuid, household_id, notification_type, subtype, product_id,
                                           original_transaction_id, environment, signed_at, outcome)
   values (apply_subscription_notification.notification_uuid, target_household, notification_type, subtype, product_id,
           original_transaction_id, environment, signed_at, outcome);
 
-  if outcome = 'stale' then
+  if outcome <> 'applied' then
     return outcome;
   end if;
 
@@ -140,7 +149,13 @@ begin
   on conflict on constraint household_subscriptions_pkey do update set
     product_id = coalesce(excluded.product_id, hs.product_id),
     status = coalesce(new_status, hs.status),
-    expires_at = coalesce(excluded.expires_at, hs.expires_at),
+    -- Access that continues (a renewal, a reversed refund, an auto-renew change) never ends sooner than it did; one
+    -- that stops (lapsed, cancelled) takes the date Apple gives.
+    expires_at = case
+      when coalesce(new_status, hs.status) in ('trial', 'active') or new_status is null
+        then greatest(excluded.expires_at, hs.expires_at)
+      else coalesce(excluded.expires_at, hs.expires_at)
+    end,
     environment = excluded.environment,
     auto_renew = coalesce(excluded.auto_renew, hs.auto_renew),
     notified_at = excluded.notified_at;
@@ -166,9 +181,9 @@ end;
 $$;
 
 revoke execute on function public.apply_subscription_notification(uuid, uuid, text, text, text, text, text, timestamptz,
-  public.subscription_status, timestamptz, boolean) from public, anon, authenticated;
+  public.subscription_status, timestamptz, timestamptz, boolean) from public, anon, authenticated;
 grant execute on function public.apply_subscription_notification(uuid, uuid, text, text, text, text, text, timestamptz,
-  public.subscription_status, timestamptz, boolean) to service_role;
+  public.subscription_status, timestamptz, timestamptz, boolean) to service_role;
 
 -- Entitlement -----------------------------------------------------------------------------------------------------------
 

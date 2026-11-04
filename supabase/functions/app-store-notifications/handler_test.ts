@@ -60,6 +60,7 @@ Deno.test("a new trial updates the household it names", async () => {
     environment: "Sandbox",
     status: "trial",
     expiresAt: new Date(Date.UTC(2026, 11, 7)),
+    periodEndsAt: new Date(Date.UTC(2026, 11, 7)),
     autoRenew: true,
   });
 });

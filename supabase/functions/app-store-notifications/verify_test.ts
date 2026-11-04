@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { appleRootCAG3Base64 } from "./apple_root_ca_g3.ts";
-import { derOf, household, signedNotification, signJWS, testRootDer } from "./testdata/sign.ts";
-import { testIntermediatePem } from "./testdata/pki.ts";
+import { household, signedNotification, signJWS, testRootDer } from "./testdata/sign.ts";
+import { testPki } from "./testdata/pki.ts";
 import { appleVerifier, InvalidNotification, NotConfigured } from "./verify.ts";
 
 const appleRoot = Uint8Array.from(atob(appleRootCAG3Base64), (c) => c.charCodeAt(0));
@@ -43,7 +43,7 @@ Deno.test("Apple's root doesn't trust the test chain", async () => {
 });
 
 Deno.test("another root doesn't verify it", async () => {
-  const other = appleVerifier({ roots: [derOf(testIntermediatePem)], onlineChecks: false });
+  const other = appleVerifier({ roots: [testPki.intermediateDer], onlineChecks: false });
   await assertRejects(async () => other(await signedNotification({ type: "SUBSCRIBED" })), InvalidNotification);
 });
 
@@ -79,6 +79,28 @@ Deno.test("a transaction from the other environment is refused", async () => {
     },
   });
   await assertRejects(() => verify(notification), InvalidNotification);
+});
+
+Deno.test("a summary notification finds its environment in the summary", async () => {
+  const notification = await signJWS({
+    notificationType: "RENEWAL_EXTENSION",
+    subtype: "SUMMARY",
+    notificationUUID: crypto.randomUUID(),
+    version: "2.0",
+    signedDate: Date.now(),
+    summary: {
+      requestIdentifier: crypto.randomUUID(),
+      environment: "Sandbox",
+      bundleId: "com.andrikanich.foon",
+      productId: "foon.family.monthly",
+      storefrontCountryCodes: ["USA"],
+      succeededCount: 1,
+      failedCount: 0,
+    },
+  });
+  const verified = await verify(notification);
+  assertEquals(verified.environment, "Sandbox");
+  assertEquals(verified.transaction, undefined);
 });
 
 Deno.test("something that isn't a JWS is refused", async () => {

@@ -1,26 +1,18 @@
 // Signs fixture JWS the way the App Store does: ES256, with the leaf, intermediate and root in the x5c header.
 import { base64url } from "../../_shared/es256.ts";
-import { testIntermediatePem, testLeafKeyJwk, testLeafPem, testRootPem } from "./pki.ts";
-
-export const derOf = (pem: string): Uint8Array<ArrayBuffer> =>
-  Uint8Array.from(atob(pem.replace(/-----(BEGIN|END) [A-Z ]+-----/g, "").replace(/\s+/g, "")), (c) => c.charCodeAt(0));
+import { testPki } from "./pki.ts";
 
 const base64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
 
-export const testRootDer = derOf(testRootPem);
-
-const leafKey = crypto.subtle.importKey("jwk", testLeafKeyJwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+export const testRootDer = testPki.rootDer;
 
 export async function signJWS(payload: unknown): Promise<string> {
   const encode = (value: unknown) => base64url(new TextEncoder().encode(JSON.stringify(value)));
-  const header = {
-    alg: "ES256",
-    x5c: [testLeafPem, testIntermediatePem, testRootPem].map((pem) => base64(derOf(pem))),
-  };
+  const header = { alg: "ES256", x5c: [testPki.leafDer, testPki.intermediateDer, testPki.rootDer].map(base64) };
   const signingInput = `${encode(header)}.${encode(payload)}`;
   const signature = await crypto.subtle.sign(
     { name: "ECDSA", hash: "SHA-256" },
-    await leafKey,
+    testPki.leafKey,
     new TextEncoder().encode(signingInput),
   );
   return `${signingInput}.${base64url(new Uint8Array(signature))}`;

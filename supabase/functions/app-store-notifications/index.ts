@@ -38,6 +38,7 @@ Deno.serve((req) =>
         signed_at: update.signedAt.toISOString(),
         new_status: update.status,
         expires_at: update.expiresAt?.toISOString() ?? null,
+        period_ends_at: update.periodEndsAt?.toISOString() ?? null,
         auto_renew: update.autoRenew,
       });
       if (error) throw error;

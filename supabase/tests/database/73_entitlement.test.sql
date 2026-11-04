@@ -1,7 +1,7 @@
 -- Household entitlement (#66): only the app-store-notifications Edge Function (service role) writes it; clients read
 -- their own household's status but can't write it or see the events behind it.
 begin;
-select plan(41);
+select plan(45);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -13,13 +13,16 @@ create function pg_temp.as_server() returns void language sql as $$
   select set_config('request.jwt.claims', '', true);
 $$;
 
--- Applies one notification the way the Edge Function does, signed hours_ago hours back, expiring in expires_in hours.
+-- Applies one notification the way the Edge Function does, signed hours_ago hours back, expiring in expires_in hours,
+-- for a transaction whose period ends in period_in hours (by default, when it expires).
 create function pg_temp.notify(uuid_tail text, type text, tx text, status public.subscription_status,
-                               hours_ago int, expires_in int, target uuid default '00000000-0000-0000-0000-0000000000a0')
+                               hours_ago int, expires_in int, target uuid default '00000000-0000-0000-0000-0000000000a0',
+                               period_in int default null)
 returns text language sql as $$
   select public.apply_subscription_notification(
     ('00000000-0000-0000-0000-' || lpad(uuid_tail, 12, '0'))::uuid, target, type, null, 'foon.family.monthly', tx,
-    'Sandbox', now() - make_interval(hours => hours_ago), status, now() + make_interval(hours => expires_in), true);
+    'Sandbox', now() - make_interval(hours => hours_ago), status, now() + make_interval(hours => expires_in),
+    now() + make_interval(hours => coalesce(period_in, expires_in)), true);
 $$;
 
 insert into auth.users (id, email, aud, role) values
@@ -66,7 +69,8 @@ select throws_ok($$ update public.households set subscription_environment = 'Pro
 select throws_ok($$ insert into public.households (name, subscription_status) values ('Sneaky', 'active') $$, '42501', null,
   'or create a household that''s already paid');
 select throws_ok($$ select public.apply_subscription_notification(gen_random_uuid(), '00000000-0000-0000-0000-0000000000a0',
-  'SUBSCRIBED', null, 'foon.family.monthly', '1', 'Sandbox', now(), 'active', now() + interval '1 year', true) $$,
+  'SUBSCRIBED', null, 'foon.family.monthly', '1', 'Sandbox', now(), 'active', now() + interval '1 year',
+  now() + interval '1 year', true) $$,
   '42501', null, 'or apply a notification');
 select lives_ok($$ update public.households set name = 'The Andersons' where id = '00000000-0000-0000-0000-0000000000a0' $$,
   'the name is still theirs to change');
@@ -112,9 +116,17 @@ select is(pg_temp.notify('5', 'GRACE_PERIOD_EXPIRED', 'tx-alice', 'lapsed', 4, -
 select is(public.household_entitled('00000000-0000-0000-0000-0000000000a0'), false, 'and with it, the entitlement');
 
 -- Active more than 3 days past its expiry: the EXPIRED that should have come was lost, and access ends anyway.
-select is(pg_temp.notify('6', 'DID_RENEW', 'tx-alice', 'active', 3, -100), 'applied', 'an active period long over');
+select is(pg_temp.notify('6', 'DID_RENEW', 'tx-old', 'active', 3, -100), 'applied', 'an active period long over');
 select is(public.household_entitled('00000000-0000-0000-0000-0000000000a0'), false, 'doesn''t keep the household unlocked');
 select is(pg_temp.notify('7', 'DID_RENEW', 'tx-alice', 'active', 2, 8760), 'applied', 'Alice renews for a year');
+
+-- Refunds: last month's refund doesn't cancel the year that's paid for, and a reversed old refund doesn't shorten it.
+select is(pg_temp.notify('12', 'REFUND', 'tx-alice', 'cancelled', 1, 0, period_in => -720), 'older_period',
+  'a refund of an earlier period is recorded and changes nothing');
+select is(public.household_entitled('00000000-0000-0000-0000-0000000000a0'), true, 'so the household stays entitled');
+select is(pg_temp.notify('13', 'REFUND_REVERSED', 'tx-alice', 'active', 1, -720), 'applied', 'an old refund is reversed');
+select ok((select expires_at > now() + interval '8000 hours' from public.household_subscriptions
+           where original_transaction_id = 'tx-alice'), 'and the year''s expiry doesn''t move back');
 
 -- Ownership transfer: Alice's annual subscription stays on the household, and Bob, the new owner, subscribes monthly.
 update public.households set owner = 'b0000000-0000-0000-0000-00000000000b' where id = '00000000-0000-0000-0000-0000000000a0';
@@ -130,7 +142,8 @@ select results_eq(
      from public.households where id = '00000000-0000-0000-0000-0000000000a0' $$,
   $$ values ('active', 'tx-bob', true) $$,
   'the old owner''s lapse doesn''t lock out the new owner''s subscription');
-select is(pg_temp.notify('10', 'REFUND', 'tx-bob', 'cancelled', 0, 0), 'applied', 'Bob''s is refunded');
+select is(pg_temp.notify('10', 'REFUND', 'tx-bob', 'cancelled', 0, 0, period_in => 720), 'applied',
+  'Bob''s current month is refunded');
 select is(public.household_entitled('00000000-0000-0000-0000-0000000000a0'), false, 'with nothing granting access, it ends');
 select is(pg_temp.notify('11', 'DID_RENEW', 'tx-alice', 'active', 5, 8760), 'stale',
   'and an older notification for Alice''s can''t bring it back');

@@ -69,6 +69,7 @@ export function entitlementChange(
     case "EXPIRED":
       // Apple stopped retrying a failed payment: lapsed. Turned off, or no longer for sale: cancelled.
       return { status: subtype === "BILLING_RETRY" ? "lapsed" : "cancelled", expiresAt: expires, autoRenew: false };
+    // Only the current period's refund ends access; the database leaves an older period's alone.
     case "REFUND":
     case "REVOKE":
       return { status: "cancelled", expiresAt: date(transaction.revocationDate) ?? expires, autoRenew };

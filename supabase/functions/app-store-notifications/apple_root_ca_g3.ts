@@ -1,7 +1,7 @@
 // Apple Root CA - G3, from https://www.apple.com/certificateauthority/AppleRootCA-G3.cer (DER, base64). It's public, so
 // it ships with the function: no secret. Valid until 2039-04-30.
 // SHA-256 fingerprint 63:34:3A:BF:B8:9A:6A:03:EB:B5:7E:9B:3F:5F:A7:BE:7C:4F:5C:75:6F:30:17:B3:A8:C4:88:C3:65:3E:91:79,
-// which apple_root_ca_g3_test.ts pins.
+// which verify_test.ts pins.
 export const appleRootCAG3Base64 = [
   "MIICQzCCAcmgAwIBAgIILcX8iNLFS5UwCgYIKoZIzj0EAwMwZzEbMBkGA1UEAwwSQXBwbGUgUm9vdCBDQSAtIEczMSYwJAYDVQQL",
   "DB1BcHBsZSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTETMBEGA1UECgwKQXBwbGUgSW5jLjELMAkGA1UEBhMCVVMwHhcNMTQwNDMw",

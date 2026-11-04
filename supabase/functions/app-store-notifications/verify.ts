@@ -36,11 +36,13 @@ export interface VerifierOptions {
 export type Verify = (signedPayload: string) => Promise<VerifiedNotification>;
 
 // Only to pick which environment's verifier checks it; that verifier then rejects a payload whose environment lies.
+// Most notifications carry it in data; a summary (a renewal extension for many subscribers) or app data notification
+// carries it there instead.
 function claimedEnvironment(signedPayload: string): unknown {
   try {
     const body = signedPayload.split(".")[1] ?? "";
-    const json = atob(body.replaceAll("-", "+").replaceAll("_", "/"));
-    return JSON.parse(json)?.data?.environment;
+    const claims = JSON.parse(atob(body.replaceAll("-", "+").replaceAll("_", "/")));
+    return claims?.data?.environment ?? claims?.summary?.environment ?? claims?.appData?.environment;
   } catch {
     return undefined;
   }

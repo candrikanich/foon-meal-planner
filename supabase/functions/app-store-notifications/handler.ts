@@ -17,11 +17,13 @@ export interface SubscriptionUpdate {
   signedAt: Date;
   status: SubscriptionStatus | null;
   expiresAt: Date | null;
+  // The transaction's own period end: a refund of a period before the current one doesn't cancel it.
+  periodEndsAt: Date | null;
   autoRenew: boolean | null;
 }
 
 // What apply_subscription_notification returns.
-export type ApplyOutcome = "applied" | "stale" | "duplicate" | "no_household";
+export type ApplyOutcome = "applied" | "stale" | "older_period" | "duplicate" | "no_household";
 
 export interface AppStoreNotificationDeps {
   verify: Verify;
@@ -86,6 +88,7 @@ export async function handleAppStoreNotification(req: Request, deps: AppStoreNot
       originalTransactionId: transaction.originalTransactionId,
       environment: notification.environment,
       signedAt: notification.signedDate,
+      periodEndsAt: transaction.expiresDate === undefined ? null : new Date(transaction.expiresDate),
       ...change,
     });
     if (outcome === "no_household") {

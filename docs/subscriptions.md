@@ -26,8 +26,19 @@ The function is deployed with the others on a merge to main (deploy-staging.yml)
   SHA-256 fingerprint in a test). Production checks are online: certificate dates against now, and OCSP revocation.
 - **`APPLE_APP_ID`** (Edge Function secret, though it's public): the app's numeric Apple ID from App Store Connect → App
   Information. Apple's library needs it to check production notifications. Until it's set, sandbox notifications work and
-  production ones get a 500, so Apple retries them (for about 3 days) once it is.
+  production ones get a 500, and Apple retries them (5 times over about 6.5 days), so set it before production
+  notifications start.
 - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided by Supabase.
+
+## Products
+
+Two subscription groups, in `products.ts` and `Foon/Foon.storekit`, to create the same way in App Store Connect:
+
+- **Foon Family:** `foon.family.monthly` and `foon.family.annual`, each with a 1-month free trial.
+- **Foon Founding Family:** `foon.family.founding` alone. A group of its own, so a standard subscriber can't switch to the
+  founding price from Settings → Subscriptions. The app shows it only to households with `founding = true`.
+
+A subscription in either group entitles the household.
 
 ## Turning billing on
 
@@ -63,7 +74,7 @@ from public.households where id = '<household id>';
    (`POST /inApps/v1/notifications/test` on the App Store Server API, which needs an In-App Purchase key). The function
    answers it with `{"result":"test"}` and stores nothing.
 
-Function responses: 200 for handled (`applied`, `stale`, `duplicate`) and ignored (with a reason);
+Function responses: 200 for handled (`applied`, `stale`, `older_period`, `duplicate`) and ignored (with a reason);
 400 when the payload isn't Apple's (signature, chain, bundle id, environment); 500 when we couldn't apply it.
 
 ## Ownership transfer

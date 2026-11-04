@@ -10,21 +10,15 @@
     ]
   },
   "identifier" : "6F0C6A1E-3B7D-4C2A-9E51-0D8B7F4A6C11",
-  "nonRenewingSubscriptions" : [
-
-  ],
-  "products" : [
-
-  ],
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
   "settings" : {
     "_applicationInternalID" : "",
     "_developerTeamID" : "G374A783RH",
     "_failTransactionsEnabled" : false,
     "_locale" : "en_US",
     "_storefront" : "USA",
-    "_storeKitErrors" : [
-
-    ]
+    "_storeKitErrors" : []
   },
   "subscriptionGroups" : [
     {
@@ -39,12 +33,8 @@
       "name" : "Foon Family",
       "subscriptions" : [
         {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
+          "adHocOffers" : [],
+          "codeOffers" : [],
           "displayPrice" : "5.99",
           "familyShareable" : false,
           "groupNumber" : 1,
@@ -66,17 +56,11 @@
           "referenceName" : "Foon Family Monthly",
           "subscriptionGroupID" : "21566001",
           "type" : "RecurringSubscription",
-          "winbackOffers" : [
-
-          ]
+          "winbackOffers" : []
         },
         {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
+          "adHocOffers" : [],
+          "codeOffers" : [],
           "displayPrice" : "49.99",
           "familyShareable" : false,
           "groupNumber" : 1,
@@ -98,17 +82,24 @@
           "referenceName" : "Foon Family Annual",
           "subscriptionGroupID" : "21566001",
           "type" : "RecurringSubscription",
-          "winbackOffers" : [
-
-          ]
-        },
+          "winbackOffers" : []
+        }
+      ]
+    },
+    {
+      "id" : "21566002",
+      "localizations" : [
         {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
+          "description" : "The Founding Family price, for the families who helped build Foon",
+          "displayName" : "Foon Founding Family",
+          "locale" : "en_US"
+        }
+      ],
+      "name" : "Foon Founding Family",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
           "displayPrice" : "24.99",
           "familyShareable" : false,
           "groupNumber" : 1,
@@ -124,11 +115,9 @@
           "productID" : "foon.family.founding",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "Foon Founding Family",
-          "subscriptionGroupID" : "21566001",
+          "subscriptionGroupID" : "21566002",
           "type" : "RecurringSubscription",
-          "winbackOffers" : [
-
-          ]
+          "winbackOffers" : []
         }
       ]
     }
