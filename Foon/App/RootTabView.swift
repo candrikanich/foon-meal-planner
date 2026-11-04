@@ -14,6 +14,8 @@ struct RootTabView: View {
     @State private var polls: PollStore
     @State private var calendarBusy: CalendarBusyStore
     private let router = ReminderRouter.shared
+    private let householdID: UUID
+    @Environment(\.aiJobClient) private var aiJobClient
     @Environment(\.scenePhase) private var scenePhase
     /// What the Share Sheet extension saved, the one being handled, and any put off with Not now until the next launch.
     @State private var waitingShares: [SharedItem] = []
@@ -23,6 +25,7 @@ struct RootTabView: View {
     init(householdID: UUID, libraryClient: LibraryClient, weekClient: WeekClient, dinnerClient: DinnerClient,
          ideasClient: IdeasClient, freezerClient: FreezerClient, notificationClient: NotificationClient = .preview,
          pollClient: PollClient = .preview, calendarSource: CalendarSource = .system) {
+        self.householdID = householdID
         _library = State(initialValue: LibraryStore(householdID: householdID, client: libraryClient))
         _week = State(initialValue: WeekStore(householdID: householdID, client: weekClient))
         _dinner = State(initialValue: DinnerStore(householdID: householdID, client: dinnerClient, waiting: ReminderDevice()))
@@ -57,6 +60,7 @@ struct RootTabView: View {
         .modifier(ReminderRunner(store: reminders, week: week.week, logs: dinner.logs))
         .modifier(PivotRunner(week: week, library: library, dinner: dinner))
         .modifier(TonightWidgetRunner(week: week.week))
+        .modifier(AIQueueRunner(householdID: householdID, client: aiJobClient))
         // This Week opens the night or the card once it's on screen, and takes the route. Lists and Ideas need nothing more.
         .onChange(of: router.route, initial: true) { _, route in
             guard let route else { return }
