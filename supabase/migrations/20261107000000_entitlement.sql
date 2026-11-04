@@ -31,7 +31,11 @@ create table public.household_subscriptions (
   original_transaction_id text not null,
   product_id text,
   status public.subscription_status not null,
+  -- When access ends: the period's end, or a grace period's end while Apple retries a payment.
   expires_at timestamptz,
+  -- The latest paid period's end (its transaction's expiresDate), kept apart from a grace end so a refund can be
+  -- told apart: one for this period ends access, one for an earlier period doesn't.
+  period_ends_at timestamptz,
   environment text not null check (environment in ('Sandbox', 'Production')),
   auto_renew boolean,
   -- So a late retry of an older notification can't undo a newer one for the same subscription.
@@ -128,7 +132,7 @@ begin
   outcome := case
     when s.notified_at > signed_at then 'stale'
     -- Refunding last month doesn't cancel the month that's paid for now: only the current period's refund ends it.
-    when notification_type in ('REFUND', 'REVOKE') and period_ends_at < s.expires_at then 'older_period'
+    when notification_type in ('REFUND', 'REVOKE') and period_ends_at < s.period_ends_at then 'older_period'
     else 'applied'
   end;
 
@@ -142,10 +146,10 @@ begin
   end if;
 
   insert into public.household_subscriptions as hs (household_id, original_transaction_id, product_id, status, expires_at,
-                                                    environment, auto_renew, notified_at)
+                                                    period_ends_at, environment, auto_renew, notified_at)
   values (target_household, original_transaction_id, product_id,
           -- A subscription first heard of through a notification that doesn't say (auto-renew changed) is active.
-          coalesce(new_status, 'active'), expires_at, environment, auto_renew, signed_at)
+          coalesce(new_status, 'active'), expires_at, period_ends_at, environment, auto_renew, signed_at)
   on conflict on constraint household_subscriptions_pkey do update set
     product_id = coalesce(excluded.product_id, hs.product_id),
     status = coalesce(new_status, hs.status),
@@ -156,6 +160,7 @@ begin
         then greatest(excluded.expires_at, hs.expires_at)
       else coalesce(excluded.expires_at, hs.expires_at)
     end,
+    period_ends_at = greatest(excluded.period_ends_at, hs.period_ends_at),
     environment = excluded.environment,
     auto_renew = coalesce(excluded.auto_renew, hs.auto_renew),
     notified_at = excluded.notified_at;

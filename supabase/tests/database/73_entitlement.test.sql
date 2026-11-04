@@ -1,7 +1,7 @@
 -- Household entitlement (#66): only the app-store-notifications Edge Function (service role) writes it; clients read
 -- their own household's status but can't write it or see the events behind it.
 begin;
-select plan(45);
+select plan(49);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -147,6 +147,14 @@ select is(pg_temp.notify('10', 'REFUND', 'tx-bob', 'cancelled', 0, 0, period_in 
 select is(public.household_entitled('00000000-0000-0000-0000-0000000000a0'), false, 'with nothing granting access, it ends');
 select is(pg_temp.notify('11', 'DID_RENEW', 'tx-alice', 'active', 5, 8760), 'stale',
   'and an older notification for Alice''s can''t bring it back');
+
+-- In a grace period, access runs past the paid period. Refunding that current period still ends it.
+select is(pg_temp.notify('14', 'DID_FAIL_TO_RENEW', 'tx-carol', 'lapsed', 3, 48, '00000000-0000-0000-0000-0000000000c0',
+  period_in => 1), 'applied', 'the Carters'' renewal fails into a grace period');
+select is(public.household_entitled('00000000-0000-0000-0000-0000000000c0'), true, 'they''re entitled through the grace');
+select is(pg_temp.notify('15', 'REFUND', 'tx-carol', 'cancelled', 1, 0, '00000000-0000-0000-0000-0000000000c0',
+  period_in => 1), 'applied', 'a refund of the current period isn''t mistaken for an earlier one');
+select is(public.household_entitled('00000000-0000-0000-0000-0000000000c0'), false, 'and it ends access');
 
 select * from finish();
 rollback;
