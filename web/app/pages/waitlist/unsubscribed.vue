@@ -4,6 +4,6 @@ useSeoMeta({ title: "Unsubscribed: Foon", robots: "noindex" });
 
 <template>
   <StatusCard heading="You're unsubscribed">
-    <p>We won't email you again, and we've removed your name. If that was a mistake, you're welcome to sign up again any time.</p>
+    <p>We've deleted your email address and name, and we won't write again. If that was a mistake, you're welcome to sign up again any time.</p>
   </StatusCard>
 </template>

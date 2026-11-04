@@ -30,15 +30,17 @@ export function confirmationEmail(
     "",
     "Foon helps one person share the weight of dinner with the whole family. Founding families use it free during the beta, then pay half price for the annual plan, for life.",
     "",
-    "If you didn't ask for this, ignore this email and we'll delete your address within 30 days.",
-    `Unsubscribe: ${message.unsubscribeUrl}`,
+    "If you didn't ask for this, ignore this email: we delete an address that isn't confirmed 30 days after this email goes out.",
+    `Unsubscribe (deletes your address right away): ${message.unsubscribeUrl}`,
   ].join("\n");
   const html = `<p>${escapeHtml(hello)}</p>
 <p>Thanks for joining the Foon founding-family waitlist. Please confirm your email so we know it's really you:</p>
 <p><a href="${escapeHtml(message.confirmUrl)}">Confirm my email</a></p>
 <p>Foon helps one person share the weight of dinner with the whole family. Founding families use it free during the beta, then pay half price for the annual plan, for life.</p>
-<p style="color:#6b6058;font-size:13px">If you didn't ask for this, ignore this email and we'll delete your address within 30 days.
-<a href="${escapeHtml(message.unsubscribeUrl)}">Unsubscribe</a></p>`;
+<p style="color:#6b6058;font-size:13px">If you didn't ask for this, ignore this email: we delete an address that isn't confirmed 30 days after this email goes out.
+<a href="${
+    escapeHtml(message.unsubscribeUrl)
+  }">Unsubscribe</a> (deletes your address right away).</p>`;
   return { subject: "Confirm your spot on the Foon waitlist", text, html };
 }
 

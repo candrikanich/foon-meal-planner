@@ -4,7 +4,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { newToken, sha256, signer } from "./crypto.ts";
 import { resendConfigFromEnv, sendViaResend } from "./email.ts";
-import { type ConfirmOutcome, handleWaitlist, type JoinOutcome } from "./handler.ts";
+import { type ConfirmOutcome, handleWaitlist } from "./handler.ts";
 
 function required(key: string): string {
   const value = Deno.env.get(key);
@@ -14,9 +14,14 @@ function required(key: string): string {
 
 const supabaseUrl = required("SUPABASE_URL");
 const serviceKey = required("SUPABASE_SERVICE_ROLE_KEY");
-const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+const admin = createClient(supabaseUrl, serviceKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
 const resend = resendConfigFromEnv((key) => Deno.env.get(key));
 const sign = signer(serviceKey);
+
+// Supabase's runtime global: keeps the function alive for work started after the response.
+declare const EdgeRuntime: { waitUntil(work: Promise<unknown>): void };
 
 Deno.serve((req) =>
   handleWaitlist(req, {
@@ -29,30 +34,40 @@ Deno.serve((req) =>
     ],
     siteUrl: Deno.env.get("WAITLIST_SITE_URL") ?? "https://getfoon.com",
     functionUrl: `${supabaseUrl}/functions/v1/waitlist`,
-    join: async ({ email, firstName, tokenHash, ipHash }) => {
+    join: async ({ email, firstName, ipHash }) => {
       const { data, error } = await admin.rpc("waitlist_join", {
         p_email: email,
         p_first_name: firstName,
-        p_token_hash: tokenHash,
         p_ip_hash: ipHash,
       });
       if (error) throw error;
-      return data as JoinOutcome;
+      return data.outcome === "send"
+        ? {
+          outcome: "send",
+          signupId: data.signup_id,
+          attemptId: data.attempt_id,
+        }
+        : { outcome: data.outcome };
+    },
+    markSent: async ({ signupId, attemptId, tokenHash, firstName }) => {
+      const { error } = await admin.rpc("waitlist_mark_sent", {
+        p_signup_id: signupId,
+        p_attempt_id: attemptId,
+        p_token_hash: tokenHash,
+        p_first_name: firstName,
+      });
+      if (error) throw error;
     },
     confirm: async (tokenHash) => {
-      const { data, error } = await admin.rpc("waitlist_confirm", { p_token_hash: tokenHash });
+      const { data, error } = await admin.rpc("waitlist_confirm", {
+        p_token_hash: tokenHash,
+      });
       if (error) throw error;
       return data as ConfirmOutcome;
     },
     unsubscribe: async (id) => {
-      const { data, error } = await admin.rpc("waitlist_unsubscribe", { p_id: id });
+      const { error } = await admin.rpc("waitlist_unsubscribe", { p_id: id });
       if (error) throw error;
-      return data as boolean;
-    },
-    idFor: async (email) => {
-      const { data, error } = await admin.rpc("waitlist_id_for", { p_email: email });
-      if (error) throw error;
-      return data as string | null;
     },
     newToken,
     sha256,
@@ -62,6 +77,11 @@ Deno.serve((req) =>
       await sendViaResend(resend, message.to, message);
       return "sent";
     },
-    log: (message, error) => console.error(message, error instanceof Error ? error.message : error ?? ""),
+    defer: (work) => EdgeRuntime.waitUntil(work),
+    log: (message, error) =>
+      console.error(
+        message,
+        error instanceof Error ? error.message : error ?? "",
+      ),
   })
 );

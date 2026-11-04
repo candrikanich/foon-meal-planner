@@ -1,38 +1,48 @@
 // waitlist: the founding-family waitlist behind getfoon.com (#34).
-//   POST {email, firstName?, website?}  sign up; always the same answer, whether or not the email is already here
-//   GET  ?confirm=<token>               double opt-in link from the email; redirects to the site's confirmed/expired page
-//   GET  ?unsubscribe=<id>.<signature>  unsubscribe link; POST to the same URL is the mail client's one-click form
+//   POST {email, firstName?, website?}      sign up; always the same quick answer, whether or not the email is already here
+//   POST ?confirm=<token>                   double opt-in, from the button on the site's /waitlist/confirm page
+//   POST ?unsubscribe=<id>.<signature>      unsubscribe, from the site's page or a mail client's one-click (RFC 8058)
+//   GET  ?confirm=… / ?unsubscribe=…        no side effects: only a redirect to those site pages, because link scanners
+//                                           (Safe Links, Mimecast) open every link in an email before the person does
 // Everything about storage and mail is behind WaitlistDeps so the rules here are testable without either.
 import { z } from "zod";
+import { clientKey, safeEqual } from "./client.ts";
 
-export type JoinOutcome = "send" | "skip" | "rate_limited";
+export type JoinResult =
+  | { outcome: "rate_limited" | "skip" }
+  | { outcome: "send"; signupId: string; attemptId: number };
 export type ConfirmOutcome = "confirmed" | "expired" | "invalid";
 
 export interface WaitlistDeps {
-  // Origins allowed to POST from a browser; requests with no Origin (a mail client following a link) pass.
+  // Origins allowed to POST from a browser; requests with no Origin (a mail client's one-click) pass.
   allowedOrigins: readonly string[];
   siteUrl: string;
   // The Edge Function's own public URL, which the emailed links point at.
   functionUrl: string;
   join(
+    input: { email: string; firstName: string | null; ipHash: string },
+  ): Promise<JoinResult>;
+  // Called only after the email went out, so the throttle and the overall cap count real sends.
+  markSent(
     input: {
-      email: string;
-      firstName: string | null;
+      signupId: string;
+      attemptId: number;
       tokenHash: string;
-      ipHash: string;
+      firstName: string | null;
     },
-  ): Promise<JoinOutcome>;
+  ): Promise<void>;
   confirm(tokenHash: string): Promise<ConfirmOutcome>;
-  unsubscribe(id: string): Promise<boolean>;
-  idFor(email: string): Promise<string | null>;
+  unsubscribe(id: string): Promise<void>;
   newToken(): string;
   sha256(value: string): Promise<string>;
-  // A stable, unguessable signature for an id: the unsubscribe link's proof.
-  sign(id: string): Promise<string>;
+  // A stable, unguessable signature for a value: the unsubscribe link's proof, and the keyed hash of an address.
+  sign(value: string): Promise<string>;
   // "off" when email isn't configured (nothing sent); a send that fails throws.
   sendConfirmation(
     message: { to: string; confirmUrl: string; unsubscribeUrl: string },
   ): Promise<"sent" | "off">;
+  // Runs work after the response has gone (EdgeRuntime.waitUntil), so a signup's answer never waits on, or reveals, a send.
+  defer(work: Promise<unknown>): void;
   // Ids and outcomes only: never an email address.
   log(message: string, error?: unknown): void;
 }
@@ -46,6 +56,8 @@ const signupSchema = z.object({
 });
 
 const tokenPattern = /^[A-Za-z0-9_-]{20,100}$/;
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const corsHeaders = (origin: string) => ({
   "Access-Control-Allow-Origin": origin,
@@ -71,26 +83,51 @@ function json(
 const redirect = (url: string) =>
   new Response(null, { status: 303, headers: { Location: url } });
 
-// A client can send its own x-forwarded-for, and proxies append to it, so its FIRST entry is whatever the caller says.
-// cf-connecting-ip is set by Cloudflare, which fronts Supabase's functions, and replaces any value the client sent. If
-// it's missing we take the LAST x-forwarded-for entry, the one added by the proxy nearest us. Either way a caller can't
-// pick their own address; and the database's overall hourly cap holds even if this were ever wrong.
-export function callerAddress(headers: Headers): string {
-  const cloudflare = headers.get("cf-connecting-ip")?.trim();
-  if (cloudflare) return cloudflare;
-  const hops =
-    headers.get("x-forwarded-for")?.split(",").map((hop) => hop.trim()).filter(
-      Boolean,
-    ) ?? [];
-  return hops.at(-1) ?? "unknown";
-}
-
 export function unsubscribeUrl(
   deps: Pick<WaitlistDeps, "functionUrl">,
   id: string,
   signature: string,
 ): string {
   return `${deps.functionUrl}?unsubscribe=${id}.${signature}`;
+}
+
+// Mails the link and, only if that worked, records it. A failure leaves the attempt unmarked, so the person's next try
+// sends again and the overall cap isn't filled by failures.
+async function sendAndMark(
+  deps: WaitlistDeps,
+  send: {
+    signupId: string;
+    attemptId: number;
+    email: string;
+    firstName: string | null;
+    token: string;
+  },
+): Promise<void> {
+  try {
+    const result = await deps.sendConfirmation({
+      to: send.email,
+      confirmUrl: `${deps.functionUrl}?confirm=${send.token}`,
+      unsubscribeUrl: unsubscribeUrl(
+        deps,
+        send.signupId,
+        await deps.sign(send.signupId),
+      ),
+    });
+    if (result === "off") {
+      deps.log(
+        "waitlist: email is off (RESEND_API_KEY or WAITLIST_FROM unset); signup stored, nothing sent",
+      );
+      return;
+    }
+    await deps.markSent({
+      signupId: send.signupId,
+      attemptId: send.attemptId,
+      tokenHash: await deps.sha256(send.token),
+      firstName: send.firstName,
+    });
+  } catch (error) {
+    deps.log("waitlist: confirmation not sent", error);
+  }
 }
 
 async function signUp(
@@ -105,30 +142,23 @@ async function signUp(
   // The honeypot is hidden from people; only a bot fills it. It gets the same answer as everyone, and nothing is stored.
   if (website) return json(200, { ok: true }, origin);
 
-  const token = deps.newToken();
-  const outcome = await deps.join({
+  const joined = await deps.join({
     email,
     firstName: firstName || null,
-    tokenHash: await deps.sha256(token),
     // Keyed, so the hash can't be reversed by trying every address.
-    ipHash: await deps.sign(`ip:${callerAddress(req.headers)}`),
+    ipHash: await deps.sign(`ip:${clientKey(req.headers)}`),
   });
-  if (outcome === "rate_limited") {
+  if (joined.outcome === "rate_limited") {
     return json(429, { error: "slow_down" }, origin);
   }
-  if (outcome === "send") {
-    const id = await deps.idFor(email);
-    if (!id) throw new Error("signup vanished");
-    const result = await deps.sendConfirmation({
-      to: email,
-      confirmUrl: `${deps.functionUrl}?confirm=${token}`,
-      unsubscribeUrl: unsubscribeUrl(deps, id, await deps.sign(id)),
-    });
-    if (result === "off") {
-      deps.log(
-        "waitlist: email is off (RESEND_API_KEY or WAITLIST_FROM unset); signup stored, nothing sent",
-      );
-    }
+  if (joined.outcome === "send") {
+    deps.defer(sendAndMark(deps, {
+      signupId: joined.signupId,
+      attemptId: joined.attemptId,
+      email,
+      firstName: firstName || null,
+      token: deps.newToken(),
+    }));
   }
   return json(200, { ok: true }, origin);
 }
@@ -138,9 +168,11 @@ async function unsubscribeFrom(
   deps: WaitlistDeps,
 ): Promise<boolean> {
   const [id, signature] = param.split(".");
-  if (!id || !signature || !/^[0-9a-f-]{36}$/i.test(id)) return false;
-  if (signature !== await deps.sign(id)) return false;
-  return deps.unsubscribe(id);
+  if (!id || !signature || !uuidPattern.test(id)) return false;
+  if (!safeEqual(signature, await deps.sign(id))) return false;
+  // A second use of the link finds nothing left to delete, and that's still what they wanted.
+  await deps.unsubscribe(id);
+  return true;
 }
 
 export async function handleWaitlist(
@@ -150,31 +182,21 @@ export async function handleWaitlist(
   const url = new URL(req.url);
   const origin = req.headers.get("Origin");
   const site = (path: string) => `${deps.siteUrl}${path}`;
+  const confirm = url.searchParams.get("confirm");
+  const unsubscribe = url.searchParams.get("unsubscribe");
 
   try {
     if (req.method === "GET") {
-      const confirm = url.searchParams.get("confirm");
       if (confirm !== null) {
-        if (!tokenPattern.test(confirm)) {
-          return redirect(site("/waitlist/expired"));
-        }
-        const outcome = await deps.confirm(await deps.sha256(confirm));
         return redirect(
-          site(
-            outcome === "confirmed"
-              ? "/waitlist/confirmed"
-              : "/waitlist/expired",
-          ),
+          tokenPattern.test(confirm)
+            ? site(`/waitlist/confirm?t=${confirm}`)
+            : site("/waitlist/expired"),
         );
       }
-      const unsubscribe = url.searchParams.get("unsubscribe");
       if (unsubscribe !== null) {
         return redirect(
-          site(
-            await unsubscribeFrom(unsubscribe, deps)
-              ? "/waitlist/unsubscribed"
-              : "/waitlist/expired",
-          ),
+          site(`/waitlist/unsubscribe?u=${encodeURIComponent(unsubscribe)}`),
         );
       }
       return json(404, { error: "not_found" }, null);
@@ -189,19 +211,27 @@ export async function handleWaitlist(
         headers: origin ? corsHeaders(origin) : {},
       });
     }
-    if (req.method === "POST") {
-      const unsubscribe = url.searchParams.get("unsubscribe");
-      if (unsubscribe !== null) {
-        const done = await unsubscribeFrom(unsubscribe, deps);
-        return json(
-          done ? 200 : 400,
-          done ? { ok: true } : { error: "bad_request" },
-          origin,
-        );
-      }
-      return await signUp(req, deps, origin);
+    if (req.method !== "POST") {
+      return json(405, { error: "method_not_allowed" }, origin);
     }
-    return json(405, { error: "method_not_allowed" }, origin);
+
+    if (confirm !== null) {
+      if (!tokenPattern.test(confirm)) {
+        return json(200, { result: "invalid" }, origin);
+      }
+      return json(200, {
+        result: await deps.confirm(await deps.sha256(confirm)),
+      }, origin);
+    }
+    if (unsubscribe !== null) {
+      const done = await unsubscribeFrom(unsubscribe, deps);
+      return json(
+        done ? 200 : 400,
+        done ? { ok: true } : { error: "bad_request" },
+        origin,
+      );
+    }
+    return await signUp(req, deps, origin);
   } catch (error) {
     deps.log("waitlist: failed", error);
     return json(500, { error: "try_again" }, origin);

@@ -1,4 +1,5 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
+import { callerAddress, clientKey, networkOf, safeEqual } from "./client.ts";
 import { sha256, signer } from "./crypto.ts";
 import {
   confirmationEmail,
@@ -6,28 +7,31 @@ import {
   sendViaResend,
 } from "./email.ts";
 import {
-  callerAddress,
   type ConfirmOutcome,
   handleWaitlist,
-  type JoinOutcome,
+  type JoinResult,
   type WaitlistDeps,
 } from "./handler.ts";
 
 const id = "11111111-2222-3333-4444-555555555555";
 const sign = signer("service-key");
 const token = "t".repeat(43);
+const send: JoinResult = { outcome: "send", signupId: id, attemptId: 7 };
 
 function fakeDeps(
   overrides: Partial<WaitlistDeps> = {},
-  join: JoinOutcome = "send",
+  join: JoinResult = send,
   confirm: ConfirmOutcome = "confirmed",
 ) {
   const joins: Array<
+    { email: string; firstName: string | null; ipHash: string }
+  > = [];
+  const marked: Array<
     {
-      email: string;
-      firstName: string | null;
+      signupId: string;
+      attemptId: number;
       tokenHash: string;
-      ipHash: string;
+      firstName: string | null;
     }
   > = [];
   const sent: Array<
@@ -35,6 +39,8 @@ function fakeDeps(
   > = [];
   const logs: string[] = [];
   const unsubscribed: string[] = [];
+  const confirmed: string[] = [];
+  const background: Promise<unknown>[] = [];
   const deps: WaitlistDeps = {
     allowedOrigins: ["https://getfoon.com", "http://localhost:3000"],
     siteUrl: "https://getfoon.com",
@@ -43,12 +49,18 @@ function fakeDeps(
       joins.push(input);
       return Promise.resolve(join);
     },
-    confirm: () => Promise.resolve(confirm),
+    markSent: (input) => {
+      marked.push(input);
+      return Promise.resolve();
+    },
+    confirm: (tokenHash) => {
+      confirmed.push(tokenHash);
+      return Promise.resolve(confirm);
+    },
     unsubscribe: (target) => {
       unsubscribed.push(target);
-      return Promise.resolve(true);
+      return Promise.resolve();
     },
-    idFor: () => Promise.resolve(id),
     newToken: () => token,
     sha256,
     sign,
@@ -56,10 +68,20 @@ function fakeDeps(
       sent.push(message);
       return Promise.resolve("sent");
     },
+    defer: (work) => background.push(work),
     log: (message) => logs.push(message),
     ...overrides,
   };
-  return { deps, joins, sent, logs, unsubscribed };
+  return {
+    deps,
+    joins,
+    marked,
+    sent,
+    logs,
+    unsubscribed,
+    confirmed,
+    settle: () => Promise.all(background),
+  };
 }
 
 const post = (body: unknown, headers: Record<string, string> = {}, path = "") =>
@@ -73,11 +95,22 @@ const post = (body: unknown, headers: Record<string, string> = {}, path = "") =>
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 
-Deno.test("a signup stores a hashed token and emails the link", async () => {
-  const { deps, joins, sent } = fakeDeps();
+Deno.test("a signup answers without waiting for the email, which is marked sent only once it has gone out", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => release = resolve);
+  const base = fakeDeps();
+  const { deps, joins, marked, sent, settle } = fakeDeps({
+    sendConfirmation: async (message) => {
+      await gate;
+      return base.deps.sendConfirmation(message).then((result) => {
+        sent.push(message);
+        return result;
+      });
+    },
+  });
   const response = await handleWaitlist(
     post({ email: " Pat@Example.com ", firstName: "Pat" }, {
-      "x-forwarded-for": "6.6.6.6, 5.6.7.8",
+      "cf-connecting-ip": "5.6.7.8",
     }),
     deps,
   );
@@ -87,11 +120,18 @@ Deno.test("a signup stores a hashed token and emails the link", async () => {
     response.headers.get("Access-Control-Allow-Origin"),
     "https://getfoon.com",
   );
-  assertEquals(joins[0].email, "Pat@Example.com");
-  assertEquals(joins[0].firstName, "Pat");
-  assertEquals(joins[0].tokenHash, await sha256(token));
-  assertEquals(joins[0].tokenHash === token, false);
-  assertEquals(joins[0].ipHash, await sign("ip:5.6.7.8"));
+  assertEquals(joins[0], {
+    email: "Pat@Example.com",
+    firstName: "Pat",
+    ipHash: await sign("ip:5.6.7.8"),
+  });
+  assertEquals(
+    marked.length,
+    0,
+    "answered while the email was still in flight, and nothing is marked yet",
+  );
+  release();
+  await settle();
   assertEquals(
     sent[0].confirmUrl,
     `https://x.supabase.co/functions/v1/waitlist?confirm=${token}`,
@@ -100,28 +140,48 @@ Deno.test("a signup stores a hashed token and emails the link", async () => {
     sent[0].unsubscribeUrl,
     `?unsubscribe=${id}.${await sign(id)}`,
   );
+  assertEquals(marked, [{
+    signupId: id,
+    attemptId: 7,
+    tokenHash: await sha256(token),
+    firstName: "Pat",
+  }]);
+  assertEquals(marked[0].tokenHash === token, false);
+});
+
+Deno.test("a failed send is not marked, so a retry sends and the cap isn't filled", async () => {
+  const { deps, marked, logs, settle } = fakeDeps({
+    sendConfirmation: () => Promise.reject(new Error("Resend answered 500")),
+  });
+  const response = await handleWaitlist(post({ email: "a@example.com" }), deps);
+  assertEquals(response.status, 200);
+  await settle();
+  assertEquals(marked.length, 0);
+  assertEquals(logs.some((line) => line.includes("a@example.com")), false);
 });
 
 Deno.test("the answer is the same whether or not the email was already here", async () => {
-  const fresh = fakeDeps({}, "send");
-  const known = fakeDeps({}, "skip");
+  const fresh = fakeDeps({}, send);
+  const known = fakeDeps({}, { outcome: "skip" });
   const a = await handleWaitlist(post({ email: "a@example.com" }), fresh.deps);
   const b = await handleWaitlist(post({ email: "a@example.com" }), known.deps);
   assertEquals([a.status, await a.text()], [b.status, await b.text()]);
+  await known.settle();
   assertEquals(known.sent.length, 0);
 });
 
 Deno.test("a filled honeypot looks like success and stores nothing", async () => {
-  const { deps, joins, sent } = fakeDeps();
+  const { deps, joins, sent, settle } = fakeDeps();
   const response = await handleWaitlist(
     post({ email: "bot@example.com", website: "http://spam" }),
     deps,
   );
   assertEquals(response.status, 200);
+  await settle();
   assertEquals(joins.length + sent.length, 0);
 });
 
-Deno.test("bad emails and bad bodies are 400", async () => {
+Deno.test("bad emails, names and bodies are 400", async () => {
   const { deps, joins } = fakeDeps();
   const names = [
     "x".repeat(41),
@@ -144,34 +204,50 @@ Deno.test("bad emails and bad bodies are 400", async () => {
   assertEquals(joins.length, 0);
 });
 
+Deno.test("names with letters from any language, hyphens and apostrophes are fine", async () => {
+  for (const firstName of ["Zoë", "Mary-Jane", "O'Brien", "Åsa", "李雷", ""]) {
+    const { deps, joins } = fakeDeps();
+    assertEquals(
+      (await handleWaitlist(post({ email: "a@example.com", firstName }), deps))
+        .status,
+      200,
+    );
+    assertEquals(joins[0].firstName, firstName || null);
+  }
+});
+
 Deno.test("the rate limit is a 429 and sends nothing", async () => {
-  const { deps, sent } = fakeDeps({}, "rate_limited");
+  const { deps, sent, settle } = fakeDeps({}, { outcome: "rate_limited" });
   assertEquals(
     (await handleWaitlist(post({ email: "a@example.com" }), deps)).status,
     429,
   );
+  await settle();
   assertEquals(sent.length, 0);
 });
 
-Deno.test("without email configured the signup still succeeds and the log says email is off", async () => {
-  const { deps, logs } = fakeDeps({
+Deno.test("without email configured the signup still succeeds, nothing is marked sent, and the log says email is off", async () => {
+  const { deps, logs, marked, settle } = fakeDeps({
     sendConfirmation: () => Promise.resolve("off"),
   });
   assertEquals(
     (await handleWaitlist(post({ email: "a@example.com" }), deps)).status,
     200,
   );
+  await settle();
+  assertEquals(marked.length, 0);
   assertEquals(logs.length, 1);
   assertStringIncludes(logs[0], "email is off");
 });
 
-Deno.test("a failing mail provider is a retryable 500, with no address in the log", async () => {
-  const { deps, logs } = fakeDeps({
-    sendConfirmation: () => Promise.reject(new Error("Resend answered 500")),
+Deno.test("a storage failure is a retryable 500", async () => {
+  const { deps } = fakeDeps({
+    join: () => Promise.reject(new Error("db down")),
   });
-  const response = await handleWaitlist(post({ email: "a@example.com" }), deps);
-  assertEquals(response.status, 500);
-  assertEquals(logs.some((line) => line.includes("a@example.com")), false);
+  assertEquals(
+    (await handleWaitlist(post({ email: "a@example.com" }), deps)).status,
+    500,
+  );
 });
 
 Deno.test("only getfoon.com, www and localhost may post from a browser", async () => {
@@ -196,61 +272,62 @@ Deno.test("only getfoon.com, www and localhost may post from a browser", async (
   );
 });
 
-Deno.test("a confirm link redirects to the site's confirmed page", async () => {
+Deno.test("GET on a confirm link only redirects to the site's page, touching nothing", async () => {
+  const { deps, confirmed, unsubscribed } = fakeDeps();
   const response = await handleWaitlist(
     new Request(`http://localhost/waitlist?confirm=${token}`),
-    fakeDeps().deps,
+    deps,
   );
   assertEquals(response.status, 303);
   assertEquals(
     response.headers.get("Location"),
-    "https://getfoon.com/waitlist/confirmed",
+    `https://getfoon.com/waitlist/confirm?t=${token}`,
   );
-});
-
-Deno.test("expired, unknown and malformed confirm links land on the expired page", async () => {
-  for (const outcome of ["expired", "invalid"] as const) {
-    const { deps } = fakeDeps({}, "send", outcome);
-    const response = await handleWaitlist(
-      new Request(`http://localhost/waitlist?confirm=${token}`),
-      deps,
-    );
-    assertEquals(
-      response.headers.get("Location"),
-      "https://getfoon.com/waitlist/expired",
-    );
-  }
   const malformed = await handleWaitlist(
     new Request("http://localhost/waitlist?confirm=short"),
-    fakeDeps().deps,
+    deps,
   );
   assertEquals(
     malformed.headers.get("Location"),
     "https://getfoon.com/waitlist/expired",
   );
-});
-
-Deno.test("unsubscribe needs the signature, by link or by one-click POST", async () => {
-  const { deps, unsubscribed } = fakeDeps();
-  const good = `${id}.${await sign(id)}`;
   const link = await handleWaitlist(
-    new Request(`http://localhost/waitlist?unsubscribe=${good}`),
+    new Request(`http://localhost/waitlist?unsubscribe=${id}.abc`),
     deps,
   );
   assertEquals(
     link.headers.get("Location"),
-    "https://getfoon.com/waitlist/unsubscribed",
+    `https://getfoon.com/waitlist/unsubscribe?u=${id}.abc`,
   );
-  const forged = await handleWaitlist(
-    new Request(
-      `http://localhost/waitlist?unsubscribe=${id}.${"0".repeat(32)}`,
-    ),
+  assertEquals(confirmed.length + unsubscribed.length, 0);
+});
+
+Deno.test("POST confirms, and says expired or invalid when it can't", async () => {
+  for (const outcome of ["confirmed", "expired", "invalid"] as const) {
+    const { deps, confirmed } = fakeDeps({}, send, outcome);
+    const response = await handleWaitlist(
+      post("", {}, `?confirm=${token}`),
+      deps,
+    );
+    assertEquals(await response.json(), { result: outcome });
+    assertEquals(confirmed, [await sha256(token)]);
+  }
+  const { deps, confirmed } = fakeDeps();
+  assertEquals(
+    await (await handleWaitlist(post("", {}, "?confirm=short"), deps)).json(),
+    { result: "invalid" },
+  );
+  assertEquals(confirmed.length, 0);
+});
+
+Deno.test("unsubscribe needs the signature, from the site's page or a mail client's one-click POST", async () => {
+  const { deps, unsubscribed } = fakeDeps();
+  const good = `${id}.${await sign(id)}`;
+  const fromSite = await handleWaitlist(
+    post("", {}, `?unsubscribe=${good}`),
     deps,
   );
-  assertEquals(
-    forged.headers.get("Location"),
-    "https://getfoon.com/waitlist/expired",
-  );
+  assertEquals(fromSite.status, 200);
   const oneClick = await handleWaitlist(
     new Request(`http://localhost/waitlist?unsubscribe=${good}`, {
       method: "POST",
@@ -260,19 +337,26 @@ Deno.test("unsubscribe needs the signature, by link or by one-click POST", async
   );
   assertEquals(oneClick.status, 200);
   assertEquals(unsubscribed, [id, id]);
+  const forged = await handleWaitlist(
+    post("", {}, `?unsubscribe=${id}.${"0".repeat(32)}`),
+    deps,
+  );
+  assertEquals(forged.status, 400);
+  assertEquals(unsubscribed.length, 2);
 });
 
-Deno.test("the confirmation email names the link, the offer, and how to unsubscribe", () => {
+Deno.test("the confirmation email says what's kept, and nothing the signer typed is in it", () => {
   const { text, html } = confirmationEmail({
     confirmUrl: "https://x/c?confirm=t",
     unsubscribeUrl: "https://x/u",
   });
   assertStringIncludes(text, "https://x/c?confirm=t");
-  assertStringIncludes(text, "Unsubscribe: https://x/u");
+  assertStringIncludes(text, "30 days after this email goes out");
+  assertStringIncludes(text, "deletes your address right away): https://x/u");
   assertStringIncludes(html, "<p>Hi,</p>");
 });
 
-Deno.test("Resend is called with a bearer key, and email stays off unless both settings exist", async () => {
+Deno.test("Resend is called with a bearer key and the one-click headers, and email stays off unless both settings exist", async () => {
   assertEquals(
     resendConfigFromEnv((key) => (key === "RESEND_API_KEY" ? "k" : undefined)),
     null,
@@ -280,12 +364,16 @@ Deno.test("Resend is called with a bearer key, and email stays off unless both s
   const config = resendConfigFromEnv((key) =>
     ({ RESEND_API_KEY: "k", WAITLIST_FROM: "Foon <hello@getfoon.com>" })[key]
   )!;
-  let seen: { url: string; auth: string | null; to: string[] } | undefined;
+  let seen:
+    | { url: string; auth: string | null; to: string[]; oneClick: string }
+    | undefined;
   const fake = ((url: string, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
     seen = {
       url,
       auth: new Headers(init.headers).get("Authorization"),
-      to: JSON.parse(init.body as string).to,
+      to: body.to,
+      oneClick: body.headers["List-Unsubscribe-Post"],
     };
     return Promise.resolve(new Response("{}", { status: 200 }));
   }) as unknown as typeof fetch;
@@ -297,6 +385,7 @@ Deno.test("Resend is called with a bearer key, and email stays off unless both s
     url: "https://api.resend.com/emails",
     auth: "Bearer k",
     to: ["a@example.com"],
+    oneClick: "List-Unsubscribe=One-Click",
   });
   const failing = (() =>
     Promise.resolve(
@@ -306,21 +395,8 @@ Deno.test("Resend is called with a bearer key, and email stays off unless both s
   await sendViaResend(config, "a@example.com", {
     confirmUrl: "c",
     unsubscribeUrl: "u",
-  }, failing)
-    .catch(() => threw = true);
+  }, failing).catch(() => threw = true);
   assertEquals(threw, true);
-});
-
-Deno.test("names with letters from any language, hyphens and apostrophes are fine", async () => {
-  for (const firstName of ["Zoë", "Mary-Jane", "O'Brien", "Åsa", "李雷", ""]) {
-    const { deps, joins } = fakeDeps();
-    assertEquals(
-      (await handleWaitlist(post({ email: "a@example.com", firstName }), deps))
-        .status,
-      200,
-    );
-    assertEquals(joins[0].firstName, firstName || null);
-  }
 });
 
 Deno.test("the caller's address comes from cf-connecting-ip, else the last forwarded hop, never the first", () => {
@@ -337,5 +413,34 @@ Deno.test("the caller's address comes from cf-connecting-ip, else the last forwa
     callerAddress(new Headers({ "x-forwarded-for": "6.6.6.6, 1.1.1.1" })),
     "1.1.1.1",
   );
+  assertEquals(
+    callerAddress(new Headers({ "x-real-ip": "2.2.2.2" })),
+    "unknown",
+  );
   assertEquals(callerAddress(new Headers()), "unknown");
+});
+
+Deno.test("IPv6 addresses are limited by their /64", () => {
+  assertEquals(networkOf("203.0.113.9"), "203.0.113.9");
+  assertEquals(
+    networkOf("2001:db8:abcd:12:aaaa:bbbb:cccc:dddd"),
+    "2001:db8:abcd:12::/64",
+  );
+  assertEquals(
+    networkOf("2001:DB8:abcd:12:1::1"),
+    networkOf("2001:db8:abcd:12:ffff::2"),
+  );
+  assertEquals(networkOf("2001:db8::1"), "2001:db8:0:0::/64");
+  assertEquals(networkOf("::1"), "0:0:0:0::/64");
+  assertEquals(networkOf("::ffff:203.0.113.9"), "203.0.113.9");
+  assertEquals(
+    clientKey(new Headers({ "cf-connecting-ip": "2001:db8:1:2:3:4:5:6" })),
+    clientKey(new Headers({ "cf-connecting-ip": "2001:db8:1:2:ffff::1" })),
+  );
+});
+
+Deno.test("safeEqual compares whole strings", () => {
+  assertEquals(safeEqual("abc", "abc"), true);
+  assertEquals(safeEqual("abc", "abd"), false);
+  assertEquals(safeEqual("abc", "abcd"), false);
 });

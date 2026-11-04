@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { beats, foundingOffer, screenshots, SUPPORT_EMAIL } from "../app/content";
-import { submitWaitlist, waitlistSchema } from "../app/utils/waitlist";
+import { confirmSignup, submitWaitlist, unsubscribeSignup, waitlistSchema } from "../app/utils/waitlist";
 
 const reply = (status: number) => (() => Promise.resolve(new Response("{}", { status }))) as unknown as typeof fetch;
 
@@ -56,6 +56,30 @@ describe("submitWaitlist", () => {
     expect(await submitWaitlist("https://f", input, reply(500))).toBe("error");
     const offline = (() => Promise.reject(new TypeError("offline"))) as unknown as typeof fetch;
     expect(await submitWaitlist("https://f", input, offline)).toBe("error");
+  });
+});
+
+describe("the emailed-link actions", () => {
+  const json = (status: number, body: unknown) => (() => Promise.resolve(new Response(JSON.stringify(body), { status }))) as unknown as typeof fetch;
+
+  it("confirm POSTs the token and reads the result", async () => {
+    let seen: { url: string; method?: string } | undefined;
+    const spy = ((url: string, init: RequestInit) => {
+      seen = { url, method: init.method };
+      return Promise.resolve(new Response(JSON.stringify({ result: "confirmed" })));
+    }) as unknown as typeof fetch;
+    expect(await confirmSignup("https://f/waitlist", "abc_-", spy)).toBe("done");
+    expect(seen).toEqual({ url: "https://f/waitlist?confirm=abc_-", method: "POST" });
+    expect(await confirmSignup("https://f", "t", json(200, { result: "expired" }))).toBe("expired");
+    expect(await confirmSignup("https://f", "t", json(200, { result: "invalid" }))).toBe("expired");
+    expect(await confirmSignup("https://f", "t", json(500, {}))).toBe("error");
+    expect(await confirmSignup("", "t", json(200, {}))).toBe("error");
+  });
+
+  it("unsubscribe POSTs the signed value", async () => {
+    expect(await unsubscribeSignup("https://f", "id.sig", json(200, { ok: true }))).toBe("done");
+    expect(await unsubscribeSignup("https://f", "id.sig", json(400, {}))).toBe("expired");
+    expect(await unsubscribeSignup("https://f", "id.sig", json(500, {}))).toBe("error");
   });
 });
 

@@ -1,6 +1,6 @@
 -- Founding-family waitlist (#34): nobody signed in or not can read or write it; only the server's functions do.
 begin;
-select plan(27);
+select plan(36);
 
 create function pg_temp.as_anon() returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true), set_config('role', 'anon', true);
@@ -13,54 +13,83 @@ create function pg_temp.as_server() returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true),
          set_config('role', 'service_role', true);
 $$;
+-- Joins, and when it says send, marks it sent the way the function does after Resend answers.
+create function pg_temp.join_and_send(p_email text, p_ip text, p_token text) returns text language plpgsql as $$
+declare j jsonb;
+begin
+  j := public.waitlist_join(p_email, null, p_ip);
+  if j->>'outcome' = 'send' then
+    perform public.waitlist_mark_sent((j->>'signup_id')::uuid, (j->>'attempt_id')::bigint, p_token, null);
+  end if;
+  return j->>'outcome';
+end;
+$$;
 
 select pg_temp.as_server();
-select is(public.waitlist_join('Pat@Example.com', ' Pat ', 'hash-1', 'ip-1'), 'send', 'a new signup sends the email');
+select is(public.waitlist_join('Pat@Example.com', ' Pat ', 'ip-a')->>'outcome', 'send', 'a new signup is told to send');
 select is((select status from public.waitlist_signups where email = 'pat@example.com'), 'pending', 'and is pending (email matches any case)');
 select is((select first_name from public.waitlist_signups where email = 'pat@example.com'), 'Pat', 'with the trimmed name');
-select is(public.waitlist_join('pat@example.com', null, 'hash-2', 'ip-1'), 'skip', 'a second try within 10 minutes sends nothing');
+select is((select token_hash from public.waitlist_signups), null, 'but has no token until an email has gone out');
+select is(public.waitlist_join('pat@example.com', null, 'ip-a')->>'outcome', 'send', 'a retry before any send is sent again, not throttled');
+select is((select count(*)::int from public.waitlist_attempts where sent), 0, 'no attempt counts as sent yet');
+
+select public.waitlist_mark_sent((select id from public.waitlist_signups), (select max(id) from public.waitlist_attempts), 'hash-1', null);
+select is((select token_hash from public.waitlist_signups), 'hash-1', 'marking it sent stores the token hash');
+select is((select count(*)::int from public.waitlist_attempts where sent), 1, 'and counts the send');
+select is(public.waitlist_join('pat@example.com', null, 'ip-a')->>'outcome', 'skip', 'a try within 10 minutes of a send does nothing');
 update public.waitlist_signups set token_sent_at = now() - interval '11 minutes';
-select is(public.waitlist_join('pat@example.com', null, 'hash-3', 'ip-1'), 'send', 'later, a fresh link goes out');
-select is((select token_hash from public.waitlist_signups), 'hash-3', 'replacing the token');
-select is(public.waitlist_confirm('hash-2'), 'invalid', 'an old token no longer works');
-select is(public.waitlist_confirm('hash-3'), 'confirmed', 'the current one confirms');
-select is(public.waitlist_confirm('hash-3'), 'confirmed', 'opening it twice is fine');
+select is(pg_temp.join_and_send('pat@example.com', 'ip-a', 'hash-2'), 'send', 'later, a fresh link goes out');
+select is(public.waitlist_confirm('hash-1'), 'invalid', 'the old token no longer works');
+select is(public.waitlist_confirm('hash-2'), 'confirmed', 'the current one confirms');
+select is(public.waitlist_confirm('hash-2'), 'confirmed', 'using it twice is fine');
 select ok((select confirmed_at is not null from public.waitlist_signups), 'confirmation is dated');
-select is(public.waitlist_join('pat@example.com', null, 'hash-4', 'ip-1'), 'skip', 'a confirmed email is never re-sent');
+select is(public.waitlist_join('pat@example.com', null, 'ip-a')->>'outcome', 'skip', 'a confirmed email is never re-sent');
 
-select is(public.waitlist_unsubscribe(public.waitlist_id_for('pat@example.com')), true, 'unsubscribing works');
-select is((select first_name from public.waitlist_signups), null, 'and drops the name');
-select is(public.waitlist_confirm('hash-3'), 'invalid', 'the old link is dead');
+-- Unsubscribing deletes everything about the person.
+select public.waitlist_unsubscribe((select id from public.waitlist_signups));
+select is((select count(*)::int from public.waitlist_signups), 0, 'unsubscribing deletes the row, email and name with it');
+select is(public.waitlist_confirm('hash-2'), 'invalid', 'and the old link is dead');
+select is(pg_temp.join_and_send('pat@example.com', 'ip-b', 'hash-3'), 'send', 'signing up again starts over');
+select is((select status from public.waitlist_signups), 'pending', 'as pending');
+select lives_ok($$ select public.waitlist_unsubscribe('00000000-0000-0000-0000-000000000001') $$, 'unsubscribing twice is harmless');
 
--- Five attempts an hour from one address: four are already on ip-1.
-select is(public.waitlist_join('a@example.com', null, 'h-a', 'ip-1'), 'send', 'the fifth attempt in an hour is fine');
-select is(public.waitlist_join('b@example.com', null, 'h-b', 'ip-1'), 'rate_limited', 'the sixth is refused');
+-- Five attempts an hour from one address: ip-a has made five.
+select is(public.waitlist_join('b@example.com', null, 'ip-a')->>'outcome', 'rate_limited', 'the sixth attempt in an hour is refused');
 select is((select count(*)::int from public.waitlist_signups where email = 'b@example.com'), 0, 'and stores nothing');
 
--- One address hammering (most of it refused) doesn't lock out another.
-select count(*) from (select public.waitlist_join('h' || n || '@example.com', null, 'h-h' || n, 'ip-hammer') from generate_series(1, 30) n) s;
-select is(public.waitlist_join('e@example.com', null, 'h-e', 'ip-other'), 'send', 'a different address still signs up after 25 refusals');
+-- One address hammering doesn't lock out another.
+select count(*) from (select public.waitlist_join('h' || n || '@example.com', null, 'ip-hammer') from generate_series(1, 30) n) s;
+select is(public.waitlist_join('e@example.com', null, 'ip-other')->>'outcome', 'send', 'a different address still signs up');
 
--- The overall cap: 200 emails an hour from other addresses fill it, whoever asks next is refused.
+-- The overall cap counts real sends only.
+insert into public.waitlist_attempts (ip_hash, sent) select 'f-' || n, false from generate_series(1, 300) n;
+select is(public.waitlist_join('f@example.com', null, 'ip-new')->>'outcome', 'send', 'hundreds of attempts that sent nothing leave the cap alone');
 insert into public.waitlist_attempts (ip_hash, sent) select 'g-' || n, true from generate_series(1, 200) n;
-select is(public.waitlist_join('d@example.com', null, 'h-d', 'ip-new'), 'rate_limited', 'a fresh address is refused once the hour is full');
+select is(public.waitlist_join('d@example.com', null, 'ip-new2')->>'outcome', 'rate_limited', 'but 200 real sends in the hour fill it');
 select is((select count(*)::int from public.waitlist_signups where email = 'd@example.com'), 0, 'and stores nothing');
 
-insert into public.waitlist_signups (email, status, token_hash, token_sent_at, created_at)
-values ('old@example.com', 'pending', 'h-old', now() - interval '8 days', now() - interval '31 days'),
-       ('c@example.com', 'confirmed', null, now() - interval '40 days', now() - interval '40 days');
+-- Expiry and pruning.
+insert into public.waitlist_attempts (ip_hash, attempted_at) values ('ip-old', now() - interval '2 days');
+insert into public.waitlist_signups (email, status, token_hash, token_sent_at, created_at) values
+  ('old@example.com', 'pending', 'h-old', now() - interval '8 days', now() - interval '9 days'),
+  ('stale@example.com', 'pending', 'h-stale', now() - interval '31 days', now() - interval '60 days'),
+  ('unsent@example.com', 'pending', null, null, now() - interval '31 days'),
+  ('rejoined@example.com', 'pending', 'h-re', now() - interval '1 day', now() - interval '40 days'),
+  ('c@example.com', 'confirmed', null, now() - interval '40 days', now() - interval '40 days');
 select is(public.waitlist_confirm('h-old'), 'expired', 'a link older than 7 days is expired');
 select public.prune_waitlist();
-select is((select count(*)::int from public.waitlist_signups where email = 'old@example.com'), 0, 'pending over 30 days is pruned');
-select is((select count(*)::int from public.waitlist_signups where email = 'c@example.com'), 1, 'confirmed ones are kept');
+select is((select count(*)::int from public.waitlist_signups where email = 'stale@example.com'), 0, 'pending 30 days after its last email is pruned');
+select is((select count(*)::int from public.waitlist_signups where email = 'unsent@example.com'), 0, 'so is one that never got an email, 30 days after it was made');
+select is((select count(*)::int from public.waitlist_signups where email = 'rejoined@example.com'), 1, 'but one that came back recently stays');
+select is((select count(*)::int from public.waitlist_signups where email = 'c@example.com'), 1, 'and confirmed ones');
+select is((select count(*)::int from public.waitlist_attempts where attempted_at < now() - interval '1 day'), 0, 'old attempts are pruned');
 
 select pg_temp.as_anon();
 select throws_ok($$ select * from public.waitlist_signups $$, '42501', null, 'anon can''t read signups');
 select throws_ok($$ insert into public.waitlist_signups (email) values ('x@example.com') $$, '42501', null, 'or write one');
 select pg_temp.as_user();
 select throws_ok($$ select * from public.waitlist_signups $$, '42501', null, 'a signed-in user can''t read signups');
-select throws_ok($$ select public.waitlist_join('x@example.com', null, 'h', 'ip-9') $$, '42501', null,
-  'or call the functions');
+select throws_ok($$ select public.waitlist_join('x@example.com', null, 'ip-9') $$, '42501', null, 'or call the functions');
 
 select * from finish();
 rollback;

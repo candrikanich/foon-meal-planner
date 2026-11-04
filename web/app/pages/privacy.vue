@@ -22,13 +22,13 @@ useSeoMeta({ title: "Privacy: Foon", description: "What Foon keeps, and what thi
       </li>
       <li>We use them to email you a link to confirm your spot, and to tell you about Foon's founding-family offer and when Foon opens.</li>
       <li>
-        Until you click the link, your signup is pending, and we delete pending signups after 30 days. After you
-        confirm, we keep your email until you unsubscribe. Every email has an unsubscribe link, and unsubscribing
-        removes your name.
+        Until you confirm, your signup is pending, and we delete a pending signup 30 days after the last email we sent
+        for it. After you confirm, we keep your email, and your name if you gave one, until you unsubscribe. Every email
+        has an unsubscribe link, and unsubscribing deletes your email address and name right away.
       </li>
       <li>
-        To limit abuse, the form keeps a scrambled (hashed) version of your network address for a day. It can't be turned
-        back into the address.
+        To limit abuse, the form keeps a scrambled (hashed) version of your network address for up to 2 days. It can't be
+        turned back into the address.
       </li>
       <li>We send these emails through a mail service, Resend, and store the list with our database host, Supabase. We don't sell or share the list.</li>
     </ul>
