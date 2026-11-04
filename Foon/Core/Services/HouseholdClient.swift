@@ -71,6 +71,9 @@ struct HouseholdClient: Sendable {
     /// Who tried a dish new to them in these days, both included (`tried_new`), for a member's profile.
     var triedNew: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ to: CalendarDay) async throws
         -> [TriedNewDishes] = { _, _, _ in [] }
+    /// Who's pitching in over these days, both included (`engagement`): planners only, which the server enforces.
+    var engagement: @Sendable (_ householdID: UUID, _ from: CalendarDay, _ to: CalendarDay) async throws
+        -> EngagementFacts = { _, _, _ in EngagementFacts() }
     /// "Your year in dinners" for one calendar year by the household's day (`year_recap`), through a day when given.
     var yearRecap: @Sendable (_ householdID: UUID, _ year: Int, _ through: CalendarDay?) async throws -> YearRecapFacts
         = { _, _, _ in YearRecapFacts() }
@@ -316,6 +319,11 @@ extension HouseholdClient {
                     targetHousehold: householdID, fromDate: from, toDate: to
                 )).execute().value
             },
+            engagement: { householdID, from, to in
+                try await client.rpc("engagement", params: FamilyStatsParams(
+                    targetHousehold: householdID, fromDate: from, toDate: to
+                )).execute().value
+            },
             yearRecap: { householdID, year, through in
                 try await client.rpc("year_recap", params: YearRecapParams(targetHousehold: householdID,
                                                                            targetYear: year, through: through))
@@ -476,8 +484,8 @@ private struct AwayDatesParams: Encodable, Sendable {
     }
 }
 
-/// Every argument is sent: PostgREST picks the function by its argument names. `week_recap` and `tried_new` take the
-/// same ones.
+/// Every argument is sent: PostgREST picks the function by its argument names. `week_recap`, `tried_new` and
+/// `engagement` take the same ones.
 private struct FamilyStatsParams: Encodable, Sendable {
     let targetHousehold: UUID
     let fromDate: CalendarDay

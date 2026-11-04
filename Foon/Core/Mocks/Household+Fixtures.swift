@@ -79,6 +79,7 @@ extension HouseholdClient {
             familyStats: { _, _, _ in .sample },
             weekRecap: { _, _, _ in .sample(cooks: members) },
             triedNew: { _, _, _ in TriedNewDishes.samples(for: members) },
+            engagement: { _, from, to in .sample(for: members, from: from, to: to) },
             yearRecap: { _, _, _ in .sample(members: members) },
             // One page of dinners, then nothing further back.
             dinnerMemories: { _, from, through in

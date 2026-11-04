@@ -47,6 +47,9 @@ final class HouseholdStore {
     /// This month's picky-eater wins, for members' profiles.
     private(set) var triedThisMonth: [TriedNewDishes]?
     private var triedHouseholdID: UUID?
+    /// "Who's pitching in", for planners; nil until it loads, and left as it was if a refresh fails.
+    private(set) var engagement: [Engagement.Row]?
+    private var engagementHouseholdID: UUID?
 
     /// Bumped per fetch and per save, so a fetch that started before a save can't put old settings back.
     private var loadGeneration = 0
@@ -93,10 +96,14 @@ final class HouseholdStore {
         return isSelf ? .ownProfileAsOwner : .nameAndAvatar
     }
 
-    /// Planners export the household's data; the owner counts even before their profile loads.
-    var canExport: Bool {
+    /// A planner of this household, as the server's `is_household_planner` judges it: the owner counts even before
+    /// their profile loads.
+    var isPlanner: Bool {
         household?.owner == userID || me?.role == .planner
     }
+
+    /// Planners export the household's data.
+    var canExport: Bool { isPlanner }
 
     /// The household's data as a pretty-printed JSON file in the temporary folder, ready to share or save.
     func exportFile() async -> URL? {
@@ -181,6 +188,31 @@ final class HouseholdStore {
               self.household?.id == household.id else { return }
         triedThisMonth = loaded
         triedHouseholdID = household.id
+    }
+
+    /// This plan week and the four weeks ending today, by the household's day, for planners only (the server refuses
+    /// anyone else). Quiet on failure, like the stats.
+    func loadEngagement(now: Date = .now) async {
+        guard let household, isPlanner else {
+            engagement = nil
+            engagementHouseholdID = nil
+            return
+        }
+        if engagementHouseholdID != household.id {
+            engagement = nil
+        }
+        let settings = household.planningSettings
+        let calendar = settings.dayCalendar
+        let today = settings.today(now: now)
+        let windows = Engagement.windows(today: today, weekStart: settings.weekStart, calendar: calendar)
+        let client = client
+        async let thisWeek = client.engagement(household.id, windows.thisWeek.from, windows.thisWeek.to)
+        async let lately = client.engagement(household.id, windows.lately.from, windows.lately.to)
+        guard let week = try? await thisWeek, let recent = try? await lately,
+              self.household?.id == household.id, isPlanner else { return }
+        engagement = Engagement.rows(members: visibleMembers, thisWeek: week, lately: recent, today: today,
+                                     calendar: calendar)
+        engagementHouseholdID = household.id
     }
 
     func load() async {

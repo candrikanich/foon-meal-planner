@@ -56,6 +56,8 @@ struct FamilyView: View {
                     }
                 }
 
+                if store.isPlanner { EngagementSection(rows: store.engagement) }
+
                 Section("Family") {
                     ForEach(store.visibleMembers) { member in
                         NavigationLink {
@@ -211,10 +213,13 @@ struct FamilyView: View {
                 await store.load()
                 await loadDinners()
                 await store.loadStats()
+                await store.loadEngagement()
             }
             // Waits for the household, so the tally uses its time zone (the store's calendar is shared with This Week).
             .task(id: store.household?.id) { await loadDinners() }
             .task(id: store.household?.id) { await store.loadStats() }
+            // Again when someone becomes a planner or stops being one, so it never shows to someone who can't plan.
+            .task(id: store.isPlanner ? store.household?.id : nil) { await store.loadEngagement() }
             .navigationTitle("Family")
             .toolbar {
                 if store.canManagePeople {
