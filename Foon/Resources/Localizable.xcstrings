@@ -2154,6 +2154,9 @@
     "Kitchen" : {
 
     },
+    "Last 4 weeks: %@" : {
+      "comment" : "Who's pitching in: what someone did in the 4 weeks ending today"
+    },
     "Last night away" : {
 
     },
@@ -2482,6 +2485,12 @@
     "No favorites yet" : {
 
     },
+    "No ideas from %@ in 3 weeks." : {
+      "comment" : "Who's pitching in: a quiet nudge for a parent; someone who's done other things"
+    },
+    "No ideas from %@ lately. Maybe ask what sounds good?" : {
+      "comment" : "Who's pitching in: a quiet nudge for a parent; nothing from them in 4 weeks"
+    },
     "No ideas yet" : {
 
     },
@@ -2711,6 +2720,9 @@
 
     },
     "Only planners can hide a comment." : {
+
+    },
+    "Only planners see this. A word in person goes further than a reminder." : {
 
     },
     "Only the photos you chose for Foon show here. Change that in Settings." : {
@@ -3808,6 +3820,9 @@
     "This week's dinners" : {
 
     },
+    "This week: %@" : {
+      "comment" : "Who's pitching in: what someone did this plan week, like \"sent 2 ideas\""
+    },
     "Those dates didn't work. The last night has to be on or after the first, up to a year later, and not already over." : {
 
     },
@@ -4228,6 +4243,9 @@
     "Who's home" : {
 
     },
+    "Who's pitching in" : {
+
+    },
     "Whoever's home tonight can vote. No vote counts as abstaining. A planner makes the winner tonight's dinner." : {
 
     },
@@ -4392,8 +4410,54 @@
     "^[%lld item](inflect: true) marked bought" : {
 
     },
+    "answered %lld check-ins" : {
+      "comment" : "Who's pitching in: \"Home tonight?\" check-ins someone answered",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "answered %lld check-in"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "answered %lld check-ins"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "around %lld min" : {
       "comment" : "Tonight rescue: an estimated time to dinner"
+    },
+    "claimed %lld nights" : {
+      "comment" : "Who's pitching in: nights someone offered to cook",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "claimed %lld night"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "claimed %lld nights"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "cook.timer.finished" : {
       "comment" : "Cook mode: a timer that has finished",
@@ -4403,6 +4467,32 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Done"
+          }
+        }
+      }
+    },
+    "cooked %@" : {
+      "comment" : "Who's pitching in: the one night this week someone cooked; a weekday"
+    },
+    "cooked %lld dinners" : {
+      "comment" : "Who's pitching in: logged dishes someone cooked",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "cooked %lld dinner"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "cooked %lld dinners"
+                }
+              }
+            }
           }
         }
       }
@@ -4436,6 +4526,75 @@
     },
     "peanuts" : {
       "comment" : "Allergen, lowercase inside a sentence"
+    },
+    "rated %lld dinners" : {
+      "comment" : "Who's pitching in: dinners someone rated; about the food",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "rated %lld dinner"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "rated %lld dinners"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "said me too to %lld ideas" : {
+      "comment" : "Who's pitching in: someone else's requests this person backed with me too",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "said me too to %lld idea"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "said me too to %lld ideas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "sent %lld ideas" : {
+      "comment" : "Who's pitching in: requests someone sent; joined with others by \" · \"",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "sent %lld idea"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "sent %lld ideas"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "serving-note.line" : {
       "comment" : "A serving note on a day card: who, then how they like the dish",
