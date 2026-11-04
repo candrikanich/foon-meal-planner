@@ -1,7 +1,7 @@
 -- Receipt aliases (#61): anyone in the family, kids too, teaches a receipt line's item; a correction moves it, nothing
 -- deletes it; another household can't read, teach or correct it.
 begin;
-select plan(19);
+select plan(20);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -81,6 +81,10 @@ select is((select item_id from public.receipt_aliases
            where household_id = '00000000-0000-0000-0000-0000000000a0' and raw_text = 'bnls chkn brst'),
   '00000000-0000-0000-0000-0000000001a2'::uuid, 'another household can''t correct this one');
 select is((select count(*)::int from public.receipt_aliases), 2, 'one alias per household');
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select is(public.export_household('00000000-0000-0000-0000-0000000000a0') -> 'receipt_aliases' -> 0 ->> 'raw_text',
+  'bnls chkn brst', 'the export holds the household''s own corrections and no one else''s');
+reset role;
 
 select * from finish();
 rollback;

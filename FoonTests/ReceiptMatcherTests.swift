@@ -93,6 +93,20 @@ struct ReceiptMatcherTests {
         #expect(lines.map(\.text) == ["MILK"])
     }
 
+    @Test func aGroceryNamedTotalDoesNotEndTheReceipt() {
+        let lines = ReceiptMatcher.candidates(["GM TOTAL CEREAL 4.29", "BALANCE BAR 1.99", "MILK 3.48",
+                                               "**** SUB TOTAL 9.76", "EGGS 2.99"])
+        #expect(lines.map(\.text) == ["GM TOTAL CEREAL", "BALANCE BAR", "MILK"])
+        #expect(ReceiptMatcher.candidates(["MILK 3.48", "BALANCE DUE 3.48", "EGGS 2.99"]).map(\.text) == ["MILK"])
+    }
+
+    @Test func aKeyCutOnASpaceIsTrimmedLikeTheServerStoresIt() throws {
+        let line = String(repeating: "A", count: ReceiptMatcher.keyLimit - 1) + " BREAD 2.49"
+        let key = try #require(ReceiptMatcher.key(line))
+        #expect(key == String(repeating: "a", count: ReceiptMatcher.keyLimit - 1))
+        #expect(ReceiptMatcher.candidates([line]).first?.key == key)
+    }
+
     @Test func headerLinesThatMatchNothingAreDropped() {
         let lines = ReceiptMatcher.match(["Save money. Live better.", "Fresh Market Grocer", "MILK 3.48"],
                                          items: items, aliases: [])

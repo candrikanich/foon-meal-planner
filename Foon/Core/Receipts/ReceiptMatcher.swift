@@ -79,12 +79,13 @@ enum ReceiptMatcher {
         var result: [Candidate] = []
         for line in lines {
             let upper = line.uppercased()
-            let words = Set(upper.split { !$0.isLetter }.map(String.init))
-            if !words.isDisjoint(with: endWords) { break }
+            let ordered = upper.split { !$0.isLetter }.map(String.init)
+            let words = Set(ordered)
+            if endsReceipt(ordered) { break }
             guard !isNoise(upper, words: words), let text = printed(line) else { continue }
             let readable = ReceiptText.words(text)
             guard !readable.isEmpty else { continue }
-            result.append(Candidate(text: text, key: String(text.lowercased().prefix(keyLimit)), words: readable,
+            result.append(Candidate(text: text, key: aliasKey(text), words: readable,
                                     priced: contains(line, pattern: price)))
         }
         return result
@@ -92,7 +93,19 @@ enum ReceiptMatcher {
 
     /// What a correction is saved under: the line as printed, lowercased, without prices, codes and flags.
     static func key(_ line: String) -> String? {
-        printed(line).map { String($0.lowercased().prefix(keyLimit)) }
+        printed(line).map(aliasKey)
+    }
+
+    /// Trimmed after the cut, the way the server stores it, so a cut that lands on a space still finds its alias.
+    private static func aliasKey(_ text: String) -> String {
+        String(text.lowercased().prefix(keyLimit)).trimmingCharacters(in: .whitespaces)
+    }
+
+    /// "TOTAL 37.85" and "BALANCE DUE" end the receipt; "GM TOTAL CEREAL" and "BALANCE BAR" are groceries.
+    private static func endsReceipt(_ words: [String]) -> Bool {
+        guard let first = words.first else { return false }
+        if words.count > 1, totalPrefixes.contains(first), words[1] == "TOTAL" { return true }
+        return endWords.contains(first) && words.dropFirst().allSatisfy(endTrailers.contains)
     }
 
     /// 0.6 for covering the item's words, 0.4 for covering the line's: "CHOBANI YGRT" is yogurt, and a line with every
@@ -137,6 +150,8 @@ enum ReceiptMatcher {
 
     /// From here on it's the payment.
     private static let endWords: Set<String> = ["TOTAL", "SUBTOTAL", "BALANCE"]
+    private static let totalPrefixes: Set<String> = ["SUB", "GRAND", "ORDER"]
+    private static let endTrailers: Set<String> = ["DUE", "AMOUNT", "AMT", "USD", "SALE", "PURCHASE", "OWED", "TO", "PAY", "TODAY"]
 
     private static let noiseWords: Set<String> = [
         "TAX", "CHANGE", "CASH", "VISA", "MASTERCARD", "AMEX", "DISCOVER", "DEBIT", "CREDIT", "CARD", "TEND", "TENDER",
