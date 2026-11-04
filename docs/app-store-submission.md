@@ -13,9 +13,9 @@ Draft App Store Connect data for Foon, ready to paste. Verify field limits and t
 | Keywords | meal plan,grocery,shopping list,recipes,menu,weekly,kids,picky eater,leftovers,pantry,cooking,vote | 100 chars (98); no words repeated from the name |
 | Promotional text | Picky kids. Busy parents. One dinner. Plan the week together in minutes, build the shopping list automatically, and stop asking "what's for dinner?" | 170 chars |
 | Copyright | 2026 The Recruiting Compass LLC | |
-| Support URL | TBD (landing page /support) | |
-| Marketing URL | TBD (landing page) | |
-| Privacy policy URL | TBD (landing page /privacy) | Required |
+| Support URL | https://getfoon.com/support | Mailbox support@getfoon.com must exist |
+| Marketing URL | https://getfoon.com | |
+| Privacy policy URL | https://getfoon.com/privacy | Required. Today a plain-English summary; #67 replaces it with the full policy. Terms are at https://getfoon.com/terms (placeholder until #67) |
 
 ## Description (draft)
 
