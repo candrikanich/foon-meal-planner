@@ -66,7 +66,7 @@ Data used to track you: **None.**
 | Email address (Sign in with Apple, may be relay) | Yes | App functionality, account | Yes |
 | Health (allergies) | Yes | App functionality | Yes |
 | Photos | Yes (meal photos) | App functionality | Yes |
-| Other user content (meals, comments, requests, receipt lines the family corrected) | Yes | App functionality | Yes |
+| Other user content (meals, comments, requests, receipt lines the family corrected, a dish's recipe lines queued for an AI tidy-up) | Yes | App functionality | Yes |
 | User ID | Yes | App functionality | Yes |
 | Purchase history | Yes | App functionality | Yes |
 | Product interaction | Yes | Analytics | No (anonymized) |
@@ -74,6 +74,8 @@ Data used to track you: **None.**
 | Crash and performance data | Yes | App functionality | No (scrubbed) |
 
 Not collected: precise or coarse location, contacts, browsing history, search history, financial info, sensitive info beyond allergies, calendar data (read on device only, never collected), receipt photos (read on device only, never uploaded or kept; what's kept is "Other user content": receipt lines the family corrected and the item each is).
+
+AI recipe tidy-up (#59): no new data type. A device that can run Apple's on-device model tidies a shared recipe itself and sends nothing. Only on a device that can't, and only when a planner adds the dish, do the parsed recipe lines (title, servings, ingredient and step lines, never the raw screen text) and the source link go to the household's `ai_jobs` queue, for a planner's device in the family to structure. That's "Other user content", for App functionality, linked to the user, and not used for tracking. The lines are emptied from the job once it's done, failed or expired (3 days at most); the tidied recipe stays with the job until finished jobs are pruned 30 days on. No allergies or member data are ever in a job, and the model runs on the family's own devices, never a server.
 
 **Permission prompts.** Camera (`NSCameraUsageDescription` in Info.plist, via `project.yml`): "Foon reads a receipt you photograph to mark what you bought. The photo stays on this device and isn't kept." Asked the first time someone takes a receipt photo (#61). Choosing a photo uses the system photo picker, which needs no permission.
 
@@ -121,7 +123,7 @@ Key flows: This Week tab, Fill my week, approve, then the cart icon for the shop
 - [x] After-dinner card (#122): App ID `com.andrikanich.foon.dinner` registered with App Groups on, with `group.com.andrikanich.foon`
 - [x] Tonight widget (#62): App ID `com.andrikanich.foon.widget` registered with App Groups on, with `group.com.andrikanich.foon`
 - [x] Calendar awareness (#64): `NSCalendarsFullAccessUsageDescription` in Info.plist (via project.yml), the Mac's calendars entitlement, and no App Privacy data type (never leaves the device)
-- [x] AI queue (#58): background fetch (`UIBackgroundModes: fetch`, already on for #122) with a second refresh identifier, `com.andrikanich.foon.ai`, in `BGTaskSchedulerPermittedIdentifiers` (via project.yml). Only a device that can run Apple's on-device model asks for it; the Mac claims jobs when Foon opens. No new permission prompt. When #59 ships the first real kind, add its text and results to the label's "Other user content" row and to What Foon keeps
+- [x] AI queue (#58): background fetch (`UIBackgroundModes: fetch`, already on for #122) with a second refresh identifier, `com.andrikanich.foon.ai`, in `BGTaskSchedulerPermittedIdentifiers` (via project.yml). Only a device that can run Apple's on-device model asks for it; the Mac claims jobs when Foon opens. No new permission prompt. #59's recipe kind is in the label's "Other user content" row and in What Foon keeps
 - [x] Receipt scanning (#61): `NSCameraUsageDescription` in Info.plist (via project.yml), iPhone and iPad only (the Mac picks a photo, so no camera entitlement), and no App Privacy type for the photo (never leaves the device)
 - [ ] Privacy policy and terms live at the URLs above
 - [ ] Sign in with Apple private email relay: sending domain registered

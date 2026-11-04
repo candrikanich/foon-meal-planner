@@ -59,6 +59,12 @@ struct LibraryClient: Sendable {
     /// Deletes a dish if the server agrees it's unused, and returns its photo's path. Throws `LibraryClientError.inUse` if not.
     var deleteUnused: @Sendable (_ mealID: UUID) async throws -> String? = { _ in nil }
     var removePhoto: @Sendable (_ path: String) async throws -> Void = { _ in }
+    /// One meal as the server has it now, with its version; nil when it's gone or not visible.
+    var freshMeal: @Sendable (_ mealID: UUID) async throws -> FreshMeal? = { _ in nil }
+    /// save_meal, only if nobody has saved the meal since `version`. Throws `RecipeSaveError` when the server says no.
+    var saveIfUnchanged: @Sendable (_ mealID: UUID, _ meal: MealDraft.Saved, _ version: String) async throws -> Void = { _, _, _ in
+        throw RecipeSaveError.refused
+    }
 }
 
 enum RecipeImportError: Error, Equatable {
@@ -104,12 +110,7 @@ extension LibraryClient {
             meals: { householdID in
                 let rows: [MealRow] = try await RowPages.all(key: \.id) { after, size in
                     var query = client.from("meals")
-                        .select("""
-                            id, household_id, catalog_meal_id, name, servings, tags, status, photo_path, made_by_member_id, \
-                            created_at, steps, source_url, prep_steps, cook_minutes, \
-                            meal_ingredients(item_id, position, quantity_text, items(canonical_name, category, note, keep_on_hand)), \
-                            meal_sides!meal_sides_meal_fkey(position, side_meal_id, item_id, items(canonical_name))
-                            """)
+                        .select(MealRow.columns)
                         .eq("household_id", value: householdID)
                     if let after { query = query.gt("id", value: after) }
                     return try await query.order("id").limit(size).execute().value
@@ -268,12 +269,38 @@ extension LibraryClient {
                     throw LibraryClientError.inUse
                 }
             },
-            removePhoto: photos.remove
+            removePhoto: photos.remove,
+            freshMeal: { mealID in
+                let rows: [MealRow] = try await client.from("meals")
+                    .select(MealRow.columns + ", updated_at")
+                    .eq("id", value: mealID)
+                    .execute()
+                    .value
+                return rows.first.flatMap { row in row.updatedAt.map { FreshMeal(meal: row.meal, version: $0) } }
+            },
+            saveIfUnchanged: { mealID, meal, version in
+                do {
+                    try await client.rpc("save_meal_if_unchanged", params: SaveIfUnchangedParams(
+                        save: SaveMealParams(mealID: mealID, meal: meal), version: version
+                    )).execute()
+                } catch let error as PostgrestError where error.code == "40001" {
+                    throw RecipeSaveError.changed
+                } catch let error as PostgrestError where ["42501", "P0002", "22023", "23514", "22001"].contains(error.code) {
+                    throw RecipeSaveError.refused
+                }
+            }
         )
     }
 }
 
 private struct MealRow: Decodable, Sendable {
+    static let columns = """
+        id, household_id, catalog_meal_id, name, servings, tags, status, photo_path, made_by_member_id, \
+        created_at, steps, source_url, prep_steps, cook_minutes, \
+        meal_ingredients(item_id, position, quantity_text, items(canonical_name, category, note, keep_on_hand)), \
+        meal_sides!meal_sides_meal_fkey(position, side_meal_id, item_id, items(canonical_name))
+        """
+
     struct Line: Decodable, Sendable {
         struct Item: Decodable, Sendable {
             let canonicalName: String
@@ -316,6 +343,8 @@ private struct MealRow: Decodable, Sendable {
     let cookMinutes: Int?
     let mealIngredients: [Line]
     let mealSides: [Side]
+    /// Only when asked for: a fresh read for a conditional save.
+    let updatedAt: String?
 
     struct Side: Decodable, Sendable {
         struct Item: Decodable, Sendable {
@@ -355,6 +384,7 @@ private struct MealRow: Decodable, Sendable {
         case cookMinutes = "cook_minutes"
         case mealIngredients = "meal_ingredients"
         case mealSides = "meal_sides"
+        case updatedAt = "updated_at"
     }
 
     var meal: LibraryMeal {
@@ -439,6 +469,19 @@ private struct SaveMealParams: Encodable, Sendable {
         try container.encode(meal.sourceURL?.absoluteString, forKey: .sourceURL)
         try container.encode(meal.madeByMemberID, forKey: .madeBy)
         try container.encode(meal.lines, forKey: .lines)
+    }
+}
+
+private struct SaveIfUnchangedParams: Encodable, Sendable {
+    let save: SaveMealParams
+    let version: String
+
+    private enum CodingKeys: String, CodingKey { case version = "expected_updated_at" }
+
+    func encode(to encoder: Encoder) throws {
+        try save.encode(to: encoder)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(version, forKey: .version)
     }
 }
 

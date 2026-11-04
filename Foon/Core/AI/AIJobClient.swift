@@ -8,8 +8,8 @@ struct AIJobClient: Sendable {
     var claim: @Sendable (_ kinds: [AIJobKind], _ job: UUID?) async throws -> AIJob?
     var complete: @Sendable (_ job: UUID, _ result: Data) async throws -> AIJob
     var fail: @Sendable (_ job: UUID, _ reason: String) async throws -> AIJob
-    /// The household's jobs, newest first: how other devices see results.
-    var recent: @Sendable (_ householdID: UUID) async throws -> [AIJob]
+    /// Where these jobs have got to, with their results: how a device sees what another one ran. Never the payloads.
+    var statuses: @Sendable (_ ids: [UUID]) async throws -> [AIJobSummary]
 }
 
 extension AIJobClient {
@@ -39,15 +39,14 @@ extension AIJobClient {
                     .execute().value
                 return try row.job()
             },
-            recent: { householdID in
-                let rows: [AIJobRow] = try await client.from("ai_jobs")
-                    .select("id, household_id, kind, payload, status, result, error, updated_at")
-                    .eq("household_id", value: householdID)
-                    .order("created_at", ascending: false)
-                    .limit(50)
+            statuses: { ids in
+                guard !ids.isEmpty else { return [] }
+                let rows: [AIJobSummaryRow] = try await client.from("ai_jobs")
+                    .select("id, kind, status, result, updated_at")
+                    .in("id", values: ids.map(\.uuidString))
                     .execute()
                     .value
-                return try rows.map { try $0.job() }
+                return try rows.map { try $0.summary() }
             }
         )
     }
@@ -56,7 +55,7 @@ extension AIJobClient {
     static let preview = AIJobClient(
         submit: { _, _ in throw CancellationError() }, claim: { _, _ in nil },
         complete: { _, _ in throw CancellationError() }, fail: { _, _ in throw CancellationError() },
-        recent: { _ in [] }
+        statuses: { _ in [] }
     )
 }
 
@@ -107,5 +106,20 @@ private struct AIJobRow: Decodable {
         let encoder = JSONEncoder()
         return AIJob(id: id, householdID: householdID, kind: AIJobKind(rawValue: kind), payload: try encoder.encode(payload),
                      status: status, result: try result.map { try encoder.encode($0) }, error: error, updatedAt: updatedAt)
+    }
+}
+
+private struct AIJobSummaryRow: Decodable {
+    let id: UUID
+    let kind: String
+    let status: AIJobStatus
+    let result: AnyJSON?
+    let updatedAt: Date
+
+    enum CodingKeys: String, CodingKey { case id, kind, status, result, updatedAt = "updated_at" }
+
+    func summary() throws -> AIJobSummary {
+        AIJobSummary(id: id, kind: AIJobKind(rawValue: kind), status: status,
+                     result: try result.map { try JSONEncoder().encode($0) }, updatedAt: updatedAt)
     }
 }

@@ -224,7 +224,7 @@ struct MealDraft: Equatable, Sendable {
     }
 
     /// "1. Brown the beef", "2) …", "- …", and "Step 3: …" all become the step itself.
-    private static func withoutNumbering(_ line: Substring) -> String {
+    static func withoutNumbering(_ line: Substring) -> String {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         // A digit right after the mark means a quantity or a time ("1.5 cups", "10:30"), not numbering.
         let pattern = /^(?:(?:[Ss]tep\s*)?\d+\s*[.):](?!\d)|[-*•])\s*/

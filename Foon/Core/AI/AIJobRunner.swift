@@ -14,13 +14,26 @@ struct AIJobRunner: Sendable {
     /// Queues the job and, if this device can run the model, claims and runs it now. The job as this device last saw it, or
     /// nil if it couldn't be queued (offline, say).
     func submit(_ request: AIJobRequest, householdID: UUID) async -> AIJob? {
-        guard let job = try? await client.submit(householdID, request) else { return nil }
+        guard let job = await queue(request, householdID: householdID) else { return nil }
+        return await runOwn(job)
+    }
+
+    /// Only queues it: nil if it couldn't be (offline, say).
+    func queue(_ request: AIJobRequest, householdID: UUID) async -> AIJob? {
+        try? await client.submit(householdID, request)
+    }
+
+    /// A job this device queued, claimed and run here if it can run the model. Otherwise it's left for a family device.
+    func runOwn(_ job: AIJob) async -> AIJob {
         guard ai.canRun, let claimed = try? await client.claim(kinds, job.id) else { return job }
         return await run(claimed)
     }
 
-    /// Claims and runs the family's waiting jobs, one at a time, up to `limit`. How many it finished, done or failed.
-    func drain(limit: Int) async -> Int {
+    /// Claims and runs the family's waiting jobs of these kinds (all it can run, unless told fewer), one at a time, up to
+    /// `limit`. How many it finished, done or failed.
+    func drain(limit: Int, kinds: [AIJobKind]? = nil) async -> Int {
+        let kinds = kinds ?? self.kinds
+        guard !kinds.isEmpty else { return 0 }
         var finished = 0
         for _ in 0..<limit {
             guard ai.canRun, !Task.isCancelled, let job = try? await client.claim(kinds, nil) else { break }

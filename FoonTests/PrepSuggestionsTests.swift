@@ -49,6 +49,26 @@ struct PrepSuggestionsTests {
         #expect(found.contains { $0.leadHours == 8 })
     }
 
+    @Test func marinatingOvernightGivesItTheNight() {
+        let found = PrepSuggestions.suggestions(name: "Tofu bowl", ingredients: [], steps: "Marinate the tofu overnight",
+                                                tags: [], existing: [], keepsMeatFrozen: true)
+        #expect(found.map(\.leadHours) == [12])
+    }
+
+    @Test func anyOtherOvernightStepStartsTheNightBefore() {
+        let found = PrepSuggestions.suggestions(name: "Bean soup", ingredients: [], steps: "Soak the beans overnight.\nSimmer",
+                                                tags: [], existing: [], keepsMeatFrozen: true)
+        #expect(found == [PrepStep(step: String(localized: "Start the night before", comment: "Suggested prep step"),
+                                   leadHours: 24)])
+        #expect(kinds(name: "Overnight oats").count == 1)
+    }
+
+    @Test func anOvernightThawOrMarinadeIsntOfferedTwice() {
+        #expect(kinds(name: "Shrimp boil", steps: "Defrost the shrimp overnight") == [.thaw])
+        #expect(kinds(name: "Bean soup", steps: "Soak the beans overnight", existing: ["Soak the beans the night before"]).isEmpty)
+        #expect(kinds(name: "Bean soup", steps: "Soak the beans overnight", existing: ["Soak beans overnight"]).isEmpty)
+    }
+
     @Test func aStepAboutTheMarinadeCountsAsMarinating() {
         let found = PrepSuggestions.suggestions(name: "Stew", ingredients: [], steps: "Make the marinade", tags: [],
                                                 existing: ["Make the marinade"], keepsMeatFrozen: true)

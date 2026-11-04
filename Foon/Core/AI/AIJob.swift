@@ -4,8 +4,10 @@ import Foundation
 /// older app never takes a job it can't run.
 enum AIJobKind: String, Codable, CaseIterable, Sendable {
     /// Hands back its payload without the model. No feature submits it: it proves the queue end to end (a job put in by hand
-    /// on staging comes back done) until #59's recipe structuring is the first real kind.
+    /// on staging comes back done).
     case echo
+    /// Captured recipe text (a photo's, a PDF's or a post's caption) structured into a recipe (#59).
+    case recipe
 }
 
 enum AIJobStatus: String, Codable, Sendable {
@@ -34,6 +36,25 @@ struct AIJob: Equatable, Identifiable, Sendable {
     func decodedResult<Result: Decodable>(_ type: Result.Type) throws -> Result? {
         try result.map { try JSONDecoder().decode(type, from: $0) }
     }
+
+    var summary: AIJobSummary {
+        AIJobSummary(id: id, kind: kind, status: status, result: result, updatedAt: updatedAt)
+    }
+}
+
+/// A job as the screens need it: where it's got to and its result. Never its payload, which only the device running it reads.
+struct AIJobSummary: Equatable, Identifiable, Sendable {
+    let id: UUID
+    let kind: AIJobKind?
+    let status: AIJobStatus
+    let result: Data?
+    let updatedAt: Date
+
+    var isOpen: Bool { status == .queued || status == .claimed }
+
+    func decodedResult<Result: Decodable>(_ type: Result.Type) -> Result? {
+        result.flatMap { try? JSONDecoder().decode(type, from: $0) }
+    }
 }
 
 /// What a device asks the household's capable devices to do: one case per kind, each with a payload struct.
@@ -44,16 +65,19 @@ struct AIJob: Equatable, Identifiable, Sendable {
 /// `AIJobPayloadTests` checks every kind.
 enum AIJobRequest: Equatable, Sendable {
     case echo(EchoPayload)
+    case recipe(RecipeJobPayload)
 
     var kind: AIJobKind {
         switch self {
         case .echo: .echo
+        case .recipe: .recipe
         }
     }
 
     func payload() throws -> Data {
         switch self {
         case .echo(let payload): try JSONEncoder().encode(payload)
+        case .recipe(let payload): try JSONEncoder().encode(payload)
         }
     }
 }
@@ -82,7 +106,8 @@ extension AIJobKind {
             guard let echo = try? JSONDecoder().decode(EchoPayload.self, from: payload),
                   let result = try? JSONEncoder().encode(echo) else { return .failed("unreadable payload") }
             return .done(result)
-        }
+        },
+        .recipe: RecipeStructuring.handle
     ]
 }
 

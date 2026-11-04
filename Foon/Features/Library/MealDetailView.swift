@@ -10,6 +10,7 @@ struct MealDetailView: View {
     @Environment(WeekStore.self) private var week: WeekStore?
     @Environment(IdeasStore.self) private var ideas: IdeasStore?
     @Environment(SyncService.self) private var sync: SyncService?
+    @Environment(AIQueueStore.self) private var aiQueue: AIQueueStore?
     @Environment(\.dismiss) private var dismiss
     let mealID: UUID
     let canEdit: Bool
@@ -50,6 +51,16 @@ struct MealDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 hero(meal)
                 header(entry)
+                if aiQueue?.isProcessing(meal: meal.id) == true {
+                    // Saved before the tidy-up came back: it fills in whatever nobody's changed (docs/spec.md → Household AI queue).
+                    Label {
+                        Text("Foon is still tidying up this recipe. Anything you change stays as you leave it.")
+                    } icon: {
+                        ProgressView()
+                    }
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                }
                 if !meal.steps.isEmpty {
                     Button { cooking = meal } label: {
                         Label("Start cooking", systemImage: "frying.pan").frame(maxWidth: .infinity)

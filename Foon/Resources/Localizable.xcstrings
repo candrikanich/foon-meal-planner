@@ -659,6 +659,9 @@
     "A removed meal" : {
 
     },
+    "AI runs on your family's own devices, with Apple's on-device model, and a device that can run it sends nothing for AI. One that can't sends a dish's recipe lines through Foon's servers to a planner's device in your family that can, and only when a planner adds the dish." : {
+
+    },
     "About %@ of planning saved" : {
       "comment" : "Family stats: estimated planning time saved; the argument is a duration like \"1 hour, 30 minutes\""
     },
@@ -1699,6 +1702,12 @@
 
     },
     "Foon is building the week. Try again in a moment." : {
+
+    },
+    "Foon is still tidying up this recipe. Anything you change stays as you leave it." : {
+
+    },
+    "Foon is tidying this up on this device. Change anything you like: your changes stay." : {
 
     },
     "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime." : {
@@ -2747,7 +2756,7 @@
     "Personal care" : {
 
     },
-    "Photos and PDFs you share to Foon. They're read here and then deleted, and only the text you keep is saved." : {
+    "Photos and PDFs you share to Foon. They're read here and then deleted. Only the text you keep leaves this device, and the recipe lines of a dish you add, if this device can't tidy them up itself." : {
 
     },
     "Pick a night from today on to plan it." : {
@@ -3273,6 +3282,9 @@
         }
       }
     },
+    "Start the night before" : {
+      "comment" : "Suggested prep step"
+    },
     "Start the slow cooker" : {
       "comment" : "Suggested prep step"
     },
@@ -3395,6 +3407,9 @@
 
     },
     "Tap a line to change its item, or switch it off to skip it." : {
+
+    },
+    "Tap one to add it. Planners get a reminder this long before dinner." : {
 
     },
     "Tap the dinners your family already makes. You can add your own anytime." : {
@@ -4024,6 +4039,9 @@
       "comment" : "Tonight rescue: why Leftovers"
     },
     "When" : {
+
+    },
+    "When a planner adds a dish from a photo, PDF, or post on a device that can't run Apple's on-device AI, its recipe lines, held briefly so a planner's device in your family that can will tidy them up. They go once that's done, or after 3 days at most; the tidied recipe is kept for 30 days." : {
 
     },
     "When do you plan the week?" : {
