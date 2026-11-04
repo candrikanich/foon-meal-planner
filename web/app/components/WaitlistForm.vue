@@ -10,7 +10,7 @@ const sending = ref(false);
 const result = ref<WaitlistResult | null>(null);
 
 const problems: Record<Exclude<WaitlistResult, "ok">, string> = {
-  invalid: "That doesn't look like an email address. Could you check it?",
+  invalid: "Could you check your email address? If you gave a first name, it can use letters, spaces, hyphens and apostrophes.",
   slow_down: "That's a lot of tries from one place. Please wait a little and try again.",
   error: "Something went wrong on our side. Please try again in a few minutes.",
   unavailable: "The waitlist isn't open on this preview of the site.",

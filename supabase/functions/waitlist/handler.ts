@@ -14,7 +14,14 @@ export interface WaitlistDeps {
   siteUrl: string;
   // The Edge Function's own public URL, which the emailed links point at.
   functionUrl: string;
-  join(input: { email: string; firstName: string | null; tokenHash: string; ipHash: string }): Promise<JoinOutcome>;
+  join(
+    input: {
+      email: string;
+      firstName: string | null;
+      tokenHash: string;
+      ipHash: string;
+    },
+  ): Promise<JoinOutcome>;
   confirm(tokenHash: string): Promise<ConfirmOutcome>;
   unsubscribe(id: string): Promise<boolean>;
   idFor(email: string): Promise<string | null>;
@@ -23,14 +30,18 @@ export interface WaitlistDeps {
   // A stable, unguessable signature for an id: the unsubscribe link's proof.
   sign(id: string): Promise<string>;
   // "off" when email isn't configured (nothing sent); a send that fails throws.
-  sendConfirmation(message: { to: string; firstName: string | null; confirmUrl: string; unsubscribeUrl: string }): Promise<"sent" | "off">;
+  sendConfirmation(
+    message: { to: string; confirmUrl: string; unsubscribeUrl: string },
+  ): Promise<"sent" | "off">;
   // Ids and outcomes only: never an email address.
   log(message: string, error?: unknown): void;
 }
 
 const signupSchema = z.object({
   email: z.string().trim().max(254).pipe(z.email()),
-  firstName: z.string().trim().max(60).optional(),
+  // Letters, spaces, hyphens and apostrophes only: no digits, links or symbols, so a name is only ever a name.
+  firstName: z.string().trim().max(40).regex(/^[\p{L}\p{M}][\p{L}\p{M} '’-]*$/u)
+    .or(z.literal("")).optional(),
   website: z.string().optional(),
 });
 
@@ -43,25 +54,50 @@ const corsHeaders = (origin: string) => ({
   "Vary": "Origin",
 });
 
-function json(status: number, body: Record<string, unknown>, origin: string | null): Response {
+function json(
+  status: number,
+  body: Record<string, unknown>,
+  origin: string | null,
+): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", ...(origin ? corsHeaders(origin) : {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(origin ? corsHeaders(origin) : {}),
+    },
   });
 }
 
-const redirect = (url: string) => new Response(null, { status: 303, headers: { Location: url } });
+const redirect = (url: string) =>
+  new Response(null, { status: 303, headers: { Location: url } });
 
-// Behind Supabase's proxy the first x-forwarded-for entry is the caller.
-function callerAddress(req: Request): string {
-  return (req.headers.get("x-forwarded-for")?.split(",")[0] ?? req.headers.get("cf-connecting-ip") ?? "unknown").trim();
+// A client can send its own x-forwarded-for, and proxies append to it, so its FIRST entry is whatever the caller says.
+// cf-connecting-ip is set by Cloudflare, which fronts Supabase's functions, and replaces any value the client sent. If
+// it's missing we take the LAST x-forwarded-for entry, the one added by the proxy nearest us. Either way a caller can't
+// pick their own address; and the database's overall hourly cap holds even if this were ever wrong.
+export function callerAddress(headers: Headers): string {
+  const cloudflare = headers.get("cf-connecting-ip")?.trim();
+  if (cloudflare) return cloudflare;
+  const hops =
+    headers.get("x-forwarded-for")?.split(",").map((hop) => hop.trim()).filter(
+      Boolean,
+    ) ?? [];
+  return hops.at(-1) ?? "unknown";
 }
 
-export function unsubscribeUrl(deps: Pick<WaitlistDeps, "functionUrl">, id: string, signature: string): string {
+export function unsubscribeUrl(
+  deps: Pick<WaitlistDeps, "functionUrl">,
+  id: string,
+  signature: string,
+): string {
   return `${deps.functionUrl}?unsubscribe=${id}.${signature}`;
 }
 
-async function signUp(req: Request, deps: WaitlistDeps, origin: string | null): Promise<Response> {
+async function signUp(
+  req: Request,
+  deps: WaitlistDeps,
+  origin: string | null,
+): Promise<Response> {
   const body = await req.json().catch(() => null);
   const parsed = signupSchema.safeParse(body);
   if (!parsed.success) return json(400, { error: "bad_request" }, origin);
@@ -75,31 +111,42 @@ async function signUp(req: Request, deps: WaitlistDeps, origin: string | null): 
     firstName: firstName || null,
     tokenHash: await deps.sha256(token),
     // Keyed, so the hash can't be reversed by trying every address.
-    ipHash: await deps.sign(`ip:${callerAddress(req)}`),
+    ipHash: await deps.sign(`ip:${callerAddress(req.headers)}`),
   });
-  if (outcome === "rate_limited") return json(429, { error: "slow_down" }, origin);
+  if (outcome === "rate_limited") {
+    return json(429, { error: "slow_down" }, origin);
+  }
   if (outcome === "send") {
     const id = await deps.idFor(email);
     if (!id) throw new Error("signup vanished");
     const result = await deps.sendConfirmation({
       to: email,
-      firstName: firstName || null,
       confirmUrl: `${deps.functionUrl}?confirm=${token}`,
       unsubscribeUrl: unsubscribeUrl(deps, id, await deps.sign(id)),
     });
-    if (result === "off") deps.log("waitlist: email is off (RESEND_API_KEY or WAITLIST_FROM unset); signup stored, nothing sent");
+    if (result === "off") {
+      deps.log(
+        "waitlist: email is off (RESEND_API_KEY or WAITLIST_FROM unset); signup stored, nothing sent",
+      );
+    }
   }
   return json(200, { ok: true }, origin);
 }
 
-async function unsubscribeFrom(param: string, deps: WaitlistDeps): Promise<boolean> {
+async function unsubscribeFrom(
+  param: string,
+  deps: WaitlistDeps,
+): Promise<boolean> {
   const [id, signature] = param.split(".");
   if (!id || !signature || !/^[0-9a-f-]{36}$/i.test(id)) return false;
   if (signature !== await deps.sign(id)) return false;
   return deps.unsubscribe(id);
 }
 
-export async function handleWaitlist(req: Request, deps: WaitlistDeps): Promise<Response> {
+export async function handleWaitlist(
+  req: Request,
+  deps: WaitlistDeps,
+): Promise<Response> {
   const url = new URL(req.url);
   const origin = req.headers.get("Origin");
   const site = (path: string) => `${deps.siteUrl}${path}`;
@@ -108,26 +155,49 @@ export async function handleWaitlist(req: Request, deps: WaitlistDeps): Promise<
     if (req.method === "GET") {
       const confirm = url.searchParams.get("confirm");
       if (confirm !== null) {
-        if (!tokenPattern.test(confirm)) return redirect(site("/waitlist/expired"));
+        if (!tokenPattern.test(confirm)) {
+          return redirect(site("/waitlist/expired"));
+        }
         const outcome = await deps.confirm(await deps.sha256(confirm));
-        return redirect(site(outcome === "confirmed" ? "/waitlist/confirmed" : "/waitlist/expired"));
+        return redirect(
+          site(
+            outcome === "confirmed"
+              ? "/waitlist/confirmed"
+              : "/waitlist/expired",
+          ),
+        );
       }
       const unsubscribe = url.searchParams.get("unsubscribe");
       if (unsubscribe !== null) {
-        return redirect(site(await unsubscribeFrom(unsubscribe, deps) ? "/waitlist/unsubscribed" : "/waitlist/expired"));
+        return redirect(
+          site(
+            await unsubscribeFrom(unsubscribe, deps)
+              ? "/waitlist/unsubscribed"
+              : "/waitlist/expired",
+          ),
+        );
       }
       return json(404, { error: "not_found" }, null);
     }
 
-    if (origin && !deps.allowedOrigins.includes(origin)) return json(403, { error: "forbidden" }, null);
+    if (origin && !deps.allowedOrigins.includes(origin)) {
+      return json(403, { error: "forbidden" }, null);
+    }
     if (req.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: origin ? corsHeaders(origin) : {} });
+      return new Response(null, {
+        status: 204,
+        headers: origin ? corsHeaders(origin) : {},
+      });
     }
     if (req.method === "POST") {
       const unsubscribe = url.searchParams.get("unsubscribe");
       if (unsubscribe !== null) {
         const done = await unsubscribeFrom(unsubscribe, deps);
-        return json(done ? 200 : 400, done ? { ok: true } : { error: "bad_request" }, origin);
+        return json(
+          done ? 200 : 400,
+          done ? { ok: true } : { error: "bad_request" },
+          origin,
+        );
       }
       return await signUp(req, deps, origin);
     }

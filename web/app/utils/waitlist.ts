@@ -2,7 +2,8 @@ import { z } from "zod";
 
 export const waitlistSchema = z.object({
   email: z.string().trim().max(254).pipe(z.email()),
-  firstName: z.string().trim().max(60).optional(),
+  // Same rule as the Edge Function: letters, spaces, hyphens and apostrophes.
+  firstName: z.string().trim().max(40).regex(/^[\p{L}\p{M}][\p{L}\p{M} '’-]*$/u).or(z.literal("")).optional(),
 });
 
 export type WaitlistInput = z.input<typeof waitlistSchema> & { website?: string };

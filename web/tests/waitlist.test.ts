@@ -16,7 +16,16 @@ describe("waitlistSchema", () => {
   it("rejects what isn't an email or is too long", () => {
     expect(waitlistSchema.safeParse({ email: "pat" }).success).toBe(false);
     expect(waitlistSchema.safeParse({ email: "" }).success).toBe(false);
-    expect(waitlistSchema.safeParse({ email: "a@example.com", firstName: "x".repeat(61) }).success).toBe(false);
+    expect(waitlistSchema.safeParse({ email: "a@example.com", firstName: "x".repeat(41) }).success).toBe(false);
+  });
+
+  it("only lets a first name be a name", () => {
+    for (const firstName of ["Zoë", "Mary-Jane", "O'Brien", "李雷", ""]) {
+      expect(waitlistSchema.safeParse({ email: "a@example.com", firstName }).success).toBe(true);
+    }
+    for (const firstName of ["Pat http://evil.example", "<b>Pat", "Pat1", "-Pat"]) {
+      expect(waitlistSchema.safeParse({ email: "a@example.com", firstName }).success).toBe(false);
+    }
   });
 });
 

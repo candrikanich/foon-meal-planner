@@ -4,17 +4,24 @@ export interface ResendConfig {
   from: string;
 }
 
-export function resendConfigFromEnv(get: (key: string) => string | undefined): ResendConfig | null {
+export function resendConfigFromEnv(
+  get: (key: string) => string | undefined,
+): ResendConfig | null {
   const apiKey = get("RESEND_API_KEY");
   const from = get("WAITLIST_FROM");
   return apiKey && from ? { apiKey, from } : null;
 }
 
 const escapeHtml = (value: string) =>
-  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 
-export function confirmationEmail(message: { firstName: string | null; confirmUrl: string; unsubscribeUrl: string }) {
-  const hello = message.firstName ? `Hi ${message.firstName},` : "Hi,";
+// Nothing the signer typed goes into the email: it comes from our domain before anyone has confirmed it's theirs, so a
+// typed name could carry someone else's words.
+export function confirmationEmail(
+  message: { confirmUrl: string; unsubscribeUrl: string },
+) {
+  const hello = "Hi,";
   const text = [
     hello,
     "",
@@ -38,13 +45,16 @@ export function confirmationEmail(message: { firstName: string | null; confirmUr
 export async function sendViaResend(
   config: ResendConfig,
   to: string,
-  message: { firstName: string | null; confirmUrl: string; unsubscribeUrl: string },
+  message: { confirmUrl: string; unsubscribeUrl: string },
   post: typeof fetch = fetch,
 ): Promise<void> {
   const { subject, text, html } = confirmationEmail(message);
   const response = await post("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({
       from: config.from,
       to: [to],

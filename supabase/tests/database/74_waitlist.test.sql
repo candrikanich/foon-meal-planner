@@ -1,6 +1,6 @@
 -- Founding-family waitlist (#34): nobody signed in or not can read or write it; only the server's functions do.
 begin;
-select plan(24);
+select plan(26);
 
 create function pg_temp.as_anon() returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true), set_config('role', 'anon', true);
@@ -36,6 +36,11 @@ select is(public.waitlist_confirm('hash-3'), 'invalid', 'the old link is dead');
 select is(public.waitlist_join('a@example.com', null, 'h-a', 'ip-1'), 'send', 'the fifth attempt in an hour is fine');
 select is(public.waitlist_join('b@example.com', null, 'h-b', 'ip-1'), 'rate_limited', 'the sixth is refused');
 select is((select count(*)::int from public.waitlist_signups where email = 'b@example.com'), 0, 'and stores nothing');
+
+-- The overall cap: 200 attempts from other addresses fill the hour, whoever asks next is refused.
+insert into public.waitlist_attempts (ip_hash) select 'g-' || n from generate_series(1, 200) n;
+select is(public.waitlist_join('d@example.com', null, 'h-d', 'ip-new'), 'rate_limited', 'a fresh address is refused once the hour is full');
+select is((select count(*)::int from public.waitlist_signups where email = 'd@example.com'), 0, 'and stores nothing');
 
 insert into public.waitlist_signups (email, status, token_hash, token_sent_at, created_at)
 values ('old@example.com', 'pending', 'h-old', now() - interval '8 days', now() - interval '31 days'),

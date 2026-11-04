@@ -3,8 +3,8 @@
 -- so there is no client grant and no policy. RLS is on as a second lock.
 -- * Double opt-in: a signup is `pending` until its emailed link is opened. Only the SHA-256 of the token is stored.
 -- * A pending signup older than 30 days is deleted, and so is an attempt record after a day (daily cron).
--- * Rate limits: 5 attempts per hour from one address (kept as a salted hash, never the address), and a signup's email
---   goes out at most once every 10 minutes. The answer never says whether the email was already here.
+-- * Rate limits: 5 attempts per hour from one address (kept as a keyed hash, never the address), 200 an hour overall, and
+--   a signup's email goes out at most once every 10 minutes. The answer never says whether the email was already here.
 
 create extension if not exists citext with schema extensions;
 
@@ -39,11 +39,16 @@ as $$
 declare
   existing public.waitlist_signups;
 begin
+  -- One join at a time, so two requests can't both count the same four attempts and each squeeze in a fifth. The attempt
+  -- is recorded first and counted with the others: a refused attempt still counts. 5 an hour per address, and 200 an hour
+  -- overall, so a caller who fakes addresses still can't use us to mass-mail.
+  perform pg_advisory_xact_lock(hashtext('waitlist_join'));
+  insert into public.waitlist_attempts (ip_hash) values (p_ip_hash);
   if (select count(*) from public.waitlist_attempts
-      where ip_hash = p_ip_hash and attempted_at > now() - interval '1 hour') >= 5 then
+      where ip_hash = p_ip_hash and attempted_at > now() - interval '1 hour') > 5
+     or (select count(*) from public.waitlist_attempts where attempted_at > now() - interval '1 hour') > 200 then
     return 'rate_limited';
   end if;
-  insert into public.waitlist_attempts (ip_hash) values (p_ip_hash);
 
   select * into existing from public.waitlist_signups where email = p_email::extensions.citext for update;
   if not found then
