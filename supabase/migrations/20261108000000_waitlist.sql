@@ -54,7 +54,8 @@ begin
     return 'rate_limited';
   end if;
 
-  select * into existing from public.waitlist_signups where email = p_email::extensions.citext for update;
+  -- Qualified because search_path is empty: a bare = would quietly compare as text, and "Pat@" would not match "pat@".
+  select * into existing from public.waitlist_signups where email operator(extensions.=) p_email::extensions.citext for update;
   if not found then
     insert into public.waitlist_signups (email, first_name, token_hash, token_sent_at)
     values (p_email, nullif(trim(p_first_name), ''), p_token_hash, now());
@@ -108,7 +109,7 @@ $$;
 create function public.waitlist_id_for(p_email text)
 returns uuid
 language sql security definer set search_path = ''
-as $$ select id from public.waitlist_signups where email = p_email::extensions.citext $$;
+as $$ select id from public.waitlist_signups where email operator(extensions.=) p_email::extensions.citext $$;
 
 create function public.prune_waitlist()
 returns void
