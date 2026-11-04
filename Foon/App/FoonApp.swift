@@ -32,8 +32,11 @@ struct FoonApp: App {
         #else
         WindowGroup { root }
             // The after-dinner card's answers wait for the app; this gives iOS a chance to send them without it opening.
+            // A capable device also asks for a refresh to take the family's waiting AI jobs.
             .onChange(of: scenePhase) { _, phase in
-                if phase == .background, Self.configured { Task { await AnswerRefresh.scheduleNext(device: ReminderDevice()) } }
+                guard phase == .background, Self.configured else { return }
+                Task { await AnswerRefresh.scheduleNext(device: ReminderDevice()) }
+                AIRefresh.scheduleIfCapable()
             }
             .backgroundTask(.appRefresh(AnswerRefresh.id)) {
                 guard Self.configured else { return }
@@ -41,6 +44,11 @@ struct FoonApp: App {
                 await WaitingAnswers.send(device: device, client: .live(SupabaseService.shared.client))
                 // Each refresh asks for the next: for answers still waiting, or the next prompt's card.
                 await AnswerRefresh.scheduleNext(device: device)
+            }
+            // A capable iPhone or iPad takes one of the family's waiting AI jobs.
+            .backgroundTask(.appRefresh(AIRefresh.id)) {
+                guard Self.configured else { return }
+                await AIRefresh.run(client: .live(SupabaseService.shared.client))
             }
         #endif
     }
@@ -61,6 +69,7 @@ struct FoonApp: App {
                 .environment(\.itemClient, .live(SupabaseService.shared.client))
                 .environment(\.storeRunClient, .live(SupabaseService.shared.client))
                 .environment(\.receiptClient, .live(SupabaseService.shared.client))
+                .environment(\.aiJobClient, .live(SupabaseService.shared.client))
                 .modelContainer(Self.cache)
                 .task { await session.start() }
                 .onOpenURL { session.open($0) }

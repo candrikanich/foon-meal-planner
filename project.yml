@@ -66,9 +66,10 @@ targets:
             CFBundleURLSchemes: [foon]
         # Only the OS's own encryption (HTTPS, Sign in with Apple): exempt, so App Store Connect skips the question.
         ITSAppUsesNonExemptEncryption: false
-        # A background refresh sends the after-dinner card's answers (#122, AnswerRefresh). iOS only; the Mac ignores them.
+        # Background refreshes send the after-dinner card's answers (#122, AnswerRefresh) and, on a device that can run the
+        # on-device model, take one of the family's waiting AI jobs (#58, AIRefresh). iOS only; the Mac ignores them.
         UIBackgroundModes: [fetch]
-        BGTaskSchedulerPermittedIdentifiers: [com.andrikanich.foon.answers]
+        BGTaskSchedulerPermittedIdentifiers: [com.andrikanich.foon.answers, com.andrikanich.foon.ai]
         # Calendar awareness (#64), asked only when a planner turns it on in Family. EventKit has no read-only access,
         # so this is full access; Foon only reads, and nothing from the calendar leaves the device.
         NSCalendarsFullAccessUsageDescription: >-

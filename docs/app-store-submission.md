@@ -121,6 +121,7 @@ Key flows: This Week tab, Fill my week, approve, then the cart icon for the shop
 - [x] After-dinner card (#122): App ID `com.andrikanich.foon.dinner` registered with App Groups on, with `group.com.andrikanich.foon`
 - [x] Tonight widget (#62): App ID `com.andrikanich.foon.widget` registered with App Groups on, with `group.com.andrikanich.foon`
 - [x] Calendar awareness (#64): `NSCalendarsFullAccessUsageDescription` in Info.plist (via project.yml), the Mac's calendars entitlement, and no App Privacy data type (never leaves the device)
+- [x] AI queue (#58): background fetch (`UIBackgroundModes: fetch`, already on for #122) with a second refresh identifier, `com.andrikanich.foon.ai`, in `BGTaskSchedulerPermittedIdentifiers` (via project.yml). Only a device that can run Apple's on-device model asks for it; the Mac claims jobs when Foon opens. No new permission prompt. When #59 ships the first real kind, add its text and results to the label's "Other user content" row and to What Foon keeps
 - [x] Receipt scanning (#61): `NSCameraUsageDescription` in Info.plist (via project.yml), iPhone and iPad only (the Mac picks a photo, so no camera entitlement), and no App Privacy type for the photo (never leaves the device)
 - [ ] Privacy policy and terms live at the URLs above
 - [ ] Sign in with Apple private email relay: sending domain registered

@@ -602,6 +602,12 @@ The app is mostly code; Apple's on-device Foundation Models framework is a helpe
 
 **Household AI queue.** AI is a household resource, not a per-device one. Older phones submit jobs (parse this recipe link) to a Supabase queue; capable phones claim them on app open and via background tasks. Results sync to everyone. Partial results appear instantly (title and link, marked processing). If no capable device claims a job in time, the non-AI path runs. Our house: 2 capable devices, 2 not.
 
+- **Can this device run it (#58, built).** `Core/AI/AIService` checks `SystemLanguageModel.default.availability` (an eligible device, Apple Intelligence on, the model downloaded) and makes one guided-generation call (`@Generable` output) per request, in a fresh session. Every call has a timeout (30 seconds; 20 in a background refresh). Unavailable, timed out, cancelled, a model error, or an answer that doesn't fit the shape all mean the caller's non-AI path: a call never throws, crashes, or holds the screen. The model and the availability check are closures, so tests stub them; a real model run is a device check.
+- **The queue (#58, built).** `ai_jobs`: household, kind, payload, status (queued, claimed, done, failed, expired), who submitted it, who claimed it and when, the lease's end, result, error, and when it expires. Members of the household read its jobs; other households see none. A member submits a job in their own name (`submit_ai_job`). A device claims only the kinds it has a handler for (`claim_ai_job`, oldest first, `for update skip locked`, so two devices never get the same job). A claim holds for a **5-minute lease**; one that lapses (the app was closed, or iOS ended a background refresh) can be claimed again by any capable device. Only the member holding the claim completes or fails it (`complete_ai_job`, `fail_ai_job`). A job **expires 3 days** after it's submitted, and an expired job is never claimed: the non-AI result is already showing, so expiry just leaves it. An hourly job marks expired jobs and deletes finished ones 30 days on, by which time whatever used a result has its own copy. Done, failed and expired are final. It's in the export, and deleting the household erases it.
+- **Who runs it.** A capable device runs a job it submits straight away. It claims the family's waiting jobs on launch and each time Foon comes to the foreground (up to 5 at a time), and an iPhone or iPad that can run the model also claims one in a background refresh, about hourly, when iOS allows. The Mac claims only when Foon opens. A device that can't run the model only submits. Results go through Supabase, so every device sees them on its next load. If the model goes away after a claim (still downloading, say), nothing is written and the lease lapses for another device; a timeout or model failure fails the job. Offline, a job isn't queued: the non-AI result stands.
+- **No allergy data in a payload.** Payloads leave the device for the queue, so each kind's payload is a Swift struct built from fields that can't hold allergies or a member, and the queue takes nothing else; a unit test checks every kind. Allergy checks run on the device that shows the result, as everywhere else.
+- **Kinds.** A Swift enum with a handler per kind. #58 ships only `echo`, which hands back its payload without the model, to check the queue end to end; no feature submits it. #59's recipe structuring is the first real kind, and adds its payload and result to What Foon keeps.
+
 | AI feature | Non-AI fallback | Value kept | Lift |
 | --- | --- | --- | --- |
 | Recipe capture from anything | schema.org parsing; Vision text recognition with tap-to-pick ingredients | \~80% | Low |
@@ -654,7 +660,7 @@ iOS-only, multiplatform SwiftUI (iPhone, iPad, Mac) on Supabase, with a local ca
 | list\_items | household, item, list (weekly, quick), urgency, source, checked |
 | polls / poll_votes | household, night, who started it, options, closes at; member, choice, whose phone cast it. Kept eight weeks |
 | receipt\_aliases | household, a receipt line's normalized text, item, who taught it (no receipt, line or image is stored: the photo is read on the phone and never uploaded) |
-| ai\_jobs | household, type, payload, status, claimed by device, result |
+| ai\_jobs | household, kind, payload (never allergies), status (queued, claimed, done, failed, expired), created by, claimed by member, claimed at, lease expires at, result, error, expires at (3 days); finished jobs pruned after 30 days |
 | notification\_log | member, type, channel, night, scheduled, sent, responded (drives ignore and budget rules) |
 
 **Payments.** StoreKit 2 with server-side entitlement on the household. Two subscription products: standard and Founding Family.
@@ -810,7 +816,7 @@ Build everything, in order: Phase 1 (the Sunday flow) is what to sit down with y
 
 **Phase 3: Wow layer**
 
-- [ ] On-device AI features and the household AI job queue, with non-AI fallbacks
+- [ ] On-device AI features and the household AI job queue, with non-AI fallbacks (capability check and queue built, #58; recipe structuring #59 and rescue phrasing #60 next)
 - [x] Receipt scanning from a photo (#61); the image stays on the phone (forwarded email receipts moved to External TestFlight, #237)
 - [ ] Widgets, Siri and App Intents
 - [ ] Weekly recap and one-time tips (built, #63); planner engagement view (#235)
