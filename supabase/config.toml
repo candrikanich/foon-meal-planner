@@ -395,6 +395,11 @@ verify_jwt = false
 [functions.app-store-notifications]
 verify_jwt = false
 
+# The site's waitlist form and the links in its emails carry no JWT; the function holds its own rules (rate limit,
+# honeypot, hashed double opt-in token, signed unsubscribe link).
+[functions.waitlist]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54427
