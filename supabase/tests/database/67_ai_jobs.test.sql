@@ -36,13 +36,14 @@ select ok(not has_function_privilege('anon', 'public.claim_ai_job(text[], uuid)'
 
 -- Submitting --------------------------------------------------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
-insert into public.ai_jobs (id, household_id, kind, payload, created_by) values
-  ('00000000-0000-0000-0000-0000000005a1', '00000000-0000-0000-0000-0000000000a0', 'echo', '{"text":"one"}',
-   '00000000-0000-0000-0000-0000000000a1');
-select is((select status from public.ai_jobs where id = '00000000-0000-0000-0000-0000000005a1'), 'queued',
+-- A client can't choose the id, so the job's id is kept in a setting for the rest of the test.
+insert into public.ai_jobs (household_id, kind, payload, created_by) values
+  ('00000000-0000-0000-0000-0000000000a0', 'echo', '{"text":"one"}', '00000000-0000-0000-0000-0000000000a1');
+select set_config('test.job', (select id::text from public.ai_jobs where payload ->> 'text' = 'one'), true);
+select is((select status from public.ai_jobs where id = current_setting('test.job')::uuid), 'queued',
   'a submitted job is queued');
 select ok((select expires_at = created_at + interval '3 days' from public.ai_jobs
-           where id = '00000000-0000-0000-0000-0000000005a1'), 'and expires in 3 days');
+           where id = current_setting('test.job')::uuid), 'and expires in 3 days');
 select throws_ok(
   $$ insert into public.ai_jobs (household_id, kind, payload, created_by) values
        ('00000000-0000-0000-0000-0000000000a0', 'echo', '{}', '00000000-0000-0000-0000-0000000000a2') $$,
@@ -60,18 +61,18 @@ select throws_ok(
        ('00000000-0000-0000-0000-0000000000a0', 'echo', '{}', '00000000-0000-0000-0000-0000000000a1', 'done') $$,
   '42501', null, 'a job starts queued: its status isn''t the submitter''s to set');
 select throws_ok(
-  $$ update public.ai_jobs set status = 'done', result = '{}' where id = '00000000-0000-0000-0000-0000000005a1' $$,
+  $$ update public.ai_jobs set status = 'done', result = '{}' where id = current_setting('test.job')::uuid $$,
   '42501', null, 'nobody finishes a job they haven''t claimed');
 
 -- Another household reads, claims and finishes nothing ---------------------------------------------------------------------
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
 select is_empty($$ select 1 from public.ai_jobs $$, 'another household reads no jobs');
 select is_empty($$ select * from public.claim_ai_job(array['echo']) $$, 'or claims one');
-select is_empty($$ select * from public.claim_ai_job(array['echo'], '00000000-0000-0000-0000-0000000005a1') $$,
+select is_empty($$ select * from public.claim_ai_job(array['echo'], current_setting('test.job')::uuid) $$,
   'even by its id');
-select throws_ok($$ select public.complete_ai_job('00000000-0000-0000-0000-0000000005a1', '{"text":"hacked"}') $$,
+select throws_ok($$ select public.complete_ai_job(current_setting('test.job')::uuid, '{"text":"hacked"}') $$,
   '42501', null, 'or completes one');
-select throws_ok($$ select public.fail_ai_job('00000000-0000-0000-0000-0000000005a1', 'no') $$,
+select throws_ok($$ select public.fail_ai_job(current_setting('test.job')::uuid, 'no') $$,
   '42501', null, 'or fails one');
 
 -- Claimed once ---------------------------------------------------------------------------------------------------------
@@ -79,25 +80,25 @@ select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 select is((select claimed_by from public.claim_ai_job(array['echo'])), '00000000-0000-0000-0000-0000000000a2'::uuid,
   'Bob claims the family''s job');
 select ok((select lease_expires_at = claimed_at + interval '5 minutes' from public.ai_jobs
-           where id = '00000000-0000-0000-0000-0000000005a1'), 'with a 5-minute lease');
+           where id = current_setting('test.job')::uuid), 'with a 5-minute lease');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select is_empty($$ select * from public.claim_ai_job(array['echo']) $$, 'a claimed job isn''t claimed again');
-select is_empty($$ select * from public.claim_ai_job(array['echo'], '00000000-0000-0000-0000-0000000005a1') $$,
+select is_empty($$ select * from public.claim_ai_job(array['echo'], current_setting('test.job')::uuid) $$,
   'not even by its submitter');
 select throws_ok(
   $$ update public.ai_jobs set status = 'claimed', claimed_by = '00000000-0000-0000-0000-0000000000a1'
-     where id = '00000000-0000-0000-0000-0000000005a1' $$,
+     where id = current_setting('test.job')::uuid $$,
   '55P03', null, 'nor taken over by writing to it');
-select throws_ok($$ select public.complete_ai_job('00000000-0000-0000-0000-0000000005a1', '{"text":"mine"}') $$,
+select throws_ok($$ select public.complete_ai_job(current_setting('test.job')::uuid, '{"text":"mine"}') $$,
   '42501', null, 'only the member holding the claim completes it');
 
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
-select is((public.complete_ai_job('00000000-0000-0000-0000-0000000005a1', '{"text":"one"}')).status, 'done',
+select is((public.complete_ai_job(current_setting('test.job')::uuid, '{"text":"one"}')).status, 'done',
   'Bob completes it');
-select throws_ok($$ select public.fail_ai_job('00000000-0000-0000-0000-0000000005a1', 'late') $$,
+select throws_ok($$ select public.fail_ai_job(current_setting('test.job')::uuid, 'late') $$,
   '42501', null, 'a finished job stays finished');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
-select is((select result ->> 'text' from public.ai_jobs where id = '00000000-0000-0000-0000-0000000005a1'), 'one',
+select is((select result ->> 'text' from public.ai_jobs where id = current_setting('test.job')::uuid), 'one',
   'the family reads the result');
 
 -- A lapsed lease, an expired job --------------------------------------------------------------------------------------------
@@ -130,7 +131,7 @@ reset role;
 select public.expire_ai_jobs();
 select is((select status from public.ai_jobs where id = '00000000-0000-0000-0000-0000000005a3'), 'expired',
   'the hourly expiry marks the job no one claimed in time');
-select is((select status from public.ai_jobs where id = '00000000-0000-0000-0000-0000000005a1'), 'done',
+select is((select status from public.ai_jobs where id = current_setting('test.job')::uuid), 'done',
   'and leaves the finished ones');
 
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');

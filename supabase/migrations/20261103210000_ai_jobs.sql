@@ -156,10 +156,10 @@ begin
     return;
   end if;
 
-  return query
-    update public.ai_jobs set status = 'claimed', claimed_by = public.my_member_id(picked.household_id)
-    where id = picked.id
-    returning *;
+  update public.ai_jobs set status = 'claimed', claimed_by = public.my_member_id(picked.household_id)
+  where id = picked.id
+  returning * into picked;
+  return next picked;
 end;
 $$;
 
