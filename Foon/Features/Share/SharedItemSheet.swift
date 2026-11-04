@@ -294,11 +294,13 @@ struct SharedItemSheet: View {
         isWorking = true
         defer { isWorking = false }
         library.clearError()
+        // Read before the save: a result landing during it merges into a draft nobody saves, so it still has to follow.
+        let taken = resultTaken
         if let mealID = await library.create(draft) {
             savedMeal = true
             // Whatever of the tidy-up isn't in this draft yet goes into the dish later, around anything changed here.
             if let tidyPayload, let baseline {
-                await aiQueue?.saved(meal: mealID, baseline: baseline, token: tidyToken, alreadyTaken: resultTaken,
+                await aiQueue?.saved(meal: mealID, baseline: baseline, token: tidyToken, alreadyTaken: taken,
                                      payload: tidyPayload)
             }
             finish(.done(.library))

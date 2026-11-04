@@ -317,6 +317,12 @@ struct RecipePrepTests {
         #expect(once.filter { PrepKind(step: $0.step) == .marinate } == [PrepStep(step: "Marinate it", leadHours: 4)])
     }
 
+    @Test func theSameAIStepTwiceIsOfferedOnce() {
+        let twice = [PrepStep(step: "Chop the onions", leadHours: 2), PrepStep(step: "chop the onions", leadHours: 3)]
+        let offered = RecipePrep.offered(draft(), ai: twice, keepsMeatFrozen: true)
+        #expect(offered.filter { $0.step.lowercased() == "chop the onions" }.count == 1)
+    }
+
     @Test func aThawIsntOfferedToAFamilyThatBuysFresh() {
         let offered = RecipePrep.offered(draft(), ai: [PrepStep(step: "Thaw the chicken", leadHours: 24)],
                                          keepsMeatFrozen: false)

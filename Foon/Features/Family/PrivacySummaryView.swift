@@ -14,7 +14,7 @@ struct PrivacySummaryView: View {
                 Text("Who agreed and when, if a parent agrees to keep allergies or to invite a kid.")
                 Text("Which reminders each person's device sent and whether they answered: the kind, the night, and the time, never the words.")
                 Text("Receipt lines someone in the family corrected, and the item each one is, so the next receipt reads right.")
-                Text("When a planner adds a dish from a photo, PDF, or post on a device that can't run Apple's on-device AI, its recipe lines, held briefly so a device in your family that can will tidy them up. They go once that's done, or after 3 days at most; the tidied recipe is kept for 30 days.")
+                Text("When a planner adds a dish from a photo, PDF, or post on a device that can't run Apple's on-device AI, its recipe lines, held briefly so a planner's device in your family that can will tidy them up. They go once that's done, or after 3 days at most; the tidied recipe is kept for 30 days.")
                 Text("Foon doesn't ask for birthdays, phone numbers, or your location.")
             }
 
@@ -28,7 +28,7 @@ struct PrivacySummaryView: View {
             Section("What leaves this device") {
                 Text("What you add goes to Foon's servers, so your family sees it too. Meal photos lose their location and camera details first.")
                 Text("When you import a recipe from a link, Foon's server opens that page to read it.")
-                Text("AI runs on your family's own devices, with Apple's on-device model, and a device that can run it sends nothing for AI. One that can't sends a dish's recipe lines through Foon's servers to a device in your family that can, and only when a planner adds the dish.")
+                Text("AI runs on your family's own devices, with Apple's on-device model, and a device that can run it sends nothing for AI. One that can't sends a dish's recipe lines through Foon's servers to a planner's device in your family that can, and only when a planner adds the dish.")
                 Text("The app has no ads and no tracking, and allergies are never sent anywhere for AI.")
             }
 

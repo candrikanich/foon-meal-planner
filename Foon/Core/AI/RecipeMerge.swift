@@ -88,7 +88,8 @@ enum RecipePrep {
         let haveKinds = Set(have.map(PrepKind.init(step:)))
         let haveSteps = Set(have.map { $0.lowercased() })
         var offered: [PrepStep] = []
-        for step in ai where !haveSteps.contains(step.step.lowercased()) {
+        for step in ai where !haveSteps.contains(step.step.lowercased())
+            && !offered.contains(where: { $0.step.lowercased() == step.step.lowercased() }) {
             let kind = PrepKind(step: step.step)
             // A thaw for a family that buys meat fresh isn't offered, as with the keywords.
             if kind == .thaw && !keepsMeatFrozen { continue }
