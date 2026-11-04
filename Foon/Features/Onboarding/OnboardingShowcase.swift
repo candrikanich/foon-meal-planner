@@ -10,8 +10,31 @@ enum OnboardingShowcase {
     enum Variant: Equatable, Sendable {
         /// This phone tidies recipes and words the rescue ideas itself.
         case onThisPhone
+        /// A phone that can, still getting ready (the model's downloading): the plain way for now, and this phone
+        /// tidies recipes once it's ready.
+        case whenReady
         /// The plain way here; a planner's phone that can do more tidies recipes through the household queue.
         case familyCanHelp
+    }
+
+    /// The tidy recipe on a phone that can: this phone's own, or the bundled one when it's slow or fails, which
+    /// says so, so it never passes for this phone's work.
+    enum Tidied: Equatable, Sendable {
+        case onThisPhone(StructuredRecipe)
+        case bundled(StructuredRecipe)
+
+        var recipe: StructuredRecipe {
+            switch self {
+            case .onThisPhone(let recipe), .bundled(let recipe): recipe
+            }
+        }
+
+        var note: String? {
+            switch self {
+            case .onThisPhone: nil
+            case .bundled: OnboardingShowcase.recipeFallback
+            }
+        }
     }
 
     /// Long enough for a short recipe on a phone that's warmed up, short enough that the demo never feels stuck.
@@ -21,7 +44,24 @@ enum OnboardingShowcase {
     static let rescueMinutes = 30
 
     static func variant(_ availability: AIAvailability) -> Variant {
-        availability == .available ? .onThisPhone : .familyCanHelp
+        switch availability {
+        case .available: .onThisPhone
+        case .unavailable(.modelNotReady): .whenReady
+        case .unavailable: .familyCanHelp
+        }
+    }
+
+    static func recipeDetail(_ variant: Variant) -> String {
+        switch variant {
+        case .onThisPhone: recipeOnThisPhone
+        case .whenReady: recipeWhenReady
+        case .familyCanHelp: recipeFamilyCanHelp
+        }
+    }
+
+    /// The rescue never uses the queue, so a phone still getting ready gets the every-phone line too.
+    static func rescueDetail(_ variant: Variant) -> String {
+        variant == .onThisPhone ? rescueOnThisPhone : rescueEveryPhone
     }
 
     static func continueTitle(tried: Bool) -> String {
@@ -63,13 +103,13 @@ enum OnboardingShowcase {
 
     /// On a phone that can, the real tidy-up over the plain read's lines (only those, as #59 sends), and the bundled
     /// tidy recipe if it's slow or fails. Nil on any other phone: the plain read is what lands there.
-    static func tidy(_ demo: RecipeDemo, ai: AIService, timeout: Duration = tidyTimeout) async -> StructuredRecipe? {
+    static func tidy(_ demo: RecipeDemo, ai: AIService, timeout: Duration = tidyTimeout) async -> Tidied? {
         guard ai.canRun else { return nil }
-        guard let payload = RecipeJobPayload(demo.plain) else { return demo.tidied }
+        guard let payload = RecipeJobPayload(demo.plain) else { return .bundled(demo.tidied) }
         var quick = ai
         quick.timeout = timeout
-        if case .done(let recipe) = await RecipeStructuring.structure(payload, quick) { return recipe }
-        return demo.tidied
+        if case .done(let recipe) = await RecipeStructuring.structure(payload, quick) { return .onThisPhone(recipe) }
+        return .bundled(demo.tidied)
     }
 
     private static let exampleIngredients: [(quantity: String?, name: String)] = [
@@ -91,8 +131,8 @@ enum OnboardingShowcase {
         let title = String(localized: "Our family's favorite \(name)",
                            comment: "Onboarding: the example post's title, shouted in capitals; the dish's name")
         let keycaps = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"]
-        return (["1,284 likes, 96 comments - a_home_cook on October 12, 2026: \"\(title.uppercased()) 😍🔥",
-                 "Ingredients:"]
+        let shouted = title.uppercased(with: .current)
+        return (["1,284 likes, 96 comments - a_home_cook on October 12, 2026: \"\(shouted) 😍🔥", "Ingredients:"]
             + ingredients.map { "- \($0)" }
             + ["Directions:"]
             + zip(keycaps, steps).map { "\($0) \($1)" }
@@ -145,9 +185,13 @@ enum OnboardingShowcase {
             the recipe up for you.
             """)
     }
+    static var recipeWhenReady: String {
+        String(localized: "For now it lands just as it was shared. Once this phone is ready, it tidies recipes up too.")
+    }
     static var recipeShared: String { String(localized: "What you shared") }
     static var recipeLands: String { String(localized: "What lands in your ideas") }
     static var recipeTidying: String { String(localized: "Tidying it up on this phone…") }
+    static var recipeFallback: String { String(localized: "Here's how it'll look once it's tidied.") }
     static var recipeExample: String { String(localized: "An example post. Nothing is saved.") }
 
     static var rescueTitle: String { String(localized: "Tonight's a mess? Foon has a plan.") }
@@ -166,9 +210,9 @@ enum OnboardingShowcase {
 
     /// Everything the step can say, for the test that keeps "AI" out of it.
     static var allCopy: [String] {
-        [title, intro, recipeTitle, recipeBody, recipeOnThisPhone, recipeFamilyCanHelp, recipeShared, recipeLands,
-         recipeTidying, recipeExample, rescueTitle, rescueBody, rescueOnThisPhone, rescueEveryPhone, rescueExample,
-         showMe, continueTitle(tried: false), continueTitle(tried: true)]
+        [title, intro, recipeTitle, recipeBody, recipeOnThisPhone, recipeWhenReady, recipeFamilyCanHelp, recipeShared,
+         recipeLands, recipeTidying, recipeFallback, recipeExample, rescueTitle, rescueBody, rescueOnThisPhone,
+         rescueEveryPhone, rescueExample, showMe, continueTitle(tried: false), continueTitle(tried: true)]
     }
 }
 
@@ -190,7 +234,7 @@ final class ShowcaseModel {
     private(set) var recipeShown = false
     private(set) var isTidying = false
     /// The tidy recipe on a phone that can, once it's back. Nil means the plain read is what shows.
-    private(set) var tidied: StructuredRecipe?
+    private(set) var tidyResult: OnboardingShowcase.Tidied?
     /// Nil until the rescue card's tried.
     private(set) var rescue: [TonightRescue.Idea]?
     private(set) var wording: [String: String] = [:]
@@ -203,6 +247,9 @@ final class ShowcaseModel {
     private let seed: UInt64
 
     var tried: Bool { recipeShown || rescue != nil }
+    var tidied: StructuredRecipe? { tidyResult?.recipe }
+    /// Set when the bundled recipe stands in for this phone's, so it's never taken for this phone's work.
+    var tidyNote: String? { tidyResult?.note }
 
     init(dish: LibraryMeal?, library: [LibraryMeal], allergies: [MemberAllergies], settings: HouseholdSettings,
          today: CalendarDay, ai: AIService, seed: UInt64 = .random(in: .min ... .max)) {
@@ -218,7 +265,7 @@ final class ShowcaseModel {
         recipeShown = true
         guard variant == .onThisPhone else { return }
         isTidying = true
-        tidied = await OnboardingShowcase.tidy(recipe, ai: ai)
+        tidyResult = await OnboardingShowcase.tidy(recipe, ai: ai)
         isTidying = false
     }
 

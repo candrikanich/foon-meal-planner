@@ -55,8 +55,7 @@ private struct RecipeCard: View {
     var body: some View {
         CardHeader(title: OnboardingShowcase.recipeTitle, systemImage: "square.and.arrow.down",
                    body1: OnboardingShowcase.recipeBody,
-                   detail: model.variant == .onThisPhone ? OnboardingShowcase.recipeOnThisPhone
-                       : OnboardingShowcase.recipeFamilyCanHelp)
+                   detail: OnboardingShowcase.recipeDetail(model.variant))
         if model.recipeShown {
             VStack(alignment: .leading, spacing: 6) {
                 Text(OnboardingShowcase.recipeShared).font(.foonCaption).foregroundStyle(.secondary)
@@ -74,6 +73,7 @@ private struct RecipeCard: View {
             Button(OnboardingShowcase.showMe, systemImage: "play.circle", action: onTry)
                 .tint(Palette.paprika)
                 .accessibilityLabel(Text("Show a shared recipe landing in your ideas"))
+                .accessibilityInputLabels([Text(OnboardingShowcase.showMe), Text("Show a shared recipe")])
         }
     }
 
@@ -85,6 +85,9 @@ private struct RecipeCard: View {
                 Label(OnboardingShowcase.recipeTidying, systemImage: "hourglass")
                     .font(.foonCaption)
                     .foregroundStyle(Palette.paprika)
+            }
+            if let note = model.tidyNote {
+                Text(note).font(.foonCaption).foregroundStyle(.secondary)
             }
             Text(shown.name).font(.foonBody.weight(.semibold))
             ForEach(Array(shown.ingredients.enumerated()), id: \.offset) { _, line in
@@ -132,8 +135,7 @@ private struct RescueCard: View {
     var body: some View {
         CardHeader(title: OnboardingShowcase.rescueTitle, systemImage: "lifepreserver",
                    body1: OnboardingShowcase.rescueBody,
-                   detail: model.variant == .onThisPhone ? OnboardingShowcase.rescueOnThisPhone
-                       : OnboardingShowcase.rescueEveryPhone)
+                   detail: OnboardingShowcase.rescueDetail(model.variant))
         if let ideas = model.rescue {
             ForEach(ideas) { idea in row(idea) }
             Text(OnboardingShowcase.rescueExample).font(.foonCaption).foregroundStyle(.secondary)
@@ -141,6 +143,7 @@ private struct RescueCard: View {
             Button(OnboardingShowcase.showMe, systemImage: "play.circle", action: onTry)
                 .tint(Palette.paprika)
                 .accessibilityLabel(Text("Show three ideas for tonight from your dinners"))
+                .accessibilityInputLabels([Text(OnboardingShowcase.showMe), Text("Show ideas for tonight")])
         }
     }
 

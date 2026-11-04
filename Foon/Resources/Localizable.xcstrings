@@ -1802,6 +1802,9 @@
     "For next time" : {
 
     },
+    "For now it lands just as it was shared. Once this phone is ready, it tidies recipes up too." : {
+
+    },
     "For shared custody and the like: every other week, or every other weekend." : {
 
     },
@@ -1972,6 +1975,9 @@
 
     },
     "Held back by your food rules" : {
+
+    },
+    "Here's how it'll look once it's tidied." : {
 
     },
     "Hidden from the family" : {
@@ -3243,10 +3249,16 @@
     "Show %@'s comment" : {
 
     },
+    "Show a shared recipe" : {
+
+    },
     "Show a shared recipe landing in your ideas" : {
 
     },
     "Show dinner photos" : {
+
+    },
+    "Show ideas for tonight" : {
 
     },
     "Show me" : {
