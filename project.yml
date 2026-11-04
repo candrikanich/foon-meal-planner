@@ -36,7 +36,10 @@ targets:
     supportedDestinations: [iOS, macOS]
     sources:
       - path: Foon
-        excludes: ["**/.gitkeep"]
+        excludes: ["**/.gitkeep", "Foon.storekit"]
+      # Local StoreKit testing (#66): the scheme's Run uses it; it isn't shipped in the app.
+      - path: Foon/Foon.storekit
+        buildPhase: none
     dependencies:
       - package: Supabase
       - target: FoonShare
@@ -237,6 +240,9 @@ schemes:
     test:
       targets: [FoonTests]
       gatherCoverageData: true
+    # Runs from Xcode buy from the local StoreKit config (#66), not the sandbox; archives and TestFlight don't use it.
+    run:
+      storeKitConfiguration: Foon/Foon.storekit
     # TestFlight builds (Xcode Cloud) point at hosted staging. Prod gets its own scheme before launch.
     archive:
       config: Staging
