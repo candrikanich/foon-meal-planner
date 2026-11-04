@@ -14,7 +14,17 @@ struct AIJobRunner: Sendable {
     /// Queues the job and, if this device can run the model, claims and runs it now. The job as this device last saw it, or
     /// nil if it couldn't be queued (offline, say).
     func submit(_ request: AIJobRequest, householdID: UUID) async -> AIJob? {
-        guard let job = try? await client.submit(householdID, request) else { return nil }
+        guard let job = await queue(request, householdID: householdID) else { return nil }
+        return await runOwn(job)
+    }
+
+    /// Only queues it: nil if it couldn't be (offline, say).
+    func queue(_ request: AIJobRequest, householdID: UUID) async -> AIJob? {
+        try? await client.submit(householdID, request)
+    }
+
+    /// A job this device queued, claimed and run here if it can run the model. Otherwise it's left for a family device.
+    func runOwn(_ job: AIJob) async -> AIJob {
         guard ai.canRun, let claimed = try? await client.claim(kinds, job.id) else { return job }
         return await run(claimed)
     }

@@ -60,7 +60,6 @@ struct RootTabView: View {
         .modifier(ReminderRunner(store: reminders, week: week.week, logs: dinner.logs))
         .modifier(PivotRunner(week: week, library: library, dinner: dinner))
         .modifier(TonightWidgetRunner(week: week.week))
-        .modifier(AIQueueRunner(householdID: householdID, client: aiJobClient))
         // This Week opens the night or the card once it's on screen, and takes the route. Lists and Ideas need nothing more.
         .onChange(of: router.route, initial: true) { _, route in
             guard let route else { return }
@@ -84,6 +83,8 @@ struct RootTabView: View {
         #else
         .sheet(isPresented: onboarding) { onboardingFlow.frame(minWidth: 520, minHeight: 640) }
         #endif
+        // Outside the share sheet, so a shared photo's recipe can be tidied up on this device or another.
+        .modifier(AIQueueRunner(householdID: householdID, client: aiJobClient, library: library))
     }
 
     /// A banner rather than a sheet of its own: the app may be open on store mode, cook mode, or any other sheet, and a

@@ -15,6 +15,7 @@ struct SharedItemSheet: View {
     @Environment(LibraryStore.self) private var library
     @Environment(IdeasStore.self) private var ideas
     @Environment(SyncService.self) private var sync: SyncService?
+    @Environment(AIQueueStore.self) private var aiQueue: AIQueueStore?
     @Environment(\.itemClient) private var itemClient
     @Query private var items: [CachedItem]
 
@@ -32,6 +33,9 @@ struct SharedItemSheet: View {
     @State private var isReadingCaption = false
     /// The read finished with no recipe: without a word, a blank screen looks broken.
     @State private var foundNoRecipe = false
+    /// The AI tidy-up of the read (#59), and the read as it first was, so the result only fills what nobody's changed.
+    @State private var recipeJob: UUID?
+    @State private var baseline: RecipeBaseline?
 
     private var route: ShareRouter.Route { ShareRouter.route(item.kind) }
 
@@ -78,6 +82,10 @@ struct SharedItemSheet: View {
                 default: break
                 }
             }
+            .onChange(of: tidiedRecipe) { _, recipe in
+                guard let recipe, let baseline, let draft = readDraft else { return }
+                if let merged = RecipeMerge.merged(draft, baseline: baseline, recipe: recipe) { readDraft = merged }
+            }
             .sheet(isPresented: $importing) {
                 if case .recipeLink(let url, _) = route {
                     LinkImportView(sharedLink: url) { _ in finish(.done(.library)) }
@@ -106,14 +114,29 @@ struct SharedItemSheet: View {
             let lines = await TextRecognizer.lines(in: url, type: type)
             try Task.checkCancellation()
             let capture = RecipeTextParser.parse(lines)
-            return (capture.draft(householdSize: size), capture.isTruncated)
+            return (capture.draft(householdSize: size), capture.isTruncated, lines.joined(separator: "\n"))
         }
         // Discard or Not now ends this view's task: the reading stops with it.
-        guard let (draft, truncated) = await withTaskCancellationHandler(
+        guard let (draft, truncated, text) = await withTaskCancellationHandler(
             operation: { try? await reading.value }, onCancel: { reading.cancel() }
         ) else { return }
         readTruncated = truncated
         readDraft = draft
+        await tidy(text, sourceURL: nil, nameIsTheirs: false)
+    }
+
+    /// The plain read is already showing; a capable phone, this one or another in the family, tidies it up (docs/spec.md →
+    /// Household AI queue). Planners only, like reading a post's caption: the tidy-up is for a dish.
+    private func tidy(_ text: String, sourceURL: URL?, nameIsTheirs: Bool) async {
+        guard canAddToLibrary, let aiQueue, let draft = readDraft,
+              !draft.lines.isEmpty || !draft.stepsText.isEmpty,
+              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        baseline = RecipeBaseline(draft, nameIsTheirs: nameIsTheirs)
+        recipeJob = await aiQueue.submit(.recipe(RecipeJobPayload(text: text, sourceURL: sourceURL)))
+    }
+
+    private var tidiedRecipe: StructuredRecipe? {
+        recipeJob.flatMap { aiQueue?.recipe(for: $0) }
     }
 
     /// Planners only, since it's the same read as adding a link. Sites often turn apps away, and then this was just an
@@ -139,6 +162,7 @@ struct SharedItemSheet: View {
         } else if let read = imported.captionRecipe(householdSize: size, named: own) {
             readTruncated = read.isTruncated
             readDraft = read.draft
+            await tidy(imported.caption ?? "", sourceURL: imported.url, nameIsTheirs: own != nil)
         }
     }
 
@@ -152,6 +176,20 @@ struct SharedItemSheet: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
+                if let recipeJob, let aiQueue, aiQueue.isProcessing(recipeJob) {
+                    Section {
+                        Label {
+                            if aiQueue.runsHere {
+                                Text("Foon is tidying this up. Change anything you like: your changes stay.")
+                            } else {
+                                Text("A phone in your family will tidy this up soon. Change anything you like: your changes stay.")
+                            }
+                        } icon: {
+                            ProgressView()
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                }
                 Section {
                     TextField("Meal name", text: draft.name)
                 } footer: {
@@ -217,7 +255,9 @@ struct SharedItemSheet: View {
         isWorking = true
         defer { isWorking = false }
         library.clearError()
-        if await library.create(draft) != nil {
+        if let mealID = await library.create(draft) {
+            // Saved before the tidy-up came back: it goes into the meal later, around anything changed here.
+            if let recipeJob, let baseline { aiQueue?.watch(recipeJob, meal: mealID, baseline: baseline) }
             finish(.done(.library))
         } else {
             errorMessage = library.errorMessage

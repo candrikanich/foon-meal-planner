@@ -19,7 +19,7 @@ struct AIJobRunnerTests {
 
         #expect(job.status == .done)
         #expect(try job.decodedResult(EchoPayload.self) == EchoPayload(text: "tacos"))
-        #expect(await queue.claims == [ClaimCall(kinds: [.echo], job: job.id)])
+        #expect(await queue.claims == [ClaimCall(kinds: AIJobKind.allCases, job: job.id)])
     }
 
     @Test func aDeviceThatCantRunTheModelOnlySubmits() async throws {
@@ -44,7 +44,7 @@ struct AIJobRunnerTests {
 
         #expect(finished == 2)
         #expect(await queue.jobs.allSatisfy { $0.status == .done })
-        #expect(await queue.claims.allSatisfy { $0.kinds == [.echo] && $0.job == nil })
+        #expect(await queue.claims.allSatisfy { $0.kinds == AIJobKind.allCases && $0.job == nil })
     }
 
     @Test func drainingStopsAtItsLimit() async {
@@ -121,6 +121,7 @@ struct AIJobPayloadTests {
     private func sample(_ kind: AIJobKind) -> AIJobRequest {
         switch kind {
         case .echo: .echo(EchoPayload(text: "Grandma's chili"))
+        case .recipe: .recipe(RecipeJobPayload(text: "Grandma's chili\n2 lb beef", sourceURL: URL(string: "https://example.com")))
         }
     }
 
@@ -182,7 +183,7 @@ actor FakeAIQueue {
             claim: { kinds, job in try await self.claim(kinds, job) },
             complete: { id, result in try await self.finish(id, status: .done, result: result, error: nil) },
             fail: { id, reason in try await self.finish(id, status: .failed, result: nil, error: reason) },
-            recent: { household in try await self.recent(household) }
+            statuses: { ids in try await self.statuses(ids) }
         )
     }
 
@@ -212,48 +213,23 @@ actor FakeAIQueue {
         return jobs[index]
     }
 
-    private func recent(_ household: UUID) throws -> [AIJob] {
+    private(set) var statusLoads: [[UUID]] = []
+
+    private func statuses(_ ids: [UUID]) throws -> [AIJobSummary] {
         guard !offline else { throw Offline() }
-        return jobs.filter { $0.householdID == household }
-    }
-}
-
-/// What the screens see (#58): a refresh runs what's waiting here, then shows every device's results.
-@MainActor
-struct AIQueueStoreTests {
-    private let household = UUID()
-
-    @Test func aRefreshRunsWhatsWaitingThenLoadsTheResults() async {
-        let queue = FakeAIQueue()
-        _ = await AIJobRunner(client: queue.client, ai: .stub(canRun: false))
-            .submit(.echo(EchoPayload(text: "chili")), householdID: household)
-        let store = AIQueueStore(householdID: household, runner: AIJobRunner(client: queue.client, ai: .stub(canRun: true)))
-
-        await store.refresh()
-
-        #expect(store.jobs.map(\.status) == [.done])
+        statusLoads.append(ids)
+        return jobs.filter { ids.contains($0.id) }.map(\.summary)
     }
 
-    @Test func aDeviceThatCantRunTheModelStillSeesOthersResults() async throws {
-        let queue = FakeAIQueue()
-        _ = await AIJobRunner(client: queue.client, ai: .stub(canRun: true))
-            .submit(.echo(EchoPayload(text: "chili")), householdID: household)
-        let store = AIQueueStore(householdID: household, runner: AIJobRunner(client: queue.client, ai: .stub(canRun: false)))
-
-        await store.refresh()
-
-        #expect(store.jobs.first?.status == .done)
-        #expect(try store.jobs.first?.decodedResult(EchoPayload.self) == EchoPayload(text: "chili"))
+    /// The hourly expiry, for one job.
+    func expire(_ id: UUID) {
+        guard let index = jobs.firstIndex(where: { $0.id == id }) else { return }
+        jobs[index] = jobs[index].with(status: .expired)
     }
 
-    @Test func offlineKeepsWhatWasLoaded() async {
-        let store = AIQueueStore(householdID: household,
-                                 runner: AIJobRunner(client: FakeAIQueue(offline: true).client, ai: .stub(canRun: true)))
-
-        await store.refresh()
-        #expect(await store.submit(.echo(EchoPayload(text: "x"))) == nil)
-
-        #expect(store.jobs.isEmpty)
+    /// The finished-job prune.
+    func prune(_ id: UUID) {
+        jobs.removeAll { $0.id == id }
     }
 }
 

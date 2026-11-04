@@ -644,6 +644,9 @@
     "A parent keeps these up to date. Foon flags dishes, and you still check labels." : {
 
     },
+    "A phone in your family will tidy this up soon. Change anything you like: your changes stay." : {
+
+    },
     "A plain summary, not the privacy policy. What you can export or delete is back on Family, under Your data." : {
 
     },
@@ -657,6 +660,9 @@
 
     },
     "A removed meal" : {
+
+    },
+    "AI runs on your family's own devices, with Apple's on-device model. When this one can't, the recipe text goes through Foon's servers to one in your family that can." : {
 
     },
     "About %@ of planning saved" : {
@@ -1699,6 +1705,12 @@
 
     },
     "Foon is building the week. Try again in a moment." : {
+
+    },
+    "Foon is still tidying up this recipe. Anything you change stays as you leave it." : {
+
+    },
+    "Foon is tidying this up. Change anything you like: your changes stay." : {
 
     },
     "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime." : {
@@ -2747,7 +2759,7 @@
     "Personal care" : {
 
     },
-    "Photos and PDFs you share to Foon. They're read here and then deleted, and only the text you keep is saved." : {
+    "Photos and PDFs you share to Foon. They're read here and then deleted. Only their text leaves this device: what you keep, and the recipe text sent to be tidied up." : {
 
     },
     "Pick a night from today on to plan it." : {
@@ -2918,6 +2930,9 @@
 
     },
     "Recipe steps" : {
+
+    },
+    "Recipe text from a photo, PDF, or post a planner shares, held briefly so a phone in your family that can run Apple's on-device AI can tidy it up. The text goes once that's done, or after 3 days at most; the tidied recipe is kept for 30 days." : {
 
     },
     "Recipes can have up to 50 steps." : {
@@ -3272,6 +3287,9 @@
           }
         }
       }
+    },
+    "Start the night before" : {
+      "comment" : "Suggested prep step"
     },
     "Start the slow cooker" : {
       "comment" : "Suggested prep step"
