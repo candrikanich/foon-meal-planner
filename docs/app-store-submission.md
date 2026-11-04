@@ -112,7 +112,7 @@ Captions use the tagline voice.
 
 ## App Review notes (draft)
 
-Foon uses Sign in with Apple only, so the reviewer signs in with their own Apple ID and creates a household in onboarding (about 2 minutes). To see a populated app instantly, tap "Load a sample family" on the first onboarding screen, which creates demo members, meals, and a planned week.
+Foon uses Sign in with Apple only, so the reviewer signs in with their own Apple ID and creates a household in onboarding (about 2 minutes). To see a populated app instantly, tap "Load a sample family" on the first onboarding screen, which creates demo members, meals, and a planned week. The sample family skips setup, so to see "What Foon does for you" (the recipe and tonight-rescue demo, #236), create a household the normal way instead and tap a few dishes.
 
 Key flows: This Week tab, Fill my week, approve, then the cart icon for the shopping list. Calendar access is optional and off by default: Family, Spot busy evenings asks for it, and This Week then suggests marking busy evenings rushed. AI features use Apple's on-device Foundation Models and appear only on eligible devices; every feature has a non-AI path. The subscription starts with a 30-day free trial; sandbox purchase works from Family, Subscription. Account deletion: Family, Your data, Delete my account (also on the first screen before a household exists). It confirms with Sign in with Apple and revokes the token.
 
