@@ -3814,6 +3814,32 @@
     "Tried" : {
 
     },
+    "Tried %lld new dishes this month" : {
+      "comment" : "Member profile: dishes this person tried for the first time this month; about trying",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Tried %lld new dish this month"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Tried %lld new dishes this month"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Tried something new: %@." : {
+      "comment" : "Weekly recap: who tried a dish new to them last week; first names, never counted"
+    },
     "Trips and seasons" : {
 
     },
@@ -3824,6 +3850,9 @@
 
     },
     "Trying" : {
+
+    },
+    "Trying new things" : {
 
     },
     "Turn off what you don't have, and Foon won't plan dishes that usually use it on its own. They stay in your library, you can still pick one in Swap, and anything the family asks for still lands." : {
