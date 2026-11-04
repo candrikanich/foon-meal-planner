@@ -50,6 +50,8 @@ struct RescueSheet: View {
     var pollStarted: () -> Void = {}
     /// Tonight's dinner was chosen here.
     var chosen: () -> Void = {}
+    /// Friendlier why-lines on a device that can run the model; the code lines show until then, and stay otherwise.
+    var ai: AIService = .live
 
     @State private var minutes = TonightRescue.defaultMinutes
     @State private var seed = UInt64.random(in: .min ... .max)
@@ -57,6 +59,7 @@ struct RescueSheet: View {
     @State private var askingFamily = false
     @State private var startedPoll = false
     @State private var isWorking = false
+    @State private var wording: RescueWordingStore?
 
     private var night: WeekNight? { week.week?.nights.first { $0.id == nightID } }
     private var settings: HouseholdSettings { household.household?.planningSettings ?? HouseholdSettings() }
@@ -85,12 +88,14 @@ struct RescueSheet: View {
     }
 
     var body: some View {
+        let current = library.hasLoaded ? ideas : []
         NavigationStack {
             Group {
                 if let night {
                     RescueContent(minutes: $minutes,
                                   forWhom: RescueRow.forWhom(night, members: household.visibleMembers),
-                                  ideas: library.hasLoaded ? ideas.map(withLookup) : nil, canPlan: canPlan,
+                                  ideas: library.hasLoaded ? current.map(withLookup) : nil,
+                                  wording: wording?.lines(for: current) ?? [:], canPlan: canPlan,
                                   canAsk: canAsk(night), message: week.errorMessage,
                                   isDisabled: isWorking || week.isBuilding,
                                   choose: { idea in Task { await choose(idea, on: night) } },
@@ -113,6 +118,13 @@ struct RescueSheet: View {
                 week.clearError()
                 if !library.hasLoaded { await library.load(members: household.members) }
                 if freezer?.hasLoaded == false { await freezer?.load() }
+            }
+            // A new draw (the time, More ideas) cancels the call for the last one, as does closing the sheet.
+            .task(id: RescueWording.draw(current)) {
+                guard !current.isEmpty else { return }
+                let store = wording ?? RescueWordingStore(ai: ai)
+                wording = store
+                await store.word(current, minutes: minutes)
             }
             .confirmingTonightChoice($confirming) { choice in Task { await apply(choice) } }
             .sheet(isPresented: $askingFamily, onDismiss: {
@@ -163,6 +175,8 @@ struct RescueContent: View {
     let forWhom: String?
     /// Nil while the library loads.
     let ideas: [TonightRescue.Idea]?
+    /// The model's friendlier line for an idea, by id, when there is one. The code line still shows the facts.
+    var wording: [String: String] = [:]
     let canPlan: Bool
     let canAsk: Bool
     var message: String? = nil
@@ -217,7 +231,8 @@ struct RescueContent: View {
 
     @ViewBuilder
     private func row(_ idea: TonightRescue.Idea) -> some View {
-        let label = SwapRow.label(idea.title, allergies: idea.allergies, details: [idea.why])
+        let label = SwapRow.label(idea.title, allergies: idea.allergies,
+                                  details: [wording[idea.id], idea.why].compactMap { $0 })
         if canPlan {
             Button { choose(idea) } label: { rowContent(idea) }
                 .accessibilityLabel(label)
@@ -237,7 +252,12 @@ struct RescueContent: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(idea.title).font(.foonBody).foregroundStyle(Palette.ink)
-                Text(idea.why).font(.foonCaption).foregroundStyle(.secondary)
+                if let friendly = wording[idea.id] {
+                    Text(friendly).font(.foonCaption).foregroundStyle(.secondary)
+                    Text(idea.why).font(.caption2).foregroundStyle(.tertiary)
+                } else {
+                    Text(idea.why).font(.foonCaption).foregroundStyle(.secondary)
+                }
                 AllergyChips(check: idea.allergies)
             }
             Spacer(minLength: 0)
@@ -277,6 +297,18 @@ private enum RescuePreview {
     }
 }
 
+#Preview("AI wording") {
+    @Previewable @State var minutes = TonightRescue.defaultMinutes
+    let ideas = Array(RescuePreview.samples.prefix(3))
+    NavigationStack {
+        RescueContent(minutes: $minutes, forWhom: RescueRow.forWhom(RescuePreview.family), ideas: ideas,
+                      wording: [ideas[0].id: "Mac and cheese, ready to warm up",
+                                ideas[2].id: "Crispy pizza with everything on hand"],
+                      canPlan: true, canAsk: true)
+            .navigationTitle("What can we make?")
+    }
+}
+
 #Preview("Little in the house") {
     @Previewable @State var minutes = TonightRescue.defaultMinutes
     NavigationStack {
@@ -291,7 +323,7 @@ private enum RescuePreview {
 #Preview("Whole sheet") {
     let household = HouseholdStore.preview()
     let week = WeekStore(householdID: Household.sample.id, client: .preview(started: true))
-    return RescueSheet(nightID: UUID())
+    return RescueSheet(nightID: UUID(), ai: .none)
         .environment(PollStore(client: .preview))
         .environment(household)
         .environment(week)
