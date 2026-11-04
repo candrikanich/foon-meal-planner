@@ -20,9 +20,12 @@ catalog, all Edge Functions).
 
 One-time setup, done by Chris (values never go in the repo or a chat):
 
-1. GitHub → Settings → Environments → `production`, with Chris as required reviewer and these secrets:
-   `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD` (production's), `SUPABASE_PROJECT_REF` (`itnhdikhdsujklaimqqd`).
-2. Production Edge Function secrets `RESEND_API_KEY` and `WAITLIST_FROM`.
+1. GitHub → Settings → Environments → `production`, with Chris as required reviewer, deployment branches limited to
+   `main` (a run from another branch, whose copy of the workflow could drop the checks, never gets the secrets), and
+   these secrets: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD` (production's), `SUPABASE_PROJECT_REF`
+   (`itnhdikhdsujklaimqqd`).
+2. Production Edge Function secrets `RESEND_API_KEY` and `WAITLIST_FROM`, before the first run so the waitlist can
+   send as soon as it's deployed.
 3. After the first run, Vercel production gets
    `NUXT_PUBLIC_WAITLIST_URL=https://itnhdikhdsujklaimqqd.supabase.co/functions/v1/waitlist`, then a redeploy.
 
