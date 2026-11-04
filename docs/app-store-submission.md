@@ -66,7 +66,7 @@ Data used to track you: **None.**
 | Email address (Sign in with Apple, may be relay) | Yes | App functionality, account | Yes |
 | Health (allergies) | Yes | App functionality | Yes |
 | Photos | Yes (meal photos) | App functionality | Yes |
-| Other user content (meals, comments, requests, receipt lines the family corrected, recipe text a planner shares for an AI tidy-up) | Yes | App functionality | Yes |
+| Other user content (meals, comments, requests, receipt lines the family corrected, a dish's recipe lines queued for an AI tidy-up) | Yes | App functionality | Yes |
 | User ID | Yes | App functionality | Yes |
 | Purchase history | Yes | App functionality | Yes |
 | Product interaction | Yes | Analytics | No (anonymized) |
@@ -75,7 +75,7 @@ Data used to track you: **None.**
 
 Not collected: precise or coarse location, contacts, browsing history, search history, financial info, sensitive info beyond allergies, calendar data (read on device only, never collected), receipt photos (read on device only, never uploaded or kept; what's kept is "Other user content": receipt lines the family corrected and the item each is).
 
-AI recipe tidy-up (#59): no new data type. The text read from a shared photo, PDF or post caption, and its source link, goes to the household's `ai_jobs` queue so a family phone that can run Apple's on-device model can structure it. That's "Other user content", for App functionality, linked to the user, and not used for tracking. The text is emptied from the job once it's done, failed or expired (3 days at most); the tidied recipe stays with the job until finished jobs are pruned 30 days on. No allergies or member data are ever in a job, and the model runs on the family's own devices, never a server.
+AI recipe tidy-up (#59): no new data type. A device that can run Apple's on-device model tidies a shared recipe itself and sends nothing. Only on a device that can't, and only when a planner adds the dish, do the parsed recipe lines (title, servings, ingredient and step lines, never the raw screen text) and the source link go to the household's `ai_jobs` queue, for a planner's device in the family to structure. That's "Other user content", for App functionality, linked to the user, and not used for tracking. The lines are emptied from the job once it's done, failed or expired (3 days at most); the tidied recipe stays with the job until finished jobs are pruned 30 days on. No allergies or member data are ever in a job, and the model runs on the family's own devices, never a server.
 
 **Permission prompts.** Camera (`NSCameraUsageDescription` in Info.plist, via `project.yml`): "Foon reads a receipt you photograph to mark what you bought. The photo stays on this device and isn't kept." Asked the first time someone takes a receipt photo (#61). Choosing a photo uses the system photo picker, which needs no permission.
 

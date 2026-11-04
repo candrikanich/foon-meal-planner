@@ -14,13 +14,13 @@ struct PrivacySummaryView: View {
                 Text("Who agreed and when, if a parent agrees to keep allergies or to invite a kid.")
                 Text("Which reminders each person's device sent and whether they answered: the kind, the night, and the time, never the words.")
                 Text("Receipt lines someone in the family corrected, and the item each one is, so the next receipt reads right.")
-                Text("Recipe text from a photo, PDF, or post a planner shares, held briefly so a phone in your family that can run Apple's on-device AI can tidy it up. The text goes once that's done, or after 3 days at most; the tidied recipe is kept for 30 days.")
+                Text("When a planner adds a dish from a photo, PDF, or post on a device that can't run Apple's on-device AI, its recipe lines, held briefly so a device in your family that can will tidy them up. They go once that's done, or after 3 days at most; the tidied recipe is kept for 30 days.")
                 Text("Foon doesn't ask for birthdays, phone numbers, or your location.")
             }
 
             Section("What stays on this device") {
                 Text("A copy of this week's and next week's plan and your lists, so they work offline and reminders can go out. It's erased when you sign out or your household is gone.")
-                Text("Photos and PDFs you share to Foon. They're read here and then deleted. Only their text leaves this device: what you keep, and the recipe text sent to be tidied up.")
+                Text("Photos and PDFs you share to Foon. They're read here and then deleted. Only the text you keep leaves this device, and the recipe lines of a dish you add, if this device can't tidy them up itself.")
                 Text("If a planner turns on Spot busy evenings, Foon reads the times of this device's calendar events to suggest rushed nights. It never saves or sends them.")
                 Text("Receipt photos. They're read here and never kept or uploaded.")
             }
@@ -28,7 +28,7 @@ struct PrivacySummaryView: View {
             Section("What leaves this device") {
                 Text("What you add goes to Foon's servers, so your family sees it too. Meal photos lose their location and camera details first.")
                 Text("When you import a recipe from a link, Foon's server opens that page to read it.")
-                Text("AI runs on your family's own devices, with Apple's on-device model. When this one can't, the recipe text goes through Foon's servers to one in your family that can.")
+                Text("AI runs on your family's own devices, with Apple's on-device model, and a device that can run it sends nothing for AI. One that can't sends a dish's recipe lines through Foon's servers to a device in your family that can, and only when a planner adds the dish.")
                 Text("The app has no ads and no tracking, and allergies are never sent anywhere for AI.")
             }
 

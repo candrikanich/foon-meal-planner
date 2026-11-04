@@ -1,8 +1,9 @@
 import Foundation
 import FoundationModels
 
-/// What a `recipe` job sends to the household's queue: the captured text and where it came from, nothing else. No allergies,
-/// no members, no household size (CLAUDE.md rule 4): scaling and allergy checks happen on the device that shows the result.
+/// What the model reads for a captured recipe, here or (from a device that can't run it) through the household's queue: the
+/// recipe lines the plain read found and where they came from, nothing else. Never the raw text with the screen around it, and
+/// no allergies, members or household size (CLAUDE.md rule 4): scaling and allergy checks happen on the device showing it.
 struct RecipeJobPayload: Codable, Equatable, Sendable {
     /// About 2,000 tokens of English, which leaves the on-device model's 4K context room for the instructions and the answer.
     static let textLimit = 8_000
@@ -20,6 +21,24 @@ struct RecipeJobPayload: Codable, Equatable, Sendable {
             guard ["http", "https"].contains(url.scheme?.lowercased()), url.absoluteString.count <= 2048 else { return nil }
             return url.absoluteString
         }
+    }
+
+    /// The parsed lines only: the title, the servings, each ingredient as read (before scaling) and each step. Nil when the
+    /// plain read found no ingredients or steps, so nothing is sent.
+    init?(_ capture: RecipeTextParser.Capture, sourceURL: URL? = nil) {
+        guard !capture.ingredients.isEmpty || !capture.steps.isEmpty else { return nil }
+        var lines: [String] = []
+        if let name = capture.name { lines.append(name) }
+        if let servings = capture.servings { lines.append("Serves \(servings)") }
+        if !capture.ingredients.isEmpty {
+            lines.append("Ingredients:")
+            lines += capture.ingredients.map { [$0.quantity, $0.name].compactMap { $0 }.joined(separator: " ") }
+        }
+        if !capture.steps.isEmpty {
+            lines.append("Steps:")
+            lines += capture.steps
+        }
+        self.init(text: lines.joined(separator: "\n"), sourceURL: sourceURL)
     }
 
     enum CodingKeys: String, CodingKey { case text, sourceURL = "source_url" }
@@ -55,36 +74,47 @@ struct GeneratedPrepStep: Equatable {
     var hoursAhead: Int
 }
 
-/// A `recipe` job's result: what every device reads back from the queue, within the limits a meal has.
+/// A tidied recipe, within the limits a meal has. Every way in (the model's answer, a job's result read back from the queue)
+/// goes through the same trimming, so a result written by an older app or a tampered row can't exceed them.
 struct StructuredRecipe: Codable, Equatable, Sendable {
     /// Under the queue's 32 KB result cap.
     static let byteLimit = 30_000
 
-    var name: String
-    var servings: Int?
-    var ingredients: [String]
-    var steps: [String]
-    var prepSteps: [PrepStep]
+    let name: String
+    let servings: Int?
+    let ingredients: [String]
+    private(set) var steps: [String]
+    /// Offered as suggestions to tap, never saved on their own.
+    let prepSteps: [PrepStep]
 
     init(name: String, servings: Int?, ingredients: [String], steps: [String], prepSteps: [PrepStep]) {
-        self.name = name
-        self.servings = servings
-        self.ingredients = ingredients
-        self.steps = steps
-        self.prepSteps = prepSteps
+        self.name = RecipeImport.clamped(Self.tidy(name), to: 80)
+        self.servings = servings.flatMap { (1...50).contains($0) ? $0 : nil }
+        self.ingredients = Array(ingredients.map(Self.tidy).filter { !$0.isEmpty }
+            .prefix(RecipeTextParser.ingredientLimit)).map { RecipeImport.clamped($0, to: 200) }
+        self.steps = Array(steps.map(Self.tidy).filter { !$0.isEmpty }.prefix(50)).map { RecipeImport.clamped($0, to: 2000) }
+        self.prepSteps = Array(prepSteps.compactMap { prep -> PrepStep? in
+            let step = RecipeImport.clamped(Self.tidy(prep.step), to: 120)
+            return step.isEmpty ? nil : PrepStep(step: step, leadHours: prep.leadHours.map { min(max($0, 1), 48) })
+        }.prefix(10))
     }
 
     init(_ generated: GeneratedRecipe) {
-        name = RecipeImport.clamped(Self.tidy(generated.name), to: 80)
-        servings = (1...50).contains(generated.servings) ? generated.servings : nil
-        ingredients = Array(generated.ingredients.map(Self.tidy).filter { !$0.isEmpty }
-            .prefix(RecipeTextParser.ingredientLimit)).map { RecipeImport.clamped($0, to: 200) }
-        steps = Array(generated.steps.map(Self.tidy).filter { !$0.isEmpty }.prefix(50)).map { RecipeImport.clamped($0, to: 2000) }
-        prepSteps = Array(generated.prepSteps.compactMap { prep -> PrepStep? in
-            let step = RecipeImport.clamped(Self.tidy(prep.step), to: 120)
-            return step.isEmpty ? nil : PrepStep(step: step, leadHours: min(max(prep.hoursAhead, 1), 48))
-        }.prefix(10))
+        self.init(name: generated.name, servings: generated.servings, ingredients: generated.ingredients,
+                  steps: generated.steps,
+                  prepSteps: generated.prepSteps.map { PrepStep(step: $0.step, leadHours: $0.hoursAhead) })
     }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(name: try container.decode(String.self, forKey: .name),
+                  servings: try container.decodeIfPresent(Int.self, forKey: .servings),
+                  ingredients: try container.decode([String].self, forKey: .ingredients),
+                  steps: try container.decode([String].self, forKey: .steps),
+                  prepSteps: try container.decodeIfPresent([PrepStep].self, forKey: .prepSteps) ?? [])
+    }
+
+    private enum CodingKeys: String, CodingKey { case name, servings, ingredients, steps, prepSteps }
 
     var isEmpty: Bool { name.isEmpty && ingredients.isEmpty && steps.isEmpty }
 
@@ -99,13 +129,11 @@ struct StructuredRecipe: Codable, Equatable, Sendable {
         return data
     }
 
-    /// The same draft a plain read makes: amounts split off and scaled to the family once.
+    /// The same draft a plain read makes: amounts split off and scaled to the family once. No prep steps: those are offered.
     func draft(householdSize: Int) -> MealDraft {
-        let capture = RecipeTextParser.Capture(name: name.isEmpty ? nil : name, servings: servings,
-                                               ingredients: ingredients.compactMap(IngredientParser.parseLine), steps: steps)
-        var draft = capture.draft(householdSize: householdSize)
-        draft.prepLines = prepSteps.map { MealDraft.PrepLine(step: $0.step, leadHours: $0.leadHours) }
-        return draft
+        RecipeTextParser.Capture(name: name.isEmpty ? nil : name, servings: servings,
+                                 ingredients: ingredients.compactMap(IngredientParser.parseLine), steps: steps)
+            .draft(householdSize: householdSize)
     }
 
     private static func tidy(_ text: String) -> String {
@@ -113,7 +141,7 @@ struct StructuredRecipe: Codable, Equatable, Sendable {
     }
 }
 
-/// Runs a `recipe` job on a capable device.
+/// Runs the model over a captured recipe: on the device that captured it when it can, or for a `recipe` job from the queue.
 enum RecipeStructuring {
     /// Nothing about the family: the model only ever sees the recipe.
     static let instructions = """
@@ -123,13 +151,26 @@ enum RecipeStructuring {
         out nutrition information.
         """
 
+    static func structure(_ payload: RecipeJobPayload, _ ai: AIService) async -> AIOutcome<StructuredRecipe> {
+        guard !payload.text.isEmpty else { return .failed }
+        let outcome = await ai.generate(GeneratedRecipe.self, instructions: instructions,
+                                        prompt: "Read this recipe:\n\n\(payload.text)")
+        switch outcome {
+        case .done(let generated):
+            let recipe = StructuredRecipe(generated)
+            return recipe.isEmpty ? .failed : .done(recipe)
+        case .unavailable: return .unavailable
+        case .timedOut: return .timedOut
+        case .failed: return .failed
+        }
+    }
+
     static func handle(_ payload: Data, _ ai: AIService) async -> AIJobOutcome {
         guard let job = try? JSONDecoder().decode(RecipeJobPayload.self, from: payload), !job.text.isEmpty else {
             return .failed("unreadable payload")
         }
-        let outcome = await ai.generate(GeneratedRecipe.self, instructions: instructions,
-                                        prompt: "Read this recipe:\n\n\(job.text)")
-        if case .done(let generated) = outcome, StructuredRecipe(generated).isEmpty { return .failed("empty recipe") }
-        return outcome.jobOutcome { try StructuredRecipe($0).encoded() }
+        let outcome = await structure(job, ai)
+        if case .failed = outcome { return .failed("no recipe") }
+        return outcome.jobOutcome { try $0.encoded() }
     }
 }

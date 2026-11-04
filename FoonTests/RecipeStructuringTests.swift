@@ -39,6 +39,20 @@ struct RecipeStructuringTests {
         #expect(try AIJobRequest.recipe(wide).payload().count < 32_768)
     }
 
+    @Test func onlyTheParsedRecipeLinesAreSentNeverTheScreenAroundThem() throws {
+        let capture = RecipeTextParser.parse(["9:41", "Grandma's Chili", "Serves 6", "Ingredients", "2 lb ground beef",
+                                              "1 can kidney beans", "Directions", "Brown the beef.", "Simmer for an hour."])
+        let payload = try #require(RecipeJobPayload(capture))
+
+        #expect(!payload.text.contains("9:41"))
+        #expect(payload.text.contains("2 lb ground beef"))
+        #expect(payload.text.contains("Brown the beef."))
+    }
+
+    @Test func nothingParsedMeansNothingToSend() {
+        #expect(RecipeJobPayload(RecipeTextParser.Capture(name: "Just a title")) == nil)
+    }
+
     @Test func onlyAWebLinkIsSent() {
         #expect(RecipeJobPayload(text: "x", sourceURL: URL(string: "file:///private/recipe.pdf")).sourceURL == nil)
         #expect(RecipeJobPayload(text: "x", sourceURL: nil).sourceURL == nil)
@@ -99,7 +113,20 @@ struct RecipeStructuringTests {
         #expect(draft.lines.map(\.quantity) == ["1 lb", ""])
         #expect(draft.lines.map(\.name) == ["ground beef", "salt"])
         #expect(draft.stepsText == "Brown it")
-        #expect(draft.prepLines.map(\.step) == ["Thaw the beef"])
+        #expect(draft.prepLines.isEmpty)
+    }
+
+    @Test func aResultReadBackFromTheQueueIsHeldToTheSameLimits() throws {
+        let beef = Array(repeating: "\"beef\"", count: 90).joined(separator: ",")
+        let tampered = "{\"name\": \"  Chili  \", \"servings\": 900, \"ingredients\": [\(beef)], "
+            + "\"steps\": [\"\", \"Brown it\"], \"prepSteps\": [{\"step\": \"Thaw\", \"lead_hours\": 900}]}"
+        let recipe = try JSONDecoder().decode(StructuredRecipe.self, from: Data(tampered.utf8))
+
+        #expect(recipe.name == "Chili")
+        #expect(recipe.servings == nil)
+        #expect(recipe.ingredients.count == 60)
+        #expect(recipe.steps == ["Brown it"])
+        #expect(recipe.prepSteps == [PrepStep(step: "Thaw", leadHours: 48)])
     }
 
     // MARK: The handler
@@ -138,7 +165,7 @@ struct RecipeStructuringTests {
         }
         let payload = try AIJobRequest.recipe(RecipeJobPayload(text: "x")).payload()
 
-        #expect(await RecipeStructuring.handle(payload, empty) == .failed("empty recipe"))
+        #expect(await RecipeStructuring.handle(payload, empty) == .failed("no recipe"))
     }
 
     @Test func anUnreadablePayloadOrAModelThatWentAwayIsHandled() async throws {
@@ -182,7 +209,7 @@ struct RecipeMergeTests {
         #expect(merged.name == "Chili")
         #expect(merged.lines.map(\.name) == ["ground beef", "onion"])
         #expect(merged.stepsText == "Brown the beef\nSimmer")
-        #expect(merged.prepLines.map(\.step) == ["Thaw the beef"])
+        #expect(merged.prepLines.isEmpty)
         #expect(merged.servings == 4)
     }
 
@@ -227,7 +254,6 @@ struct RecipeMergeTests {
         edited.name = "Mine"
         edited.lines = []
         edited.stepsText = "My way"
-        edited.prepLines = [MealDraft.PrepLine(step: "Chop ahead", leadHours: 2)]
 
         #expect(RecipeMerge.merged(edited, baseline: RecipeBaseline(read), recipe: recipe) == nil)
     }
@@ -262,4 +288,126 @@ struct RecipeMergeTests {
 
         #expect(offered == [PrepStep(step: String(localized: "Marinate", comment: "Suggested prep step"), leadHours: 12)])
     }
+}
+
+/// AI prep steps are offered like the keyword ones (#59): only a tap adds one, so no reminder comes from a guess.
+struct RecipePrepTests {
+    private func draft(steps: String = "", prep: [String] = []) -> MealDraft {
+        var draft = MealDraft(newNamed: "Bean soup")
+        draft.stepsText = steps
+        draft.prepLines = prep.map { MealDraft.PrepLine(step: $0, leadHours: 4) }
+        return draft
+    }
+
+    @Test func theAIsStepsComeFirstAndTheKeywordsFillTheRest() {
+        let offered = RecipePrep.offered(draft(steps: "Soak the beans overnight. Put it in the slow cooker"),
+                                         ai: [PrepStep(step: "Soak the beans", leadHours: 12)], keepsMeatFrozen: true)
+
+        #expect(offered.first == PrepStep(step: "Soak the beans", leadHours: 12))
+        #expect(offered.contains { PrepKind(step: $0.step) == .slowCooker })
+    }
+
+    @Test func aKindTheDishHasOrTheAIOfferedIsntOfferedTwice() {
+        let offered = RecipePrep.offered(draft(steps: "Marinate the tofu", prep: ["Marinate the tofu"]),
+                                         ai: [PrepStep(step: "Marinate it", leadHours: 4)], keepsMeatFrozen: true)
+        #expect(!offered.contains { PrepKind(step: $0.step) == .marinate })
+
+        let once = RecipePrep.offered(draft(steps: "Marinate the tofu"), ai: [PrepStep(step: "Marinate it", leadHours: 4)],
+                                      keepsMeatFrozen: true)
+        #expect(once.filter { PrepKind(step: $0.step) == .marinate } == [PrepStep(step: "Marinate it", leadHours: 4)])
+    }
+
+    @Test func aThawIsntOfferedToAFamilyThatBuysFresh() {
+        let offered = RecipePrep.offered(draft(), ai: [PrepStep(step: "Thaw the chicken", leadHours: 24)],
+                                         keepsMeatFrozen: false)
+        #expect(offered.isEmpty)
+    }
+
+    @Test func withoutAResultItsTheKeywordsAlone() {
+        let plain = draft(steps: "Marinate the tofu")
+        let keywords = PrepSuggestions.suggestions(name: plain.name, ingredients: [], steps: plain.stepsText, tags: [],
+                                                   existing: [], keepsMeatFrozen: true)
+        #expect(RecipePrep.offered(plain, ai: [], keepsMeatFrozen: true) == keywords)
+    }
+}
+
+/// Applying a result to a saved dish (#59): read fresh, saved only over an unchanged dish, and given up on when the server
+/// says no.
+struct RecipeApplierTests {
+    private let recipe = StructuredRecipe(name: "Chili", servings: 4, ingredients: ["2 lb ground beef"], steps: ["Brown it"],
+                                          prepSteps: [])
+
+    private func meal(_ id: UUID = UUID(), name: String) -> LibraryMeal {
+        LibraryMeal(id: id, householdID: UUID(), name: name, servings: 4, tags: [], status: .active, createdAt: .now,
+                    ingredients: [], steps: [], prepSteps: [])
+    }
+
+    private func watch(for meal: LibraryMeal) -> RecipeWatch {
+        RecipeWatch(source: .job(UUID()), mealID: meal.id, baseline: RecipeBaseline(MealDraft(newNamed: "CHILI!!")),
+                    submittedAt: .now)
+    }
+
+    @Test func anUnchangedDishIsSavedAgainstTheVersionItWasReadAt() async {
+        let dish = meal(name: "CHILI!!")
+        let saves = Saves()
+        let applier = RecipeApplier(fetch: { _ in FreshMeal(meal: dish, version: "v1") },
+                                    save: { _, saved, version in await saves.record(saved.name, version) })
+
+        #expect(await applier.apply(recipe, for: watch(for: dish)) == .applied)
+        #expect(await saves.calls == ["Chili@v1"])
+    }
+
+    @Test func anEditMadeInBetweenWinsAndTheResultIsMergedAgain() async {
+        let dish = meal(name: "CHILI!!")
+        let edited = meal(dish.id, name: "Dad's chili")
+        let reads = Reads([FreshMeal(meal: dish, version: "v1"), FreshMeal(meal: edited, version: "v2")])
+        let saves = Saves()
+        let applier = RecipeApplier(fetch: { _ in await reads.next() }, save: { _, saved, version in
+            await saves.record(saved.name, version)
+            if version == "v1" { throw RecipeSaveError.changed }
+        })
+
+        // The second read has the other phone's name, which the result leaves alone.
+        #expect(await applier.apply(recipe, for: watch(for: dish)) == .applied)
+        #expect(await saves.calls == ["Chili@v1", "Dad's chili@v2"])
+    }
+
+    @Test func aRefusalOrADishThatsGoneEndsIt() async {
+        let dish = meal(name: "CHILI!!")
+        let refused = RecipeApplier(fetch: { _ in FreshMeal(meal: dish, version: "v1") },
+                                    save: { _, _, _ in throw RecipeSaveError.refused })
+        let gone = RecipeApplier(fetch: { _ in nil }, save: { _, _, _ in Issue.record("nothing to save") })
+
+        #expect(await refused.apply(recipe, for: watch(for: dish)) == .finished)
+        #expect(await gone.apply(recipe, for: watch(for: dish)) == .finished)
+    }
+
+    @Test func beingOfflineIsTriedAgainLater() async {
+        let dish = meal(name: "CHILI!!")
+        let offlineRead = RecipeApplier(fetch: { _ in throw URLError(.notConnectedToInternet) }, save: { _, _, _ in })
+        let offlineSave = RecipeApplier(fetch: { _ in FreshMeal(meal: dish, version: "v1") },
+                                        save: { _, _, _ in throw URLError(.notConnectedToInternet) })
+
+        #expect(await offlineRead.apply(recipe, for: watch(for: dish)) == .retry)
+        #expect(await offlineSave.apply(recipe, for: watch(for: dish)) == .retry)
+    }
+
+    @Test func aDishThatKeepsChangingIsLeftAlone() async {
+        let dish = meal(name: "CHILI!!")
+        let applier = RecipeApplier(fetch: { _ in FreshMeal(meal: dish, version: "v1") },
+                                    save: { _, _, _ in throw RecipeSaveError.changed })
+
+        #expect(await applier.apply(recipe, for: watch(for: dish)) == .finished)
+    }
+}
+
+private actor Saves {
+    var calls: [String] = []
+    func record(_ name: String, _ version: String) { calls.append("\(name)@\(version)") }
+}
+
+private actor Reads {
+    private var queue: [FreshMeal]
+    init(_ queue: [FreshMeal]) { self.queue = queue }
+    func next() -> FreshMeal? { queue.isEmpty ? nil : queue.removeFirst() }
 }

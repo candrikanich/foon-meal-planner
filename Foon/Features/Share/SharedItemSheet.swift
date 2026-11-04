@@ -33,9 +33,14 @@ struct SharedItemSheet: View {
     @State private var isReadingCaption = false
     /// The read finished with no recipe: without a word, a blank screen looks broken.
     @State private var foundNoRecipe = false
-    /// The AI tidy-up of the read (#59), and the read as it first was, so the result only fills what nobody's changed.
-    @State private var recipeJob: UUID?
+    /// The AI tidy-up of the read (#59): what the model reads, the read as it first was (so the result only fills what
+    /// nobody's changed), this device's run of it, and whether its result is already in the draft.
+    @State private var tidyPayload: RecipeJobPayload?
     @State private var baseline: RecipeBaseline?
+    @State private var tidyToken: UUID?
+    @State private var resultTaken = false
+    @State private var aiPrep: [PrepStep] = []
+    @State private var savedMeal = false
 
     private var route: ShareRouter.Route { ShareRouter.route(item.kind) }
 
@@ -83,8 +88,14 @@ struct SharedItemSheet: View {
                 }
             }
             .onChange(of: tidiedRecipe) { _, recipe in
-                guard let recipe, let baseline, let draft = readDraft else { return }
+                guard let recipe, let baseline, let draft = readDraft, !resultTaken else { return }
                 if let merged = RecipeMerge.merged(draft, baseline: baseline, recipe: recipe) { readDraft = merged }
+                aiPrep = recipe.prepSteps
+                resultTaken = true
+            }
+            .onDisappear {
+                // Closed without a dish: a run here has nobody waiting for it.
+                if !savedMeal, let tidyToken { aiQueue?.forget(tidyToken) }
             }
             .sheet(isPresented: $importing) {
                 if case .recipeLink(let url, _) = route {
@@ -114,29 +125,29 @@ struct SharedItemSheet: View {
             let lines = await TextRecognizer.lines(in: url, type: type)
             try Task.checkCancellation()
             let capture = RecipeTextParser.parse(lines)
-            return (capture.draft(householdSize: size), capture.isTruncated, lines.joined(separator: "\n"))
+            return (capture.draft(householdSize: size), capture.isTruncated, capture)
         }
         // Discard or Not now ends this view's task: the reading stops with it.
-        guard let (draft, truncated, text) = await withTaskCancellationHandler(
+        guard let (draft, truncated, capture) = await withTaskCancellationHandler(
             operation: { try? await reading.value }, onCancel: { reading.cancel() }
         ) else { return }
         readTruncated = truncated
         readDraft = draft
-        await tidy(text, sourceURL: nil, nameIsTheirs: false)
+        prepareTidy(capture, sourceURL: nil, nameIsTheirs: false)
     }
 
-    /// The plain read is already showing; a capable phone, this one or another in the family, tidies it up (docs/spec.md →
-    /// Household AI queue). Planners only, like reading a post's caption: the tidy-up is for a dish.
-    private func tidy(_ text: String, sourceURL: URL?, nameIsTheirs: Bool) async {
-        guard canAddToLibrary, let aiQueue, let draft = readDraft,
-              !draft.lines.isEmpty || !draft.stepsText.isEmpty,
-              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    /// The plain read is already showing. This device tidies it up now if it can run the model, and sends nothing; one that
+    /// can't sends the parsed lines for a family device only when the dish is saved (docs/spec.md → Household AI queue).
+    /// Planners only, like reading a post's caption: the tidy-up is for a dish.
+    private func prepareTidy(_ capture: RecipeTextParser.Capture, sourceURL: URL?, nameIsTheirs: Bool) {
+        guard canAddToLibrary, let draft = readDraft, let payload = RecipeJobPayload(capture, sourceURL: sourceURL) else { return }
+        tidyPayload = payload
         baseline = RecipeBaseline(draft, nameIsTheirs: nameIsTheirs)
-        recipeJob = await aiQueue.submit(.recipe(RecipeJobPayload(text: text, sourceURL: sourceURL)))
+        tidyToken = aiQueue?.tidyHere(payload)
     }
 
     private var tidiedRecipe: StructuredRecipe? {
-        recipeJob.flatMap { aiQueue?.recipe(for: $0) }
+        tidyToken.flatMap { aiQueue?.tidied[$0] }
     }
 
     /// Planners only, since it's the same read as adding a link. Sites often turn apps away, and then this was just an
@@ -162,7 +173,9 @@ struct SharedItemSheet: View {
         } else if let read = imported.captionRecipe(householdSize: size, named: own) {
             readTruncated = read.isTruncated
             readDraft = read.draft
-            await tidy(imported.caption ?? "", sourceURL: imported.url, nameIsTheirs: own != nil)
+            if let capture = imported.caption.flatMap(RecipeTextParser.parseCaption) {
+                prepareTidy(capture, sourceURL: imported.url, nameIsTheirs: own != nil)
+            }
         }
     }
 
@@ -176,14 +189,10 @@ struct SharedItemSheet: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
-                if let recipeJob, let aiQueue, aiQueue.isProcessing(recipeJob) {
+                if let tidyToken, let aiQueue, aiQueue.isTidying(tidyToken) {
                     Section {
                         Label {
-                            if aiQueue.runsHere {
-                                Text("Foon is tidying this up. Change anything you like: your changes stay.")
-                            } else {
-                                Text("A phone in your family will tidy this up soon. Change anything you like: your changes stay.")
-                            }
+                            Text("Foon is tidying this up on this device. Change anything you like: your changes stay.")
                         } icon: {
                             ProgressView()
                         }
@@ -220,10 +229,40 @@ struct SharedItemSheet: View {
                 Section("Steps") {
                     TextField("One step per line", text: draft.stepsText, axis: .vertical).lineLimit(3...12)
                 }
+                if canAddToLibrary { prepSection(draft) }
                 readActions(draft.wrappedValue)
             }
         } else {
             Section { ProgressView("Reading…") }
+        }
+    }
+
+    /// Prep steps are only ever offered: the AI's and the keyword ones, each added with a tap, so no reminder comes from a
+    /// guess nobody chose.
+    @ViewBuilder
+    private func prepSection(_ draft: Binding<MealDraft>) -> some View {
+        let offered = RecipePrep.offered(draft.wrappedValue, ai: aiPrep,
+                                         keepsMeatFrozen: household.household?.planningSettings.keepsMeatFrozen ?? true)
+        if !offered.isEmpty || !draft.wrappedValue.prepLines.isEmpty {
+            Section {
+                ForEach(draft.wrappedValue.prepLines) { line in
+                    LabeledContent(line.step, value: MealText.leadTime(hours: line.leadHours) ?? "")
+                }
+                .onDelete { draft.wrappedValue.prepLines.remove(atOffsets: $0) }
+                ForEach(offered, id: \.step) { suggestion in
+                    Button {
+                        draft.wrappedValue.prepLines.append(MealDraft.PrepLine(step: suggestion.step,
+                                                                               leadHours: suggestion.leadHours))
+                    } label: {
+                        Label(suggestion.step, systemImage: "text.badge.plus")
+                    }
+                    .accessibilityHint("Adds this prep step")
+                }
+            } header: {
+                Text("Prep ahead")
+            } footer: {
+                Text("Tap one to add it. Planners get a reminder this long before dinner.")
+            }
         }
     }
 
@@ -256,8 +295,12 @@ struct SharedItemSheet: View {
         defer { isWorking = false }
         library.clearError()
         if let mealID = await library.create(draft) {
-            // Saved before the tidy-up came back: it goes into the meal later, around anything changed here.
-            if let recipeJob, let baseline { aiQueue?.watch(recipeJob, meal: mealID, baseline: baseline) }
+            savedMeal = true
+            // Whatever of the tidy-up isn't in this draft yet goes into the dish later, around anything changed here.
+            if let tidyPayload, let baseline {
+                await aiQueue?.saved(meal: mealID, baseline: baseline, token: tidyToken, alreadyTaken: resultTaken,
+                                     payload: tidyPayload)
+            }
             finish(.done(.library))
         } else {
             errorMessage = library.errorMessage

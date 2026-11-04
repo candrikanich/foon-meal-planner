@@ -1,75 +1,60 @@
 # M3 car 6, part 2: AI recipe capture and prep-step detection (#59)
 
 Builds on #58's queue (`Core/AI`) and #39's capture path (`SharedItemSheet`, `RecipeTextParser`, `TextRecognizer`,
-`PrepSuggestions`). Nothing in the non-AI path is replaced: AI only tidies a draft that's already showing.
+`PrepSuggestions`). Nothing in the non-AI path is replaced: AI only tidies a draft that's already showing. Revised after
+the PR #247 review (local first, fresh conditional save, bounded retries, planner-only jobs, prep offered, parsed lines).
 
 ## Shape
 
-1. **Kind `recipe`.** `AIJobRequest.recipe(RecipeJobPayload)`: the captured text (OCR lines or a social caption) and the
-   source link if there is one. Nothing else: no allergies, no members, no household size. `AIJobPayloadTests` walks it.
-   The text is cut to 8,000 characters (and 24 KB of UTF-8), which fits the on-device model's 4K-token context with room
-   for the instructions and the answer, and fits `ai_jobs`' 32 KB payload cap.
-2. **Guided generation.** `GeneratedRecipe` (`@Generable`): name, servings (0 when it doesn't say), ingredients (lines, at
-   most 60), steps (at most 50), prep steps (at most 10, each a short step and hours ahead, 1 to 48). The handler calls
-   `AIService.generate`, then `StructuredRecipe.init(_:)` trims, drops blanks and enforces the meal's limits, and the
-   result is a Codable `StructuredRecipe` (at most 30 KB). Instructions say to use only what the text says.
-3. **When the job runs.**
-   - The sheet shows the non-AI draft at once, as today, with a "Foon is tidying this up" row.
-   - `AIQueueStore.submitRecipe` queues the job. A capable device then claims and runs it in a task the store owns, so
-     closing the sheet doesn't cancel the model (which would fail the job). Anywhere else it waits for a family device.
-   - Planners only (the same as reading a post's caption), only when there's a non-AI draft, and only for a photo, PDF or
-     social caption. A link with a schema.org recipe card is already structured, so it isn't sent.
-4. **Never overwriting a person's edit.** When the read draft is made, Foon takes a baseline: a SHA-256 digest of each field
-   (name, ingredients, steps, prep steps), normalized the way a saved meal reads back (trimmed, lowercased, numbering
-   dropped). When the result arrives, a field is replaced only if its digest still matches the baseline, so anything
-   touched by hand, in the sheet or later in the editor or on another phone, stays. A name the person gave (the shared
-   title, or typed) has no baseline and is never replaced. Digests mean no recipe text is kept on the device for this.
-   - In the sheet: the result merges into the draft being reviewed.
-   - Saved before the result came: the job is watched (`RecipeWatch`: job, meal, baseline, when) in UserDefaults. The
-     submitting device applies it to the meal when the result arrives (on its own run, or on a foreground load), compared
-     with the meal as the library has it now, and saves through `LibraryStore.save`. Only the submitting device applies
-     it, so two devices never race to write it.
-   - Allergy safety: an ingredient line from the plain read that names one of the nine allergens is kept if the AI's lines
-     don't name that allergen, so a model that drops "peanuts" can't drop a flag.
-5. **Fallback.** Failed, expired, or gone (not found 3 days and an hour after submitting): the watch is dropped, the mark
-   clears, and the plain read stays. Keyword prep detection (`PrepSuggestions`) stays the non-AI path in the editor; it
-   now also catches "overnight" (marinate overnight is 12 hours; any other overnight step is "Start the night before", a
-   day ahead).
-6. **Trimmed queue load.** `AIJobClient.recent` (50 full jobs with payloads, every foreground) becomes `statuses(ids)`:
-   `id, kind, status, result, updated_at` for only the jobs this device is waiting on, and no call at all when it's
-   waiting on none.
-7. **Migration `20261104000000_ai_jobs_recipe`.** Adds `recipe` to the kind check. The guard now empties a job's payload
-   (`{}`) when it's done, failed or expired, so the captured text is held only while a device needs it; existing finished
-   rows are emptied too. pgTAP `68_ai_jobs_recipe`.
+1. **What the model reads.** `RecipeJobPayload(capture)`: the parsed recipe lines only (title, servings, ingredient lines as
+   read, step lines) and the source link. Never the raw OCR or caption text with the screen around it; nothing parsed means
+   nothing to tidy. No allergies, members or household size. Cut at 8,000 characters / 24 KB.
+2. **Guided generation.** `GeneratedRecipe` (`@Generable`): name, servings (0 when unknown), ingredients (≤ 60), steps
+   (≤ 50), prep steps (≤ 10, step and hours ahead 1 to 48), through `AIService.generate`. `StructuredRecipe` trims to a
+   meal's limits in its only initializer, which decoding goes through too, so a result read back from the queue is held to
+   the same limits.
+3. **Here first.** A capable device runs the model itself (`AIQueueStore.tidyHere`, a store-owned task) and uploads
+   nothing; the result merges into the review screen. A device that can't queues a `recipe` job only when the planner adds
+   the dish (`AIQueueStore.saved`), never on read, Discard, or Add to the quick list.
+4. **Never over an edit.** Per-field SHA-256 digests (name, ingredients, steps) of the plain read, normalized the way a saved
+   meal reads back. A field takes the result only if its digest still matches. A name the person gave has no baseline.
+   Allergen lines the model dropped are kept.
+5. **A dish saved first.** A `RecipeWatch` (`.here(token)` or `.job(id)`, meal, baseline, time) in UserDefaults; ids,
+   dates and digests only. `RecipeApplier` reads the meal fresh (`LibraryClient.freshMeal`, with `updated_at`), merges,
+   and saves through `save_meal_if_unchanged` (40001 when it changed since the read: read and merge again, up to 3 reads).
+   A refusal or a gone dish finishes the watch; offline retries; every watch ends 3 days and an hour after the save,
+   whatever its state. A result that came during the save but wasn't merged is applied on the next settle. Settling is one
+   pass at a time.
+6. **Prep steps offered, never applied.** `RecipePrep.offered`: the result's prep steps first, then `PrepSuggestions`'
+   keyword ones of kinds not covered; the review screen's Prep ahead adds one per tap. Keywords now also catch "overnight".
+7. **Planners only.** The guard refuses a claim, complete or fail of a `recipe` job by a non-planner (42501), and
+   `claim_ai_job` skips recipe jobs for one. The client drains without `recipe` unless this member plans.
+8. **Trimmed load.** `AIJobClient.statuses(ids)`: `id, kind, status, result, updated_at` for only the jobs a device waits
+   on, no call when none.
+9. **Migration `20261104000000_ai_jobs_recipe`.** `recipe` kind; payload emptied on done, failed, expired; planner-only
+   recipe jobs; `save_meal_if_unchanged`. pgTAP `68_ai_jobs_recipe`.
 
 ## Defaults chosen
 
-- Text cut at 8,000 characters / 24 KB; result at most 30 KB (steps trimmed from the end to fit).
-- Prep lead from the model clamped to 1 to 48 hours; at most 10 prep steps, 120 characters each.
-- Planners only; only photo, PDF and caption reads; never a schema.org recipe.
-- A watch is dropped 3 days and an hour after submitting if it's never seen finished.
-- AI prep steps fill a dish only while its prep steps are as first read (empty from a plain read). They're on the review
-  screen to delete before saving; once saved, they make reminders like any other step.
+- Text 8,000 characters / 24 KB; result ≤ 30 KB (steps trimmed from the end).
+- Prep leads clamped 1 to 48 h; ≤ 10 prep steps, 120 characters.
+- Planners only; photo, PDF and caption reads only; never a schema.org recipe.
+- Watches end 3 days and an hour after the save; up to 3 fresh reads per apply.
 
 ## Verification
 
-Swift Testing first: `RecipeStructuringTests` (payload limits, output parsing and limits, the handler with a stubbed
-`AIService`, timeouts), `RecipeMergeTests` (applying, not overwriting edits, a typed name, allergen lines kept),
-`AIQueueStoreTests` (own run, watching a saved meal, failure and expiry clear the mark, no load when nothing's watched),
-`PrepSuggestionsTests` (overnight), `AIJobPayloadTests` (the new kind). Then `scripts/test.sh`, the iOS simulator build,
-`scripts/sync-strings.sh --check`, and pgTAP (CI's job if local Docker won't start).
+Swift Testing first (`RecipeStructuringTests`, `RecipeMergeTests`, `RecipePrepTests`, `RecipeApplierTests`,
+`AIQueueStoreTests`, `PrepSuggestionsTests`, `AIJobPayloadTests`), then `scripts/test.sh`, the iOS simulator build,
+`scripts/sync-strings.sh --check`, and pgTAP (CI's job while local Docker won't start).
 
 ## Needs a capable device
 
-- A real `GeneratedRecipe` run through `AIService.live`: quality on an OCR'd screenshot and an Instagram caption, and time
-  within 30 s.
-- End to end on staging: share a photo from a phone that can't run the model, open Foon on a capable one, then reopen the
-  first phone and see the meal tidied (and an edited field left alone).
+- A real `GeneratedRecipe` run through `AIService.live`: quality and time within 30 s.
+- End to end on staging: add a dish from a photo on a device that can't run the model, open Foon on a planner's capable
+  device, reopen the first and see the dish tidied, with an edited field left alone.
 
 ## Open questions
 
-- Ideas aren't retitled by a later result: an idea keeps the name it was saved with, since requests have no title edit
-  (that needs a requests RPC change and a rule for whose idea it is).
-- A caption the plain parser finds no recipe in isn't sent. AI might find one there; doing that needs a "looking" state
-  on an idea.
-- Custom allergy text (a parent's Other) isn't protected the way the nine allergens are in the ingredient merge.
+- AI prep steps from a result that lands after the dish is saved aren't offered anywhere (only the editor's keywords are).
+- Ideas aren't retitled by a result. A caption the plain parser finds nothing in isn't tidied.
+- Custom (Other) allergy text isn't protected in the ingredient merge the way the nine allergens are.

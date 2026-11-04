@@ -3,14 +3,14 @@ import FoundationModels
 import Testing
 @testable import Foon
 
-/// What the screens see (#58, #59): a capable device runs its own job without holding the screen, results reach the device
-/// waiting on them, and a refresh loads only the jobs this device is waiting on, never their payloads.
+/// The household's AI on a device (#58, #59): a device that can run the model tidies a recipe itself and sends nothing; one
+/// that can't queues it only when the dish is saved; each saved dish is followed until its result lands or ends.
 @MainActor
 struct AIQueueStoreTests {
     private let household = UUID()
     private let recipe = StructuredRecipe(name: "Chili", servings: 4, ingredients: ["2 lb ground beef", "1 onion"],
                                           steps: ["Brown the beef"], prepSteps: [])
-    private let request = AIJobRequest.recipe(RecipeJobPayload(text: "chili\n2 lb beef"))
+    private let payload = RecipeJobPayload(text: "Chili\nIngredients:\n2 lb beef")
     private let baseline = RecipeBaseline(MealDraft(newNamed: ""))
 
     private func model(_ recipe: StructuredRecipe?) -> AIService {
@@ -24,158 +24,217 @@ struct AIQueueStoreTests {
         })
     }
 
-    private func store(_ queue: FakeAIQueue, ai: AIService, shelf: AIWatchShelf = .memory()) -> AIQueueStore {
-        AIQueueStore(householdID: household, runner: AIJobRunner(client: queue.client, ai: ai), shelf: shelf)
+    private func store(_ queue: FakeAIQueue, ai: AIService, shelf: AIWatchShelf = .memory(),
+                       now: @escaping @Sendable () -> Date = { .now }) -> AIQueueStore {
+        let store = AIQueueStore(householdID: household, runner: AIJobRunner(client: queue.client, ai: ai), shelf: shelf,
+                                 now: now)
+        store.isPlanner = true
+        return store
     }
 
-    @Test func aCapableDeviceRunsItsOwnRecipeAndTheResultIsThere() async throws {
+    private func recording(_ store: AIQueueStore, outcome: AIQueueStore.ApplyOutcome = .applied) -> Applied {
+        let applied = Applied()
+        store.applyRecipe = { watch, recipe in
+            applied.calls.append(Applied.Call(meal: watch.mealID, recipe: recipe))
+            return applied.next ?? outcome
+        }
+        return applied
+    }
+
+    // MARK: A device that can run the model
+
+    @Test func aCapableDeviceTidiesHereAndSendsNothing() async throws {
         let queue = FakeAIQueue()
         let store = store(queue, ai: model(recipe))
 
-        let job = try #require(await store.submit(request))
-        await store.ownRunsFinished()
+        let token = try #require(store.tidyHere(payload))
+        await store.tidyingFinished()
 
-        #expect(!store.isProcessing(job))
-        #expect(store.recipe(for: job) == recipe)
-        #expect(await queue.jobs.first?.status == .done)
+        #expect(store.tidied[token] == recipe)
+        #expect(await queue.jobs.isEmpty)
     }
 
-    @Test func aTimedOutOrFailedRunClearsTheMarkAndLeavesNoResult() async throws {
+    @Test func aDishSavedBeforeTheRunFinishesGetsItsResult() async throws {
+        let gate = AsyncStream<Void>.makeStream()
+        let answer = GeneratedRecipe(name: "Chili", servings: 4, ingredients: recipe.ingredients, steps: recipe.steps,
+                                     prepSteps: [])
+        let slow = AIService(availability: { .available }, respond: { _, _, _ in
+            for await _ in gate.stream { break }
+            return answer.generatedContent
+        })
         let queue = FakeAIQueue()
-        let store = store(queue, ai: model(nil))
-
-        let job = try #require(await store.submit(request))
-        await store.ownRunsFinished()
-
-        #expect(!store.isProcessing(job))
-        #expect(store.recipe(for: job) == nil)
-        #expect(await queue.jobs.first?.status == .failed)
-    }
-
-    @Test func aDeviceThatCantRunTheModelWaitsForAFamilyDevice() async throws {
-        let queue = FakeAIQueue()
-        let phone = store(queue, ai: .stub(canRun: false))
-        let job = try #require(await phone.submit(request))
-        await phone.ownRunsFinished()
-        #expect(phone.isProcessing(job))
-
-        await store(queue, ai: model(recipe)).refresh()
-        await phone.refresh()
-
-        #expect(phone.recipe(for: job) == recipe)
-        #expect(!phone.isProcessing(job))
-    }
-
-    @Test func aMealSavedBeforeTheResultGetsItWhenItArrives() async throws {
-        let queue = FakeAIQueue()
-        let phone = store(queue, ai: .stub(canRun: false))
-        let applied = Applied()
-        phone.applyRecipe = { watch, recipe in
-            applied.calls.append(Applied.Call(meal: watch.mealID, recipe: recipe))
-            return .finished
-        }
+        let store = store(queue, ai: slow)
+        let applied = recording(store)
         let meal = UUID()
-        let job = try #require(await phone.submit(request))
-        phone.watch(job, meal: meal, baseline: baseline)
+
+        let token = try #require(store.tidyHere(payload))
+        await store.saved(meal: meal, baseline: baseline, token: token, alreadyTaken: false, payload: payload)
+        #expect(store.isProcessing(meal: meal))
+        gate.continuation.yield()
+        gate.continuation.finish()
+        await store.tidyingFinished()
+
+        #expect(applied.calls == [Applied.Call(meal: meal, recipe: recipe)])
+        #expect(store.watches.isEmpty)
+        #expect(await queue.jobs.isEmpty)
+    }
+
+    @Test func aResultThatCameDuringTheSaveButWasntMergedIsStillApplied() async throws {
+        let store = store(FakeAIQueue(), ai: model(recipe))
+        let applied = recording(store)
+        let token = try #require(store.tidyHere(payload))
+        await store.tidyingFinished()
+
+        await store.saved(meal: UUID(), baseline: baseline, token: token, alreadyTaken: false, payload: payload)
+
+        #expect(applied.calls.count == 1)
+        #expect(store.watches.isEmpty)
+    }
+
+    @Test func aResultTheReviewScreenAlreadyTookIsntAppliedAgain() async throws {
+        let store = store(FakeAIQueue(), ai: model(recipe))
+        let applied = recording(store)
+        let token = try #require(store.tidyHere(payload))
+        await store.tidyingFinished()
+
+        await store.saved(meal: UUID(), baseline: baseline, token: token, alreadyTaken: true, payload: payload)
+
+        #expect(applied.calls.isEmpty)
+        #expect(store.watches.isEmpty)
+    }
+
+    @Test func aTimedOutOrFailedRunHereLeavesThePlainRead() async throws {
+        let store = store(FakeAIQueue(), ai: model(nil))
+        let applied = recording(store)
+        let meal = UUID()
+        let token = try #require(store.tidyHere(payload))
+        await store.tidyingFinished()
+
+        await store.saved(meal: meal, baseline: baseline, token: token, alreadyTaken: false, payload: payload)
+
+        #expect(store.tidied[token] == nil)
+        #expect(applied.calls.isEmpty)
+        #expect(!store.isProcessing(meal: meal))
+    }
+
+    @Test func closingWithoutADishForgetsTheRun() async throws {
+        let store = store(FakeAIQueue(), ai: model(recipe))
+        let token = try #require(store.tidyHere(payload))
+
+        store.forget(token)
+        await store.tidyingFinished()
+
+        #expect(store.tidied[token] == nil)
+        #expect(!store.isTidying(token))
+    }
+
+    // MARK: A device that can't
+
+    @Test func aDeviceThatCantRunTheModelSendsNothingUntilTheDishIsSaved() async throws {
+        let queue = FakeAIQueue()
+        let phone = store(queue, ai: .stub(canRun: false))
+        #expect(phone.tidyHere(payload) == nil)
+        #expect(await queue.jobs.isEmpty)
+
+        let meal = UUID()
+        await phone.saved(meal: meal, baseline: baseline, token: nil, alreadyTaken: false, payload: payload)
+
+        #expect(await queue.jobs.map(\.kind) == [.recipe])
         #expect(phone.isProcessing(meal: meal))
+    }
+
+    @Test func aFamilyDevicesResultReachesTheSavedDish() async throws {
+        let queue = FakeAIQueue()
+        let phone = store(queue, ai: .stub(canRun: false))
+        let applied = recording(phone)
+        let meal = UUID()
+        await phone.saved(meal: meal, baseline: baseline, token: nil, alreadyTaken: false, payload: payload)
 
         await store(queue, ai: model(recipe)).refresh()
         await phone.refresh()
 
         #expect(applied.calls == [Applied.Call(meal: meal, recipe: recipe)])
         #expect(!phone.isProcessing(meal: meal))
-        #expect(phone.watches.isEmpty)
     }
 
-    @Test func aSaveBeforeThisDevicesOwnRunFinishesIsAppliedToo() async throws {
+    @Test func aMembersDeviceDoesntClaimRecipeJobs() async throws {
         let queue = FakeAIQueue()
-        let gate = AsyncStream<Void>.makeStream()
-        let answer = GeneratedRecipe(name: recipe.name, servings: 4, ingredients: recipe.ingredients, steps: recipe.steps,
-                                     prepSteps: [])
-        let slow = AIService(availability: { .available }, respond: { _, _, _ in
-            for await _ in gate.stream { break }
-            return answer.generatedContent
-        })
-        let store = store(queue, ai: slow)
-        let applied = Applied()
-        store.applyRecipe = { watch, recipe in
-            applied.calls.append(Applied.Call(meal: watch.mealID, recipe: recipe))
-            return .finished
-        }
-        let meal = UUID()
+        await store(queue, ai: .stub(canRun: false))
+            .saved(meal: UUID(), baseline: baseline, token: nil, alreadyTaken: false, payload: payload)
+        let member = store(queue, ai: model(recipe))
+        member.isPlanner = false
 
-        let job = try #require(await store.submit(request))
-        store.watch(job, meal: meal, baseline: baseline)
-        gate.continuation.yield()
-        gate.continuation.finish()
-        await store.ownRunsFinished()
+        await member.refresh()
 
-        #expect(applied.calls.map(\.meal) == [meal])
-        #expect(store.watches.isEmpty)
+        #expect(await queue.jobs.map(\.status) == [.queued])
+        #expect(await queue.claims.allSatisfy { !$0.kinds.contains(.recipe) })
     }
 
-    @Test func aResultAlreadyMergedInTheSheetIsntWatched() async throws {
-        let queue = FakeAIQueue()
-        let store = store(queue, ai: model(recipe))
-        let job = try #require(await store.submit(request))
-        await store.ownRunsFinished()
-
-        store.watch(job, meal: UUID(), baseline: baseline)
-
-        #expect(store.watches.isEmpty)
-    }
-
-    @Test func aJobThatExpiresDropsTheWatchAndTheNonAIResultStays() async throws {
+    @Test func aJobThatExpiresEndsTheWatchAndThePlainReadStays() async throws {
         let queue = FakeAIQueue()
         let phone = store(queue, ai: .stub(canRun: false))
-        let applied = Applied()
-        phone.applyRecipe = { watch, recipe in
-            applied.calls.append(Applied.Call(meal: watch.mealID, recipe: recipe))
-            return .finished
-        }
+        let applied = recording(phone)
         let meal = UUID()
-        let job = try #require(await phone.submit(request))
-        phone.watch(job, meal: meal, baseline: baseline)
+        await phone.saved(meal: meal, baseline: baseline, token: nil, alreadyTaken: false, payload: payload)
+        let job = try #require(await queue.jobs.first?.id)
 
         await queue.expire(job)
         await phone.refresh()
 
         #expect(applied.calls.isEmpty)
         #expect(!phone.isProcessing(meal: meal))
-        #expect(phone.watches.isEmpty)
     }
 
-    @Test func aMealNotLoadedYetIsTriedAgainNextTime() async throws {
+    // MARK: Retrying
+
+    @Test func onlyATransientFailureIsTriedAgain() async throws {
         let queue = FakeAIQueue()
         let phone = store(queue, ai: .stub(canRun: false))
-        let applied = Applied()
-        phone.applyRecipe = { _, _ in applied.ready ? .finished : .retry }
-        let job = try #require(await phone.submit(request))
-        phone.watch(job, meal: UUID(), baseline: baseline)
+        let applied = recording(phone)
+        applied.next = .retry
+        await phone.saved(meal: UUID(), baseline: baseline, token: nil, alreadyTaken: false, payload: payload)
         await store(queue, ai: model(recipe)).refresh()
 
         await phone.refresh()
         #expect(phone.watches.count == 1)
 
-        applied.ready = true
+        applied.next = .finished
         await phone.refresh()
         #expect(phone.watches.isEmpty)
+        #expect(applied.calls.count == 2)
     }
 
-    @Test func watchesOutliveTheAppAndGoOnceTheJobCantStillBeWaiting() async throws {
-        let shelf = AIWatchShelf.memory()
-        let old = RecipeWatch(jobID: UUID(), mealID: UUID(), baseline: baseline,
-                              submittedAt: .now.addingTimeInterval(-4 * 86_400))
-        let fresh = RecipeWatch(jobID: UUID(), mealID: UUID(), baseline: baseline, submittedAt: .now)
-        shelf.save([old, fresh])
+    @Test func aDoneResultThatKeepsFailingStillEndsWhenItsTimeIsUp() async throws {
+        let queue = FakeAIQueue()
+        let clock = Clock()
+        let phone = store(queue, ai: .stub(canRun: false), now: { clock.now })
+        let applied = recording(phone, outcome: .retry)
+        await phone.saved(meal: UUID(), baseline: baseline, token: nil, alreadyTaken: false, payload: payload)
+        await store(queue, ai: model(recipe)).refresh()
+        await phone.refresh()
+        #expect(phone.watches.count == 1)
 
-        let phone = store(FakeAIQueue(), ai: .stub(canRun: false), shelf: shelf)
-        #expect(phone.isProcessing(meal: fresh.mealID))
+        clock.now = clock.now.addingTimeInterval(AIQueueStore.watchLimit + 1)
         await phone.refresh()
 
-        // Neither is in the queue: the old one's past any expiry and was pruned; the fresh one may just be on its way.
-        #expect(phone.watches == [fresh])
-        #expect(shelf.load() == [fresh])
+        #expect(phone.watches.isEmpty)
+        #expect(applied.calls.count == 1)
+    }
+
+    @Test func watchesOutliveTheAppAndARunHereThatEndedWithItGoes() async throws {
+        let shelf = AIWatchShelf.memory()
+        let queued = RecipeWatch(source: .job(UUID()), mealID: UUID(), baseline: baseline, submittedAt: .now)
+        let old = RecipeWatch(source: .job(UUID()), mealID: UUID(), baseline: baseline,
+                              submittedAt: .now.addingTimeInterval(-4 * 86_400))
+        let here = RecipeWatch(source: .here(UUID()), mealID: UUID(), baseline: baseline, submittedAt: .now)
+        shelf.save([queued, old, here])
+
+        let phone = store(FakeAIQueue(), ai: .stub(canRun: false), shelf: shelf)
+        #expect(phone.isProcessing(meal: queued.mealID))
+        await phone.refresh()
+
+        #expect(phone.watches == [queued])
+        #expect(shelf.load() == [queued])
     }
 
     @Test func nothingIsLoadedWhenNothingsWaiting() async throws {
@@ -185,17 +244,20 @@ struct AIQueueStoreTests {
         await phone.refresh()
         #expect(await queue.statusLoads.isEmpty)
 
-        let job = try #require(await phone.submit(request))
+        await phone.saved(meal: UUID(), baseline: baseline, token: nil, alreadyTaken: false, payload: payload)
+        let job = try #require(await queue.jobs.first?.id)
         await phone.refresh()
-        #expect(await queue.statusLoads == [[job]])
+        #expect(await queue.statusLoads.contains([job]))
     }
 
     @Test func offlineQueuesNothingAndNeverThrows() async {
-        let phone = store(FakeAIQueue(offline: true), ai: model(recipe))
+        let phone = store(FakeAIQueue(offline: true), ai: .stub(canRun: false))
+        let meal = UUID()
 
         await phone.refresh()
-        #expect(await phone.submit(request) == nil)
+        await phone.saved(meal: meal, baseline: baseline, token: nil, alreadyTaken: false, payload: payload)
 
+        #expect(!phone.isProcessing(meal: meal))
         #expect(phone.jobs.isEmpty)
     }
 }
@@ -208,5 +270,15 @@ private final class Applied {
     }
 
     var calls: [Call] = []
-    var ready = false
+    var next: AIQueueStore.ApplyOutcome?
+}
+
+private final class Clock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored = Date.now
+
+    var now: Date {
+        get { lock.withLock { stored } }
+        set { lock.withLock { stored = newValue } }
+    }
 }

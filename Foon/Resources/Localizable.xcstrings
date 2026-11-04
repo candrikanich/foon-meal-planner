@@ -644,9 +644,6 @@
     "A parent keeps these up to date. Foon flags dishes, and you still check labels." : {
 
     },
-    "A phone in your family will tidy this up soon. Change anything you like: your changes stay." : {
-
-    },
     "A plain summary, not the privacy policy. What you can export or delete is back on Family, under Your data." : {
 
     },
@@ -662,7 +659,7 @@
     "A removed meal" : {
 
     },
-    "AI runs on your family's own devices, with Apple's on-device model. When this one can't, the recipe text goes through Foon's servers to one in your family that can." : {
+    "AI runs on your family's own devices, with Apple's on-device model, and a device that can run it sends nothing for AI. One that can't sends a dish's recipe lines through Foon's servers to a device in your family that can, and only when a planner adds the dish." : {
 
     },
     "About %@ of planning saved" : {
@@ -1710,7 +1707,7 @@
     "Foon is still tidying up this recipe. Anything you change stays as you leave it." : {
 
     },
-    "Foon is tidying this up. Change anything you like: your changes stay." : {
+    "Foon is tidying this up on this device. Change anything you like: your changes stay." : {
 
     },
     "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime." : {
@@ -2759,7 +2756,7 @@
     "Personal care" : {
 
     },
-    "Photos and PDFs you share to Foon. They're read here and then deleted. Only their text leaves this device: what you keep, and the recipe text sent to be tidied up." : {
+    "Photos and PDFs you share to Foon. They're read here and then deleted. Only the text you keep leaves this device, and the recipe lines of a dish you add, if this device can't tidy them up itself." : {
 
     },
     "Pick a night from today on to plan it." : {
@@ -2930,9 +2927,6 @@
 
     },
     "Recipe steps" : {
-
-    },
-    "Recipe text from a photo, PDF, or post a planner shares, held briefly so a phone in your family that can run Apple's on-device AI can tidy it up. The text goes once that's done, or after 3 days at most; the tidied recipe is kept for 30 days." : {
 
     },
     "Recipes can have up to 50 steps." : {
@@ -3413,6 +3407,9 @@
 
     },
     "Tap a line to change its item, or switch it off to skip it." : {
+
+    },
+    "Tap one to add it. Planners get a reminder this long before dinner." : {
 
     },
     "Tap the dinners your family already makes. You can add your own anytime." : {
@@ -4042,6 +4039,9 @@
       "comment" : "Tonight rescue: why Leftovers"
     },
     "When" : {
+
+    },
+    "When a planner adds a dish from a photo, PDF, or post on a device that can't run Apple's on-device AI, its recipe lines, held briefly so a device in your family that can will tidy them up. They go once that's done, or after 3 days at most; the tidied recipe is kept for 30 days." : {
 
     },
     "When do you plan the week?" : {

@@ -29,8 +29,11 @@ struct AIJobRunner: Sendable {
         return await run(claimed)
     }
 
-    /// Claims and runs the family's waiting jobs, one at a time, up to `limit`. How many it finished, done or failed.
-    func drain(limit: Int) async -> Int {
+    /// Claims and runs the family's waiting jobs of these kinds (all it can run, unless told fewer), one at a time, up to
+    /// `limit`. How many it finished, done or failed.
+    func drain(limit: Int, kinds: [AIJobKind]? = nil) async -> Int {
+        let kinds = kinds ?? self.kinds
+        guard !kinds.isEmpty else { return 0 }
         var finished = 0
         for _ in 0..<limit {
             guard ai.canRun, !Task.isCancelled, let job = try? await client.claim(kinds, nil) else { break }
