@@ -3,7 +3,7 @@
 -- so there is no client grant and no policy. RLS is on as a second lock.
 -- * Double opt-in: a signup is `pending` until its emailed link is opened. Only the SHA-256 of the token is stored.
 -- * A pending signup older than 30 days is deleted, and so is an attempt record after a day (daily cron).
--- * Rate limits: 5 attempts per hour from one address (kept as a keyed hash, never the address), 200 an hour overall, and
+-- * Rate limits: 5 attempts per hour from one address (kept as a keyed hash, never the address), 200 emails an hour overall, and
 --   a signup's email goes out at most once every 10 minutes. The answer never says whether the email was already here.
 
 create extension if not exists citext with schema extensions;
@@ -24,7 +24,10 @@ revoke all on table public.waitlist_signups from public, anon, authenticated;
 create table public.waitlist_attempts (
   id bigint generated always as identity primary key,
   ip_hash text not null,
-  attempted_at timestamptz not null default now()
+  attempted_at timestamptz not null default now(),
+  -- True only when this attempt made an email go out: the overall cap counts these, so refused attempts from one
+  -- address can't use it up for everyone else.
+  sent boolean not null default false
 );
 create index waitlist_attempts_ip_idx on public.waitlist_attempts (ip_hash, attempted_at);
 alter table public.waitlist_attempts enable row level security;
@@ -38,15 +41,16 @@ language plpgsql security definer set search_path = ''
 as $$
 declare
   existing public.waitlist_signups;
+  attempt_id bigint;
 begin
   -- One join at a time, so two requests can't both count the same four attempts and each squeeze in a fifth. The attempt
-  -- is recorded first and counted with the others: a refused attempt still counts. 5 an hour per address, and 200 an hour
-  -- overall, so a caller who fakes addresses still can't use us to mass-mail.
+  -- is recorded first and counted with the others: a refused attempt still counts toward its own address's 5 an hour.
+  -- Overall, 200 emails an hour, so a caller who fakes addresses can't use us to mass-mail; only emails sent count there.
   perform pg_advisory_xact_lock(hashtext('waitlist_join'));
-  insert into public.waitlist_attempts (ip_hash) values (p_ip_hash);
+  insert into public.waitlist_attempts (ip_hash) values (p_ip_hash) returning id into attempt_id;
   if (select count(*) from public.waitlist_attempts
       where ip_hash = p_ip_hash and attempted_at > now() - interval '1 hour') > 5
-     or (select count(*) from public.waitlist_attempts where attempted_at > now() - interval '1 hour') > 200 then
+     or (select count(*) from public.waitlist_attempts where sent and attempted_at > now() - interval '1 hour') >= 200 then
     return 'rate_limited';
   end if;
 
@@ -54,6 +58,7 @@ begin
   if not found then
     insert into public.waitlist_signups (email, first_name, token_hash, token_sent_at)
     values (p_email, nullif(trim(p_first_name), ''), p_token_hash, now());
+    update public.waitlist_attempts set sent = true where id = attempt_id;
     return 'send';
   end if;
   if existing.status = 'confirmed' or existing.token_sent_at > now() - interval '10 minutes' then
@@ -64,6 +69,7 @@ begin
      set status = 'pending', token_hash = p_token_hash, token_sent_at = now(), confirmed_at = null,
          first_name = coalesce(nullif(trim(p_first_name), ''), first_name)
    where id = existing.id;
+  update public.waitlist_attempts set sent = true where id = attempt_id;
   return 'send';
 end;
 $$;
