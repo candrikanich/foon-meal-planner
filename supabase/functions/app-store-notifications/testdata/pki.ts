@@ -39,8 +39,11 @@ KoZIhvdjZAYLAQQCBQAwCgYIKoZIzj0EAwIDSQAwRgIhAI2qT68RmWhWs09Wv/mx
 v5XlQ0g=
 -----END CERTIFICATE-----`;
 
-export const testLeafKeyPem = `-----BEGIN PRIVATE KEY-----
-MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgbChkBoziZYnXYpD1
-QWScFviaYfX6zZJODvqjNjftldShRANCAARD4m4FL3eKPvVcZFN+/YrQ2DU7qCV8
-BP9IhqS981P7zuRAhpZcI7uuhjtYR1iQd639W9kHNp/VP0lU//sraBQm
------END PRIVATE KEY-----`;
+// The leaf's key as a JWK, for the tests' signatures only.
+export const testLeafKeyJwk: JsonWebKey = {
+  kty: "EC",
+  crv: "P-256",
+  x: "Q-JuBS93ij71XGRTfv2K0Ng1O6glfAT_SIakvfNT-84",
+  y: "5ECGllwju66GO1hHWJB3rf1b2Qc2n9U_SVT_-ytoFCY",
+  d: "bChkBoziZYnXYpD1QWScFviaYfX6zZJODvqjNjftldQ",
+};

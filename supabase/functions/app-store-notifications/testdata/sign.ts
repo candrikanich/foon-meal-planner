@@ -1,6 +1,6 @@
 // Signs fixture JWS the way the App Store does: ES256, with the leaf, intermediate and root in the x5c header.
 import { base64url } from "../../_shared/es256.ts";
-import { testIntermediatePem, testLeafKeyPem, testLeafPem, testRootPem } from "./pki.ts";
+import { testIntermediatePem, testLeafKeyJwk, testLeafPem, testRootPem } from "./pki.ts";
 
 export const derOf = (pem: string): Uint8Array<ArrayBuffer> =>
   Uint8Array.from(atob(pem.replace(/-----(BEGIN|END) [A-Z ]+-----/g, "").replace(/\s+/g, "")), (c) => c.charCodeAt(0));
@@ -9,9 +9,7 @@ const base64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
 
 export const testRootDer = derOf(testRootPem);
 
-const leafKey = crypto.subtle.importKey("pkcs8", derOf(testLeafKeyPem), { name: "ECDSA", namedCurve: "P-256" }, false, [
-  "sign",
-]);
+const leafKey = crypto.subtle.importKey("jwk", testLeafKeyJwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
 
 export async function signJWS(payload: unknown): Promise<string> {
   const encode = (value: unknown) => base64url(new TextEncoder().encode(JSON.stringify(value)));
