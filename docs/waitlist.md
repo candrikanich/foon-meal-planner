@@ -47,24 +47,37 @@ it open, and report a client-sent `x-forwarded-for` getting through). So the fun
 back to the last `x-forwarded-for` entry, and ignores `x-real-ip`. If those turn out to be spoofable, the only loss is
 the per-address limit: the 200-emails-an-hour cap counts reserved and sent emails and doesn't depend on the address.
 
-## Verify the address headers on staging (after the function is deployed)
+**Checked on production, 2026-11-05:**
 
-No debug code is needed. Send six signups from one machine, each with a different forged forwarding header, and see
-whether they are still treated as one address:
+- A request carrying its own `CF-Connecting-IP` never reaches the function: Cloudflare answers 403 (error 1000).
+- With forged `X-Forwarded-For` and `X-Real-IP` values, different on every request, one machine got 200 five times,
+  then 429. The forged values were ignored and all six counted as one address.
+- Still to do: a signup from a second network (a phone hotspot) must count as a different address.
+
+## Re-run the address check (after a platform or function change)
+
+No debug code is needed. Send seven signups from one machine, each with a different forged forwarding header. All of
+them use the same address on Resend's test inbox: it accepts mail without bouncing, and a repeat within 10 minutes
+sends nothing, so the check sends one email in all. Don't use `example.com` addresses: each would send a real email
+that bounces and hurts the sending domain.
 
 ```sh
-URL="https://<staging-ref>.supabase.co/functions/v1/waitlist"
-for n in 1 2 3 4 5 6; do
+URL="https://<project-ref>.supabase.co/functions/v1/waitlist"
+for n in 1 2 3 4 5 6 7; do
   curl -s -o /dev/null -w "%{http_code}\n" -X POST "$URL" \
     -H "Content-Type: application/json" \
-    -H "X-Forwarded-For: 10.0.0.$n" -H "CF-Connecting-IP: 10.1.0.$n" \
-    -d "{\"email\":\"check$n@example.com\"}"
+    -H "X-Forwarded-For: 10.0.0.$n" -H "X-Real-IP: 10.2.0.$n" \
+    -d '{"email":"delivered+foon-header-check@resend.dev"}'
 done
 ```
 
-- Expect 200 five times, then **429**. That means the forged headers were ignored or overwritten.
-- In the SQL editor, `select ip_hash, count(*) from public.waitlist_attempts group by 1;` should show one hash with 6.
-- If you instead get six 200s and six different hashes, the headers are spoofable on this platform: say so, and the
-  per-address limit is only a speed bump (the overall cap still holds).
-- Clean up: `delete from public.waitlist_signups where email like 'check%@example.com';`
-- Repeat once without the forged headers from a second network (a phone hotspot): its attempts must have a different hash.
+- Expect 200 five times, then **429**. That means the forged headers were ignored. (Fewer 200s means this network
+  already made attempts in the last hour; it's the same result.)
+- If you instead get seven 200s, the headers are spoofable on this platform: say so, and the per-address limit is
+  only a speed bump (the overall cap still holds).
+- Adding `-H "CF-Connecting-IP: …"` should get a 403 from Cloudflare. If it gets through, the function is trusting a
+  value the caller chose: fix `client.ts` before anything else.
+- The machine you ran it from can't sign up for an hour.
+- Clean up in the SQL editor: `delete from public.waitlist_signups where email = 'delivered+foon-header-check@resend.dev';`
+  (left alone, it's deleted after 30 days).
+- Repeat once without forged headers from a second network (a phone hotspot), with a fresh address: it must get 200.
