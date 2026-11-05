@@ -52,7 +52,8 @@ the per-address limit: the 200-emails-an-hour cap counts reserved and sent email
 - A request carrying its own `CF-Connecting-IP` never reaches the function: Cloudflare answers 403 (error 1000).
 - With forged `X-Forwarded-For` and `X-Real-IP` values, different on every request, one machine got 200 five times,
   then 429. The forged values were ignored and all six counted as one address.
-- Still to do: a signup from a second network (a phone hotspot) must count as a different address.
+- Still to do: within the hour after a run, while this network is at its limit, a request with no forged headers from
+  a second network (a phone hotspot) must get 200. That proves it counts as a different address.
 
 ## Re-run the address check (after a platform or function change)
 
@@ -71,13 +72,16 @@ for n in 1 2 3 4 5 6 7; do
 done
 ```
 
-- Expect 200 five times, then **429**. That means the forged headers were ignored. (Fewer 200s means this network
+- Expect 200 five times, then 429 twice. That means the forged headers were ignored. (Fewer 200s means this network
   already made attempts in the last hour; it's the same result.)
 - If you instead get seven 200s, the headers are spoofable on this platform: say so, and the per-address limit is
   only a speed bump (the overall cap still holds).
-- Adding `-H "CF-Connecting-IP: …"` should get a 403 from Cloudflare. If it gets through, the function is trusting a
-  value the caller chose: fix `client.ts` before anything else.
-- The machine you ran it from can't sign up for an hour.
+- Then, while this network is at its limit, send the same request once more with `-H "CF-Connecting-IP: 10.1.0.9"`
+  added. Expect 403 from Cloudflare. A 429 is also fine: the header was replaced with the real address. A 200 means
+  `client.ts` trusted the forged value: fix it before anything else.
+- Within the hour, from a phone hotspot, send the same request with no forged headers (the same email is fine; the
+  limit is checked first). It must get 200, since the first network is still at its limit.
+- Everyone on this network (same public address, or same IPv6 /64) can't sign up for about an hour, and each retry
+  extends that, because refused attempts count too.
 - Clean up in the SQL editor: `delete from public.waitlist_signups where email = 'delivered+foon-header-check@resend.dev';`
   (left alone, it's deleted after 30 days).
-- Repeat once without forged headers from a second network (a phone hotspot), with a fresh address: it must get 200.
