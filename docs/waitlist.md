@@ -52,8 +52,8 @@ the per-address limit: the 200-emails-an-hour cap counts reserved and sent email
 - A request carrying its own `CF-Connecting-IP` never reaches the function: Cloudflare answers 403 (error 1000).
 - With forged `X-Forwarded-For` and `X-Real-IP` values, different on every request, one machine got 200 five times,
   then 429. The forged values were ignored and all six counted as one address.
-- Still to do: within the hour after a run, while this network is at its limit, a request with no forged headers from
-  a second network (a phone hotspot) must get 200. That proves it counts as a different address.
+- A signup from a phone on cellular got its own hash in `waitlist_attempts`, apart from the first network's: two
+  networks were counted separately. (That doesn't rule out visitors behind one shared proxy hop sharing a key.)
 
 ## Re-run the address check (after a platform or function change)
 
@@ -79,8 +79,17 @@ done
 - Then, while this network is at its limit, send the same request once more with `-H "CF-Connecting-IP: 10.1.0.9"`
   added. Expect 403 from Cloudflare. A 429 is also fine: the header was replaced with the real address. A 200 means
   `client.ts` trusted the forged value: fix it before anything else.
-- Within the hour, from a phone hotspot, send the same request with no forged headers (the same email is fine; the
-  limit is checked first). It must get 200, since the first network is still at its limit.
+- Within the hour, sign up on the site from a phone on cellular (Wi-Fi off) with the same
+  `delivered+foon-header-check@resend.dev` address (no second email goes out, and the cleanup below covers it). It
+  must succeed; "slow down" means both networks share one key. Then, in the SQL editor:
+
+  ```sql
+  select ip_hash, count(*), max(attempted_at) from public.waitlist_attempts
+  where attempted_at > now() - interval '15 minutes' group by 1 order by 3 desc;
+  ```
+
+  The newest row (the phone) must have a different hash from the one with the curl run's attempts. If it's the same,
+  fix `client.ts` before anything else. Other hashes in the table are other visitors and don't count either way.
 - Everyone on this network (same public address, or same IPv6 /64) can't sign up for about an hour, and each retry
   extends that, because refused attempts count too.
 - Clean up in the SQL editor: `delete from public.waitlist_signups where email = 'delivered+foon-header-check@resend.dev';`
