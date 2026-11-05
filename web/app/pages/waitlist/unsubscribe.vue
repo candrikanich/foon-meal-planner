@@ -23,13 +23,17 @@ async function unsubscribe() {
 
 <template>
   <StatusCard heading="Unsubscribe">
-    <template v-if="signed">
-      <p>This deletes your email address and name from the waitlist right away, and we won't write again.</p>
-      <p v-if="failed" class="message problem" role="alert">Something went wrong. Please try again in a few minutes.</p>
+    <template #default>
+      <template v-if="signed">
+        <p>This deletes your email address and name from the waitlist right away, and we won't write again.</p>
+        <p v-if="failed" class="message problem" role="alert">Something went wrong. Please try again in a few minutes.</p>
+      </template>
+      <p v-else>This link is missing something. Open it again from the email, or write to us and we'll remove you.</p>
+    </template>
+    <template v-if="signed" #actions>
       <button class="button" type="button" :disabled="working" @click="unsubscribe">
         {{ working ? "Removing..." : "Delete my address" }}
       </button>
     </template>
-    <p v-else>This link is missing something. Open it again from the email, or write to us and we'll remove you.</p>
   </StatusCard>
 </template>
