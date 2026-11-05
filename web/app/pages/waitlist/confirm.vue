@@ -23,13 +23,17 @@ async function confirm() {
 
 <template>
   <StatusCard heading="Confirm your email">
-    <template v-if="token">
-      <p>One last step: tap the button to confirm your spot on the founding-family waitlist.</p>
-      <p v-if="failed" class="message problem" role="alert">Something went wrong. Please try again in a few minutes.</p>
+    <template #default>
+      <template v-if="token">
+        <p>One last step: tap the button to confirm your spot on the founding-family waitlist.</p>
+        <p v-if="failed" class="message problem" role="alert">Something went wrong. Please try again in a few minutes.</p>
+      </template>
+      <p v-else>This link is missing something. Open it again from the email, or sign up again on the home page.</p>
+    </template>
+    <template v-if="token" #actions>
       <button class="button" type="button" :disabled="working" @click="confirm">
         {{ working ? "Confirming..." : "Confirm my email" }}
       </button>
     </template>
-    <p v-else>This link is missing something. Open it again from the email, or sign up again on the home page.</p>
   </StatusCard>
 </template>

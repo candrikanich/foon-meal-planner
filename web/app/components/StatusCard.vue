@@ -7,7 +7,11 @@ defineProps<{ heading: string }>();
     <div class="card">
       <h1>{{ heading }}</h1>
       <slot />
-      <NuxtLink class="button" to="/">Back to Foon</NuxtLink>
+      <!-- When the page has its own action (confirm, delete), that's the one button that stands out. -->
+      <div class="actions">
+        <slot name="actions" />
+        <NuxtLink class="button" :class="{ secondary: $slots.actions }" to="/">Back to Foon</NuxtLink>
+      </div>
     </div>
   </section>
 </template>
