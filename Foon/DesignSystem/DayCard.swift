@@ -37,17 +37,31 @@ struct DayCard: View {
     /// "What can we make?" on tonight's card: anyone can look, so it's apart from the planner's actions.
     var rescue: (() -> Void)? = nil
     var busy: BusySuggestion? = nil
+    /// Opens the dish's recipe (#267): for whoever's cooking, so anyone gets it, not just planners.
+    var openRecipe: (() -> Void)? = nil
+    /// The card's tap, for VoiceOver: once a card holds buttons it's a container, which can't carry an action itself,
+    /// and members have no Open night button of their own.
+    var openNight: (() -> Void)? = nil
 
     private var isTonight: Bool { model.date == today }
 
     /// Nothing to tap, so VoiceOver reads the card as one summary.
-    private var isReadOnly: Bool { actions == nil && offer == nil && rescue == nil && busy == nil }
+    private var isReadOnly: Bool {
+        actions == nil && offer == nil && rescue == nil && busy == nil && openRecipe == nil
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
             if let busy { busyRow(busy) }
-            mealSlot
+            if let openNight, !isReadOnly {
+                mealSlot
+                    .accessibilityElement(children: .combine)
+                    .accessibilityAction(named: Text("Open night"), openNight)
+            } else {
+                mealSlot
+            }
+            if let openRecipe { recipeButton(openRecipe) }
             if !model.badges.isEmpty { badges }
             if !model.attendance.isEmpty { attendance }
             if let cook = model.cook { cookRow(cook) } else if let offer { claimButton(offer) }
@@ -268,6 +282,15 @@ struct DayCard: View {
         }
     }
 
+    private func recipeButton(_ open: @escaping () -> Void) -> some View {
+        Button("Recipe", systemImage: "book", action: open)
+            .buttonStyle(.bordered)
+            .tint(Palette.paprika)
+            .controlSize(.small)
+            .accessibilityLabel(String(localized: "Open the recipe"))
+            .accessibilityHint(String(localized: "Shows the dish's ingredients and steps"))
+    }
+
     private func rescueButton(_ rescue: @escaping () -> Void) -> some View {
         Button("What can we make?", systemImage: "lifepreserver", action: rescue)
             .buttonStyle(.bordered)
@@ -377,7 +400,7 @@ private enum DayCardPreview {
                                           .prep("Thaw tonight")],
                                  isLocked: true,
                                  servingNotes: ["Nora: keep everything separate before mixing", "Owen: no gravy"]),
-                    actions: DayCardPreview.actions)
+                    actions: DayCardPreview.actions, openRecipe: {})
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 3), effort: .event,
                                  slot: .quickPick(.eatOut), attendance: DayCardPreview.family,
                                  badges: [], isLocked: true),

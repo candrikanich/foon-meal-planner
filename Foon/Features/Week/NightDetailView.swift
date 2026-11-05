@@ -296,11 +296,18 @@ struct NightDetailView: View {
     @ViewBuilder
     private func dinner(_ night: WeekNight) -> some View {
         if let mealID = night.mealID, let name = night.mealName {
-            VStack(alignment: .leading, spacing: 4) {
+            let dish = VStack(alignment: .leading, spacing: 4) {
                 Text(name).font(.foonTitle)
                 if let sides = DayCardText.sidesLabel(library.meal(mealID).map(library.sideNames(for:)) ?? []) {
                     Text(sides).font(.foonCaption).foregroundStyle(.secondary)
                 }
+            }
+            // The dish opens its recipe for whoever's cooking (#267); one gone from the library stays plain text.
+            if library.meal(mealID) != nil {
+                NavigationLink { MealDetailView(mealID: mealID, canEdit: canPlan) } label: { dish }
+                    .accessibilityHint(String(localized: "Opens the recipe"))
+            } else {
+                dish
             }
         } else if let pick = night.quickPick {
             Text(DayCardText.quickPickLabel(pick)).font(.foonTitle)

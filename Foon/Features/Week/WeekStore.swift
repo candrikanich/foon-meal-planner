@@ -565,6 +565,10 @@ final class WeekStore {
         if !isAway, let later = DoubleIt.leftoversNight(of: night, in: nights) {
             model.badges.append(.doubled(DoubleIt.doubledText(leftoversOn: later, today: today)))
         }
+        // Leftovers and a freezer night are already cooked: nothing to follow a recipe for.
+        if !isAway, night.stashItemID == nil, let dish, dish.id == night.mealID {
+            model.recipeMealID = dish.id
+        }
         return model
     }
 

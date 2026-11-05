@@ -22,6 +22,7 @@ struct WeekView: View {
     @State private var openNight: UUID?
     @State private var swappingNight: UUID?
     @State private var rescuingNight: UUID?
+    @State private var openRecipe: UUID?
     @State private var showingTraditions = false
     @State private var browsingIdeas = false
     @State private var showingPast = false
@@ -86,6 +87,9 @@ struct WeekView: View {
             .modifier(TonightPollRefresh())
             .sheet(item: Binding(get: { openNight.map(NightID.init) }, set: { openNight = $0?.id })) { night in
                 NightDetailView(nightID: night.id, canPlan: canPlan)
+            }
+            .sheet(item: Binding(get: { openRecipe.map(MealRef.init) }, set: { openRecipe = $0?.id })) { meal in
+                RecipeSheet(mealID: meal.id, canEdit: canPlan)
             }
             .sheet(item: Binding(get: { swappingNight.map(NightID.init) }, set: { swappingNight = $0?.id })) { night in
                 SwapSheet(nightID: night.id)
@@ -176,6 +180,10 @@ struct WeekView: View {
     }
 
     private struct NightID: Identifiable {
+        let id: UUID
+    }
+
+    private struct MealRef: Identifiable {
         let id: UUID
     }
 
@@ -343,7 +351,9 @@ struct WeekView: View {
                        offer: claimOffer(for: night, log: log),
                        rescue: TonightRescue.offers(night: night, logged: log != nil, isAway: isAway,
                                                     today: week.todayDay) ? { rescuingNight = night.id } : nil,
-                       busy: busySuggestion(for: night))
+                       busy: busySuggestion(for: night),
+                       openRecipe: model.recipeMealID.map { id in { openRecipe = id } },
+                       openNight: isAway ? nil : { openNight = night.id })
             .contentShape(Rectangle())
             .onTapGesture { if !isAway { openNight = night.id } }
             .accessibilityAction(named: Text("Open night")) { if !isAway { openNight = night.id } }
