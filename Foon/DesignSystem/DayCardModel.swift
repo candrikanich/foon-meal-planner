@@ -72,6 +72,8 @@ struct DayCardModel: Identifiable, Equatable, Sendable {
     var cook: Cook? = nil
     /// Dinner jobs for this night, when the household uses them.
     var jobs: [JobLine] = []
+    /// The library dish cooked this night, so whoever's cooking can open its recipe (#267).
+    var recipeMealID: UUID? = nil
 
     var id: CalendarDay { date }
 }

@@ -2915,10 +2915,16 @@
     "Open the link" : {
 
     },
+    "Open the recipe" : {
+
+    },
     "Opens it" : {
 
     },
     "Opens the night to see everyone" : {
+
+    },
+    "Opens the recipe" : {
 
     },
     "Opens their profile to send an invite" : {
@@ -3164,6 +3170,9 @@
 
     },
     "Recently added" : {
+
+    },
+    "Recipe" : {
 
     },
     "Recipe link" : {
@@ -3420,6 +3429,9 @@
 
     },
     "Shows a few quick ideas from what's in the house" : {
+
+    },
+    "Shows the dish's ingredients and steps" : {
 
     },
     "Shows the item's note, aisle, and keep on hand" : {
