@@ -7,8 +7,8 @@
 //   behind Cloudflare, but Supabase doesn't say that headers reach functions untouched.
 // * otherwise the LAST x-forwarded-for entry, which is added by the proxy nearest us; the first is whatever the caller wrote.
 // * x-real-ip is not used: nothing says who sets it.
-// docs/waitlist.md has a check to run on staging. Whatever this returns, the database's cap of 200 emails an hour holds, so
-// a spoofer can bypass the 5-an-hour limit at worst, never the overall one.
+// docs/waitlist.md records the production check and how to re-run it. Whatever this returns, the database's cap
+// of 200 emails an hour holds, so a spoofer can bypass the 5-an-hour limit at worst, never the overall one.
 export function callerAddress(headers: Headers): string {
   const cloudflare = headers.get("cf-connecting-ip")?.trim();
   if (cloudflare) return cloudflare;
