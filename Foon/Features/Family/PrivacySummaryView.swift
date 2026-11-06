@@ -42,9 +42,11 @@ struct PrivacySummaryView: View {
 
             Section {
                 Text("Parents can change or remove someone's allergies on their profile.")
+                Text("A parent can turn allergy alerts off in Family. That erases every allergy recorded for your household.")
                 Text("Deleting the household removes it from Foon for everyone, right away, and the app can't bring it back.")
                 Text("Plan activity, votes on dinner, and the reminder log are deleted after eight weeks.")
-                Text("A kid removed from the family becomes \"Former member\" after 12 months, and their ratings stay as anonymous history.")
+                Text("Anyone removed from the family becomes \"Former member\" after 12 months, and their ratings stay as anonymous history.")
+                Text("Invites are deleted 30 days after they're used, cancelled, or expire.")
             } header: {
                 Text("Changing your mind")
             } footer: {

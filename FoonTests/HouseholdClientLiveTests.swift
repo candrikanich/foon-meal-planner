@@ -363,6 +363,29 @@ struct HouseholdClientLiveTests {
         #expect(try await households.myHousehold()?.planningSettings == HouseholdSettings())
     }
 
+    @Test func allergyAlertsOffErasesTheAllergiesAndOnAsksAgain() async throws {
+        let supabase = Self.newSupabaseClient()
+        try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",
+                                       password: Self.password)
+        let households = HouseholdClient.live(supabase)
+        let library = LibraryClient.live(supabase)
+        let household = try await households.createHousehold("Alerts family", nil, "Ann", HouseholdSettings())
+        let ann = try #require(try await households.members(household.id).first)
+        #expect(try await households.allergyAlerts(household.id) == .neverOn)
+
+        try await households.grantAllergyConsent(household.id, AllergyConsent.textVersion)
+        try await households.setAllergies(ann.id, [.milk], [])
+        #expect(try await households.allergyAlerts(household.id) == .on)
+
+        try await households.revokeAllergyConsent(household.id)
+        #expect(try await households.allergyAlerts(household.id) == .off)
+        #expect(try await library.allergies(household.id).isEmpty)
+        await #expect(throws: PostgrestError.self) { try await households.setAllergies(ann.id, [.eggs], []) }
+
+        try await households.grantAllergyConsent(household.id, AllergyConsent.textVersion)
+        #expect(try await households.allergyAlerts(household.id) == .on)
+    }
+
     @Test func onboardingSavesAllergiesAndTheRhythm() async throws {
         let supabase = Self.newSupabaseClient()
         try await supabase.auth.signUp(email: "foon-test-\(UUID().uuidString.lowercased())@example.com",

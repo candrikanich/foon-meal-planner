@@ -68,7 +68,7 @@ A parent can add a profile for each person before they install Foon. A profile h
 | Eats separately (little ones) | Left out of ratings and votes | Your household | While they're in the household* |
 | Allergies | To flag dishes (see Allergies) | Your household | Until removed, account deleted or anonymized |
 
-\* When someone is removed, their profile is anonymized 12 months later (#67 car 1 for adults). See How long we
+\* When someone is removed, their profile is anonymized 12 months later. See How long we
 keep it.
 
 Foon doesn't ask for birthdays, phone numbers, addresses or your location (apart from the household time zone). It
@@ -134,9 +134,9 @@ household can see its subscription status.
   wording they saw. These stay with the household even if the parent who agreed later deletes their account, so we can
   show the consent was given. They're deleted when the household is.
 - **Invites.** An invite records who it's for, who made it, and when it was used. Only a scrambled form of the code is
-  stored. Invites are deleted 30 days after they expire or are used (#67 car 1).
+  stored. Invites are deleted 30 days after they expire, are used or are cancelled.
 - **Safety counters.** To stop someone guessing invite codes, we record each attempt to use a code, wrong or right,
-  for 1 day (#67 car 1). To keep the recipe importer fair, we count how many links each account reads a day.
+  for 1 day. To keep the recipe importer fair, we count how many links each account reads a day.
 
 > **Review:** we don't currently use analytics or crash reporting in the app. If we add them (#28), this policy, the App
 > Store privacy label, and "no tracking" all need another look first.
@@ -203,7 +203,7 @@ Allergies can be health information. We treat them carefully.
 - **Never for AI, never for ads.** Allergies are never sent anywhere for AI, never sold, and never used for advertising.
   They're never in a notification's text.
 - **Withdrawing.** A parent can remove anyone's allergies at any time. A parent can also turn allergy alerts off for the
-  household, which withdraws consent and erases all of the household's allergy data at once (#67 car 1).
+  household, which withdraws consent and erases all of the household's allergy data at once.
 
 Allergy flags are a helper, not a guarantee. Always check labels. See our Terms of Use.
 
@@ -267,9 +267,9 @@ deleted sooner:
 - tonight polls, plan activity, and the reminder log: 8 weeks;
 - a shopping trip's "heading to the store": 1 day after it ends;
 - recipe lines waiting for a family device: 3 days at most; the tidied result: 30 days;
-- invites: 30 days after they expire or are used (#67 car 1);
+- invites: 30 days after they expire, are used or are cancelled;
 - subscription notices from Apple: 2 years;
-- a removed person's profile: anonymized 12 months after they're removed (#67 car 1 for adults);
+- a removed person's profile: anonymized 12 months after they're removed;
 - what a kid entered themselves: 30 days after a parent withdraws consent.
 
 Deleted data can remain in our hosting provider's backups for up to 7 days, and is then gone.

@@ -119,7 +119,7 @@ Key flows: This Week tab, Fill my week, approve, then the cart icon for the shop
 ## Compliance checklist
 
 - [ ] Export compliance: standard HTTPS only; set ITSAppUsesNonExemptEncryption to NO
-- [ ] Privacy manifest (required-reason APIs declared)
+- [x] Privacy manifest (#67): `PrivacyInfo.xcprivacy` in the app (`Foon/App`), the share extension, the after-dinner card and the widget, picked up as resources from each target's folder in `project.yml`. No tracking, no tracking domains. Required-reason APIs: the app declares UserDefaults (CA92.1 for its own settings, 1C8F.1 for the App Group suite) and file timestamps (C617.1, the share inbox clearing stale files in the App Group container); the share extension declares file timestamps (C617.1, the same inbox code); the card and the widget use none. The app's collected data types match the label above. Analytics and crash data aren't collected yet (#28): add them to the manifest and the label when they are. Check the generated privacy report (Xcode Organizer → Generate Privacy Report) on the first archive.
 - [ ] In-app account deletion with Sign in with Apple token revocation
 - [x] Share extension: App IDs `com.andrikanich.foon` and `com.andrikanich.foon.share` both have App Groups on, with `group.com.andrikanich.foon`
 - [x] After-dinner card (#122): App ID `com.andrikanich.foon.dinner` registered with App Groups on, with `group.com.andrikanich.foon`

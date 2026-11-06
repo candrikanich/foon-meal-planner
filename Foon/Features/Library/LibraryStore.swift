@@ -379,6 +379,13 @@ final class LibraryStore {
         await load(members: members)
     }
 
+    /// Allergy alerts went off, so the server erased every allergy: the flags go now, whether or not the reload that
+    /// follows gets through.
+    func allergiesErased(members: [Member]) async {
+        allergies = []
+        await load(members: members)
+    }
+
     func meal(_ id: UUID) -> LibraryMeal? {
         meals.first { $0.id == id }
     }

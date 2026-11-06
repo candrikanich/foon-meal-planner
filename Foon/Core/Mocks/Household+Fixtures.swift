@@ -74,6 +74,8 @@ extension HouseholdClient {
             parentalConsentMemberIDs: { _ in [] },
             recordParentalConsent: { _, _ in },
             revokeParentalConsent: { _ in },
+            // The sample family has a kid's milk allergy, so it agreed.
+            allergyAlerts: { _ in .on },
             addAwayDates: { _, new in [new] },
             attendanceTemplates: { _ in AttendanceTemplate.samples(for: members) },
             familyStats: { _, _, _ in .sample },

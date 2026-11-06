@@ -111,7 +111,8 @@ select throws_ok($$ select public.anonymize_expired_profiles() $$, '42501', null
   'clients cannot run the retention job');
 
 select pg_temp.as_admin();
-select is(public.anonymize_expired_profiles(), 2, 'the retention job handles the two expired kid profiles');
+select is(public.anonymize_expired_profiles(), 3,
+  'the retention job handles the two expired kid profiles and the adult removed 13 months ago (#67)');
 select results_eq(
   $$ select first_name, avatar, anonymized_at is not null from public.members
      where id = '00000000-0000-0000-0000-0000000000b1' $$,
@@ -130,8 +131,8 @@ select is((select string_agg(first_name, ',' order by first_name) from public.me
            where own_data_erased_at is null and anonymized_at is null
              and id in ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000b4',
                         '00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-0000000000b6')),
-  'Sam,Uma,Val,Wes',
-  'removed 11 months ago, withdrawn 29 days ago, an adult, and a second withdrawal yesterday are all left alone');
+  'Sam,Uma,Wes',
+  'removed 11 months ago, withdrawn 29 days ago, and a second withdrawal yesterday are all left alone');
 select is(public.anonymize_expired_profiles(), 0, 'the job does not touch a profile twice');
 select is((select count(*)::int from cron.job where jobname = 'anonymize-expired-profiles'), 1,
   'the retention job runs daily');
