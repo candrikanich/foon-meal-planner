@@ -225,6 +225,21 @@ struct HouseholdStoreTests {
         #expect(!asParent.canRemoveOwnAllergies(of: parent), "a parent already has Change allergies")
     }
 
+    /// COPPA 312.6: a parent can review their kid's data, so every parent exports, planner or not (#279).
+    @Test func parentsAndPlannersExportButOtherMembersDont() async {
+        let household = household, me = me
+        func canExport(ageGroup: AgeGroup = .adult, guardian: Bool = false, role: MemberRole = .member) async -> Bool {
+            let profile = Member.fixture(ageGroup: ageGroup, guardian: guardian, role: role, userID: me)
+            let store = HouseholdStore(userID: me, client: .fake(myHousehold: { household }, members: { _ in [profile] }))
+            await store.load()
+            return store.canExport
+        }
+        #expect(await canExport(guardian: true), "a parent who doesn't plan")
+        #expect(await canExport(role: .planner), "a planner who isn't a parent")
+        #expect(!(await canExport()), "an adult who's neither")
+        #expect(!(await canExport(ageGroup: .kid)), "a kid")
+    }
+
     @Test func theOwnerCanNeverBeRemoved() async {
         let owned = Household(id: household.id, name: "The Smiths", emoji: nil, owner: me)
         let owner = Member.fixture(firstName: "Ann", guardian: true, userID: me)

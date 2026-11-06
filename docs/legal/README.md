@@ -104,12 +104,8 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 
 The drafts describe what the code does today. These are the places where that may not be what we want:
 
-- A withdrawn kid's list items aren't erased (only their "urgent" mark is cleared), though the spec says they are.
 - Withdrawing consent or removing a kid unlinks their sign-in account but doesn't delete it.
 - Consent records are erased with the household; there's no record kept afterwards.
-- `import_usage` is pruned only on that account's next import.
-- Meal photos: a replaced photo is never deleted from storage (`LibraryClient.setPhoto`); it stays until the household
-  is deleted. Deleting a dish does remove its photo.
 - Owner transfer isn't built yet (spec, Outliers), so the drafts say it's planned.
 
 Found by the compliance self-check ([compliance-check.md](compliance-check.md), "Before launch" (b) has the detail):
@@ -117,7 +113,6 @@ Found by the compliance self-check ([compliance-check.md](compliance-check.md), 
 - Parental consent is an in-app agreement, not a method listed in COPPA 312.5(b)(2).
 - There's no way to ask parents for new consent after a material change.
 - There's no "delete everything about this child now"; the 30-day and 12-month delays apply.
-- Only planners can see a kid's reminder log and hidden comments, and only planners can export.
 - The allergy consent sentence doesn't name who receives allergies or how to withdraw.
 - No links yet to the privacy policy or the consumer health data policy on the homepage, the App Store page, onboarding
   or Your data. (The paywall and the kid invite and join screens have their links, #282 and #276.)

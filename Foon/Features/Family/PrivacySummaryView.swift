@@ -35,9 +35,9 @@ struct PrivacySummaryView: View {
             }
 
             Section("Who sees what") {
-                Text("Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, votes on dinner, ratings and comments, and who cooked. Planners can see the reminder log; everyone else, only their own.")
+                Text("Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, votes on dinner, ratings and comments, and who cooked. Planners can see the reminder log and comments a planner hid, and parents can see their kids'. Everyone else sees only their own reminders.")
                 Text("Other households can't see any of it.")
-                Text("Parents manage people and change allergies. Planners build the week and can export the household. Only the owner can delete it.")
+                Text("Parents manage people and change allergies. Planners build the week. Planners and parents can export the household. Only the owner can delete it.")
             }
 
             Section {

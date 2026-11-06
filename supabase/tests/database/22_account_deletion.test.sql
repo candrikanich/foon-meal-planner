@@ -74,7 +74,7 @@ select throws_ok($$ select public.delete_account_data('a0000000-0000-0000-0000-0
 
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 select throws_ok($$ select public.export_household('00000000-0000-0000-0000-0000000000a0') $$,
-  '42501', null, 'only planners export');
+  '42501', null, 'only planners and parents export');
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
 select throws_ok($$ select public.export_household('00000000-0000-0000-0000-0000000000a0') $$,
   '42501', null, 'another household cannot export it');

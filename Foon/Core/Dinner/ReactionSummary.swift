@@ -26,8 +26,9 @@ struct MealLikes: Equatable, Sendable, Decodable {
     }
 }
 
-/// A comment on a dish, from `meal_comments`. A hidden one only reaches planners, marked, so they can bring it back.
-/// The server enforces that: its text moves out of `reactions` into a table only planners can read.
+/// A comment on a dish, from `meal_comments`. A hidden one reaches planners, marked, so they can bring it back, and a
+/// kid's reaches their parents too. The server enforces that: its text moves out of `reactions` into a table only
+/// they can read.
 struct MealComment: Identifiable, Equatable, Sendable, Decodable {
     /// The reaction it's part of.
     let id: UUID

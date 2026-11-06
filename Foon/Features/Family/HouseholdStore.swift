@@ -108,8 +108,9 @@ final class HouseholdStore {
         household?.owner == userID || me?.role == .planner
     }
 
-    /// Planners export the household's data.
-    var canExport: Bool { isPlanner }
+    /// Planners and parents export the household's data: a parent has the right to review their kid's (COPPA 312.6).
+    /// The server exports only what the caller can read, so a parent who doesn't plan gets no other adult's private rows.
+    var canExport: Bool { isPlanner || canManagePeople }
 
     /// The household's data as a pretty-printed JSON file in the temporary folder, ready to share or save.
     func exportFile() async -> URL? {
@@ -270,7 +271,7 @@ final class HouseholdStore {
     /// Only creating a household writes its time zone, so an older one has none and the server falls back to New York.
     /// A planner's device fills it in; it isn't worth an error, and the next load tries again.
     private func saveDeviceTimeZoneIfMissing() async {
-        guard let household, household.planningSettings.timeZone == nil, canExport else { return }
+        guard let household, household.planningSettings.timeZone == nil, isPlanner else { return }
         let zone = deviceTimeZone()
         guard (try? await client.saveTimeZone(household.id, zone)) != nil,
               var current = self.household, current.planningSettings.timeZone == nil else { return }
