@@ -109,7 +109,8 @@ begin
 
   -- Their sign-in. Sessions end with it, so the kid's phone loses access on its next request. An account on a kid's
   -- profile is the kid's: one account joins one household, and redeem_invite refuses an adult's age on a kid's invite.
-  if kid.user_id is not null then
+  -- One claimed before that refusal, by someone who said they're an adult, is only unlinked: fail closed on an account.
+  if kid.user_id is not null and kid.declared_age_band is distinct from 'adult' then
     delete from public.invite_redeem_attempts where user_id = kid.user_id;
     delete from auth.users where id = kid.user_id;
   end if;
