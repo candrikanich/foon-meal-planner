@@ -119,7 +119,7 @@ Found by the compliance self-check ([compliance-check.md](compliance-check.md), 
 - Only planners can see a kid's reminder log and hidden comments, and only planners can export.
 - The allergy consent sentence doesn't name who receives allergies or how to withdraw.
 - No links yet to the privacy policy or the consumer health data policy on the homepage, the App Store page, the kid
-  invite and join screens, the paywall or Your data.
+  invite and join screens, onboarding or Your data. (The paywall has its links, #282.)
 - Age assurance (#88) isn't built: Texas SB 2420 is in force; California, Utah and Louisiana follow in 2027.
 - No notice to the App Store before a significant change to the terms or privacy policy (Texas §121.053).
 - The waitlist email has no postal address, and the confirmation email includes an offer.

@@ -72,8 +72,8 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
   The allergy sentence says Foon "keeps these with your household", and the kid-invite consent says "shared only with
   this household", while processors (Supabase, and Apple for push) handle the data. Both sentences should say so.
 - **Links to the policies:**
-  - the privacy policy on the getfoon.com homepage, the kid invite/join screens, the paywall, onboarding and
-    Family → Your data;
+  - the privacy policy on the getfoon.com homepage, the kid invite/join screens, onboarding and Family →
+    Your data (the paywall has them, #282);
   - the consumer health data policy on the homepage, the App Store page and in the app.
 - **Paywall terms.** Done in #282: restore purchases, the offer row with the price after the trial, the renewal terms
   and Terms of Use and Privacy Policy links (`SubscriptionSection.swift`).
