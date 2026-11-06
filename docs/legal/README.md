@@ -35,7 +35,7 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 - [ ] The amended COPPA rule (compliance date April 22, 2026): does a parent-run household app, outside the Kids
       category, with kids joining only by a parent's invite, meet it?
 - [ ] Written retention policy: does retention.md's "Kids: purposes and periods" section meet the requirement?
-- [ ] Parental consent method: today a signed-in parent agrees in the app when inviting a kid (`parental-invite-v2`),
+- [ ] Parental consent method: today a signed-in parent agrees in the app when inviting a kid (`parental-invite-v2` since #276; earlier consents are v1 until #277 asks again),
       logged with who, when and the wording. Is that a sufficient verifiable-consent method?
 - [ ] Kids' self-entered content: erased 30 days after a parent withdraws consent; anonymized 12 months after a kid is
       removed, with ratings kept as anonymous history. Is the hard delete, and is keeping anonymous ratings, acceptable?
