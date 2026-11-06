@@ -497,6 +497,19 @@ struct HouseholdAwayAndTemplateTests {
         #expect(store.household?.planningSettings.timeZone == nil)
     }
 
+    /// Exporting is open to parents (#279); writing the household's time zone stays a planner's.
+    @Test func aParentWhoIsntAPlannerWritesNoTimeZone() async {
+        let household = household, me = me
+        let sent = Mutex(false)
+        var client = HouseholdClient.fake(myHousehold: { household }, members: { _ in
+            [.fixture(firstName: "Ann", guardian: true, role: .member, userID: me)]
+        })
+        client.saveTimeZone = { _, _ in sent.withLock { $0 = true } }
+        let store = HouseholdStore(userID: me, client: client, deviceTimeZone: { "America/Los_Angeles" })
+        await store.load()
+        #expect(!sent.withLock { $0 })
+    }
+
     @Test func aFailedTimeZoneSaveIsQuietAndTriedAgainLater() async {
         let id = household.id, me = me
         var client = HouseholdClient.fake(myHousehold: { Household(id: id, name: "The Smiths", emoji: nil, owner: me) })

@@ -74,7 +74,7 @@ final class LibraryStore {
 
     /// The family's reactions: current verdicts and likes, for favorites, the sorts, and Build my week.
     private(set) var reactions = ReactionSummary()
-    /// Comments this person may see: a hidden one reaches planners only.
+    /// Comments this person may see: a hidden one reaches planners, and a kid's reaches their parents.
     private(set) var comments: [MealComment] = []
     /// Everyone's serving notes, for meal detail and day cards.
     private(set) var servingNotes: [ServingNote] = []

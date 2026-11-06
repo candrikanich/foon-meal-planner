@@ -40,7 +40,7 @@ struct LibraryClient: Sendable {
     var create: @Sendable (_ householdID: UUID, _ meal: MealDraft.Saved) async throws -> UUID
     /// Every item the household has used (meals and lists), for autocomplete.
     var itemNames: @Sendable (_ householdID: UUID) async throws -> [String]
-    /// Uploads a prepared JPEG and points the meal at it.
+    /// Uploads a prepared JPEG, points the meal at it, and deletes the photo it replaced.
     var setPhoto: @Sendable (_ meal: LibraryMeal, _ preparedJPEG: Data) async throws -> Void
     /// Each member's current verdict on each dish, and how often each was liked: what reactions feed planning.
     var verdicts: @Sendable (_ householdID: UUID) async throws -> [MealVerdict] = { _ in [] }
@@ -188,14 +188,17 @@ extension LibraryClient {
                 return rows.map(\.canonicalName)
             },
             setPhoto: { meal, preparedJPEG in
-                let path = try await photos.upload(meal.householdID, preparedJPEG)
-                let updated: [AddedMeal] = try await client.from("meals")
-                    .update(["photo_path": path])
-                    .eq("id", value: meal.id)
-                    .select("id")
-                    .execute()
-                    .value
-                guard !updated.isEmpty else { throw LibraryClientError.notAllowed }
+                try await photos.replace(householdID: meal.householdID, preparedJPEG: preparedJPEG) { path in
+                    do {
+                        return try await client.rpc(
+                            "set_meal_photo", params: SetMealPhotoParams(targetMeal: meal.id, newPath: path)
+                        )
+                        .execute()
+                        .value
+                    } catch let error as PostgrestError where error.code == "42501" {
+                        throw LibraryClientError.notAllowed
+                    }
+                }
             },
             // One row per person per dish, so a family reaches the cap well before their library does.
             verdicts: { householdID in
@@ -509,6 +512,16 @@ private struct ItemName: Decodable, Sendable {
 
 private struct AddedMeal: Decodable, Sendable {
     let id: UUID
+}
+
+private struct SetMealPhotoParams: Encodable {
+    let targetMeal: UUID
+    let newPath: String
+
+    enum CodingKeys: String, CodingKey {
+        case targetMeal = "target_meal"
+        case newPath = "new_path"
+    }
 }
 
 private struct SetCommentHiddenParams: Encodable {

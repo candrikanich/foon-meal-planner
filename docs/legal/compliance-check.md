@@ -60,8 +60,6 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 - **Delete everything about a child, now.** Done in #278: any parent, on the kid's profile, deletes the kid's data and
   their sign-in account at once (`delete_kid`, job K in retention.md). It answers 312.6 and the unlinked-account gap;
   withdrawing and removing still wait 30 days and 12 months.
-- **Every guardian can review a kid's data.** Planners only get read access to the kid's reminder log and hidden
-  comments today, and only planners can export.
 - **Allergy consent wording, `allergy-data-v2`.** The sentence must:
   - name who receives allergies (the household, our host provider);
   - say how to withdraw (Family → Allergy alerts).
@@ -97,8 +95,8 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
    - email plus is off the table;
    - allergies need separate sharing consent.
 3. **Whose consent.** Under Washington's law, who is the "consumer" and who consents for a child? Allergy consent is
-   one household-wide agreement by a parent, and only parents can withdraw it: is that enough for another adult's
-   allergies, and should adults be able to remove their own in the app?
+   one household-wide agreement by a parent, and only parents can withdraw it for the household: is that enough for
+   another adult's allergies? Adults can now remove their own in the app (#285), but a parent can add them again.
 4. **The state health-data laws.** Comply with Washington, Nevada and Connecticut, or block those states? This file
    recommends complying to Washington's standard.
 5. **Connecticut SB 1295.** Does it reach Foon with no volume floor (sensitive data)? This rests on secondary sources
@@ -139,9 +137,9 @@ size.
 | Accepted method in the safe list | 312.5(b)(2)(i)-(ix) | Not on the list. Apple subscription isn't a card notice Foon sees (312.5(b)(2)(ii)) | gap | As above |
 | Email plus / text plus only for operators that don't disclose | 312.5(b)(2)(viii)-(ix); "disclose" in 312.2 (UNVERIFIED) | Processors are service providers, not disclosure | open | Decision 2 |
 | Separate consent for third-party disclosure | 312.5(a)(2) | No disclosure to third parties for their own use | n/a | Wording (this PR): said plainly. Analytics (#28) would need it |
-| Parent can review a kid's information | 312.6(a)(1), (a)(3) | Most is visible in the household; reminder log and hidden comments planner-only; export planner-only | partly | Code or decision: every guardian |
+| Parent can review a kid's information | 312.6(a)(1), (a)(3) | Visible in the household; every parent reads a kid's reminder log and hidden comments, and exports (#279) | met | None |
 | Parent can refuse further collection and delete | 312.6(a)(2) | Withdraw unlinks at once; Delete everything about a kid deletes their data and sign-in account at once (#278) | met | Counsel: deleting the consent record with it |
-| Written retention policy: purpose, business need, deletion timeframe; nothing kept indefinitely | 312.10 | retention.md Kids (business need added in this PR) | partly | Remaining: the kid's sign-in account, list items (known gaps). Counsel: "while the household exists" for an active household's kid ratings and the consent record may read as indefinite |
+| Written retention policy: purpose, business need, deletion timeframe; nothing kept indefinitely | 312.10 | retention.md Kids (business need added in this PR) | partly | Remaining: the kid's sign-in account (known gaps). Counsel: "while the household exists" for an active household's kid ratings and the consent record may read as indefinite |
 | Written information security program: named person, yearly risk assessment, safeguards, testing, yearly review | 312.8(b)(1)-(5) | Nothing written; privacy.md Security lists safeguards | gap | A document (decision 8) |
 | Assurances from service providers | 312.8(c) | DPAs not on file | gap | Paperwork (decision 9) |
 | Directed to children / mixed audience | 312.2 | A general-audience household app with parent-invited kid accounts; every kid account treated as covered | met (position) | Don't call Foon "mixed audience" |
@@ -165,8 +163,8 @@ violation is a Consumer Protection Act violation (.090). The AG's FAQ says peopl
 | Consent before collecting | .030(1) | Agree and save, `allergy-data-v1`; server refuses without it. One household-wide agreement by a parent covers every adult's allergies | partly | Decision 3 |
 | Consent request names categories, purpose, recipients, how to withdraw | .030(2) | Allergy sentence names neither recipients nor withdrawal | partly | Code: `allergy-data-v2` |
 | Separate consent to share | .030(1)(b) | Nothing shared outside processors | n/a | Unless household visibility is "sharing" (decision 2) |
-| Access, including third parties and their contacts | .040(1)(a) | Visible in the household; export is planner-only | partly | Policy says no third parties; access request by email |
-| Withdraw consent | .040(1)(b) | Allergy alerts off erases all, but only a parent can do it; another adult has to ask a parent or write to us | partly | Decision 3; draft says how to ask |
+| Access, including third parties and their contacts | .040(1)(a) | Visible in the household; planners and parents export (#279) | partly | Policy says no third parties; access request by email |
+| Withdraw consent | .040(1)(b) | Allergy alerts off erases all (a parent); any adult removes their own on their profile (#285), though a parent can add them again | partly | Decision 3 |
 | Delete, including backups (up to 6 months) | .040(1)(c) | At once; backups 7 days | met | — |
 | 45 days, one 45-day extension; free twice a year; no new account needed | .040(1)(d), (f), (g) | Was "the time the law allows" | gap → fixed | Wording (this PR) |
 | Appeal: written answer in 45 days, AG contact if denied | .040(1)(h) | None | gap → fixed | Wording (this PR); AG link `[CHECK]` |

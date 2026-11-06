@@ -1391,6 +1391,9 @@
     "Couldn't record your consent. Check your connection and try again." : {
 
     },
+    "Couldn't remove your allergies. Check your connection and try again." : {
+
+    },
     "Couldn't restore purchases. Check your connection and try again." : {
 
     },
@@ -1691,7 +1694,7 @@
     "Everyone in the family sees these. Foon flags dishes, and you still check labels." : {
 
     },
-    "Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, votes on dinner, ratings and comments, and who cooked. Planners can see the reminder log; everyone else, only their own." : {
+    "Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, votes on dinner, ratings and comments, and who cooked. Planners can see the reminder log and comments a planner hid, and parents can see their kids'. Everyone else sees only their own reminders." : {
 
     },
     "Everyone makes their own" : {
@@ -1722,6 +1725,9 @@
 
     },
     "Export saves the household's meals, plans, lists, and family as a file. Deleting your account can't be undone." : {
+
+    },
+    "Export saves what you can see in the household as a file, with your kids' reminders and hidden comments. Deleting your account can't be undone." : {
 
     },
     "Exporting…" : {
@@ -1805,6 +1811,9 @@
     "Foon can't open that link. Try the recipe's web page." : {
 
     },
+    "Foon can't remove these from your profile now. Sign in again, or ask a parent." : {
+
+    },
     "Foon can't see your calendar. Allow it in Settings." : {
 
     },
@@ -1837,6 +1846,9 @@
 
     },
     "Foon couldn't read that page, so it kept the name and link. Add ingredients when you can." : {
+
+    },
+    "Foon deletes them all and stops flagging dishes for you. Only a parent can add them back." : {
 
     },
     "Foon doesn't ask for birthdays, phone numbers, or your location." : {
@@ -3037,7 +3049,7 @@
     "Parents can change or remove someone's allergies on their profile." : {
 
     },
-    "Parents manage people and change allergies. Planners build the week and can export the household. Only the owner can delete it." : {
+    "Parents manage people and change allergies. Planners build the week. Planners and parents can export the household. Only the owner can delete it." : {
 
     },
     "Parents manage the family, allergies, and privacy choices. Planners build the week and manage meals." : {
@@ -3279,7 +3291,13 @@
     "Remove from household" : {
 
     },
+    "Remove my allergies" : {
+
+    },
     "Remove this tradition" : {
+
+    },
+    "Remove your allergies?" : {
 
     },
     "Repeating time away" : {
@@ -4658,6 +4676,9 @@
 
     },
     "You can offer for yourself, or for someone without their own account." : {
+
+    },
+    "You can remove yours anytime. Foon flags dishes, and you still check labels." : {
 
     },
     "You can't change this meal. Only planners can." : {

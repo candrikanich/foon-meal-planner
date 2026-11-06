@@ -13,7 +13,7 @@ useSeoMeta({ title: "Support: Foon", description: "How to reach Foon, and how to
 
     <h2>Your family's data</h2>
     <ul>
-      <li>In the app, Family &rarr; Your data lets a planner export the household's data.</li>
+      <li>In the app, Family &rarr; Your data lets a planner or a parent export the household's data.</li>
       <li>
         The household's owner can delete the household there. It erases everything for everyone, right away, and keeps
         your account.

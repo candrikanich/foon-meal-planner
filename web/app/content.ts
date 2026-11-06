@@ -1,6 +1,6 @@
 // Everything the pages say about Foon lives here, so copy changes in one place and the spec stays the source of truth.
 export const SUPPORT_EMAIL = "support@getfoon.com";
-export const PRIVACY_UPDATED = "November 4, 2026";
+export const PRIVACY_UPDATED = "November 6, 2026";
 
 export const mission = "Take the weight of dinner off one person and share it with the whole family.";
 export const tagline = "Dinner, planned together.";
