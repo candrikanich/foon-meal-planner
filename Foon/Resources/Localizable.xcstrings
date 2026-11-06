@@ -427,6 +427,17 @@
         }
       }
     },
+    "%@, then %@ a %@" : {
+      "comment" : "Paywall: the free trial, then the renewal price, as in 1-month free trial, then $5.99 a month",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, then %2$@ a %3$@"
+          }
+        }
+      }
+    },
     "%@: %@" : {
       "comment" : "A dinner job and whose turn it is\nTradition row: its name, then the meal",
       "localizations" : {
@@ -1843,7 +1854,7 @@
     "Foon is building the week. Try again in a moment." : {
 
     },
-    "Foon is free for every family while we test it. If you'd like to subscribe early, you can. Nothing is charged until any trial ends." : {
+    "Foon is free for every family while we test it. If you'd like to subscribe early, you can. Nothing is charged until any trial ends. %@" : {
 
     },
     "Foon is still tidying up this recipe. Anything you change stays as you leave it." : {
@@ -2873,7 +2884,7 @@
     "One subscription covers the whole family. Apple holds your payment details; Foon never sees them." : {
 
     },
-    "One subscription covers the whole family. Until then you can still see everything and export or delete your data. Cancel anytime in Settings." : {
+    "One subscription covers the whole family. Until then you can still see everything and export or delete your data. %@" : {
 
     },
     "Only an adult in the family can say they're heading to the store." : {
@@ -2946,6 +2957,12 @@
 
     },
     "Opens the night to see everyone" : {
+
+    },
+    "Opens Foon's privacy policy on the web" : {
+
+    },
+    "Opens Foon's terms on the web" : {
 
     },
     "Opens the recipe" : {
@@ -3021,6 +3038,9 @@
 
     },
     "People write their own notes; parents can write anyone's." : {
+
+    },
+    "Payment is charged to your Apple Account. Subscriptions renew automatically unless cancelled at least 24 hours before the period ends. Cancel anytime in Settings." : {
 
     },
     "Personal care" : {
@@ -3114,6 +3134,9 @@
 
     },
     "Put %@ back in the freezer" : {
+
+    },
+    "Privacy Policy" : {
 
     },
     "Put %@ down to cook %@" : {
@@ -3791,6 +3814,9 @@
       "comment" : "Dish category in a variety note"
     },
     "Thanked" : {
+
+    },
+    "Terms of Use" : {
 
     },
     "Thanked %lld times for the %@" : {

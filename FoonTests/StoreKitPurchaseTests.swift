@@ -70,3 +70,18 @@ struct StoreKitPurchaseTests {
         session.clearTransactions()
     }
 }
+
+/// The paywall says what a trial turns into (#282).
+struct OfferTermsTests {
+    @Test func aTrialSaysThePriceAfterIt() {
+        let offer = StoreOffer(id: FoonProducts.monthly, name: "Foon Family Monthly", price: "$5.99", period: "month",
+                               trial: "1-month free trial")
+        #expect(offer.trialThenPrice == "1-month free trial, then $5.99 a month")
+    }
+
+    @Test func noTrialNoLine() {
+        let offer = StoreOffer(id: FoonProducts.founding, name: "Foon Founding Family", price: "$24.99", period: "year",
+                               trial: nil)
+        #expect(offer.trialThenPrice == nil)
+    }
+}

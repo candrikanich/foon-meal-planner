@@ -75,8 +75,8 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
   - the privacy policy on the getfoon.com homepage, the kid invite/join screens, the paywall, onboarding and
     Family → Your data;
   - the consumer health data policy on the homepage, the App Store page and in the app.
-- **Paywall terms.** Restore purchases and the offer row (name, price, trial) are built (`SubscriptionSection.swift`).
-  Still needed: Terms of Use and Privacy Policy links, and the renewal price after the trial stated plainly.
+- **Paywall terms.** Done in #282: restore purchases, the offer row with the price after the trial, the renewal terms
+  and Terms of Use and Privacy Policy links (`SubscriptionSection.swift`).
 - **Age assurance (#88).**
   - Texas 121.054 needs a system to check each user's age category and a minor's consent status.
   - California AB 1043 (2027-01-01), Louisiana (2027-07-01) and Utah (2027-05-06) follow.
@@ -237,7 +237,7 @@ processing needs a separate authorization or a "strictly necessary" purpose, and
 | No sharing without permission, including AI | 5.1.2(i) | On-device AI; #59 queue stays in the family's devices | met | Wording (this PR): marketing line |
 | Apps that collect from minors need a policy and must follow children's privacy law, even outside the Kids Category | 5.1.4(b) | Not in Kids Category | partly | See COPPA |
 | Outside the Kids Category, don't suggest kids are the main audience | 2.3.8 | Keyword "kids" | partly | Wording (this PR): dropped |
-| Subscription screen: name, duration, renewal price, trial, restore, Terms and Privacy links | 3.1.2; Apple's Subscriptions page | Offer row (name, price, trial) and restore purchases built (`SubscriptionSection.swift`); no Terms or Privacy links | partly | Code: the links, and the renewal price after the trial; decision 13 |
+| Subscription screen: name, duration, renewal price, trial, restore, Terms and Privacy links | 3.1.2; Apple's Subscriptions page | Offer row (name, price, trial and the price after it), renewal terms, restore purchases, and Terms and Privacy links (`SubscriptionSection.swift`, #282) | met | Decision 13 (trial wording) |
 | EULA | 3.1.2 (wording UNVERIFIED) | terms.md layers Apple's EULA | partly | Decision 12 |
 | Privacy label accurate | App Privacy Details | Label rows in app-store-submission.md | partly | Check whether the push token is "Device ID" and whether kept request logs (IPs) count (both UNVERIFIED); add the age range with #88 |
 

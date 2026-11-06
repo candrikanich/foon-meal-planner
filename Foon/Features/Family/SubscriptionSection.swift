@@ -128,6 +128,7 @@ struct SubscriptionSection: View {
             .disabled(subscription.isWorking)
         }
         restoreButton
+        PolicyLinks()
     }
 
     private var restoreButton: some View {
@@ -145,6 +146,9 @@ struct SubscriptionSection: View {
         #endif
     }
 
+    /// What Apple asks every paywall to say about renewal (App Review 3.1.2).
+    static let renewalTerms = String(localized: "Payment is charged to your Apple Account. Subscriptions renew automatically unless cancelled at least 24 hours before the period ends. Cancel anytime in Settings.")
+
     @ViewBuilder
     private var footer: some View {
         switch mode {
@@ -159,9 +163,9 @@ struct SubscriptionSection: View {
         case .buy:
             switch subscription.access {
             case .freeBeta:
-                Text("Foon is free for every family while we test it. If you'd like to subscribe early, you can. Nothing is charged until any trial ends.")
+                Text("Foon is free for every family while we test it. If you'd like to subscribe early, you can. Nothing is charged until any trial ends. \(Self.renewalTerms)")
             default:
-                Text("One subscription covers the whole family. Until then you can still see everything and export or delete your data. Cancel anytime in Settings.")
+                Text("One subscription covers the whole family. Until then you can still see everything and export or delete your data. \(Self.renewalTerms)")
             }
         }
     }
@@ -174,7 +178,7 @@ private struct OfferRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(offer.name).font(.foonHeadline)
-                if let trial = offer.trial {
+                if let trial = offer.trialThenPrice {
                     Text(trial).font(.foonCaption).foregroundStyle(Palette.herb)
                 }
             }
@@ -189,7 +193,7 @@ private struct OfferRow: View {
 
     private var label: String {
         [offer.name, String(localized: "\(offer.price) per \(offer.period)", comment: "VoiceOver: a plan's price, as in $5.99 per month"),
-         offer.trial].compactMap { $0 }.joined(separator: ", ")
+         offer.trialThenPrice].compactMap { $0 }.joined(separator: ", ")
     }
 }
 
