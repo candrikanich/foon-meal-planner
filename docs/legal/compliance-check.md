@@ -57,10 +57,9 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
   out without a yes, and the wording is `parental-invite-v2`.
 - **New consent for material changes.** Store the consent version per kid, and hold a kid's access until a parent
   agrees to the new one.
-- **Delete everything about a child, now.**
-  - It would remove the kid's data and their sign-in account at once.
-  - It answers 312.6 and the unlinked-account gap.
-  - The 30-day and 12-month delays don't.
+- **Delete everything about a child, now.** Done in #278: any parent, on the kid's profile, deletes the kid's data and
+  their sign-in account at once (`delete_kid`, job K in retention.md). It answers 312.6 and the unlinked-account gap;
+  withdrawing and removing still wait 30 days and 12 months.
 - **Allergy consent wording, `allergy-data-v2`.** The sentence must:
   - name who receives allergies (the household, our host provider);
   - say how to withdraw (Family → Allergy alerts).
@@ -139,7 +138,7 @@ size.
 | Email plus / text plus only for operators that don't disclose | 312.5(b)(2)(viii)-(ix); "disclose" in 312.2 (UNVERIFIED) | Processors are service providers, not disclosure | open | Decision 2 |
 | Separate consent for third-party disclosure | 312.5(a)(2) | No disclosure to third parties for their own use | n/a | Wording (this PR): said plainly. Analytics (#28) would need it |
 | Parent can review a kid's information | 312.6(a)(1), (a)(3) | Visible in the household; every parent reads a kid's reminder log and hidden comments, and exports (#279) | met | None |
-| Parent can refuse further collection and delete | 312.6(a)(2) | Withdraw unlinks at once; own content erased after 30 days; removal anonymizes at 12 months; kid's sign-in account stays | partly | Code: delete everything about a child now |
+| Parent can refuse further collection and delete | 312.6(a)(2) | Withdraw unlinks at once; Delete everything about a kid deletes their data and sign-in account at once (#278) | met | Counsel: deleting the consent record with it |
 | Written retention policy: purpose, business need, deletion timeframe; nothing kept indefinitely | 312.10 | retention.md Kids (business need added in this PR) | partly | Remaining: the kid's sign-in account (known gaps). Counsel: "while the household exists" for an active household's kid ratings and the consent record may read as indefinite |
 | Written information security program: named person, yearly risk assessment, safeguards, testing, yearly review | 312.8(b)(1)-(5) | Nothing written; privacy.md Security lists safeguards | gap | A document (decision 8) |
 | Assurances from service providers | 312.8(c) | DPAs not on file | gap | Paperwork (decision 9) |

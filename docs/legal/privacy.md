@@ -133,7 +133,8 @@ household can see its subscription status.
 
 - **Consent records.** When a parent agrees to keep allergies, or to invite a kid, we record who agreed, when, and which
   wording they saw. These stay with the household even if the parent who agreed later deletes their account, so we can
-  show the consent was given. They're deleted when the household is.
+  show the consent was given. They're deleted when the household is, and a kid's parental consent record is deleted
+  when a parent deletes everything about that kid.
 - **Invites.** An invite records who it's for, who made it, and when it was used. Only a scrambled form of the code is
   stored. Invites are deleted 30 days after they expire, are used or are cancelled.
 - **Safety counters.** To stop someone guessing invite codes, we record each attempt to use a code, wrong or right,
@@ -170,14 +171,12 @@ account as a child's account under the Children's Online Privacy Protection Act 
   - **review** what's kept about their child: it's in the app, and Family → Your data → Export saves it as a file
     (apart from the kid's sign-in details, their device's push token, and pushes still waiting to be sent). They can
     also ask us at support@getfoon.com;
-  - **have it deleted:** ask us at support@getfoon.com. Removing the kid cuts their access at once and anonymizes the
-    profile 12 months later; their ratings stay without a name;
+  - **have it deleted:** on the kid's profile, Delete everything about them deletes it all at once, sign-in account
+    included (see below). They can also ask us at support@getfoon.com;
   - **refuse further collection:** withdraw consent on the kid's profile, which stops the kid's account at once.
 
   The details are below.
 
-> **Review:** there's no "delete everything about this child now" in the app yet; an emailed request is handled by
-> hand. See compliance-check.md.
 - **How long we keep it.** Our [Data Retention Policy](retention.md) is part of this notice. Its section "Kids:
   purposes and periods" is our written retention policy for children's information: why we keep each kind, the need
   for it, and when it's deleted.
@@ -200,8 +199,8 @@ account as a child's account under the Children's Online Privacy Protection Act 
   not: a parent who isn't a planner gets what they can see, including their kids' reminder log and hidden comments,
   but not another adult's.
 - **What a parent can change or delete.** Parents can change a kid's profile and allergies, remove allergies at any
-  time, and remove the kid from the household. A planner can hide a kid's comment. A parent can export the household's
-  data, and the owner can delete the household.
+  time, remove the kid from the household, and delete everything about them. A planner can hide a kid's comment. A
+  parent can export the household's data, and the owner can delete the household.
 - **Withdrawing consent.** A parent can withdraw consent on the kid's profile at any time. The kid's account is unlinked
   at once and loses access to the household. If consent isn't given again within 30 days, what the kid entered
   themselves is deleted: their own ratings, comments, thank-yous, serving notes, requests and "me too"s, offers to
@@ -215,6 +214,15 @@ account as a child's account under the Children's Online Privacy Protection Act 
   ratings stay as anonymous history.
 - **Deleting a kid's own account.** Their account, sign-in included, is deleted, along with their comments, poll
   votes, serving notes and notes on requests they wrote themselves. The profile a parent made stays.
+- **Deleting everything about a kid.** Any parent, on the kid's profile, at any time. It happens at once, not after a
+  wait, and can't be undone. Deleted: the kid's profile (name, avatar, schedule), allergies, ratings and comments,
+  thank-yous they sent and the ones sent to them for a dinner they cooked, serving notes about them or written by them,
+  requests and "me too"s, offers to cook, attendance, poll votes, plan changes, the reminder log, push devices and
+  pushes for or about them, invites, the parental consent record, and their sign-in account (Apple account ID and
+  email). Kept, without their name: the family's plans, dishes, dinners and shopping list lines. List lines don't
+  record who added them (one line holds everyone's adds), so a line they added stays on the list, and it stops saying
+  they checked it off or marked it for tonight. A rating, request or note they entered for someone else stays that
+  person's, without saying who entered it.
 
 To ask about or delete your child's information, a parent can also write to support@getfoon.com.
 
@@ -321,6 +329,8 @@ of this policy.
 
 - **Remove an allergy.** Parents, on the person's profile, at any time. An adult can also remove all of their own.
 - **Remove someone.** Parents, on the person's profile. Their account loses access at once.
+- **Delete everything about a kid.** Parents, on the kid's profile: the kid's information and sign-in account are
+  deleted at once (see Kids).
 - **Delete your account.** Anyone, in Family → Your data (or on the first screen before you've joined a household).
   You confirm with Apple, and we revoke Foon's Sign in with Apple access. Then:
   - if you're the owner, your household and everything in it is erased, photos included (handing ownership to

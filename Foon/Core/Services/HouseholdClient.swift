@@ -22,6 +22,8 @@ struct HouseholdClient: Sendable {
     var recordParentalConsent: @Sendable (_ householdID: UUID, _ memberID: UUID) async throws -> Void
     /// Unlinks the kid's account at once (the database does it when consent is revoked).
     var revokeParentalConsent: @Sendable (_ memberID: UUID) async throws -> Void
+    /// Deletes a kid's profile, everything about them, and their sign-in account, at once (`delete_kid`, parents only).
+    var deleteKid: @Sendable (_ memberID: UUID) async throws -> Void = { _ in }
     /// The one plain sentence on onboarding's allergy screen; allergies can't be saved without it.
     var grantAllergyConsent: @Sendable (_ householdID: UUID, _ textVersion: String) async throws -> Void = { _, _ in }
     /// Replaces a member's allergies: standard allergens and Other text.
@@ -199,6 +201,9 @@ extension HouseholdClient {
                     .eq("kind", value: "parental")
                     .is("revoked_at", value: nil)
                     .execute()
+            },
+            deleteKid: { memberID in
+                try await client.rpc("delete_kid", params: ["target_member": memberID]).execute()
             },
             grantAllergyConsent: { householdID, textVersion in
                 try await client.rpc("grant_allergy_consent", params: [

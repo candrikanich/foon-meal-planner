@@ -10,6 +10,7 @@ struct MemberEditorView: View {
     @State private var confirmingRemoval = false
     @State private var inviteCode: String?
     @State private var confirmingWithdrawal = false
+    @State private var deletingKid = false
     /// The member as this sheet opened on them, which is what the draft started from. `member` follows the store, so a
     /// refresh would make everyone else's changes look like edits here.
     @State private var opened: Member?
@@ -19,6 +20,9 @@ struct MemberEditorView: View {
         _draft = State(initialValue: member.map(MemberDraft.init) ?? MemberDraft())
         _opened = State(initialValue: member)
     }
+
+    /// The server refuses to make a signed-in adult a kid, since a kid's account can be deleted by a parent (#278).
+    private var staysAdult: Bool { opened.map { $0.userID != nil && $0.ageGroup == .adult } ?? false }
 
     private var scope: HouseholdStore.EditScope {
         member.map(store.editScope(for:)) ?? .everything
@@ -37,6 +41,12 @@ struct MemberEditorView: View {
                             Text("Kid").tag(AgeGroup.kid)
                         }
                         .pickerStyle(.segmented)
+                        .disabled(staysAdult)
+                        if staysAdult {
+                            Text("Someone who signs in as an adult stays one.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
                         if draft.ageGroup == .adult {
                             Toggle("Parent", isOn: $draft.guardian)
                         }
@@ -113,6 +123,17 @@ struct MemberEditorView: View {
                     }
                 }
 
+                if let member, store.canDeleteKid(member) {
+                    Section {
+                        Button("Delete everything about \(member.firstName)", role: .destructive) {
+                            deletingKid = true
+                        }
+                        .disabled(isSaving)
+                    } footer: {
+                        Text("Deletes their profile and everything Foon keeps about them, now.")
+                    }
+                }
+
                 if let message = store.errorMessage {
                     Section {
                         Text(message).foregroundStyle(.red)
@@ -154,6 +175,11 @@ struct MemberEditorView: View {
                 }
             } message: {
                 Text("They're signed out of the household on their own device now, and stay in the family on yours. If you don't consent again within 30 days, what they added themselves is erased.")
+            }
+            .sheet(isPresented: $deletingKid) {
+                if let member {
+                    DeleteKidView(member: member) { dismiss() }
+                }
             }
             .confirmationDialog(
                 "Remove \(member?.firstName ?? "")?", isPresented: $confirmingRemoval, titleVisibility: .visible
@@ -292,6 +318,13 @@ struct MemberEditorView: View {
 #Preview("Edit a kid away at camp") {
     let store = HouseholdStore.preview()
     MemberEditorView(member: Member.sampleFamily[3])
+        .environment(store)
+        .task { await store.load() }
+}
+
+#Preview("A parent editing a kid") {
+    let store = HouseholdStore.preview()
+    MemberEditorView(member: Member.sampleFamily[4])
         .environment(store)
         .task { await store.load() }
 }

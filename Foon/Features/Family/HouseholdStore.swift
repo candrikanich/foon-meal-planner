@@ -697,6 +697,36 @@ final class HouseholdStore {
         }
     }
 
+    /// Any parent, for any kid (COPPA 312.6, #278). The server checks both.
+    func canDeleteKid(_ member: Member) -> Bool {
+        canManagePeople && member.ageGroup == .kid
+    }
+
+    /// Deletes the kid's profile, everything about them, and their sign-in account, at once. Returns whether they're
+    /// gone.
+    func deleteKid(_ member: Member) async -> Bool {
+        errorMessage = nil
+        do {
+            try await client.deleteKid(member.id)
+        } catch let error as PostgrestError where error.code == "P0002" {
+            // Another parent got there first: what was asked for is done.
+        } catch {
+            // A refusal won't pass on a retry, so don't blame the connection.
+            switch (error as? PostgrestError)?.code {
+            case "42501": errorMessage = String(localized: "Only a parent in the family can delete a kid.")
+            case "22023": errorMessage = String(localized: "They're an adult in the family now, so this doesn't apply.")
+            default: errorMessage = String(localized: "Couldn't delete. Check your connection and try again.")
+            }
+            return false
+        }
+        // A fetch that started before this would bring them back.
+        loadGeneration += 1
+        members = members.filter { $0.id != member.id }
+        parentalConsentMemberIDs.remove(member.id)
+        invitedMemberIDs.remove(member.id)
+        return true
+    }
+
     /// Joins the household behind an invite code, then loads it.
     func redeem(_ typedCode: String) async {
         errorMessage = nil
