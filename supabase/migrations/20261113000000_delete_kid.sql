@@ -22,7 +22,8 @@
 -- fresh sign-in could, which is why their own Delete my account still goes through delete-account.
 --
 -- Because it deletes an account, "kid" must mean a kid: members_guard_write now refuses to make someone who signed in as
--- an adult a kid, or one parent could flip another adult and delete them.
+-- an adult a kid, or one parent could flip another adult and delete them. And an account whose owner said they're an
+-- adult when they claimed the profile is kept, only unlinked.
 
 create function public.delete_kid(target_member uuid)
 returns void
@@ -106,8 +107,10 @@ begin
   delete from public.consents where member_id = kid.id;
   delete from public.members where id = kid.id;
 
-  -- Their sign-in. Sessions end with it, so the kid's phone loses access on its next request.
-  if kid.user_id is not null then
+  -- Their sign-in. Sessions end with it, so the kid's phone loses access on its next request. Someone who said they're an
+  -- adult when they claimed the profile keeps their account, as after Remove: a parent deletes a kid's account, never an
+  -- adult's, even one who joined on a kid's invite.
+  if kid.user_id is not null and kid.declared_age_band is distinct from 'adult' then
     delete from public.invite_redeem_attempts where user_id = kid.user_id;
     delete from auth.users where id = kid.user_id;
   end if;
