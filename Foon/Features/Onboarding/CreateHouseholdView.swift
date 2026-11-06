@@ -67,6 +67,7 @@ struct CreateHouseholdView: View {
                         Text("Join family").frame(maxWidth: .infinity)
                     }
                     .disabled(isSaving || !InviteCode.isComplete(inviteCode))
+                    PolicyLinks()
                 } header: {
                     Text("Joining a family?")
                 } footer: {

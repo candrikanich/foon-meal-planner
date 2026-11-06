@@ -53,10 +53,8 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 - **Verifiable parental consent.** Today's in-app agreement isn't a method listed in 312.5(b)(2). The cheapest listed
   one is "email plus": a direct notice to the parent's email, consent, then a confirming step. Foon collects no parent
   email or phone today.
-- **Direct notice to the parent.** The kid-invite consent screen needs:
-  - a privacy-policy link;
-  - a line on what happens if the parent doesn't respond;
-  - a new consent text version.
+- **Direct notice to the parent.** Done in #276: the kid-invite consent screen links the policies, says no invite goes
+  out without a yes, and the wording is `parental-invite-v2`.
 - **New consent for material changes.** Store the consent version per kid, and hold a kid's access until a parent
   agrees to the new one.
 - **Delete everything about a child, now.**
@@ -69,11 +67,11 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
   - name who receives allergies (the household, our host provider);
   - say how to withdraw (Family → Allergy alerts).
 
-  The allergy sentence says Foon "keeps these with your household", and the kid-invite consent says "shared only with
-  this household", while processors (Supabase, and Apple for push) handle the data. Both sentences should say so.
+  The allergy sentence says Foon "keeps these with your household", while processors (Supabase, and Apple for push) handle
+  the data; it should say so. (The kid-invite consent says so since #276.)
 - **Links to the policies:**
-  - the privacy policy on the getfoon.com homepage, the kid invite/join screens, onboarding and Family →
-    Your data (the paywall has them, #282);
+  - the privacy policy on the getfoon.com homepage, onboarding and Family → Your data (the paywall, kid invite and
+    join screens have them, #282 and #276);
   - the consumer health data policy on the homepage, the App Store page and in the app.
 - **Paywall terms.** Done in #282: restore purchases, the offer row with the price after the trial, the renewal terms
   and Terms of Use and Privacy Policy links (`SubscriptionSection.swift`).
@@ -130,15 +128,15 @@ size.
 
 | Requirement | Citation | Where we meet it | Verdict | Fix |
 | --- | --- | --- | --- | --- |
-| Online notice linked on the home page and where kids' information is collected | 312.4(d) | Planned for getfoon.com/privacy and the app's paywall, onboarding and Your data; nothing at the kid invite or join screens | partly | Code: links on the homepage and invite/join screens |
+| Online notice linked on the home page and where kids' information is collected | 312.4(d) | Linked on the paywall and the kid invite and join screens (#282, #276); planned for the homepage, onboarding and Your data | partly | Code: homepage, onboarding and Your data (#281) |
 | Operator name, address, phone, email | 312.4(d)(1) | privacy.md Contact: LLC, Ohio, email | gap | Wording (this PR): `[ADDRESS]`. Phone: decision 7 (whether email-only is accepted is UNVERIFIED) |
 | What's collected from kids, how it's used, who gets it | 312.4(d)(2) | privacy.md "Children under 13" (this PR), Kids, tables | partly → met in this PR | Wording (this PR) |
 | Retention policy in the notice | 312.4(d)(2), 312.10 | privacy.md How long we keep it; retention.md Kids | partly | Wording (this PR): retention.md stated to be part of the notice, with business need. The passes disagreed: one said met; this file takes partly |
 | Internal-operations identifiers (account ID, push token, provider logs) | 312.4(d)(3) | privacy.md Your account, Reminders; provider logs `[CHECK]` | partly | Wording after confirming Supabase and Vercel logs |
 | Parent's right to review, delete, refuse further collection, stated | 312.4(d), 312.6 | privacy.md Kids (this PR states all three) | partly → met in this PR | Wording (this PR) |
-| Direct notice to the parent before consent | 312.4(b), (c)(1) (exact text UNVERIFIED) | `ParentalConsent.statement`: names data types, "shared only with this household", no policy link, no line on non-response | partly | Code: link, non-response line, new text version |
+| Direct notice to the parent before consent | 312.4(b), (c)(1) (exact text UNVERIFIED) | `ParentalConsent.statement` (`parental-invite-v2`, #276): names data types and who receives them (household, hosting, Apple for notifications), says no invite goes out without a yes, how to withdraw; Terms and Privacy links under it | met | Counsel to confirm the wording |
 | New consent for material changes | 312.4(b), 312.5(a)(1) | privacy.md Changes promises it; no mechanism | gap | Code |
-| Verifiable parental consent before collection | 312.5(a)(1), (b)(1) | In-app agreement by a signed-in adult (`parental-invite-v1`); nothing checks it's the parent | gap | Code (email plus), or Safe Harbor approval (312.5(b)(3)). One pass called this UNVERIFIED; this file takes gap |
+| Verifiable parental consent before collection | 312.5(a)(1), (b)(1) | In-app agreement by a signed-in adult (`parental-invite-v2`); nothing checks it's the parent | gap | Code (email plus), or Safe Harbor approval (312.5(b)(3)). One pass called this UNVERIFIED; this file takes gap |
 | Accepted method in the safe list | 312.5(b)(2)(i)-(ix) | Not on the list. Apple subscription isn't a card notice Foon sees (312.5(b)(2)(ii)) | gap | As above |
 | Email plus / text plus only for operators that don't disclose | 312.5(b)(2)(viii)-(ix); "disclose" in 312.2 (UNVERIFIED) | Processors are service providers, not disclosure | open | Decision 2 |
 | Separate consent for third-party disclosure | 312.5(a)(2) | No disclosure to third parties for their own use | n/a | Wording (this PR): said plainly. Analytics (#28) would need it |

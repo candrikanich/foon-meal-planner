@@ -2176,13 +2176,13 @@
     "I'll cook tonight" : {
 
     },
-    "I'm %@'s parent or guardian, and I agree to %@ using Foon on their own device. Foon stores what our family enters about %@ (first name, avatar, allergies, and schedule), what %@ adds (requests, ratings, comments, and list items), and an age range from Apple, never a birthdate. It's shared only with this household and never used for ads. I can withdraw this at any time." : {
+    "I'm %@'s parent or guardian, and I agree to %@ using Foon on their own device. Foon stores what our family enters about %@ (first name, avatar, allergies, and schedule), what %@ adds (requests, ratings, comments, and list items), and an age range from Apple, never a birthdate. It's shared only with this household and the services that run Foon for us (our hosting provider, and Apple for notifications), and never used for ads. If I don't agree, no invite is sent and %@ can't sign in. I can withdraw this at any time in Family." : {
       "comment" : "Parental consent (COPPA). Every placeholder is the child's first name. Must say exactly what the English says; see ParentalConsent.textVersion.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "I'm %1$@'s parent or guardian, and I agree to %2$@ using Foon on their own device. Foon stores what our family enters about %3$@ (first name, avatar, allergies, and schedule), what %4$@ adds (requests, ratings, comments, and list items), and an age range from Apple, never a birthdate. It's shared only with this household and never used for ads. I can withdraw this at any time."
+            "value" : "I'm %1$@'s parent or guardian, and I agree to %2$@ using Foon on their own device. Foon stores what our family enters about %3$@ (first name, avatar, allergies, and schedule), what %4$@ adds (requests, ratings, comments, and list items), and an age range from Apple, never a birthdate. It's shared only with this household and the services that run Foon for us (our hosting provider, and Apple for notifications), and never used for ads. If I don't agree, no invite is sent and %5$@ can't sign in. I can withdraw this at any time in Family."
           }
         }
       }

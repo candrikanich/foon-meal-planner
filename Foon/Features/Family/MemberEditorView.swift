@@ -238,6 +238,7 @@ struct MemberEditorView: View {
             } else if store.needsParentalConsent(member) {
                 Text(ParentalConsent.statement(firstName: member.firstName))
                     .font(.callout)
+                PolicyLinks()
                 Button("Agree and invite \(member.firstName)") {
                     Task {
                         isSaving = true
