@@ -2,7 +2,17 @@
 
 ## Core (Recurring)
 
-_None yet._
+### Read the checks before merging; never chain the merge after them
+**Times seen:** 2
+
+**What happened (2026-10-29):** I ran `gh pr checks 124 && gh pr merge 124 --merge`. The Apple job had failed (a test hung until the 30-minute timeout), but the merge still ran, and #124 landed on main with red CI. The hang was a race in a part-2 test (`anOlderLoadFinishingLastIsIgnored`), fixed in the next PR.
+
+**Rule (merging):** Run `gh pr checks <n>` on its own and read every line. Merge in a separate command, only when every check says `pass`. A `fail` or `cancelled` line stops the merge, whatever the exit code says.
+
+**Again (2026-11-05):** pr-queue said "#270 checks passed", and I chained `gh pr checks 270 && … merge` in one command. The four CI jobs on the newest head (0ee9ff1, pushed after review fixes) were still pending, so #270 merged before CI finished. The message was about an earlier state, not the head I merged.
+
+**Rule (pr-queue):** A plugin's "checks passed" is a cue to look, not proof. Read `check-runs` for the exact head SHA you'll pass to `merge`, in its own command, and merge only when every run is `completed`/`success`.
+
 
 ## Patterns
 
@@ -47,13 +57,6 @@ _None yet._
 **What happened (2026-10-30):** On #152, a claim filled in who cooked on the first rating. On main, a cook only existed after the follow-up was saved, and "a thanks locks the cook" assumed that. So a thanks could lock a guess, the follow-up failed with a false connection error, and the wrongly credited person had no way to fix it. The tests asserted the silent no-op as correct.
 
 **Rule (derived data):** When a value that used to come from a person starts being filled in by a default, list everything that reads or locks it, and ask of each: "is this still true of a guess?" Give the person it names a way to correct it. Read the extra paths with a stale phone in mind too.
-
-### Read the checks before merging; never chain the merge after them
-**Times seen:** 1
-
-**What happened (2026-10-29):** I ran `gh pr checks 124 && gh pr merge 124 --merge`. The Apple job had failed (a test hung until the 30-minute timeout), but the merge still ran, and #124 landed on main with red CI. The hang was a race in a part-2 test (`anOlderLoadFinishingLastIsIgnored`), fixed in the next PR.
-
-**Rule (merging):** Run `gh pr checks <n>` on its own and read every line. Merge in a separate command, only when every check says `pass`. A `fail` or `cancelled` line stops the merge, whatever the exit code says.
 
 ### Async tests with gates: wait for the parked signal, don't yield and hope
 **Times seen:** 1

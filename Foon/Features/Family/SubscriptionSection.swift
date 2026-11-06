@@ -38,6 +38,7 @@ enum SubscriptionCopy {
 }
 
 /// On the owner's delete screens: deleting the household doesn't cancel the subscription, which Apple bills (#283).
+/// Worded for whoever subscribed: after an owner transfer the payer may not be the owner looking at this.
 struct BillingContinuesSection: View {
     @Environment(SubscriptionStore.self) private var subscription: SubscriptionStore?
 
@@ -48,7 +49,7 @@ struct BillingContinuesSection: View {
             } header: {
                 Text("Subscription")
             } footer: {
-                Text("Deleting doesn't cancel your subscription. Apple keeps billing it until you cancel it in Manage subscription, or in Settings under your Apple Account, Subscriptions.")
+                Text("Deleting doesn't cancel the subscription. Apple keeps billing whoever subscribed until they cancel it in Manage subscription, or in Settings under their Apple Account, Subscriptions.")
             }
         }
     }
