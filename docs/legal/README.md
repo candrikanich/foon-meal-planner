@@ -105,9 +105,6 @@ The drafts describe what the code does today. These are the places where that ma
 - A withdrawn kid's list items aren't erased (only their "urgent" mark is cleared), though the spec says they are.
 - Withdrawing consent or removing a kid unlinks their sign-in account but doesn't delete it.
 - Consent records are erased with the household; there's no record kept afterwards.
-- `import_usage` is pruned only on that account's next import.
-- Meal photos: a replaced photo is never deleted from storage (`LibraryClient.setPhoto`); it stays until the household
-  is deleted. Deleting a dish does remove its photo.
 - Owner transfer isn't built yet (spec, Outliers), so the drafts say it's planned.
 
 Found by the compliance self-check ([compliance-check.md](compliance-check.md), "Before launch" (b) has the detail):

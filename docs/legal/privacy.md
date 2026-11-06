@@ -98,7 +98,7 @@ example, "under 13"), never a birthdate. [CHECK: this is planned for #88; the fi
 Meal photos have their location and camera details removed on your device before they're uploaded. Recipe photos from
 websites aren't saved.
 
-\*\* A replaced photo stays in storage until then. Deleting a dish removes its photo.
+\*\* Replacing a photo deletes the old one, and deleting a dish removes its photo.
 
 ### Reminders and notifications
 
@@ -136,7 +136,8 @@ household can see its subscription status.
 - **Invites.** An invite records who it's for, who made it, and when it was used. Only a scrambled form of the code is
   stored. Invites are deleted 30 days after they expire, are used or are cancelled.
 - **Safety counters.** To stop someone guessing invite codes, we record each attempt to use a code, wrong or right,
-  for 1 day. To keep the recipe importer fair, we count how many links each account reads a day.
+  for 1 day. To keep the recipe importer fair, we count how many links each account reads a day, and delete those
+  counts after 7 days.
 
 > **Review:** we don't currently use analytics or crash reporting in the app. If we add them (#28), this policy, the App
 > Store privacy label, and "no tracking" all need another look first.

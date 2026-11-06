@@ -18,7 +18,7 @@ Scheduled jobs run in the database (pg_cron), every day unless noted. Times are 
 
 | Key | Job | Defined in (newest definition) | Runs |
 | --- | --- | --- | --- |
-| A | `anonymize_expired_profiles()` | `20261109000000_privacy_retention.sql` | Daily, 03:17 |
+| A | `anonymize_expired_profiles()` | `20261110000000_retention_cleanup.sql` | Daily, 03:17 |
 | P | `prune_push_outbox()` | `20261102210000_store_run.sql` | Daily, 03:29 |
 | S | `prune_subscription_events()` | `20261107000000_entitlement.sql` | Daily, 03:41 |
 | W | `prune_waitlist()` | `20261108000000_waitlist.sql` | Daily, 04:17 |
@@ -41,7 +41,7 @@ The household's own dinner history. All of it is erased at once when the househo
 | Allergies (`member_allergies`) | Flagging dishes; see below for earlier deletion |
 | Allergy and parental consent records (`consents`, `consent_agreements`) | Proof of consent |
 | Meals, ingredients, sides, traditions | The family's library |
-| Meal photos (private Storage bucket `household-photos`) | Showing the dish |
+| Meal photos (private Storage bucket `household-photos`) | Showing the dish; a replaced photo is deleted once the dish shows the new one (`set_meal_photo()`, then the app) |
 | Plans, nights, attendance, saved schedules | The week's plan |
 | Shopping lists, items, freezer stash | Shopping and stock |
 | Meal logs, reactions (ratings and comments), hidden comments, chef thanks | After-dinner history |
@@ -69,13 +69,7 @@ when that parent deletes their account. They're erased with the household.
 | Apple subscription notices (`subscription_events`) | 2 years | Notice received | S |
 | Invites | 30 days | Invite expires (7 days), is redeemed or is cancelled | A |
 | Invite-code attempts, wrong or right (`invite_redeem_attempts`) | 1 day | Attempt | A |
-| Daily recipe-import counts (`import_usage`) | Up to 7 days after the next import* | Import | `claim_import_slot()` |
-
-\* The last day's count stays until the account imports again or is deleted.
-
-> **Review:** `import_usage` rows are only pruned when the same account imports again, so an account's last row stays
-> until it imports again or is deleted. It holds only an account ID, a date and a count. Decide whether that needs a
-> scheduled prune.
+| Daily recipe-import counts (`import_usage`) | 7 days | Import day (UTC) | A, and `claim_import_slot()` on each import |
 
 ## People who leave
 
