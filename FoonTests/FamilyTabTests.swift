@@ -602,6 +602,14 @@ struct OwnAllergiesRemovalTests {
         #expect(await removal.remove())
         #expect(removal.errorMessage == nil)
     }
+
+    @Test func aRefusalDoesntBlameTheConnection() async {
+        let removal = OwnAllergiesRemoval(memberID: UUID(), household: .fake(setAllergies: { _, _, _ in
+            throw PostgrestError(code: "P0002", message: "no such member")
+        }))
+        #expect(await !removal.remove())
+        #expect(removal.errorMessage?.contains("connection") == false)
+    }
 }
 
 @MainActor

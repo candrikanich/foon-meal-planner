@@ -150,7 +150,11 @@ final class OwnAllergiesRemoval {
             errorMessage = nil
             return true
         } catch {
-            errorMessage = String(localized: "Couldn't remove your allergies. Check your connection and try again.")
+            // A refusal (signed out elsewhere, removed, made a kid) won't pass on a retry, so don't blame the connection.
+            let refused = ["42501", "P0002"].contains((error as? PostgrestError)?.code)
+            errorMessage = refused
+                ? String(localized: "Foon can't remove these from your profile now. Sign in again, or ask a parent.")
+                : String(localized: "Couldn't remove your allergies. Check your connection and try again.")
             return false
         }
     }
