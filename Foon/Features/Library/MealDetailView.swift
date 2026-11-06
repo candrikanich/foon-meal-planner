@@ -241,7 +241,8 @@ struct MealDetailView: View {
         }
     }
 
-    /// What people said about the dish. A hidden comment only reaches planners (the server's rule), who can bring it back.
+    /// What people said about the dish. A hidden comment reaches planners, who can bring it back, and a kid's reaches
+    /// their parents too (the server's rule).
     @ViewBuilder
     private func comments(_ meal: LibraryMeal) -> some View {
         let comments = library.comments(for: meal.id)

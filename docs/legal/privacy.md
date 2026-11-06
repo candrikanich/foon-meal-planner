@@ -14,7 +14,8 @@ The short version:
 - We don't sell your data. We don't show ads. We don't track you across apps or websites.
 - Allergies are only kept if a parent agrees, are never used for ads, and are never sent anywhere for AI.
 - Kids can only join with a parent's invite and consent. Parents can see, change and delete what's kept about them.
-- Planners can export your household's data, and you can delete your account or your household from inside the app.
+- Planners and parents can export your household's data, and you can delete your account or your household from
+  inside the app.
 
 ## Who we are
 
@@ -91,7 +92,7 @@ example, "under 13"), never a birthdate. [CHECK: this is planned for #88; the fi
 | Requests, "me too"s, offers to cook | Everyone gets a say | Your household | While the household exists |
 | Tonight polls and votes | Deciding tonight's dinner | Your household | 8 weeks |
 | Plan activity (what changed in the plan) | So everyone sees changes | Your household | 8 weeks |
-| Comments a planner hid | Planners can hide a comment | Planners only | Until shown again or erased |
+| Comments a planner hid | Planners can hide a comment | Planners, and a kid's parents | Until shown again or erased |
 | Receipt lines someone corrected | So the next receipt reads right | Your household | While the household exists |
 | A shopping trip in progress | To tell the family | Your household | 1 day after it ends |
 
@@ -104,7 +105,7 @@ websites aren't saved.
 
 | What | Why | Who sees it | How long |
 | --- | --- | --- | --- |
-| Reminder log: kind, night, times, answered | Not to over-notify | Planners; each person their own | 8 weeks |
+| Reminder log: kind, night, times, answered | Not to over-notify | Planners; a kid's parents; each person their own | 8 weeks |
 | Push notifications waiting to be sent, and sent ones | To deliver reminders | Nobody in the app | 8 weeks |
 | Your device's push token (from Apple) | To reach your device | Only you | Until sign-out, reminders off, or leaving |
 
@@ -159,15 +160,16 @@ account as a child's account under the Children's Online Privacy Protection Act 
 | Allergies (a parent enters these) | Flagging dishes | Their household; Supabase |
 | Ratings, comments, thank-yous, serving notes, requests, votes, list items they add | Taking part in family dinner | Their household; Supabase |
 | Their device's push token | Reminders | Apple, to deliver them; Supabase |
-| Reminders sent to them | Not over-notifying | Planners in their household; Supabase |
+| Reminders sent to them | Not over-notifying | Planners and parents in their household; Supabase |
 | Network address in our provider's request logs | Running the service | Supabase [CHECK: period] |
 
 - **No disclosure.** We don't disclose a child's information to anyone except the service providers that run Foon for
   us (see Who we share with), who may use it only to provide their service. We don't sell it, use it for ads, or let
   anyone else collect it through Foon.
 - **A parent's rights.** A parent can, at any time:
-  - **review** what's kept about their child: most of it is in the app, and they can ask us for the rest at
-    support@getfoon.com;
+  - **review** what's kept about their child: it's in the app, and Family → Your data → Export saves it as a file
+    (apart from the kid's sign-in details, their device's push token, and pushes still waiting to be sent). They can
+    also ask us at support@getfoon.com;
   - **have it deleted:** ask us at support@getfoon.com. Removing the kid cuts their access at once and anonymizes the
     profile 12 months later; their ratings stay without a name;
   - **refuse further collection:** withdraw consent on the kid's profile, which stops the kid's account at once.
@@ -193,12 +195,13 @@ account as a child's account under the Children's Online Privacy Protection Act 
   comments, requests, votes, serving notes and list items. We don't collect a kid's email for marketing, and we don't
   email kids.
 - **What a parent can see.** Most of what's kept about a kid is visible to everyone in the household, including the
-  parent: the profile, allergies, ratings, comments, requests and votes. A kid's reminder log and any comment a planner
-  hid are visible to planners only, and only planners can export the household. A parent who isn't a planner can ask
-  us at support@getfoon.com.
+  parent: the profile, allergies, ratings, comments, requests and votes. A kid's reminder log and any of their comments
+  a planner hid are visible to the kid's parents and to planners. Every parent can export the household, planner or
+  not: a parent who isn't a planner gets what they can see, including their kids' reminder log and hidden comments,
+  but not another adult's.
 - **What a parent can change or delete.** Parents can change a kid's profile and allergies, remove allergies at any
   time, and remove the kid from the household. A planner can hide a kid's comment. A parent can export the household's
-  data if they're a planner, and the owner can delete the household.
+  data, and the owner can delete the household.
 - **Withdrawing consent.** A parent can withdraw consent on the kid's profile at any time. The kid's account is unlinked
   at once and loses access to the household. If consent isn't given again within 30 days, what the kid entered
   themselves is deleted: their own ratings, comments, thank-yous, serving notes, requests and "me too"s, offers to
@@ -214,9 +217,6 @@ account as a child's account under the Children's Online Privacy Protection Act 
   votes, serving notes and notes on requests they wrote themselves. The profile a parent made stays.
 
 To ask about or delete your child's information, a parent can also write to support@getfoon.com.
-
-> **Review:** COPPA gives parents the right to review their child's information. Should every parent (guardian) get
-> read access to a kid's reminder log and hidden comments, and to export, not only planners?
 
 > **Review:** COPPA. Confirm that a parent-run household app with parental consent in the invite meets the amended rule,
 > and whether the consent method (an in-app agreement by a signed-in adult) is enough or needs a stronger method.
@@ -330,15 +330,16 @@ of this policy.
     ratings stay in the family, managed by your parents (see Kids).
 - **Delete your household.** The owner, in Family → Your data. Everything is erased at once for everyone, photos
   included. Everyone's own account stays.
-- **Export.** Planners can export the household as a file: meals, plans, lists, members, allergies, consent records and
-  more. Account IDs and invite codes are left out.
+- **Export.** Planners and parents can export the household as a file: meals, plans, lists, members, allergies,
+  consent records and more. Account IDs and invite codes are left out. The file holds what the person exporting can
+  see: a parent who isn't a planner gets their kids' reminder log and hidden comments, not other adults'.
 
 If you can't use the app, write to support@getfoon.com.
 
 ## Security
 
 - Every household's data is walled off in the database: the server checks each request and only returns rows for a
-  household you belong to. Some data, like hidden comments, is limited to planners.
+  household you belong to. Some data, like hidden comments, is limited to planners and, for a kid's, their parents.
 - Photos are stored privately, in a folder for your household, and shown through links that expire after 15 minutes.
 - Everything between the app and our servers is encrypted in transit (HTTPS).
 - "Sign out everywhere" ends every session at once.

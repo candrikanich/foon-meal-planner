@@ -111,7 +111,6 @@ Found by the compliance self-check ([compliance-check.md](compliance-check.md), 
 - Parental consent is an in-app agreement, not a method listed in COPPA 312.5(b)(2).
 - There's no way to ask parents for new consent after a material change.
 - There's no "delete everything about this child now"; the 30-day and 12-month delays apply.
-- Only planners can see a kid's reminder log and hidden comments, and only planners can export.
 - The allergy consent sentence doesn't name who receives allergies or how to withdraw.
 - No links yet to the privacy policy or the consumer health data policy on the homepage, the App Store page, onboarding
   or Your data. (The paywall and the kid invite and join screens have their links, #282 and #276.)
