@@ -25,6 +25,7 @@ Scheduled jobs run in the database (pg_cron), every day unless noted. Times are 
 | J | `expire_ai_jobs()` | `20261103210000_ai_jobs.sql` | Hourly, :41 |
 | E | `erase_household()` | `20261107000000_entitlement.sql` | On Delete household or the owner's account delete |
 | D | `delete_account_data()` | `20261103040000_kid_delete_own_words.sql` | On Delete my account |
+| K | `delete_kid()` | `20261113000000_delete_kid.sql` | On a parent's Delete everything about a kid |
 
 Because a daily job runs once a day, a period can run up to a day longer than stated (for example, "1 day" can be up to
 2 days).
@@ -50,7 +51,8 @@ The household's own dinner history. All of it is erased at once when the househo
 | Subscription status (`household_subscriptions` and the household's columns) | Entitlement |
 
 Consent records keep the ID of the account that agreed, without a database link to it, so they stay with the household
-when that parent deletes their account. They're erased with the household.
+when that parent deletes their account. They're erased with the household. A kid's parental consent record is deleted
+when a parent deletes everything about that kid (job **K**).
 
 > **Review:** should consent records be kept for a period after a household is deleted, as proof of consent? Today they
 > are erased with it.
@@ -100,15 +102,15 @@ and help. We never use it for ads, never sell it, and never send it anywhere for
 | --- | --- | --- | --- |
 | Profile a parent enters: name, avatar, schedule | Who's home | The plan is built around who's home each night | In the household; anonymized 12 months after removal |
 | Allergies a parent enters | Flagging dishes | Every new dish and list is checked against them | Until removed, alerts off, or anonymized |
-| Parental consent record | Proof a parent agreed | To show consent was given, while the kid's information exists | While the household exists |
-| Apple account ID and email (from Sign in with Apple), and first name if Apple shares it | Signing in | Needed for each sign-in | Until the kid's account is deleted |
+| Parental consent record | Proof a parent agreed | To show consent was given, while the kid's information exists | While the household exists, or until a parent deletes everything about the kid |
+| Apple account ID and email (from Sign in with Apple), and first name if Apple shares it | Signing in | Needed for each sign-in | Until the kid deletes their account, or a parent deletes everything about them |
 | Apple age range (#88, not yet used) | Age checks | See the note on Texas below | Until consent is withdrawn (30 days) or the account is deleted |
 | What they enter (ratings, comments, votes) | Family planning | It's the family's dinner history, which planning draws on | As for all; erased 30 days after withdrawal |
 | Their device's push token | Reminders | Needed to deliver each reminder | Until sign-out, reminders off, unlinking, or removal |
 | Reminders sent to them | Budgets, quiet hours | To keep to the daily reminder budget and quiet hours | 8 weeks, or sooner: see below |
 
 Everything a household holds about a kid is deleted when the household is deleted. Their sign-in account stays (see
-the note below).
+the note below), unless a parent deletes everything about them first.
 
 > **Review:** Texas's App Store Accountability Act (SB 2420, §121.055(b)) says a developer must delete the age data it
 > gets from the App Store once it has used it to verify age. If #88 stores Apple's age range as planned above, that
@@ -116,8 +118,8 @@ the note below).
 
 > **Review:** withdrawing consent or removing a kid unlinks their sign-in account but doesn't delete it, so the Apple
 > account ID and email Foon's sign-in service holds for them stay until the kid (or someone with their device) deletes
-> the account. Decide whether Foon should delete a kid's sign-in account when consent is withdrawn or they're removed.
-> [CHECK]
+> the account, or a parent deletes everything about the kid (job **K**, below). Decide whether withdrawing or removing
+> should also delete it. [CHECK]
 
 **When a parent withdraws a kid's consent** (`consents_unlink_on_parental_revoke` trigger,
 `20261026205731_parental_consent_and_retention.sql`): the kid's account is unlinked at once and loses access to the
@@ -128,6 +130,28 @@ polls and digests. Their age range is cleared. What a parent entered for them st
 
 > **Review:** list items a withdrawn kid added are not deleted (only the "urgent" mark is cleared), though the spec
 > lists list items among what's erased. Decide which is right.
+
+**When a parent deletes everything about a kid** (job **K**, any parent, on the kid's profile; #278, for COPPA
+312.6): everything goes at once, in one transaction, with no 30-day or 12-month wait. Deleted: the profile itself (not
+anonymized), allergies, ratings and comments (hidden ones too), thank-yous the kid sent and the ones sent for a dinner
+they cooked, serving notes about them or written by them, their requests with their "me too"s and their own "me too"s,
+offers to cook, attendance on every night, poll votes, plan changes they made, the reminder log, push devices and
+pushes for or about them, a store run they started, invites for them, their parental consent record, their part of
+saved schedules and dinner jobs, invite guesses, and their sign-in account (Apple account ID and email; its sessions
+end, so their device loses access). Kept, without naming them: plans and nights, dishes (no longer saying the kid makes
+one), dinners logged (the cook and confirmer cleared), polls they started, a planner's daily digest, and shopping list
+lines. List lines record no author and merge everyone's adds, so a kid's lines stay with the family's list and only
+stop saying who checked them off or marked them for tonight. Something the kid entered for someone else (a rating,
+request, "me too", offer or vote) stays that person's, without saying who entered it; a note the kid wrote on such a
+request is cleared.
+
+> **Review:** deleting everything about a kid deletes the record that a parent consented for them, because the parent
+> asked for everything about the kid to go. Confirm no record of the consent needs to be kept once the kid's
+> information is gone (and if it does, for how long and with what in it).
+
+> **Review:** a parent deleting a kid's sign-in account can't revoke Foon's Sign in with Apple token, which needs a
+> fresh sign-in by the kid. Foon then holds nothing about the kid, but Foon can still appear in the kid's Apple ID
+> settings until they remove it. Confirm that's acceptable.
 
 **When a kid deletes their own account** (job **D**, then the `delete-account` Edge Function deletes the sign-in
 account itself): their profile is unlinked; their comments, their own poll votes,
@@ -141,6 +165,7 @@ released, and the reminder log about them is deleted. The parent-entered profile
   (`revoke_allergy_consent()` and the `consents_erase_on_revoke` trigger).
 - **An adult deletes their account:** their allergies are deleted at once (job **D**).
 - **A removed person is anonymized:** their allergies are deleted (job **A**).
+- **A parent deletes everything about a kid:** the kid's allergies are deleted at once (job **K**).
 - **The household is deleted:** all are erased (job **E**).
 
 ## Accounts
@@ -151,6 +176,8 @@ released, and the reminder log about them is deleted. The parent-entered profile
   schedule, serving notes, comments, request notes and reminder log are deleted. Ratings and cooking history stay
   without a name (job **D**).
 - **A kid deletes their account:** see Kids above (job **D**).
+- **A parent deletes everything about a kid:** the kid's information and sign-in account go at once; see Kids above
+  (job **K**).
 - **Any account:** Foon's Sign in with Apple token is revoked first; if Apple refuses, nothing is deleted. Push devices,
   import counts and invite guesses are deleted, then the sign-in account itself (`delete-account` Edge Function, job
   **D**, foreign-key cascades).

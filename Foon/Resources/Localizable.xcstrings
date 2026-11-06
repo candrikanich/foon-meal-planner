@@ -1292,6 +1292,9 @@
     "Couldn't delete your account, and nothing was deleted. Check your connection and try again." : {
 
     },
+    "Couldn't delete. Check your connection and try again." : {
+
+    },
     "Couldn't double the night. Check your connection and try again." : {
 
     },
@@ -1490,6 +1493,9 @@
     "Delete %@?" : {
 
     },
+    "Delete everything about %@" : {
+
+    },
     "Delete household" : {
 
     },
@@ -1515,6 +1521,9 @@
 
     },
     "Delete your account?" : {
+
+    },
+    "Deletes their profile and everything Foon keeps about them, now." : {
 
     },
     "Deleting doesn't cancel the subscription. Apple keeps billing whoever subscribed until they cancel it in Manage subscription, or in Settings under their Apple Account, Subscriptions." : {
@@ -2259,6 +2268,9 @@
     "Invites are deleted 30 days after they're used, cancelled, or expire." : {
 
     },
+    "It all goes now, not after 30 days. This can't be undone." : {
+
+    },
     "It becomes your household. You can rename it and change the family, but you can't start a new one later." : {
 
     },
@@ -2890,6 +2902,9 @@
     "One subscription covers the whole family. Until then you can still see everything and export or delete your data. %@" : {
 
     },
+    "Only a parent in the family can delete a kid." : {
+
+    },
     "Only an adult in the family can say they're heading to the store." : {
 
     },
@@ -3118,6 +3133,9 @@
     "Plans it for this night" : {
 
     },
+    "Plans, dishes, dinners, and shopping lists stay, without %@'s name." : {
+
+    },
     "Popular" : {
 
     },
@@ -3244,6 +3262,9 @@
 
     },
     "Reminders on this device" : {
+
+    },
+    "Reminders sent to them, and the record of your consent" : {
 
     },
     "Remove" : {
@@ -4003,7 +4024,19 @@
     "The year's top dishes" : {
       "comment" : "Yearly recap: heading over the dishes made most that year; the food, not the cook"
     },
+    "Their profile, allergies, and schedule" : {
+
+    },
     "Their ratings and cooking history stay." : {
+
+    },
+    "Their ratings, comments, and thank-yous" : {
+
+    },
+    "Their requests, votes, serving notes, and offers to cook" : {
+
+    },
+    "Their sign-in account, which signs them out" : {
 
     },
     "Then add allergies on each person's profile in Family." : {
@@ -4037,6 +4070,9 @@
 
     },
     "They're signed out of the household on their own device now, and stay in the family on yours. If you don't consent again within 30 days, what they added themselves is erased." : {
+
+    },
+    "Things they added to a list stay on it." : {
 
     },
     "This Apple Account already subscribes for another household." : {
@@ -4465,6 +4501,9 @@
     "What should go on the list?" : {
 
     },
+    "What stays" : {
+
+    },
     "What stays on this device" : {
 
     },
@@ -4496,6 +4535,9 @@
 
     },
     "What's added now is marked in store mode." : {
+
+    },
+    "What's deleted" : {
 
     },
     "What's for Dinner" : {

@@ -40,6 +40,9 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 - [ ] Kids' self-entered content: erased 30 days after a parent withdraws consent; anonymized 12 months after a kid is
       removed, with ratings kept as anonymous history. Is the hard delete, and is keeping anonymous ratings, acceptable?
 - [ ] A withdrawn or removed kid's sign-in account (Apple ID and email) isn't deleted automatically. Should it be?
+      (A parent can delete it at once with Delete everything about a kid, #278.)
+- [ ] Delete everything about a kid (#278) deletes the kid's parental consent record too, and can't revoke Foon's
+      Sign in with Apple token. Are both acceptable? (retention.md, Kids.)
 - [ ] New consent for material changes to the privacy policy: how should the app ask?
 - [ ] Postal address in the notice (`[ADDRESS]`), and whether a phone number is needed (312.4(d)(1)).
 - [ ] Is email plus (312.5(b)(2)(viii)) the right consent method for Foon, and is a kid's name or comment being seen by
@@ -103,7 +106,8 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 The drafts describe what the code does today. These are the places where that may not be what we want:
 
 - A withdrawn kid's list items aren't erased (only their "urgent" mark is cleared), though the spec says they are.
-- Withdrawing consent or removing a kid unlinks their sign-in account but doesn't delete it.
+- Withdrawing consent or removing a kid unlinks their sign-in account but doesn't delete it (Delete everything about a
+  kid does, #278).
 - Consent records are erased with the household; there's no record kept afterwards.
 - `import_usage` is pruned only on that account's next import.
 - Meal photos: a replaced photo is never deleted from storage (`LibraryClient.setPhoto`); it stays until the household
@@ -114,7 +118,6 @@ Found by the compliance self-check ([compliance-check.md](compliance-check.md), 
 
 - Parental consent is an in-app agreement, not a method listed in COPPA 312.5(b)(2).
 - There's no way to ask parents for new consent after a material change.
-- There's no "delete everything about this child now"; the 30-day and 12-month delays apply.
 - Only planners can see a kid's reminder log and hidden comments, and only planners can export.
 - The allergy consent sentence doesn't name who receives allergies or how to withdraw.
 - No links yet to the privacy policy or the consumer health data policy on the homepage, the App Store page, onboarding

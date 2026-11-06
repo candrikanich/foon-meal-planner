@@ -22,6 +22,10 @@ useSeoMeta({ title: "Support: Foon", description: "How to reach Foon, and how to
         Anyone can delete their own account from the same place. Deleting an account also deletes the household if you
         are its owner. Neither can be undone.
       </li>
+      <li>
+        A parent can delete everything about a kid from the kid's profile in Family. Their information and their sign-in
+        account are deleted right away, and it can't be undone.
+      </li>
       <li>If you can't get into the app, write to us and we'll help.</li>
     </ul>
 
