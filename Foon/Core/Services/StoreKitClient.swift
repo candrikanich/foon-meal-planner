@@ -117,6 +117,14 @@ extension StoreKitClient {
 }
 
 extension StoreOffer {
+    /// The trial with what it turns into, so nobody has to guess the price after it ends (App Review 3.1.2, #282).
+    var trialThenPrice: String? {
+        trial.map {
+            String(localized: "\($0), then \(price) a \(period)",
+                   comment: "Paywall: the free trial, then the renewal price, as in 1-month free trial, then $5.99 a month")
+        }
+    }
+
     static let samples = [
         StoreOffer(id: FoonProducts.monthly, name: "Foon Family Monthly", price: "$5.99", period: "month",
                    trial: "1-month free trial"),
