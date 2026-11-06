@@ -21,6 +21,9 @@ struct MemberEditorView: View {
         _opened = State(initialValue: member)
     }
 
+    /// The server refuses to make a signed-in adult a kid, since a kid's account can be deleted by a parent (#278).
+    private var staysAdult: Bool { opened.map { $0.userID != nil && $0.ageGroup == .adult } ?? false }
+
     private var scope: HouseholdStore.EditScope {
         member.map(store.editScope(for:)) ?? .everything
     }
@@ -38,6 +41,12 @@ struct MemberEditorView: View {
                             Text("Kid").tag(AgeGroup.kid)
                         }
                         .pickerStyle(.segmented)
+                        .disabled(staysAdult)
+                        if staysAdult {
+                            Text("They sign in as an adult, so they stay one.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
                         if draft.ageGroup == .adult {
                             Toggle("Parent", isOn: $draft.guardian)
                         }

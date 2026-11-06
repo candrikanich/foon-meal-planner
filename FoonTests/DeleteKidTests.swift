@@ -52,6 +52,13 @@ struct DeleteKidTests {
         #expect(store.errorMessage?.contains("Only a parent") == true)
     }
 
+    @Test func aKidMadeAnAdultMeanwhileIsntBlamedOnTheConnection() async {
+        let store = await store(owner: me, deleteKid: { _ in throw PostgrestError(code: "22023", message: "adult") })
+        #expect(!(await store.deleteKid(kid)))
+        #expect(store.members.contains { $0.id == kid.id })
+        #expect(store.errorMessage?.contains("adult in the family") == true)
+    }
+
     @Test func aLostConnectionKeepsThemAndSaysSo() async {
         let store = await store(owner: me, deleteKid: { _ in throw URLError(.notConnectedToInternet) })
         #expect(!(await store.deleteKid(kid)))

@@ -20,6 +20,9 @@
 -- The auth user is deleted here rather than by an Edge Function with the admin API: one transaction can't leave the data
 -- gone and the account behind, or the other way round. No Sign in with Apple token is revoked, since only the kid's own
 -- fresh sign-in could, which is why their own Delete my account still goes through delete-account.
+--
+-- Because it deletes an account, "kid" must mean a kid: members_guard_write now refuses to make someone who signed in as
+-- an adult a kid, or one parent could flip another adult and delete them.
 
 create function public.delete_kid(target_member uuid)
 returns void
@@ -113,3 +116,84 @@ $$;
 
 revoke execute on function public.delete_kid(uuid) from public, anon;
 grant execute on function public.delete_kid(uuid) to authenticated;
+
+-- As household_shapes' (20261030230000), plus: a signed-in adult can't be made a kid (see above, #278).
+create or replace function public.members_guard_write()
+returns trigger
+language plpgsql set search_path = ''
+as $$
+declare
+  caller uuid := (select auth.uid());
+  household_owner uuid;
+begin
+  if tg_op = 'UPDATE' and new.status = 'removed' and old.status <> 'removed' then
+    new.user_id := null;
+    new.away_until := null;
+    -- A removed profile could be re-claimed later (#9); it must not carry guardian rights.
+    new.guardian := false;
+  end if;
+
+  if caller is null or current_user <> 'authenticated' then
+    return new;
+  end if;
+
+  select owner into household_owner from public.households where id = new.household_id;
+
+  if tg_op = 'INSERT' then
+    -- Only the owner's own first profile is linked at insert; everyone else claims via the server (#9).
+    if new.user_id is not null and new.user_id <> caller then
+      raise exception 'profiles are claimed through an invite' using errcode = '42501';
+    end if;
+    if new.user_id = household_owner then
+      new.guardian := true;
+    end if;
+    return new;
+  end if;
+
+  if new.household_id <> old.household_id then
+    raise exception 'members cannot move between households' using errcode = '42501';
+  end if;
+  if new.user_id is distinct from old.user_id and new.status <> 'removed' then
+    raise exception 'profiles are claimed through an invite' using errcode = '42501';
+  end if;
+
+  -- delete_kid deletes a kid's sign-in account, so someone who signed in as an adult never becomes a kid: otherwise one
+  -- parent could flip another adult and delete their account (#278). A kid who grows up can become an adult; to undo
+  -- that, remove them.
+  if old.user_id is not null and old.age_group = 'adult' and new.age_group = 'kid' and new.status <> 'removed' then
+    raise exception 'someone who signed in as an adult stays an adult' using errcode = '42501';
+  end if;
+
+  if old.user_id = household_owner
+     and (new.role, new.age_group, new.status, new.guardian, new.eats_separately)
+         is distinct from (old.role, old.age_group, old.status, old.guardian, old.eats_separately) then
+    if caller <> household_owner then
+      raise exception 'only the owner changes the owner''s profile' using errcode = '42501';
+    end if;
+    if not new.guardian or new.status = 'removed' then
+      raise exception 'the owner stays a guardian; transfer ownership first' using errcode = '42501';
+    end if;
+  end if;
+
+  if not public.is_household_manager(old.household_id) then
+    if old.user_id is distinct from caller then
+      raise exception 'only guardians manage other members' using errcode = '42501';
+    end if;
+    if (new.first_name, new.role, new.age_group, new.status, new.away_until, new.guardian, new.eats_separately)
+       is distinct from (old.first_name, old.role, old.age_group, old.status, old.away_until, old.guardian, old.eats_separately) then
+      raise exception 'members can edit only their avatar, schedule, and notification settings'
+        using errcode = '42501';
+    end if;
+  end if;
+
+  -- A schedule saved from the app changes the keys it sends: an older app or a stale phone doesn't know them all.
+  if new.attendance_defaults is distinct from old.attendance_defaults then
+    -- Only the top level: a null inside a pattern is a bad pattern, not a key taken away.
+    select coalesce(jsonb_object_agg(kept.key, kept.value), '{}'::jsonb) into new.attendance_defaults
+    from jsonb_each(old.attendance_defaults || new.attendance_defaults) as kept
+    where kept.value <> 'null'::jsonb;
+  end if;
+
+  return new;
+end;
+$$;

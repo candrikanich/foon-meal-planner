@@ -143,7 +143,8 @@ one), dinners logged (the cook and confirmer cleared), polls they started, a pla
 lines. List lines record no author and merge everyone's adds, so a kid's lines stay with the family's list and only
 stop saying who checked them off or marked them for tonight. Something the kid entered for someone else (a rating,
 request, "me too", offer or vote) stays that person's, without saying who entered it; a note the kid wrote on such a
-request is cleared.
+request is cleared. A dish their "not for me" helped retire stays retired. Supabase's own
+auth audit log keeps the account's email for its usual time, as it does when anyone deletes their account.
 
 > **Review:** deleting everything about a kid deletes the record that a parent consented for them, because the parent
 > asked for everything about the kid to go. Confirm no record of the consent needs to be kept once the kid's

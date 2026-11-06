@@ -2,7 +2,7 @@
 -- about them and their sign-in account at once. The family's plans, dishes, dinners and list lines stay, without naming
 -- them, and nobody else can do it.
 begin;
-select plan(36);
+select plan(39);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -70,6 +70,10 @@ select pg_temp.as_admin();
 create temporary table nights as
   select id, row_number() over (order by date) as n from public.plan_nights
   where household_id = '00000000-0000-0000-0000-0000000000a0';
+
+-- A meal photo Kit uploaded: Storage records the uploader, and that mustn't stop their account from going.
+insert into storage.objects (bucket_id, name, owner) values
+  ('household-photos', '00000000-0000-0000-0000-0000000000a0/meals/kits-pizza.jpg', 'e0000000-0000-0000-0000-00000000000e');
 
 insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
   ('00000000-0000-0000-0000-0000000000a0', null, 'allergy_data', 'a0000000-0000-0000-0000-00000000000a', 'allergy-data-v1'),
@@ -206,6 +210,11 @@ select throws_ok($$ select public.delete_kid('00000000-0000-0000-0000-0000000000
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann
 select throws_ok($$ select public.delete_kid('00000000-0000-0000-0000-0000000000a3') $$, '22023', null,
   'a parent can''t delete an adult this way');
+-- Or by making them a kid first: someone who signed in as an adult stays one.
+select throws_ok($$ update public.members set age_group = 'kid' where id = '00000000-0000-0000-0000-0000000000a3' $$,
+  '42501', null, 'a parent can''t make a signed-in adult a kid');
+select throws_ok($$ select public.delete_kid('00000000-0000-0000-0000-0000000000a3') $$, '22023', null,
+  'so they still can''t be deleted this way');
 select throws_ok($$ select public.delete_kid('00000000-0000-0000-0000-0000000000ff') $$, 'P0002', null,
   'a profile that isn''t there says so');
 
@@ -223,6 +232,8 @@ select is_empty($$ select 1 from public.members where id = '00000000-0000-0000-0
   'the profile is deleted, not anonymized');
 select is_empty($$ select 1 from auth.users where id = 'e0000000-0000-0000-0000-00000000000e' $$,
   'and so is the sign-in account');
+select isnt_empty($$ select 1 from storage.objects where name like '%/meals/kits-pizza.jpg' $$,
+  'a photo Kit uploaded stays the family''s');
 select is(pg_temp.mentions('00000000-0000-0000-0000-0000000000a4'), '{}'::text[],
   'no row anywhere names Kit''s profile');
 select is(pg_temp.mentions('e0000000-0000-0000-0000-00000000000e'), '{}'::text[],

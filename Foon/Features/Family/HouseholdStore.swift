@@ -704,9 +704,12 @@ final class HouseholdStore {
         } catch let error as PostgrestError where error.code == "P0002" {
             // Another parent got there first: what was asked for is done.
         } catch {
-            errorMessage = (error as? PostgrestError)?.code == "42501"
-                ? String(localized: "Only a parent in the family can delete a kid.")
-                : String(localized: "Couldn't delete. Check your connection and try again.")
+            // A refusal won't pass on a retry, so don't blame the connection.
+            switch (error as? PostgrestError)?.code {
+            case "42501": errorMessage = String(localized: "Only a parent in the family can delete a kid.")
+            case "22023": errorMessage = String(localized: "They're an adult in the family now, so this doesn't apply.")
+            default: errorMessage = String(localized: "Couldn't delete. Check your connection and try again.")
+            }
             return false
         }
         // A fetch that started before this would bring them back.
