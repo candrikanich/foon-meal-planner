@@ -146,6 +146,39 @@ household can see its subscription status.
 Foon is a household app that parents run. It isn't in the App Store's Kids category, and it's not made for kids to use
 alone.
 
+### Children under 13
+
+Foon knowingly collects information from children under 13, through accounts a parent invites. We treat every kid
+account as a child's account under the Children's Online Privacy Protection Act (COPPA).
+
+| What a kid's account generates | Why | Who receives it |
+| --- | --- | --- |
+| Apple account ID and email (from Sign in with Apple; can be Apple's relay address), and first name if Apple shares it | Signing in | Foon; Supabase, our host |
+| First name, avatar, schedule (a parent enters these) | Who's home | Their household; Supabase |
+| Allergies (a parent enters these) | Flagging dishes | Their household; Supabase |
+| Ratings, comments, thank-yous, serving notes, requests, votes, list items they add | Taking part in family dinner | Their household; Supabase |
+| Their device's push token | Reminders | Apple, to deliver them; Supabase |
+| Reminders sent to them | Not over-notifying | Planners in their household; Supabase |
+| Network address in our provider's request logs | Running the service | Supabase [CHECK: period] |
+
+- **No disclosure.** We don't disclose a child's information to anyone except the service providers that run Foon for
+  us (see Who we share with), who may use it only to provide their service. We don't sell it, use it for ads, or let
+  anyone else collect it through Foon.
+- **A parent's rights.** A parent can, at any time:
+  - **review** what's kept about their child: most of it is in the app, and they can ask us for the rest at
+    support@getfoon.com;
+  - **have it deleted:** ask us at support@getfoon.com. Removing the kid cuts their access at once and anonymizes the
+    profile 12 months later; their ratings stay without a name;
+  - **refuse further collection:** withdraw consent on the kid's profile, which stops the kid's account at once.
+
+  The details are below.
+
+> **Review:** there's no "delete everything about this child now" in the app yet; an emailed request is handled by
+> hand. See compliance-check.md.
+- **How long we keep it.** Our [Data Retention Policy](retention.md) is part of this notice. Its section "Kids:
+  purposes and periods" is our written retention policy for children's information: why we keep each kind, the need
+  for it, and when it's deleted.
+
 - **Accounts.** Foon is set up by an adult. A kid gets their own account only when a parent invites them, and the
   invite asks the parent to consent first. We record which parent agreed, when, and the wording they saw.
 
@@ -172,8 +205,8 @@ alone.
 - **Removing a kid.** Their account is unlinked at once and loses access to the household. 12 months later their
   profile becomes "Former member": the name, avatar, schedule, allergies, serving notes and comments go, and their
   ratings stay as anonymous history.
-- **Deleting a kid's own account.** Their comments, poll votes, serving notes and notes on requests they wrote
-  themselves are deleted. The profile a parent made stays.
+- **Deleting a kid's own account.** Their account, sign-in included, is deleted, along with their comments, poll
+  votes, serving notes and notes on requests they wrote themselves. The profile a parent made stays.
 
 To ask about or delete your child's information, a parent can also write to support@getfoon.com.
 
@@ -207,9 +240,12 @@ Allergies can be health information. We treat them carefully.
 
 Allergy flags are a helper, not a guarantee. Always check labels. See our Terms of Use.
 
-> **Review:** allergies may be consumer health data under state laws such as Washington's My Health My Data Act and
-> Nevada's and Connecticut's similar laws. Confirm whether we need a separate consumer health data privacy policy, and
-> whether the opt-in sentence and its consent record are enough.
+Allergies may be consumer health data under some state laws. Our [Consumer Health Data Privacy
+Policy](consumer-health-data.md) covers them in full.
+
+> **Review:** confirm the opt-in sentence and its consent record are enough consent under Washington's, Nevada's and
+> Connecticut's laws (see compliance-check.md). The sentence doesn't yet name who receives allergies or how to
+> withdraw.
 
 ## What stays on your device
 
@@ -229,7 +265,8 @@ Some things Foon reads only on your device. It never sends or saves them on our 
 ## Who we share with
 
 We don't sell or share your information with anyone for their own use. We use a few service providers to run Foon.
-They handle data for us, under their terms, and only to provide their service.
+They handle data for us, only to provide their service, and each is bound to protect it at least as strongly as this
+policy does. [CHECK: data processing agreements on file.]
 
 | Provider | What they do for Foon | What they handle |
 | --- | --- | --- |
@@ -274,7 +311,8 @@ deleted sooner:
 
 Deleted data can remain in our hosting provider's backups for up to 7 days, and is then gone.
 
-The full list, with every period and what starts it, is in our [Data Retention Policy](retention.md).
+The full list, with every period and what starts it, is in our [Data Retention Policy](retention.md), which is part
+of this policy.
 
 ## Deleting and exporting
 
@@ -286,7 +324,8 @@ The full list, with every period and what starts it, is in our [Data Retention P
     another parent first is planned but not available yet);
   - if you're another adult, your profile becomes "Former member": your allergies, settings, schedule, serving notes,
     comments and the notes on your requests are deleted, and your ratings and cooking history stay without your name;
-  - if you're a kid, your account is unlinked and what you wrote yourself is deleted (see Kids).
+  - if you're a kid, your account is deleted, sign-in included, along with what you wrote yourself; your profile and
+    ratings stay in the family, managed by your parents (see Kids).
 - **Delete your household.** The owner, in Family → Your data. Everything is erased at once for everyone, photos
   included. Everyone's own account stays.
 - **Export.** Planners can export the household as a file: meals, plans, lists, members, allergies, consent records and
@@ -320,13 +359,21 @@ Depending on where you live, US state privacy laws may give you the right to:
 - appeal if we say no.
 
 Most of this you can do yourself in the app: see Deleting and exporting. You can also ask us at support@getfoon.com.
-We'll check that the request comes from you (or from a parent, for a kid) before we act on it, and answer within the
-time the law allows. You can use an authorized agent where the law allows it.
+We'll check that the request comes from you (or from a parent, for a kid) before we act on it. You can use an
+authorized agent where the law allows it.
+
+- **How fast.** We'll answer within 45 days. If we need longer, we'll tell you why within those 45 days and take at
+  most 45 more.
+- **Cost.** Requests are free, up to twice a year.
+- **Appeals.** If we say no, you can appeal by replying to our answer or writing to support@getfoon.com with "Appeal"
+  in the subject. We'll answer in writing within 45 days. If we still say no, you can contact your state's attorney
+  general. [CHECK: attorney general contacts]
 
 We won't treat you differently for using these rights.
 
-> **Review:** confirm which state laws apply to a company of our size (many have revenue or volume thresholds), the
-> response periods, the appeal process, and whether a separate notice is needed for California.
+> **Review:** compliance-check.md finds the general state privacy laws' thresholds aren't met, apart from
+> Connecticut's sensitive-data rule (from 2026-07-01, UNVERIFIED), and that no California notice is needed yet.
+> Confirm.
 
 ## The website and the waitlist
 
@@ -349,12 +396,14 @@ If we change this policy, we'll update the date at the top and post the new vers
 change is significant, we'll tell you in the app before it takes effect. If a change affects how we use kids'
 information, we'll ask parents to consent again first.
 
-> **Review:** the amended COPPA rule requires new parental consent for material changes. Confirm the in-app mechanism.
+> **Review:** telling people in the app about a significant change isn't built, and neither is asking parents for new
+> consent, which the amended COPPA rule requires for material changes. Confirm the mechanism for both.
 
 ## Contact
 
 The Recruiting Compass LLC
-Ohio, USA
+[ADDRESS]
 support@getfoon.com
 
-> **Review:** add a postal address if required (COPPA notices must include one).
+> **Review:** COPPA's notice lists the operator's address, phone and email (312.4(d)(1)), and CAN-SPAM needs a postal
+> address in emails. Choose an address (a registered mailbox or PO box works for CAN-SPAM) and whether to give a phone.

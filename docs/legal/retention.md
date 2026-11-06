@@ -96,16 +96,23 @@ The amended COPPA rule asks for a written retention policy for children's inform
 only to run their family's dinner planning: to show who's home, flag their allergies, and let them request, vote, rate
 and help. We never use it for ads, never sell it, and never send it anywhere for AI.
 
-| A kid's data | Purpose | How long |
-| --- | --- | --- |
-| Profile a parent enters: name, avatar, schedule | Who's home | In the household; anonymized 12 months after removal |
-| Allergies a parent enters | Flagging dishes | Until removed, alerts off, or anonymized |
-| Parental consent record | Proof a parent agreed | While the household exists |
-| Apple account ID and email (from Sign in with Apple) | Signing in | Until the kid's account is deleted |
-| Apple age range (#88, not yet used) | Age checks | Until consent is withdrawn (30 days) or the account is deleted |
-| What they enter (ratings, comments, votes) | Family planning | As for all; erased 30 days after withdrawal |
-| Their device's push token | Reminders | Until sign-out, reminders off, unlinking, or removal |
-| Reminders sent to them | Budgets, quiet hours | 8 weeks, or sooner: see below |
+| A kid's data | Purpose | Why we need it that long | How long |
+| --- | --- | --- | --- |
+| Profile a parent enters: name, avatar, schedule | Who's home | The plan is built around who's home each night | In the household; anonymized 12 months after removal |
+| Allergies a parent enters | Flagging dishes | Every new dish and list is checked against them | Until removed, alerts off, or anonymized |
+| Parental consent record | Proof a parent agreed | To show consent was given, while the kid's information exists | While the household exists |
+| Apple account ID and email (from Sign in with Apple), and first name if Apple shares it | Signing in | Needed for each sign-in | Until the kid's account is deleted |
+| Apple age range (#88, not yet used) | Age checks | See the note on Texas below | Until consent is withdrawn (30 days) or the account is deleted |
+| What they enter (ratings, comments, votes) | Family planning | It's the family's dinner history, which planning draws on | As for all; erased 30 days after withdrawal |
+| Their device's push token | Reminders | Needed to deliver each reminder | Until sign-out, reminders off, unlinking, or removal |
+| Reminders sent to them | Budgets, quiet hours | To keep to the daily reminder budget and quiet hours | 8 weeks, or sooner: see below |
+
+Everything a household holds about a kid is deleted when the household is deleted. Their sign-in account stays (see
+the note below).
+
+> **Review:** Texas's App Store Accountability Act (SB 2420, §121.055(b)) says a developer must delete the age data it
+> gets from the App Store once it has used it to verify age. If #88 stores Apple's age range as planned above, that
+> conflicts. Decide whether to keep only a derived kid/adult flag. See compliance-check.md.
 
 > **Review:** withdrawing consent or removing a kid unlinks their sign-in account but doesn't delete it, so the Apple
 > account ID and email Foon's sign-in service holds for them stay until the kid (or someone with their device) deletes
@@ -122,7 +129,8 @@ polls and digests. Their age range is cleared. What a parent entered for them st
 > **Review:** list items a withdrawn kid added are not deleted (only the "urgent" mark is cleared), though the spec
 > lists list items among what's erased. Decide which is right.
 
-**When a kid deletes their own account** (job **D**): their account is unlinked; their comments, their own poll votes,
+**When a kid deletes their own account** (job **D**, then the `delete-account` Edge Function deletes the sign-in
+account itself): their profile is unlinked; their comments, their own poll votes,
 the serving notes they wrote and the notes on requests they made themselves are deleted, their offers to cook are
 released, and the reminder log about them is deleted. The parent-entered profile stays.
 

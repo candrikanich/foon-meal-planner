@@ -652,7 +652,7 @@ The app is mostly code; Apple's on-device Foundation Models framework is a helpe
 
 **Onboarding sells outcomes, not "AI."** "Share any recipe and it lands in your ideas" is true on every device; capable devices just do it better (see Onboarding → What Foon does for you, #236).
 
-**Positioning.** Your family's data, including your kids' data, never leaves your devices for AI processing.
+**Positioning.** AI runs on your family's own devices; allergies and information about people are never sent anywhere for AI. (Not "never leaves your phone": a recipe a device can't tidy goes through Foon's servers to another device in the family, see AI helpers in legal/privacy.md.)
 
 **Later.** Bring-your-own AI via an MCP server exposing meals, ratings, and lists to a user's own agent.
 
