@@ -56,6 +56,8 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
       (Agree and save, logged as `allergy-data-v1`) enough consent? The sentence doesn't yet name recipients or how to
       withdraw (compliance-check.md proposes `allergy-data-v2`).
 - [ ] Is household members seeing each other's allergies "sharing" with a third party (RCW 19.373.010(27))?
+- [ ] An adult can remove their own allergies in the app (#285), but a parent can add them again under the
+      household's agreement. Is that enough for withdrawal (RCW 19.373.040(1)(b)), or should a parent be stopped?
 - [ ] Connecticut SB 1295: does the whole CTDPA reach Foon from 2026-07-01 because it processes sensitive data?
 - [ ] New York S9269 (Health Information Privacy Act): signed or not, before launch.
 - [ ] The allergy disclaimer in terms section 5: is it prominent and strong enough?
@@ -118,8 +120,8 @@ Found by the compliance self-check ([compliance-check.md](compliance-check.md), 
 - No notice to the App Store before a significant change to the terms or privacy policy (Texas §121.053).
 - The waitlist email has no postal address, and the confirmation email includes an offer.
 - The delete-account screen doesn't say billing continues through Apple or how to cancel.
-- Allergy consent is one household-wide agreement, and only parents can withdraw it or change allergies. An adult who
-  isn't a parent can't remove their own allergies in the app.
+- Allergy consent is one household-wide agreement, and only parents can withdraw it for the household or add and
+  change allergies. An adult can remove their own in the app (#285), but a parent can add them again.
 
 ## After review
 

@@ -233,12 +233,13 @@ Allergies can be health information. We treat them carefully.
   agreed, when, and which wording they saw. The server refuses to store an allergy without that consent.
 - **What's kept.** For each person: which of the 9 major US allergens apply, plus any others a parent types in.
 - **Who sees them.** Everyone in your household, so the whole family can see why a dish is flagged. Only parents can
-  change them. Other households can't see them.
+  add or change them, and an adult can remove their own. Other households can't see them.
 - **What they're for.** Flagging dishes and shopping items. That's all.
 - **Never for AI, never for ads.** Allergies are never sent anywhere for AI, never sold, and never used for advertising.
   They're never in a notification's text.
-- **Withdrawing.** A parent can remove anyone's allergies at any time. A parent can also turn allergy alerts off for the
-  household, which withdraws consent and erases all of the household's allergy data at once.
+- **Withdrawing.** A parent can remove anyone's allergies at any time, and an adult can remove their own on their
+  profile. A parent can also turn allergy alerts off for the household, which withdraws consent and erases all of the
+  household's allergy data at once.
 
 Allergy flags are a helper, not a guarantee. Always check labels. See our Terms of Use.
 
@@ -318,7 +319,7 @@ of this policy.
 
 ## Deleting and exporting
 
-- **Remove an allergy.** Parents, on the person's profile, at any time.
+- **Remove an allergy.** Parents, on the person's profile, at any time. An adult can also remove all of their own.
 - **Remove someone.** Parents, on the person's profile. Their account loses access at once.
 - **Delete your account.** Anyone, in Family → Your data (or on the first screen before you've joined a household).
   You confirm with Apple, and we revoke Foon's Sign in with Apple access. Then:

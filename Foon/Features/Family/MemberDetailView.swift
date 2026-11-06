@@ -40,7 +40,8 @@ struct MemberDetailView: View {
             if library.hasLoaded {
                 if library.lastLoadFailed { staleNotice }
                 MemberAllergySection(member: member, allergies: library.allergies.first { $0.memberID == member.id },
-                                     canEdit: store.canManagePeople)
+                                     canEdit: store.canManagePeople,
+                                     canRemoveOwn: store.canRemoveOwnAllergies(of: member))
                 MemberTasteSections(member: member, profile: TasteProfile(
                     memberID: member.id, verdicts: library.reactions.verdicts, notes: library.servingNotes, meals: library.meals
                 ))
@@ -144,7 +145,10 @@ private struct MemberAllergySection: View {
     let member: Member
     let allergies: MemberAllergies?
     let canEdit: Bool
+    let canRemoveOwn: Bool
     @State private var editing = false
+    @State private var confirmingRemoval = false
+    @State private var removal: OwnAllergiesRemoval?
 
     var body: some View {
         // A family without allergies never sees this. Parents get the way to add one later.
@@ -158,14 +162,43 @@ private struct MemberAllergySection: View {
                         .sheet(isPresented: $editing) {
                             MemberAllergiesView(member: member, household: store.client, library: library.client)
                         }
+                } else if canRemoveOwn, allergies != nil {
+                    removeOwnButton
                 }
             } header: {
                 Text("Allergies")
             } footer: {
-                Text(canEdit ? "Everyone in the family sees these. Foon flags dishes, and you still check labels."
-                             : "A parent keeps these up to date. Foon flags dishes, and you still check labels.")
+                Text(footer)
             }
         }
+    }
+
+    private var footer: LocalizedStringKey {
+        if canEdit { return "Everyone in the family sees these. Foon flags dishes, and you still check labels." }
+        if canRemoveOwn, allergies != nil {
+            return "You can remove yours anytime. Foon flags dishes, and you still check labels."
+        }
+        return "A parent keeps these up to date. Foon flags dishes, and you still check labels."
+    }
+
+    @ViewBuilder private var removeOwnButton: some View {
+        Button("Remove my allergies", role: .destructive) { confirmingRemoval = true }
+            .disabled(removal?.isRemoving == true)
+            .confirmationDialog("Remove your allergies?", isPresented: $confirmingRemoval, titleVisibility: .visible) {
+                Button("Remove my allergies", role: .destructive) { Task { await removeOwn() } }
+            } message: {
+                Text("Foon deletes them all and stops flagging dishes for you. Only a parent can add them back.")
+            }
+        if let message = removal?.errorMessage {
+            Text(message).foregroundStyle(.red)
+        }
+    }
+
+    private func removeOwn() async {
+        let removal = removal ?? OwnAllergiesRemoval(memberID: member.id, household: store.client)
+        self.removal = removal
+        guard await removal.remove() else { return }
+        await library.showAllergies(AllergyChoice(), for: member, members: store.members)
     }
 }
 
@@ -235,4 +268,16 @@ private struct MemberDetailPreview: View {
 
 #Preview("Ann, the owner") {
     MemberDetailPreview(member: Member.sampleFamily[0])
+}
+
+#Preview("Grace, not a parent, on her own profile with an allergy") {
+    let graceUser = UUID()
+    var family = Member.sampleFamily
+    family[2].userID = graceUser
+    let grace = family[2]
+    var library = LibraryClient.preview()
+    library.allergies = { _ in [AllergyRow(memberID: grace.id, allergen: .peanuts, customText: nil)] }
+    return MemberDetailPreview(store: HouseholdStore(userID: graceUser, client: .preview(members: family)),
+                               library: LibraryStore(householdID: Household.sample.id, client: library),
+                               member: grace)
 }

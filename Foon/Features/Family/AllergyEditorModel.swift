@@ -124,3 +124,38 @@ final class AllergyEditorModel {
         }
     }
 }
+
+/// An adult who isn't a parent removes all of their own allergies at once (#285). It's a delete, never an edit: adding
+/// and changing stay a parent's, so there's nothing to merge and no consent to ask for.
+@Observable @MainActor
+final class OwnAllergiesRemoval {
+    private(set) var isRemoving = false
+    private(set) var errorMessage: String?
+
+    private let memberID: UUID
+    private let household: HouseholdClient
+
+    init(memberID: UUID, household: HouseholdClient) {
+        self.memberID = memberID
+        self.household = household
+    }
+
+    /// True once the server has deleted them.
+    func remove() async -> Bool {
+        guard !isRemoving else { return false }
+        isRemoving = true
+        defer { isRemoving = false }
+        do {
+            try await household.setAllergies(memberID, [], [])
+            errorMessage = nil
+            return true
+        } catch {
+            // A refusal (signed out elsewhere, removed, made a kid) won't pass on a retry, so don't blame the connection.
+            let refused = ["42501", "P0002"].contains((error as? PostgrestError)?.code)
+            errorMessage = refused
+                ? String(localized: "Foon can't remove these from your profile now. Sign in again, or ask a parent.")
+                : String(localized: "Couldn't remove your allergies. Check your connection and try again.")
+            return false
+        }
+    }
+}
