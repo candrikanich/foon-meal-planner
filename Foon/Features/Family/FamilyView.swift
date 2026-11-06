@@ -196,8 +196,10 @@ struct FamilyView: View {
                         Text(message).foregroundStyle(.red)
                     } else if isOwner {
                         Text("Delete household erases it for everyone and keeps your account. Deleting your account also deletes the household. Neither can be undone.")
-                    } else if store.canExport {
+                    } else if store.isPlanner {
                         Text("Export saves the household's meals, plans, lists, and family as a file. Deleting your account can't be undone.")
+                    } else if store.canExport {
+                        Text("Export saves what you can see in the household as a file, with your kids' reminders and hidden comments. Deleting your account can't be undone.")
                     } else {
                         Text("Deleting your account can't be undone.")
                     }

@@ -1682,7 +1682,7 @@
     "Everyone in the family sees these. Foon flags dishes, and you still check labels." : {
 
     },
-    "Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, votes on dinner, ratings and comments, and who cooked. Planners can see the reminder log; everyone else, only their own." : {
+    "Everyone in your household sees the family, allergies, schedules, the plan, lists, ideas, votes on dinner, ratings and comments, and who cooked. Planners can see the reminder log and comments a planner hid, and parents can see their kids'. Everyone else sees only their own reminders." : {
 
     },
     "Everyone makes their own" : {
@@ -1713,6 +1713,9 @@
 
     },
     "Export saves the household's meals, plans, lists, and family as a file. Deleting your account can't be undone." : {
+
+    },
+    "Export saves what you can see in the household as a file, with your kids' reminders and hidden comments. Deleting your account can't be undone." : {
 
     },
     "Exporting…" : {
@@ -3022,7 +3025,7 @@
     "Parents can change or remove someone's allergies on their profile." : {
 
     },
-    "Parents manage people and change allergies. Planners build the week and can export the household. Only the owner can delete it." : {
+    "Parents manage people and change allergies. Planners build the week. Planners and parents can export the household. Only the owner can delete it." : {
 
     },
     "Parents manage the family, allergies, and privacy choices. Planners build the week and manage meals." : {
