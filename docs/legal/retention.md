@@ -9,7 +9,8 @@ of data, what starts its deletion, and where in our systems that's enforced. It 
 [Privacy Policy](privacy.md).
 
 Our rule: keep what a family needs for its own dinner history while the household exists, and delete everything else on
-a schedule. We never keep data longer than this policy says, except in backups (see Backups) or where the law requires.
+a schedule. We aim to keep data only as long as this policy describes, except in backups (see Backups) or where the law
+requires.
 
 Rows marked **(#67 car 1)** are being built in a parallel change and take effect with it.
 
@@ -50,8 +51,8 @@ The household's own dinner history. All of it is erased at once when the househo
 | Corrected receipt lines (`receipt_aliases`) | Reading the next receipt |
 | Subscription status (`household_subscriptions` and the household's columns) | Entitlement |
 
-Consent records have no link to the account that agreed, so they stay with the household when that parent deletes their
-account. They're erased with the household.
+Consent records keep the ID of the account that agreed, without a database link to it, so they stay with the household
+when that parent deletes their account. They're erased with the household.
 
 > **Review:** should consent records be kept for a period after a household is deleted, as proof of consent? Today they
 > are erased with it.
@@ -65,12 +66,14 @@ account. They're erased with the household.
 | Reminder log (`notification_log`): kind, night, times | 8 weeks | Row created | A |
 | Push notifications queued or sent (`push_outbox`) | 8 weeks | Row created | P |
 | "Heading to the store" runs (`store_runs`) | 1 day | Run ends | P |
-| AI job recipe lines (`ai_jobs.payload`) | Until the job ends; 3 days max | Job queued | J, `ai_jobs_recipe` trigger |
-| AI job and its tidied result | 30 days | Job finishes | J |
+| AI job recipe lines (`ai_jobs.payload`) | Until the job ends; 3 days max | Job queued | J (hourly), trigger |
+| AI job and its copy of the tidied result | 30 days | Job finishes | J |
 | Apple subscription notices (`subscription_events`) | 2 years | Notice received | S |
 | Invites | 30 days | Invite expires (7 days) or is redeemed | A (#67 car 1) |
-| Wrong invite-code guesses (`invite_redeem_attempts`) | 1 day | Attempt | A (#67 car 1) |
-| Daily recipe-import counts (`import_usage`) | 7 days | That account's next import | `claim_import_slot()` |
+| Invite-code attempts, wrong or right (`invite_redeem_attempts`) | 1 day | Attempt | A (#67 car 1) |
+| Daily recipe-import counts (`import_usage`) | Up to 7 days after the next import* | Import | `claim_import_slot()` |
+
+\* The last day's count stays until the account imports again or is deleted.
 
 > **Review:** `import_usage` rows are only pruned when the same account imports again, so an account's last row stays
 > until it imports again or is deleted. It holds only an account ID, a date and a count. Decide whether that needs a
@@ -98,7 +101,7 @@ and help. We never use it for ads, never sell it, and never send it anywhere for
 | A kid's data | Purpose | How long |
 | --- | --- | --- |
 | Profile a parent enters: name, avatar, schedule | Who's home | In the household; anonymized 12 months after removal |
-| Allergies a parent enters | Flagging dishes | Until a parent removes them or turns alerts off, or anonymized |
+| Allergies a parent enters | Flagging dishes | Until removed, alerts off (#67 car 1), or anonymized |
 | Parental consent record | Proof a parent agreed | While the household exists |
 | Apple account ID and email (from Sign in with Apple) | Signing in | Until the kid's account is deleted |
 | Apple age range (#88, not yet used) | Age checks | Until consent is withdrawn (30 days) or the account is deleted |
@@ -112,11 +115,11 @@ and help. We never use it for ads, never sell it, and never send it anywhere for
 > [CHECK]
 
 **When a parent withdraws a kid's consent** (`consents_unlink_on_parental_revoke` trigger,
-`20261026205731_parental_consent_and_retention.sql`): the kid's account is unlinked and signed out at once. If consent
-isn't given again, after 30 days (job **A**) Foon deletes the ratings, thank-yous, serving notes, requests and "me
-too"s, offers to cook, poll votes and plan changes the kid entered themselves, and the reminder log and pushes about
-them. It clears their comments and their "urgent" marks on list items, and stops naming them in polls and digests.
-Their age range is cleared. What a parent entered for them stays while they're in the family.
+`20261026205731_parental_consent_and_retention.sql`): the kid's account is unlinked at once and loses access to the
+household. If consent isn't given again, after 30 days (job **A**) Foon deletes the ratings, thank-yous, serving
+notes, requests and "me too"s, offers to cook, poll votes and plan changes the kid entered themselves, and the reminder
+log and pushes about them. It clears their comments and their "urgent" marks on list items, and stops naming them in
+polls and digests. Their age range is cleared. What a parent entered for them stays while they're in the family.
 
 > **Review:** list items a withdrawn kid added are not deleted (only the "urgent" mark is cleared), though the spec
 > lists list items among what's erased. Decide which is right.
@@ -167,6 +170,13 @@ registered it ends ("Sign out everywhere", revoked), when Apple says it's no lon
 
 > **Review:** confirmed waitlist entries have no end date other than unsubscribing. Consider deleting them a set time
 > after launch.
+
+## Internal totals
+
+To see whether Foon is working, we run `internal.metrics()` (#36, see docs/metrics.md) from the database dashboard. It
+computes weekly totals pooled across all households from the tables above, shows nothing for fewer than 5 households,
+and never identifies a household. Nothing new is stored: it's computed on request, and its output isn't kept in Foon's
+database.
 
 ## Data on your device
 

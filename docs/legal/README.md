@@ -58,6 +58,11 @@ These are drafts of Foon's legal documents, written for a lawyer to review befor
 - [ ] Apple's standard EULA vs. our own terms with Apple's required clauses.
 - [ ] The App Store privacy label in [app-store-submission.md](../app-store-submission.md) matches the policy.
 
+> **Review:** Foon computes pooled weekly totals across all households (`internal.metrics()`, #36, see
+> [metrics.md](../metrics.md)): nothing new is stored, and nothing is shown for fewer than 5 households. Should the
+> App Store label list "Analytics" as a purpose for the data it reads? The analytics and crash rows stay removed until
+> #28.
+
 ### Terms
 
 - [ ] The LLC and a DBA: should "Foon" be registered as a trade name for The Recruiting Compass LLC, and how should the
@@ -75,6 +80,18 @@ These are drafts of Foon's legal documents, written for a lawyer to review befor
 
 - [ ] Production is on Supabase Free (no backups) for now and moves to Pro (daily backups kept 7 days) once there are
       customers. The policy's "deleted data can remain in backups for up to 7 days" covers both.
+
+## Known gaps between the code and these drafts
+
+The drafts describe what the code does today. These are the places where that may not be what we want:
+
+- A withdrawn kid's list items aren't erased (only their "urgent" mark is cleared), though the spec says they are.
+- Withdrawing consent or removing a kid unlinks their sign-in account but doesn't delete it.
+- Consent records are erased with the household; there's no record kept afterwards.
+- `import_usage` is pruned only on that account's next import.
+- Meal photos: a replaced photo is never deleted from storage (`LibraryClient.setPhoto`); it stays until the household
+  is deleted. Deleting a dish does remove its photo.
+- Owner transfer isn't built yet (spec, Outliers), so the drafts say it's planned.
 
 ## After review
 

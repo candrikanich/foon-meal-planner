@@ -14,7 +14,7 @@ The short version:
 - We don't sell your data. We don't show ads. We don't track you across apps or websites.
 - Allergies are only kept if a parent agrees, are never used for ads, and are never sent anywhere for AI.
 - Kids can only join with a parent's invite and consent. Parents can see, change and delete what's kept about them.
-- You can export your household's data and delete your account or your household from inside the app.
+- Planners can export your household's data, and you can delete your account or your household from inside the app.
 
 ## Who we are
 
@@ -28,7 +28,9 @@ This policy covers the Foon app for iPhone, iPad and Mac, and the website at get
 ## What we collect and why
 
 Foon works by household. Almost everything below belongs to your household. It's protected so that only signed-in
-members of your household can read it (see Security). We collect it to run Foon for your family, and for nothing else.
+members of your household can read it (see Security). We collect it to run Foon for your family. We also look at
+totals across all families, which never identify a household, to see whether Foon is working: they're pooled, and
+nothing is shown for fewer than 5 households.
 
 ### Your account
 
@@ -64,9 +66,10 @@ A parent can add a profile for each person before they install Foon. A profile h
 | Away dates, usual schedule | Who's home for dinner | Your household | While they're in the household* |
 | Notification settings | How many reminders each person gets | Your household | While they're in the household* |
 | Eats separately (little ones) | Left out of ratings and votes | Your household | While they're in the household* |
-| Allergies | To flag dishes (see Allergies) | Your household | Until a parent removes them |
+| Allergies | To flag dishes (see Allergies) | Your household | Until removed, account deleted or anonymized |
 
-\* When someone is removed, their profile is anonymized 12 months later. See How long we keep it.
+\* When someone is removed, their profile is anonymized 12 months later (#67 car 1 for adults). See How long we
+keep it.
 
 Foon doesn't ask for birthdays, phone numbers, addresses or your location (apart from the household time zone). It
 doesn't ask for photos of people.
@@ -79,7 +82,7 @@ example, "under 13"), never a birthdate. [CHECK: this is planned for #88; the fi
 | What | Why | Who sees it | How long |
 | --- | --- | --- | --- |
 | Meals, ingredients, sides, recipe steps | Your family's library | Your household | While the household exists |
-| Meal photos a planner adds | To show the dish | Your household | While the dish has it [CHECK] |
+| Meal photos a planner adds | To show the dish | Your household | Until the household is deleted** |
 | Weekly plans, nights, who's home | The week's dinners | Your household | While the household exists |
 | Shopping lists, items, freezer, staples | Shopping and stock | Your household | While the household exists |
 | Traditions (like Taco Tuesday) | Recurring dinners | Your household | While the household exists |
@@ -94,6 +97,8 @@ example, "under 13"), never a birthdate. [CHECK: this is planned for #88; the fi
 
 Meal photos have their location and camera details removed on your device before they're uploaded. Recipe photos from
 websites aren't saved.
+
+\*\* A replaced photo stays in storage until then. Deleting a dish removes its photo.
 
 ### Reminders and notifications
 
@@ -112,14 +117,15 @@ Foon's optional AI helpers use Apple's on-device model. Where your device can ru
 
 If a planner adds a dish from a photo, PDF or post on a device that can't run Apple's model, the recipe's lines (title,
 servings, ingredients and steps) and its source link are held on our servers so a planner's device in your family that
-can run the model tidies them up. The lines are emptied once that's done, or after 3 days at most. The tidied recipe is
-kept for 30 days and then deleted. Allergies and information about people are never part of this.
+can run the model tidies them up. The lines are emptied once that's done, or after 3 days at most (checked hourly).
+The job's copy of the tidied recipe is deleted after 30 days. Allergies and information about people are never part
+of this.
 
 ### Subscriptions
 
 If your household subscribes, Apple tells us about it. We keep Apple's original transaction ID, which plan, its
 status, when it ends, whether it renews, and whether it's a test or real purchase. We keep the notices Apple sends about
-it for 2 years. We never see your name, card, price paid or other payment details: Apple keeps those. Members of the
+it for 2 years. We never keep your name, card, price paid or other payment details: Apple keeps those. Members of the
 household can see its subscription status.
 
 ### Other records
@@ -129,8 +135,8 @@ household can see its subscription status.
   show the consent was given. They're deleted when the household is.
 - **Invites.** An invite records who it's for, who made it, and when it was used. Only a scrambled form of the code is
   stored. Invites are deleted 30 days after they expire or are used (#67 car 1).
-- **Safety counters.** To stop someone guessing invite codes, we count wrong guesses for 1 day (#67 car 1). To keep the
-  recipe importer fair, we count how many links each account reads a day.
+- **Safety counters.** To stop someone guessing invite codes, we record each attempt to use a code, wrong or right,
+  for 1 day (#67 car 1). To keep the recipe importer fair, we count how many links each account reads a day.
 
 > **Review:** we don't currently use analytics or crash reporting in the app. If we add them (#28), this policy, the App
 > Store privacy label, and "no tracking" all need another look first.
@@ -152,21 +158,27 @@ alone.
   whether they're home, their schedule, allergies a parent adds, and what they add themselves, such as ratings,
   comments, requests, votes, serving notes and list items. We don't collect a kid's email for marketing, and we don't
   email kids.
-- **What a parent can see.** Everything about their kid is visible to everyone in the household, including the parent:
-  the profile, allergies, ratings, comments, requests and votes.
+- **What a parent can see.** Most of what's kept about a kid is visible to everyone in the household, including the
+  parent: the profile, allergies, ratings, comments, requests and votes. A kid's reminder log and any comment a planner
+  hid are visible to planners only, and only planners can export the household. A parent who isn't a planner can ask
+  us at support@getfoon.com.
 - **What a parent can change or delete.** Parents can change a kid's profile and allergies, remove allergies at any
   time, and remove the kid from the household. A planner can hide a kid's comment. A parent can export the household's
   data if they're a planner, and the owner can delete the household.
-- **Withdrawing consent.** A parent can withdraw consent on the kid's profile at any time. The kid's account is signed
-  out and unlinked at once. If consent isn't given again within 30 days, what the kid entered themselves is deleted:
-  their own ratings, comments, thank-yous, serving notes, requests and "me too"s, offers to cook, poll votes, plan
-  changes, and their age range. What a parent entered for them stays while they're in the family.
-- **Removing a kid.** Their account loses access at once. 12 months later their profile becomes "Former member": the
-  name, avatar, schedule, allergies, serving notes and comments go, and their ratings stay as anonymous history.
+- **Withdrawing consent.** A parent can withdraw consent on the kid's profile at any time. The kid's account is unlinked
+  at once and loses access to the household. If consent isn't given again within 30 days, what the kid entered
+  themselves is deleted: their own ratings, comments, thank-yous, serving notes, requests and "me too"s, offers to
+  cook, poll votes, plan changes, and their age range. What a parent entered for them stays while they're in the family.
+- **Removing a kid.** Their account is unlinked at once and loses access to the household. 12 months later their
+  profile becomes "Former member": the name, avatar, schedule, allergies, serving notes and comments go, and their
+  ratings stay as anonymous history.
 - **Deleting a kid's own account.** Their comments, poll votes, serving notes and notes on requests they wrote
   themselves are deleted. The profile a parent made stays.
 
 To ask about or delete your child's information, a parent can also write to support@getfoon.com.
+
+> **Review:** COPPA gives parents the right to review their child's information. Should every parent (guardian) get
+> read access to a kid's reminder log and hidden comments, and to export, not only planners?
 
 > **Review:** COPPA. Confirm that a parent-run household app with parental consent in the invite meets the amended rule,
 > and whether the consent method (an in-app agreement by a signed-in adult) is enough or needs a stronger method.
@@ -226,7 +238,7 @@ They handle data for us, under their terms, and only to provide their service.
 | Resend | Sends waitlist emails | Waitlist email addresses and names |
 | Vercel | Hosts the getfoon.com website | Website requests |
 
-Our servers are in the United States. [CHECK: production Supabase region, expected us-east-1.]
+Our servers are in the United States (Supabase's us-east-1 region, AWS, N. Virginia).
 
 When you import a recipe from a link, our server opens that web page to read the recipe. The website sees a request
 from our server. We send it nothing about you.
@@ -270,8 +282,8 @@ The full list, with every period and what starts it, is in our [Data Retention P
 - **Remove someone.** Parents, on the person's profile. Their account loses access at once.
 - **Delete your account.** Anyone, in Family → Your data (or on the first screen before you've joined a household).
   You confirm with Apple, and we revoke Foon's Sign in with Apple access. Then:
-  - if you're the owner, your household and everything in it is erased, photos included (you can hand ownership to
-    another parent first to keep it);
+  - if you're the owner, your household and everything in it is erased, photos included (handing ownership to
+    another parent first is planned but not available yet);
   - if you're another adult, your profile becomes "Former member": your allergies, settings, schedule, serving notes,
     comments and the notes on your requests are deleted, and your ratings and cooking history stay without your name;
   - if you're a kid, your account is unlinked and what you wrote yourself is deleted (see Kids).
@@ -326,8 +338,7 @@ We won't treat you differently for using these rights.
   last email we sent for it.
 - After you confirm, we keep your email and name until you unsubscribe. Every email has an unsubscribe link, and
   unsubscribing deletes your email and name right away.
-- To limit abuse, the form keeps a scrambled (hashed) form of your network address for up to 2 days. It can't be turned
-  back into the address.
+- To limit abuse, the form keeps your network address for up to 2 days, as a keyed hash, not as the address.
 - Waitlist emails are sent through Resend, and the list is stored with Supabase.
 
 > **Review:** after launch, should confirmed waitlist entries be deleted after a set time even without unsubscribing?

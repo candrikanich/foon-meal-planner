@@ -37,7 +37,7 @@ Foon works by household. One household has one subscription and everyone in it s
 lists. Everyone in a household can see what the others add (see the Privacy Policy).
 
 - **Owner:** the parent who holds the subscription and the household's settings. Only the owner can delete the
-  household, and the owner can hand ownership to another parent.
+  household. Handing ownership to another parent is planned but not available yet.
 - **Parents (guardians):** adults who manage people: add and invite them, set roles, remove them, change allergies, and
   give or withdraw consent for allergies and for kids.
 - **Planners:** build and change the week and manage the meal library. Planners can export the household's data.
@@ -118,8 +118,8 @@ Foon can read a recipe from a web page link you give it. When you do:
   catalog;
 - respect the website's rights and terms. Recipes are for your family's own use.
 
-Some sites don't let apps read their pages, and Foon doesn't try to get around that. We're not responsible for other
-websites or their content. Each account can import up to a daily limit of links.
+Foon identifies itself honestly when it fetches a page, and some sites don't let apps read them. We're not
+responsible for other websites or their content. Each account can import up to a daily limit of links.
 
 > **Review:** confirm the position on copyright in imported recipes (ingredient lists vs. instructions), and whether
 > a takedown/DMCA contact is needed even though content is private to each household.
