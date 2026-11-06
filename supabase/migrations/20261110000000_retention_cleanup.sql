@@ -5,6 +5,8 @@
 --    deleting storage.objects rows here, which would leave the file behind.
 -- 2. The daily retention job (anonymize_expired_profiles) also prunes import_usage rows more than 7 days old, the same
 --    window claim_import_slot() prunes on the way past, so an account that stops importing doesn't keep its last count.
+-- 3. A withdrawn kid's list lines stay with the household (lines record no author and merge across people, so the spec
+--    now says so), but stop naming the kid as who ticked them, as they already stop naming who marked them for tonight.
 
 create function public.set_meal_photo(target_meal uuid, new_path text)
 returns text
@@ -84,6 +86,9 @@ begin
   update public.push_outbox set args = args - 'name', about_member_id = null
   where kind = 'new_requests' and about_member_id = any (withdrawn);
   update public.list_items set urgent_by = null where urgent_by = any (withdrawn);
+  -- A line belongs to the household (one open line per item, merged across people), so it stays; it just stops saying
+  -- the kid ticked it, as it stops saying they marked it (#286).
+  update public.list_items set checked_by = null where checked_by = any (withdrawn);
   -- A poll is about one dinner, so it ages out like the log, for everyone, and its votes go with it.
   delete from public.polls where created_at < now() - interval '8 weeks';
   -- A kid who plans: what they changed themselves goes. Entries about the plan itself age out below for everyone.

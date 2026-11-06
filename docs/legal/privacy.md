@@ -202,7 +202,8 @@ account as a child's account under the Children's Online Privacy Protection Act 
 - **Withdrawing consent.** A parent can withdraw consent on the kid's profile at any time. The kid's account is unlinked
   at once and loses access to the household. If consent isn't given again within 30 days, what the kid entered
   themselves is deleted: their own ratings, comments, thank-yous, serving notes, requests and "me too"s, offers to
-  cook, poll votes, plan changes, and their age range. What a parent entered for them stays while they're in the family.
+  cook, poll votes, plan changes, and their age range. Shopping list lines stay on the family's list, but no longer
+  show the kid marked or ticked them. What a parent entered for them stays while they're in the family.
 - **Removing a kid.** Their account is unlinked at once and loses access to the household. 12 months later their
   profile becomes "Former member": the name, avatar, schedule, allergies, serving notes and comments go, and their
   ratings stay as anonymous history.
@@ -217,9 +218,6 @@ To ask about or delete your child's information, a parent can also write to supp
 > **Review:** COPPA. Confirm that a parent-run household app with parental consent in the invite meets the amended rule,
 > and whether the consent method (an in-app agreement by a signed-in adult) is enough or needs a stronger method.
 > Confirm the rule's notice requirements are met by this section and the retention policy (retention.md).
-
-> **Review:** a list item a withdrawn kid added stays on the list (only their "urgent" mark is cleared). The spec says
-> list items go too. Decide which is right; this section describes what the app does today.
 
 > **Review:** a kid's ratings are kept as anonymous history after they're removed. Erasing a withdrawn kid's own ratings
 > is a hard delete. Confirm both are acceptable.

@@ -117,11 +117,10 @@ the note below).
 `20261026205731_parental_consent_and_retention.sql`): the kid's account is unlinked at once and loses access to the
 household. If consent isn't given again, after 30 days (job **A**) Foon deletes the ratings, thank-yous, serving
 notes, requests and "me too"s, offers to cook, poll votes and plan changes the kid entered themselves, and the reminder
-log and pushes about them. It clears their comments and their "urgent" marks on list items, and stops naming them in
-polls and digests. Their age range is cleared. What a parent entered for them stays while they're in the family.
-
-> **Review:** list items a withdrawn kid added are not deleted (only the "urgent" mark is cleared), though the spec
-> lists list items among what's erased. Decide which is right.
+log and pushes about them. It clears their comments, and stops naming them in polls, digests and on list lines (who
+marked a line for tonight, who ticked it off). The lines themselves stay: a line records no author and merges
+everyone's adds of the same item, so it's the family's. Their age range is cleared. What a parent entered for them
+stays while they're in the family.
 
 **When a kid deletes their own account** (job **D**, then the `delete-account` Edge Function deletes the sign-in
 account itself): their profile is unlinked; their comments, their own poll votes,
