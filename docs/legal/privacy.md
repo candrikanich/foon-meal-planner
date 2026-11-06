@@ -167,8 +167,8 @@ account as a child's account under the Children's Online Privacy Protection Act 
   anyone else collect it through Foon.
 - **A parent's rights.** A parent can, at any time:
   - **review** what's kept about their child: it's in the app, and Family → Your data → Export saves it as a file
-    (apart from the kid's sign-in details and their device's push token). They can also ask us at
-    support@getfoon.com;
+    (apart from the kid's sign-in details, their device's push token, and pushes still waiting to be sent). They can
+    also ask us at support@getfoon.com;
   - **have it deleted:** ask us at support@getfoon.com. Removing the kid cuts their access at once and anonymizes the
     profile 12 months later; their ratings stay without a name;
   - **refuse further collection:** withdraw consent on the kid's profile, which stops the kid's account at once.
