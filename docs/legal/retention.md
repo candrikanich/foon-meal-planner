@@ -12,15 +12,13 @@ Our rule: keep what a family needs for its own dinner history while the househol
 a schedule. We aim to keep data only as long as this policy describes, except in backups (see Backups) or where the law
 requires.
 
-Rows marked **(#67 car 1)** are being built in a parallel change and take effect with it.
-
 ## How deletion runs
 
 Scheduled jobs run in the database (pg_cron), every day unless noted. Times are UTC.
 
 | Key | Job | Defined in (newest definition) | Runs |
 | --- | --- | --- | --- |
-| A | `anonymize_expired_profiles()` | `20261102200000_push_car4.sql` (+ #67 car 1) | Daily, 03:17 |
+| A | `anonymize_expired_profiles()` | `20261109000000_privacy_retention.sql` | Daily, 03:17 |
 | P | `prune_push_outbox()` | `20261102210000_store_run.sql` | Daily, 03:29 |
 | S | `prune_subscription_events()` | `20261107000000_entitlement.sql` | Daily, 03:41 |
 | W | `prune_waitlist()` | `20261108000000_waitlist.sql` | Daily, 04:17 |
@@ -69,8 +67,8 @@ when that parent deletes their account. They're erased with the household.
 | AI job recipe lines (`ai_jobs.payload`) | Until the job ends; 3 days max | Job queued | J (hourly), trigger |
 | AI job and its copy of the tidied result | 30 days | Job finishes | J |
 | Apple subscription notices (`subscription_events`) | 2 years | Notice received | S |
-| Invites | 30 days | Invite expires (7 days) or is redeemed | A (#67 car 1) |
-| Invite-code attempts, wrong or right (`invite_redeem_attempts`) | 1 day | Attempt | A (#67 car 1) |
+| Invites | 30 days | Invite expires (7 days), is redeemed or is cancelled | A |
+| Invite-code attempts, wrong or right (`invite_redeem_attempts`) | 1 day | Attempt | A |
 | Daily recipe-import counts (`import_usage`) | Up to 7 days after the next import* | Import | `claim_import_slot()` |
 
 \* The last day's count stays until the account imports again or is deleted.
@@ -89,7 +87,7 @@ When a parent removes someone from the household:
 - **12 months later, a removed kid** is anonymized (job **A**): the first name becomes "Former member", and the avatar,
   schedule, notification settings, age range, allergies, serving notes, comments, notes on requests and reminder log go.
   Open offers to cook are released.
-- **12 months later, a removed adult** is anonymized the same way (job **A**, #67 car 1).
+- **12 months later, a removed adult** is anonymized the same way (job **A**).
 - **Kept without a name:** their ratings, requests' titles and cooking history, as the family's history.
 
 ## Kids: purposes and periods
@@ -101,7 +99,7 @@ and help. We never use it for ads, never sell it, and never send it anywhere for
 | A kid's data | Purpose | How long |
 | --- | --- | --- |
 | Profile a parent enters: name, avatar, schedule | Who's home | In the household; anonymized 12 months after removal |
-| Allergies a parent enters | Flagging dishes | Until removed, alerts off (#67 car 1), or anonymized |
+| Allergies a parent enters | Flagging dishes | Until removed, alerts off, or anonymized |
 | Parental consent record | Proof a parent agreed | While the household exists |
 | Apple account ID and email (from Sign in with Apple) | Signing in | Until the kid's account is deleted |
 | Apple age range (#88, not yet used) | Age checks | Until consent is withdrawn (30 days) or the account is deleted |
@@ -132,7 +130,7 @@ released, and the reminder log about them is deleted. The parent-entered profile
 
 - **A parent removes someone's allergies:** deleted at once; no consent needed (`set_member_allergies()`).
 - **A guardian turns allergy alerts off:** consent is revoked and every allergy in the household is erased at once
-  (`revoke_allergy_consent()` and the `consents_erase_on_revoke` trigger, #67 car 1).
+  (`revoke_allergy_consent()` and the `consents_erase_on_revoke` trigger).
 - **An adult deletes their account:** their allergies are deleted at once (job **D**).
 - **A removed person is anonymized:** their allergies are deleted (job **A**).
 - **The household is deleted:** all are erased (job **E**).

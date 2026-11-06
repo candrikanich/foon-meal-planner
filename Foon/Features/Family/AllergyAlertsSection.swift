@@ -16,6 +16,7 @@ struct AllergyAlertsSection: View {
                 Toggle("Allergy alerts", isOn: Binding(
                     get: { model.phase == .ready(.on) },
                     set: { isOn in
+                        model.clearError()
                         if isOn { consenting = true } else { confirmingOff = true }
                     }
                 ))
@@ -41,7 +42,7 @@ struct AllergyAlertsSection: View {
             } message: {
                 Text("It erases every allergy recorded for your household, for everyone. This can't be undone.")
             }
-            .sheet(isPresented: $consenting) { AllergyAlertsConsentView(model: model) }
+            .sheet(isPresented: $consenting, onDismiss: model.clearError) { AllergyAlertsConsentView(model: model) }
         }
     }
 }

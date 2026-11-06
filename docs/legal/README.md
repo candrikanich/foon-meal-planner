@@ -12,8 +12,7 @@ These are drafts of Foon's legal documents, written for a lawyer to review befor
 
 - Drafts only. Nothing here is published, and none of it is in effect.
 - The website keeps its short plain-English summaries at getfoon.com/privacy and /terms until review is done.
-- Every factual statement is meant to be true of the code on `main`, plus the retention changes in #67 car 1 (marked
-  "(#67 car 1)"). Where we weren't sure, the text says `[CHECK]`. Legal questions are marked `> **Review:**` inline.
+- Every factual statement is meant to be true of the code on `main`. Where we weren't sure, the text says `[CHECK]`. Legal questions are marked `> **Review:**` inline.
 - The documents say "Foon" throughout and name the legal party once: The Recruiting Compass LLC.
 - Governing law: Ohio. Contact: support@getfoon.com.
 - Analytics and crash reporting don't exist yet (#28), so the drafts don't mention them. When they're added, the

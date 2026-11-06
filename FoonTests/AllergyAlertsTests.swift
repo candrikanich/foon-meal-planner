@@ -121,6 +121,14 @@ struct AllergyAlertsModelTests {
         #expect(model.phase == .ready(.off))
         #expect(model.errorMessage == "Couldn't change allergy alerts. Check your connection and try again.")
     }
+
+    @Test func anOldErrorGoesOnceTheParentMovesOn() async {
+        let model = model(revoke: { throw Self.refused })
+        await model.load()
+        #expect(!(await model.turnOff()))
+        model.clearError()
+        #expect(model.errorMessage == nil, "cancelling or opening the sheet again starts clean")
+    }
 }
 
 @MainActor

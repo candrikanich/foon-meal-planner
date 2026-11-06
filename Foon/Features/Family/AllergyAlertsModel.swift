@@ -67,13 +67,18 @@ final class AllergyAlertsModel {
         return await save(.on) { try await client.grantAllergyConsent(householdID, AllergyConsent.textVersion) }
     }
 
+    /// An error belongs to the attempt that made it, not to the next dialog the parent opens.
+    func clearError() {
+        errorMessage = nil
+    }
+
     private func save(_ result: AllergyAlerts, _ write: () async throws -> Void) async -> Bool {
+        errorMessage = nil
         isSaving = true
         defer { isSaving = false }
         do {
             try await write()
             phase = .ready(result)
-            errorMessage = nil
             return true
         } catch {
             errorMessage = (error as? PostgrestError)?.code == "42501"

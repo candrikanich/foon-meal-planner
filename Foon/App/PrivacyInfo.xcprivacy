@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Foon's privacy manifest (#67). It matches the App Store privacy label in docs/app-store-submission.md, except analytics
-  and crash data, which aren't built yet (#28): add them here when they are.
+  Foon's privacy manifest (#67). It matches the App Store privacy label in docs/app-store-submission.md. Analytics and
+  crash data aren't collected yet (#28): add them here and to the label when they are.
   Required-reason APIs:
   - UserDefaults: the app's own settings (CA92.1), and the App Group suite the app shares with its extensions (1C8F.1).
   - File timestamps: the share inbox in the App Group container reads its files' modification dates to clear stale
