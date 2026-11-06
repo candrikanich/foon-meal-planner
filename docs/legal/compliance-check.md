@@ -1,5 +1,7 @@
 # Compliance self-check (#67)
 
+**DRAFT — pending legal review. Not yet in effect.**
+
 **Self-check, not legal advice.** Checked 2026-11-06. It's meant to make a lawyer's or a COPPA Safe Harbor program's
 review shorter, not to replace it.
 
@@ -66,16 +68,15 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 - **Allergy consent wording, `allergy-data-v2`.** The sentence must:
   - name who receives allergies (the household, our host provider);
   - say how to withdraw (Family → Allergy alerts).
+
+  The allergy sentence says Foon "keeps these with your household", and the kid-invite consent says "shared only with
+  this household", while processors (Supabase, and Apple for push) handle the data. Both sentences should say so.
 - **Links to the policies:**
   - the privacy policy on the getfoon.com homepage, the kid invite/join screens, the paywall, onboarding and
     Family → Your data;
   - the consumer health data policy on the homepage, the App Store page and in the app.
-- **Paywall terms.** The paywall needs:
-  - plan name, duration, full renewal price, and trial length with the price after it;
-  - restore purchases;
-  - links to the Terms of Use and Privacy Policy.
-
-  Not checked in code.
+- **Paywall terms.** Restore purchases and the offer row (name, price, trial) are built (`SubscriptionSection.swift`).
+  Still needed: Terms of Use and Privacy Policy links, and the renewal price after the trial stated plainly.
 - **Age assurance (#88).**
   - Texas 121.054 needs a system to check each user's age category and a minor's consent status.
   - California AB 1043 (2027-01-01), Louisiana (2027-07-01) and Utah (2027-05-06) follow.
@@ -85,9 +86,8 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 - **Texas significant-change notice.** Tell the App Store before a significant change to the terms or privacy policy,
   for example through PermissionKit's Significant Change API. 121.053.
 - **CAN-SPAM footer.** The waitlist email needs a postal address in its footer.
-- **Account deletion.** Confirm in code:
-  - that a kid's self-delete removes the sign-in row;
-  - that the delete flow tells a subscriber billing continues through Apple and how to cancel.
+- **Delete screen.** Say billing continues through Apple and how to cancel (`DeleteAccountView.swift` has no billing
+  line).
 - **Waitlist confirmation email** (`supabase/functions/waitlist/email.ts`): drop the founding-family pitch, or add the
   postal address and treat it as commercial.
 
@@ -99,7 +99,9 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
    "disclosure" (COPPA 312.2) or "sharing" with a third party (Washington .010(27))? If yes:
    - email plus is off the table;
    - allergies need separate sharing consent.
-3. **Kids' allergy data.** Under Washington's law, who is the "consumer" and who consents for a child?
+3. **Whose consent.** Under Washington's law, who is the "consumer" and who consents for a child? Allergy consent is
+   one household-wide agreement by a parent, and only parents can withdraw it: is that enough for another adult's
+   allergies, and should adults be able to remove their own in the app?
 4. **The state health-data laws.** Comply with Washington, Nevada and Connecticut, or block those states? This file
    recommends complying to Washington's standard.
 5. **Connecticut SB 1295.** Does it reach Foon with no volume floor (sensitive data)? This rests on secondary sources
@@ -142,7 +144,7 @@ size.
 | Separate consent for third-party disclosure | 312.5(a)(2) | No disclosure to third parties for their own use | n/a | Wording (this PR): said plainly. Analytics (#28) would need it |
 | Parent can review a kid's information | 312.6(a)(1), (a)(3) | Most is visible in the household; reminder log and hidden comments planner-only; export planner-only | partly | Code or decision: every guardian |
 | Parent can refuse further collection and delete | 312.6(a)(2) | Withdraw unlinks at once; own content erased after 30 days; removal anonymizes at 12 months; kid's sign-in account stays | partly | Code: delete everything about a child now |
-| Written retention policy: purpose, business need, deletion timeframe; nothing kept indefinitely | 312.10 | retention.md Kids (business need added in this PR) | partly | Remaining: the kid's sign-in account, list items (known gaps) |
+| Written retention policy: purpose, business need, deletion timeframe; nothing kept indefinitely | 312.10 | retention.md Kids (business need added in this PR) | partly | Remaining: the kid's sign-in account, list items (known gaps). Counsel: "while the household exists" for an active household's kid ratings and the consent record may read as indefinite |
 | Written information security program: named person, yearly risk assessment, safeguards, testing, yearly review | 312.8(b)(1)-(5) | Nothing written; privacy.md Security lists safeguards | gap | A document (decision 8) |
 | Assurances from service providers | 312.8(c) | DPAs not on file | gap | Paperwork (decision 9) |
 | Directed to children / mixed audience | 312.2 | A general-audience household app with parent-invited kid accounts; every kid account treated as covered | met (position) | Don't call Foon "mixed audience" |
@@ -163,15 +165,15 @@ violation is a Consumer Protection Act violation (.090). The AG's FAQ says peopl
 | Categories, purpose, use; sources; categories shared; third parties and affiliates; how to use rights | .020(1)(a)(i)-(v) | consumer-health-data.md | met in draft | — |
 | No new categories or purposes without disclosure and consent | .020(1)(c)-(d) | Spec and policy limit use to flagging | met | Keep as an engineering rule |
 | Processor contract consistent with the policy | .060, .020(1)(e) | DPA not confirmed | partly | Decision 9 |
-| Consent before collecting | .030(1) | Agree and save, `allergy-data-v1`; server refuses without it | met | — |
+| Consent before collecting | .030(1) | Agree and save, `allergy-data-v1`; server refuses without it. One household-wide agreement by a parent covers every adult's allergies | partly | Decision 3 |
 | Consent request names categories, purpose, recipients, how to withdraw | .030(2) | Allergy sentence names neither recipients nor withdrawal | partly | Code: `allergy-data-v2` |
 | Separate consent to share | .030(1)(b) | Nothing shared outside processors | n/a | Unless household visibility is "sharing" (decision 2) |
 | Access, including third parties and their contacts | .040(1)(a) | Visible in the household; export is planner-only | partly | Policy says no third parties; access request by email |
-| Withdraw consent | .040(1)(b) | Allergy alerts off erases all | met | — |
+| Withdraw consent | .040(1)(b) | Allergy alerts off erases all, but only a parent can do it; another adult has to ask a parent or write to us | partly | Decision 3; draft says how to ask |
 | Delete, including backups (up to 6 months) | .040(1)(c) | At once; backups 7 days | met | — |
 | 45 days, one 45-day extension; free twice a year; no new account needed | .040(1)(d), (f), (g) | Was "the time the law allows" | gap → fixed | Wording (this PR) |
 | Appeal: written answer in 45 days, AG contact if denied | .040(1)(h) | None | gap → fixed | Wording (this PR); AG link `[CHECK]` |
-| Security and need-to-know access | .050 (text UNVERIFIED) | RLS by household | met | — |
+| Security and need-to-know access | .050 (text UNVERIFIED) | RLS by household | partly | Name it in the security program |
 | No sale without authorization; no geofencing | .070, .080 | Never sold; no location | n/a | — |
 
 ## Nevada SB 370 (NRS 603A.400–.550)
@@ -230,12 +232,12 @@ processing needs a separate authorization or a "strictly necessary" purpose, and
 | Retention, deletion, how to revoke consent | 5.1.1(i) | privacy.md, retention.md | met | — |
 | Consent, easy to withdraw | 5.1.1(ii) | Allergy and kid consent, both withdrawable | met | — |
 | Data minimization | 5.1.1(iii), (iv) | Optional allergies, calendar, photos | met | Keep the calendar note in review notes |
-| In-app account deletion | 5.1.1(v); Apple's account deletion page | Family → Your data → Delete my account | met, with a check | Code check: billing message; kid sign-in row |
+| In-app account deletion | 5.1.1(v); Apple's account deletion page | Family → Your data → Delete my account | partly | Code: billing line on the delete screen (a kid's self-delete does remove the sign-in row) |
 | Say what's kept after deletion | Apple deletion FAQ | privacy.md Deleting | partly | Show "anonymous ratings stay" on the delete screen (code) |
 | No sharing without permission, including AI | 5.1.2(i) | On-device AI; #59 queue stays in the family's devices | met | Wording (this PR): marketing line |
 | Apps that collect from minors need a policy and must follow children's privacy law, even outside the Kids Category | 5.1.4(b) | Not in Kids Category | partly | See COPPA |
 | Outside the Kids Category, don't suggest kids are the main audience | 2.3.8 | Keyword "kids" | partly | Wording (this PR): dropped |
-| Subscription screen: name, duration, renewal price, trial, restore, Terms and Privacy links | 3.1.2; Apple's Subscriptions page | Not checked in code | gap | Code check; decision 13 |
+| Subscription screen: name, duration, renewal price, trial, restore, Terms and Privacy links | 3.1.2; Apple's Subscriptions page | Offer row (name, price, trial) and restore purchases built (`SubscriptionSection.swift`); no Terms or Privacy links | partly | Code: the links, and the renewal price after the trial; decision 13 |
 | EULA | 3.1.2 (wording UNVERIFIED) | terms.md layers Apple's EULA | partly | Decision 12 |
 | Privacy label accurate | App Privacy Details | Label rows in app-store-submission.md | partly | Check whether the push token is "Device ID" and whether kept request logs (IPs) count (both UNVERIFIED); add the age range with #88 |
 
@@ -295,7 +297,7 @@ Status as of 2026-11-06:
 | --- | --- | --- | --- | --- |
 | Accurate headers | FTC guide 1 | `WAITLIST_FROM` on a Resend-verified domain | met | Confirm the production value |
 | Honest subject | FTC guide 2 | "Confirm your spot on the Foon waitlist" | met | — |
-| Identified as an ad, unless the recipient opted in | FTC guide 3 | Opt-in | met | Recheck with the first offer email |
+| Identified as an ad, unless the recipient opted in | FTC guide 3 | Opt-in; but the confirmation carries an offer | partly | Same decision as the confirmation pitch below |
 | Valid postal address | FTC guide 4 | None in the email or the policy | gap | Code: email footer; wording (this PR): `[ADDRESS]` |
 | Clear opt-out, honored in 10 business days, working 30+ days | FTC guide 5, 7 | Unsubscribe link, one-click `List-Unsubscribe`, deletes at once, link doesn't expire | met | Optional: keep a suppression hash |
 | Transactional only if confirming is the main purpose | 16 CFR 316.3 (UNVERIFIED) | The confirmation pitches the founding offer | partly | Drop the pitch, or add the address and treat it as commercial |

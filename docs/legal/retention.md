@@ -101,7 +101,7 @@ and help. We never use it for ads, never sell it, and never send it anywhere for
 | Profile a parent enters: name, avatar, schedule | Who's home | The plan is built around who's home each night | In the household; anonymized 12 months after removal |
 | Allergies a parent enters | Flagging dishes | Every new dish and list is checked against them | Until removed, alerts off, or anonymized |
 | Parental consent record | Proof a parent agreed | To show consent was given, while the kid's information exists | While the household exists |
-| Apple account ID and email (from Sign in with Apple) | Signing in | Needed for each sign-in | Until the kid's account is deleted |
+| Apple account ID and email (from Sign in with Apple), and first name if Apple shares it | Signing in | Needed for each sign-in | Until the kid's account is deleted |
 | Apple age range (#88, not yet used) | Age checks | See the note on Texas below | Until consent is withdrawn (30 days) or the account is deleted |
 | What they enter (ratings, comments, votes) | Family planning | It's the family's dinner history, which planning draws on | As for all; erased 30 days after withdrawal |
 | Their device's push token | Reminders | Needed to deliver each reminder | Until sign-out, reminders off, unlinking, or removal |
@@ -129,7 +129,8 @@ polls and digests. Their age range is cleared. What a parent entered for them st
 > **Review:** list items a withdrawn kid added are not deleted (only the "urgent" mark is cleared), though the spec
 > lists list items among what's erased. Decide which is right.
 
-**When a kid deletes their own account** (job **D**): their account is unlinked; their comments, their own poll votes,
+**When a kid deletes their own account** (job **D**, then the `delete-account` Edge Function deletes the sign-in
+account itself): their profile is unlinked; their comments, their own poll votes,
 the serving notes they wrote and the notes on requests they made themselves are deleted, their offers to cook are
 released, and the reminder log about them is deleted. The parent-entered profile stays.
 

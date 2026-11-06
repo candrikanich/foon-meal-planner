@@ -120,12 +120,14 @@ Found by the compliance self-check ([compliance-check.md](compliance-check.md), 
 - The allergy consent sentence doesn't name who receives allergies or how to withdraw.
 - No links yet to the privacy policy or the consumer health data policy on the homepage, the App Store page, the kid
   invite and join screens, the paywall or Your data.
-- Paywall subscription terms and restore purchases aren't checked against Apple's rules.
+- The paywall has restore purchases and the offer (name, price, trial), but no Terms and Privacy links, and doesn't
+  state the renewal price after the trial plainly.
 - Age assurance (#88) isn't built: Texas SB 2420 is in force; California, Utah and Louisiana follow in 2027.
 - No notice to the App Store before a significant change to the terms or privacy policy (Texas §121.053).
 - The waitlist email has no postal address, and the confirmation email includes an offer.
-- Not checked in code: whether a kid's self-delete removes their sign-in row, and whether the delete screen mentions
-  the Apple subscription.
+- The delete-account screen doesn't say billing continues through Apple or how to cancel.
+- Allergy consent is one household-wide agreement, and only parents can withdraw it or change allergies. An adult who
+  isn't a parent can't remove their own allergies in the app.
 
 ## After review
 

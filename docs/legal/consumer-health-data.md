@@ -50,11 +50,14 @@ You have the right to:
 - **Confirm and see** whether we collect your health data, and get a copy. Everyone in the household sees allergies in
   the app (on each person's profile in Family). We share them with no third parties, so there's no third-party list
   to give.
+- **Correct or remove your own.** Only parents can change allergies in the app. An adult who isn't a parent can ask a
+  parent in their household, or write to us, to see, correct or remove their own.
 - **Withdraw consent.** A parent can turn **Allergy alerts** off in Family. That withdraws consent and erases every
   allergy recorded for the household at once.
 - **Delete.**
   - A parent can remove anyone's allergies on their profile at any time.
-  - Deleting your account deletes your allergies.
+  - Deleting an adult's account deletes their allergies. A kid's allergies stay on the profile their parent manages,
+    and a parent can remove them.
   - Deleting the household deletes everyone's.
   - Deleted allergies leave our hosting provider's backups within 7 days.
 
@@ -86,6 +89,7 @@ you and getting your consent.
 - **Other websites and apps.** No third party collects health data about you through Foon, on our site or in the app.
 - **Changes to this policy.** If we change it in a way that matters, we'll update the effective date, post the new
   version, and tell you in the app before it takes effect. A new use or new kind of data needs your consent first.
+  [CHECK: in-app notice not built]
 
 ## Contact
 

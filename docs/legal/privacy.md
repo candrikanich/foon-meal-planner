@@ -153,13 +153,13 @@ account as a child's account under the Children's Online Privacy Protection Act 
 
 | What a kid's account generates | Why | Who receives it |
 | --- | --- | --- |
-| Apple account ID and email (from Sign in with Apple; can be Apple's relay address) | Signing in | Foon; Supabase, our host |
+| Apple account ID and email (from Sign in with Apple; can be Apple's relay address), and first name if Apple shares it | Signing in | Foon; Supabase, our host |
 | First name, avatar, schedule (a parent enters these) | Who's home | Their household; Supabase |
 | Allergies (a parent enters these) | Flagging dishes | Their household; Supabase |
 | Ratings, comments, thank-yous, serving notes, requests, votes, list items they add | Taking part in family dinner | Their household; Supabase |
 | Their device's push token | Reminders | Apple, to deliver them; Supabase |
 | Reminders sent to them | Not over-notifying | Planners in their household; Supabase |
-| Network address in our providers' request logs | Running the service | Supabase and Vercel [CHECK: periods] |
+| Network address in our provider's request logs | Running the service | Supabase [CHECK: period] |
 
 - **No disclosure.** We don't disclose a child's information to anyone except the service providers that run Foon for
   us (see Who we share with), who may use it only to provide their service. We don't sell it, use it for ads, or let
@@ -167,10 +167,14 @@ account as a child's account under the Children's Online Privacy Protection Act 
 - **A parent's rights.** A parent can, at any time:
   - **review** what's kept about their child: most of it is in the app, and they can ask us for the rest at
     support@getfoon.com;
-  - **have it deleted:** remove the kid from the household, or ask us;
+  - **have it deleted:** ask us at support@getfoon.com. Removing the kid cuts their access at once and anonymizes the
+    profile 12 months later; their ratings stay without a name;
   - **refuse further collection:** withdraw consent on the kid's profile, which stops the kid's account at once.
 
   The details are below.
+
+> **Review:** there's no "delete everything about this child now" in the app yet; an emailed request is handled by
+> hand. See compliance-check.md.
 - **How long we keep it.** Our [Data Retention Policy](retention.md) is part of this notice. Its section "Kids:
   purposes and periods" is our written retention policy for children's information: why we keep each kind, the need
   for it, and when it's deleted.
@@ -201,8 +205,8 @@ account as a child's account under the Children's Online Privacy Protection Act 
 - **Removing a kid.** Their account is unlinked at once and loses access to the household. 12 months later their
   profile becomes "Former member": the name, avatar, schedule, allergies, serving notes and comments go, and their
   ratings stay as anonymous history.
-- **Deleting a kid's own account.** Their comments, poll votes, serving notes and notes on requests they wrote
-  themselves are deleted. The profile a parent made stays.
+- **Deleting a kid's own account.** Their account, sign-in included, is deleted, along with their comments, poll
+  votes, serving notes and notes on requests they wrote themselves. The profile a parent made stays.
 
 To ask about or delete your child's information, a parent can also write to support@getfoon.com.
 
@@ -236,7 +240,7 @@ Allergies can be health information. We treat them carefully.
 
 Allergy flags are a helper, not a guarantee. Always check labels. See our Terms of Use.
 
-Allergies are consumer health data under some state laws. Our [Consumer Health Data Privacy
+Allergies may be consumer health data under some state laws. Our [Consumer Health Data Privacy
 Policy](consumer-health-data.md) covers them in full.
 
 > **Review:** confirm the opt-in sentence and its consent record are enough consent under Washington's, Nevada's and
@@ -320,7 +324,8 @@ of this policy.
     another parent first is planned but not available yet);
   - if you're another adult, your profile becomes "Former member": your allergies, settings, schedule, serving notes,
     comments and the notes on your requests are deleted, and your ratings and cooking history stay without your name;
-  - if you're a kid, your account is unlinked and what you wrote yourself is deleted (see Kids).
+  - if you're a kid, your account is deleted, sign-in included, along with what you wrote yourself; your profile and
+    ratings stay in the family, managed by your parents (see Kids).
 - **Delete your household.** The owner, in Family → Your data. Everything is erased at once for everyone, photos
   included. Everyone's own account stays.
 - **Export.** Planners can export the household as a file: meals, plans, lists, members, allergies, consent records and
@@ -391,7 +396,8 @@ If we change this policy, we'll update the date at the top and post the new vers
 change is significant, we'll tell you in the app before it takes effect. If a change affects how we use kids'
 information, we'll ask parents to consent again first.
 
-> **Review:** the amended COPPA rule requires new parental consent for material changes. Confirm the in-app mechanism.
+> **Review:** telling people in the app about a significant change isn't built, and neither is asking parents for new
+> consent, which the amended COPPA rule requires for material changes. Confirm the mechanism for both.
 
 ## Contact
 
