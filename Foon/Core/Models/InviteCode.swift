@@ -59,15 +59,18 @@ enum RedeemResult: String, Decodable, Sendable, CaseIterable {
 /// the consent, so a later wording change can ask parents again. A translation must say exactly what the
 /// English says; changing what it promises means a new version.
 enum ParentalConsent {
-    static let textVersion = "parental-invite-v1"
+    /// v2 (#276): names the services that handle the data, and says what happens if the parent doesn't agree.
+    static let textVersion = "parental-invite-v2"
 
     static func statement(firstName: String) -> String {
         String(localized: """
         I'm \(firstName)'s parent or guardian, and I agree to \(firstName) using Foon on their own device. \
         Foon stores what our family enters about \(firstName) (first name, avatar, allergies, and schedule), \
-        what \(firstName) adds (requests, ratings, comments, and list items), and an age range from Apple, \
-        never a birthdate. It's shared only with this household and never used for ads. \
-        I can withdraw this at any time.
+        what \(firstName) adds (requests, ratings, comments, and list items), an age range from Apple \
+        (never a birthdate), and their Apple sign-in (account ID and email) and a notification token. \
+        It's shared only with this household and the services that run Foon for us (our hosting provider, and \
+        Apple for notifications), and never used for ads. If I don't agree, no invite is sent and \
+        \(firstName) can't sign in. I can withdraw this at any time in Family.
         """, comment: """
             Parental consent (COPPA). Every placeholder is the child's first name. Must say exactly what the \
             English says; see ParentalConsent.textVersion.

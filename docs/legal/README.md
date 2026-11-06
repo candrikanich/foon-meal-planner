@@ -35,7 +35,7 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 - [ ] The amended COPPA rule (compliance date April 22, 2026): does a parent-run household app, outside the Kids
       category, with kids joining only by a parent's invite, meet it?
 - [ ] Written retention policy: does retention.md's "Kids: purposes and periods" section meet the requirement?
-- [ ] Parental consent method: today a signed-in parent agrees in the app when inviting a kid (`parental-invite-v1`),
+- [ ] Parental consent method: today a signed-in parent agrees in the app when inviting a kid (`parental-invite-v2` since #276; earlier consents are v1 until #277 asks again),
       logged with who, when and the wording. Is that a sufficient verifiable-consent method?
 - [ ] Kids' self-entered content: erased 30 days after a parent withdraws consent; anonymized 12 months after a kid is
       removed, with ratings kept as anonymous history. Is the hard delete, and is keeping anonymous ratings, acceptable?
@@ -113,13 +113,12 @@ The drafts describe what the code does today. These are the places where that ma
 Found by the compliance self-check ([compliance-check.md](compliance-check.md), "Before launch" (b) has the detail):
 
 - Parental consent is an in-app agreement, not a method listed in COPPA 312.5(b)(2).
-- The kid-invite consent screen has no privacy-policy link and no line on what happens if the parent doesn't respond.
 - There's no way to ask parents for new consent after a material change.
 - There's no "delete everything about this child now"; the 30-day and 12-month delays apply.
 - Only planners can see a kid's reminder log and hidden comments, and only planners can export.
 - The allergy consent sentence doesn't name who receives allergies or how to withdraw.
-- No links yet to the privacy policy or the consumer health data policy on the homepage, the App Store page, the kid
-  invite and join screens, onboarding or Your data. (The paywall has its links, #282.)
+- No links yet to the privacy policy or the consumer health data policy on the homepage, the App Store page, onboarding
+  or Your data. (The paywall and the kid invite and join screens have their links, #282 and #276.)
 - Age assurance (#88) isn't built: Texas SB 2420 is in force; California, Utah and Louisiana follow in 2027.
 - No notice to the App Store before a significant change to the terms or privacy policy (Texas §121.053).
 - The waitlist email has no postal address, and the confirmation email includes an offer.

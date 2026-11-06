@@ -117,6 +117,19 @@ struct HouseholdStoreInviteTests {
     }
 }
 
+/// The direct notice a parent reads before a kid's invite (COPPA 312.4(c), #276).
+struct ParentalConsentNoticeTests {
+    @Test func theWordingIsANewVersion() {
+        #expect(ParentalConsent.textVersion == "parental-invite-v2", "v2 names the services and the no-answer case")
+    }
+
+    @Test func itSaysWhoGetsTheDataAndWhatHappensWithoutAYes() {
+        let text = ParentalConsent.statement(firstName: "Nora")
+        #expect(text.contains("the services that run Foon for us"))
+        #expect(text.contains("If I don't agree, no invite is sent"))
+    }
+}
+
 @MainActor
 struct ParentalConsentTests {
     private let me = UUID()
