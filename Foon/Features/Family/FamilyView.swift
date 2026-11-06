@@ -4,12 +4,14 @@ struct FamilyView: View {
     @Environment(HouseholdStore.self) private var store
     @Environment(SessionStore.self) private var session
     @Environment(DinnerStore.self) private var dinner
+    @Environment(LibraryStore.self) private var library
     @State private var addingMember = false
     @State private var editingRhythm = false
     @State private var confirmingSignOutEverywhere = false
     @State private var deletingAccount = false
     @State private var deletingHousehold = false
     @State private var exportURL: URL?
+    @State private var allergyAlerts: AllergyAlertsModel?
 
     private var isOwner: Bool { store.household?.owner == store.userID }
 
@@ -132,6 +134,8 @@ struct FamilyView: View {
                     }
                 }
 
+                if store.canManagePeople, let allergyAlerts { AllergyAlertsSection(model: allergyAlerts) }
+
                 ReminderSettingsSection()
 
                 // Only planners change effort, so only they get the calendar's suggestions.
@@ -216,6 +220,7 @@ struct FamilyView: View {
             }
             .refreshable {
                 await store.load()
+                await allergyAlerts?.load()
                 await loadDinners()
                 await store.loadStats()
                 await store.loadEngagement()
@@ -223,6 +228,9 @@ struct FamilyView: View {
             // Waits for the household, so the tally uses its time zone (the store's calendar is shared with This Week).
             .task(id: store.household?.id) { await loadDinners() }
             .task(id: store.household?.id) { await store.loadStats() }
+            .task(id: store.household?.id) { await loadAllergyAlerts() }
+            // Again once the first allergy is saved (on someone's profile), which turns them on.
+            .onChange(of: library.allergies.isEmpty) { Task { await allergyAlerts?.load() } }
             // Again when someone becomes a planner or stops being one, so it never shows to someone who can't plan.
             .task(id: store.isPlanner ? store.household?.id : nil) { await store.loadEngagement() }
             .navigationTitle("Family")
@@ -282,6 +290,16 @@ struct FamilyView: View {
         case 1: return String(localized: "1 thing missing", comment: "Family: kitchen equipment the household lacks")
         default: return String(localized: "\(missing) things missing", comment: "Family: kitchen equipment the household lacks")
         }
+    }
+
+    private func loadAllergyAlerts() async {
+        guard let household = store.household else {
+            allergyAlerts = nil
+            return
+        }
+        let model = AllergyAlertsModel(householdID: household.id, client: store.client)
+        allergyAlerts = model
+        await model.load()
     }
 
     private func loadDinners() async {

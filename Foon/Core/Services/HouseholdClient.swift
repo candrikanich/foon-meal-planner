@@ -27,6 +27,10 @@ struct HouseholdClient: Sendable {
     /// Replaces a member's allergies: standard allergens and Other text.
     var setAllergies: @Sendable (_ memberID: UUID, _ allergens: [Allergen], _ custom: [String]) async throws -> Void
         = { _, _, _ in }
+    /// Whether the household keeps allergies now, or ever agreed to (anyone in the household may read the consent log).
+    var allergyAlerts: @Sendable (_ householdID: UUID) async throws -> AllergyAlerts = { _ in .neverOn }
+    /// Family → Allergy alerts off (parents): revokes the household's consent, and the database erases every allergy.
+    var revokeAllergyConsent: @Sendable (_ householdID: UUID) async throws -> Void = { _ in }
     /// Merges these settings into the household's, keeping keys this version doesn't know.
     var updateSettings: @Sendable (_ householdID: UUID, _ settings: HouseholdSettings) async throws -> Void = { _, _ in }
     /// Saves only the kitchen's keys, so a stale copy of anything else can't go with them.
@@ -205,6 +209,20 @@ extension HouseholdClient {
                 try await client.rpc("set_member_allergies", params: SetAllergiesParams(
                     targetMember: memberID, allergens: allergens, custom: custom
                 )).execute()
+            },
+            allergyAlerts: { householdID in
+                let rows: [ConsentState] = try await client.from("consents")
+                    .select("revoked_at")
+                    .eq("household_id", value: householdID)
+                    .eq("kind", value: "allergy_data")
+                    .execute()
+                    .value
+                return AllergyAlerts(revokedAt: rows.map(\.revokedAt))
+            },
+            revokeAllergyConsent: { householdID in
+                try await client.rpc("revoke_allergy_consent", params: [
+                    "target_household": householdID.uuidString
+                ]).execute()
             },
             updateSettings: { householdID, settings in
                 try await client.rpc("update_household_settings", params: SettingsParams(
@@ -524,6 +542,14 @@ private struct YearRecapParams: Encodable, Sendable {
 
 private struct DeletedTemplate: Decodable, Sendable {
     let id: UUID
+}
+
+private struct ConsentState: Decodable, Sendable {
+    let revokedAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case revokedAt = "revoked_at"
+    }
 }
 
 private struct OpenInvite: Decodable, Sendable {

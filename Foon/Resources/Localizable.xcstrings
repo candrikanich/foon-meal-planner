@@ -690,9 +690,6 @@
     "A favorite you haven't had in a while: %@" : {
       "comment" : "Weekly recap: a family favorite not made in six weeks or more"
     },
-    "A kid removed from the family becomes \"Former member\" after 12 months, and their ratings stay as anonymous history." : {
-
-    },
     "A kid's can be quieter than the family's, never louder. Quiet hours and the weekly limit still apply." : {
 
     },
@@ -712,6 +709,9 @@
 
     },
     "A note (optional)" : {
+
+    },
+    "A parent can turn allergy alerts off in Family. That erases every allergy recorded for your household." : {
 
     },
     "A parent keeps these up to date. Foon flags dishes, and you still check labels." : {
@@ -909,6 +909,9 @@
     "Allergies may be out of date. Pull down to try again." : {
 
     },
+    "Allergy alerts" : {
+
+    },
     "Allergy flags" : {
 
     },
@@ -946,6 +949,9 @@
 
     },
     "An idea keeps the name and link. To keep the ingredients and steps, add it to our meals now. Foon can try reading the post again later." : {
+
+    },
+    "Anyone removed from the family becomes \"Former member\" after 12 months, and their ratings stay as anonymous history." : {
 
     },
     "Anything planned for those nights comes off, locked nights included, and doesn't come back if you change your mind." : {
@@ -1225,6 +1231,9 @@
 
     },
     "Couldn't archive that meal. Check your connection and try again." : {
+
+    },
+    "Couldn't change allergy alerts. Check your connection and try again." : {
 
     },
     "Couldn't change that comment. Check your connection and try again." : {
@@ -1819,6 +1828,9 @@
     "Foon flags dishes with these. It's a helper, not a guarantee: still check labels." : {
 
     },
+    "Foon flags dishes with your family's allergies. It's a helper, not a guarantee: still check labels." : {
+
+    },
     "Foon goes by names and ingredients, so it can be wrong either way. Tap one to plan it anyway, or search your meals for the rest." : {
 
     },
@@ -2230,7 +2242,13 @@
     "Invite your family" : {
 
     },
+    "Invites are deleted 30 days after they're used, cancelled, or expire." : {
+
+    },
     "It becomes your household. You can rename it and change the family, but you can't start a new one later." : {
+
+    },
+    "It erases every allergy recorded for your household, for everyone. This can't be undone." : {
 
     },
     "It lands just as it was shared. When a planner in your family has a phone that can do more, it tidies the recipe up for you." : {
@@ -2819,6 +2837,9 @@
     "Off" : {
       "comment" : "Family: the household doesn't use dinner jobs"
     },
+    "Off: Foon keeps no allergies for your household. Turn this on to add them again." : {
+
+    },
     "Oldest first. Planners see these in Swap, with allergy flags for whoever's home that night." : {
 
     },
@@ -2859,6 +2880,9 @@
 
     },
     "Only parents can change allergies." : {
+
+    },
+    "Only parents can turn allergy alerts on or off." : {
 
     },
     "Only people in this family can change its freezer." : {
@@ -3953,6 +3977,9 @@
     "Their ratings and cooking history stay." : {
 
     },
+    "Then add allergies on each person's profile in Family." : {
+
+    },
     "These are planned leftovers. Changing this night means the dish goes back to its regular amounts when you update the list." : {
 
     },
@@ -4207,6 +4234,12 @@
 
     },
     "Trying new things" : {
+
+    },
+    "Turn off allergy alerts?" : {
+
+    },
+    "Turn off and erase allergies" : {
 
     },
     "Turn off what you don't have, and Foon won't plan dishes that usually use it on its own. They stay in your library, you can still pick one in Swap, and anything the family asks for still lands." : {
