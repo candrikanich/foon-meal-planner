@@ -30,6 +30,7 @@ struct DeleteHouseholdView: View {
                         Text("This deletes \(name) for everyone: meals, plans, lists, photos, and family profiles. Everyone keeps their account and can start or join another household. This can't be undone.")
                     }
                 }
+                BillingContinuesSection()
                 if !isSample {
                     Section {
                         ExportButton(exportURL: $exportURL)

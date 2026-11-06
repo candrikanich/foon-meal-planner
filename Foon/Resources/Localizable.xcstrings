@@ -1506,6 +1506,9 @@
     "Delete your account?" : {
 
     },
+    "Deleting doesn't cancel your subscription. Apple keeps billing it until you cancel it in Manage subscription, or in Settings under your Apple Account, Subscriptions." : {
+
+    },
     "Deleting the household didn't finish. Check your connection and try again." : {
 
     },
