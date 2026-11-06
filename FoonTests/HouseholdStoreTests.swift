@@ -201,6 +201,30 @@ struct HouseholdStoreTests {
         #expect(store.editScope(for: parent) == .none)
     }
 
+    @Test func onlyAnAdultWhoIsntAParentGetsRemoveTheirOwnAllergies() async {
+        let grandmaUser = UUID()
+        let kidUser = UUID()
+        let parent = Member.fixture(firstName: "Ann", guardian: true, userID: me)
+        let grandma = Member.fixture(firstName: "Grace", role: .planner, userID: grandmaUser)
+        let uncle = Member.fixture(firstName: "Hal")
+        let kid = Member.fixture(firstName: "Kim", ageGroup: .kid, userID: kidUser)
+        let client = HouseholdClient.fake(myHousehold: { household }, members: { _ in [parent, grandma, uncle, kid] })
+
+        let asGrandma = HouseholdStore(userID: grandmaUser, client: client)
+        await asGrandma.load()
+        #expect(asGrandma.canRemoveOwnAllergies(of: grandma))
+        #expect(!asGrandma.canRemoveOwnAllergies(of: uncle), "only their own")
+        #expect(!asGrandma.canRemoveOwnAllergies(of: kid))
+
+        let asKid = HouseholdStore(userID: kidUser, client: client)
+        await asKid.load()
+        #expect(!asKid.canRemoveOwnAllergies(of: kid), "a kid's allergies stay with their parents")
+
+        let asParent = HouseholdStore(userID: me, client: client)
+        await asParent.load()
+        #expect(!asParent.canRemoveOwnAllergies(of: parent), "a parent already has Change allergies")
+    }
+
     @Test func theOwnerCanNeverBeRemoved() async {
         let owned = Household(id: household.id, name: "The Smiths", emoji: nil, owner: me)
         let owner = Member.fixture(firstName: "Ann", guardian: true, userID: me)

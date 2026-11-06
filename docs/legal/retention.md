@@ -137,6 +137,7 @@ released, and the reminder log about them is deleted. The parent-entered profile
 ## Allergies
 
 - **A parent removes someone's allergies:** deleted at once; no consent needed (`set_member_allergies()`).
+- **An adult removes their own:** deleted at once, the same way (`set_member_allergies()`, #285).
 - **A guardian turns allergy alerts off:** consent is revoked and every allergy in the household is erased at once
   (`revoke_allergy_consent()` and the `consents_erase_on_revoke` trigger).
 - **An adult deletes their account:** their allergies are deleted at once (job **D**).

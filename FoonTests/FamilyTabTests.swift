@@ -572,6 +572,39 @@ struct AllergyEditorTests {
 }
 
 @MainActor
+struct OwnAllergiesRemovalTests {
+    private struct Cleared: Equatable {
+        let memberID: UUID
+        let allergens: [Allergen]
+        let custom: [String]
+    }
+
+    @Test func clearsOnlyThisPersonsAllergies() async {
+        let grace = UUID()
+        let calls = Mutex<[Cleared]>([])
+        let removal = OwnAllergiesRemoval(memberID: grace, household: .fake(setAllergies: { member, allergens, custom in
+            calls.withLock { $0.append(Cleared(memberID: member, allergens: allergens, custom: custom)) }
+        }))
+        #expect(await removal.remove())
+        #expect(calls.withLock { $0 } == [Cleared(memberID: grace, allergens: [], custom: [])])
+        #expect(removal.errorMessage == nil)
+        #expect(!removal.isRemoving)
+    }
+
+    @Test func aFailureSaysSoAndCanBeTriedAgain() async {
+        let fails = Mutex(true)
+        let removal = OwnAllergiesRemoval(memberID: UUID(), household: .fake(setAllergies: { _, _, _ in
+            if fails.withLock({ $0 }) { throw URLError(.notConnectedToInternet) }
+        }))
+        #expect(await !removal.remove())
+        #expect(removal.errorMessage != nil)
+        fails.withLock { $0 = false }
+        #expect(await removal.remove())
+        #expect(removal.errorMessage == nil)
+    }
+}
+
+@MainActor
 struct LibraryShowsSavedAllergiesTests {
     private let nora = Member.fixture(firstName: "Nora", ageGroup: .kid)
     private let household = Household.sample.id

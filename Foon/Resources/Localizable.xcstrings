@@ -1388,6 +1388,9 @@
     "Couldn't record your consent. Check your connection and try again." : {
 
     },
+    "Couldn't remove your allergies. Check your connection and try again." : {
+
+    },
     "Couldn't restore purchases. Check your connection and try again." : {
 
     },
@@ -1828,6 +1831,9 @@
 
     },
     "Foon couldn't read that page, so it kept the name and link. Add ingredients when you can." : {
+
+    },
+    "Foon deletes them all and stops flagging dishes for you. Only a parent can add them back." : {
 
     },
     "Foon doesn't ask for birthdays, phone numbers, or your location." : {
@@ -3258,7 +3264,13 @@
     "Remove from household" : {
 
     },
+    "Remove my allergies" : {
+
+    },
     "Remove this tradition" : {
+
+    },
+    "Remove your allergies?" : {
 
     },
     "Repeating time away" : {
@@ -4610,6 +4622,9 @@
 
     },
     "You can offer for yourself, or for someone without their own account." : {
+
+    },
+    "You can remove yours anytime. Foon flags dishes, and you still check labels." : {
 
     },
     "You can't change this meal. Only planners can." : {

@@ -35,7 +35,7 @@ else, and we don't get them from anyone else.
 **Outside your household: nobody.** We don't share allergies with any third party or affiliate. We have no affiliates.
 
 **Inside your household:** everyone in your household can see each person's allergies, so the whole family knows why
-a dish is flagged. Only parents can change them.
+a dish is flagged. Only parents can add or change them; an adult can remove their own.
 
 > **Review:** confirm that household members seeing each other's allergies isn't "sharing" with a third party under
 > RCW 19.373.010(27). If it is, separate consent to share is needed.
@@ -50,12 +50,18 @@ You have the right to:
 - **Confirm and see** whether we collect your health data, and get a copy. Everyone in the household sees allergies in
   the app (on each person's profile in Family). We share them with no third parties, so there's no third-party list
   to give.
-- **Correct or remove your own.** Only parents can change allergies in the app. An adult who isn't a parent can ask a
-  parent in their household, or write to us, to see, correct or remove their own.
-- **Withdraw consent.** A parent can turn **Allergy alerts** off in Family. That withdraws consent and erases every
-  allergy recorded for the household at once.
+- **Correct or remove your own.** An adult who isn't a parent can remove all of their own allergies on their profile
+  in Family (**Remove my allergies**); a parent does it with **Change allergies**. Only parents can add or change
+  allergies in the app, so an adult who isn't a parent can ask a parent in their household, or write to us, to
+  correct theirs.
+- **Withdraw consent.** An adult withdraws for themselves by removing their own allergies (above): they're deleted at
+  once. A parent can turn **Allergy alerts** off in Family, which withdraws consent for the household and erases every
+  allergy recorded for it at once.
+
+> **Review:** after an adult removes their own, a parent can still add them again under the household's agreement.
+> Is that enough for withdrawal under RCW 19.373.040(1)(b), or should Foon stop a parent re-adding them? [CHECK]
 - **Delete.**
-  - A parent can remove anyone's allergies on their profile at any time.
+  - A parent can remove anyone's allergies on their profile at any time, and an adult can remove their own.
   - Deleting an adult's account deletes their allergies. A kid's allergies stay on the profile their parent manages,
     and a parent can remove them.
   - Deleting the household deletes everyone's.

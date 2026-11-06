@@ -77,6 +77,12 @@ final class HouseholdStore {
         household?.owner == userID || me?.guardian == true
     }
 
+    /// An adult who isn't a parent can still delete their own allergies (health-data deletion rights, #285); parents
+    /// already can through Change allergies, and kids' stay with their parents.
+    func canRemoveOwnAllergies(of member: Member) -> Bool {
+        !canManagePeople && member.userID == userID && member.ageGroup == .adult && member.status != .removed
+    }
+
     /// Guardians first, then other adults, then kids; removed members are hidden.
     var visibleMembers: [Member] {
         members.enumerated()
