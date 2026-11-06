@@ -138,8 +138,7 @@ they cooked, serving notes about them or written by them, their requests with th
 offers to cook, attendance on every night, poll votes, plan changes they made, the reminder log, push devices and
 pushes for or about them, a store run they started, invites for them, their parental consent record, their part of
 saved schedules and dinner jobs, invite guesses, and their sign-in account (Apple account ID and email; its sessions
-end, so their device loses access; someone who said they're an adult when they joined keeps their account, only
-unlinked). Kept, without naming them: plans and nights, dishes (no longer saying the kid makes
+end, so their device loses access). Kept, without naming them: plans and nights, dishes (no longer saying the kid makes
 one), dinners logged (the cook and confirmer cleared), polls they started, a planner's daily digest, and shopping list
 lines. List lines record no author and merge everyone's adds, so a kid's lines stay with the family's list and only
 stop saying who checked them off or marked them for tonight. Something the kid entered for someone else (a rating,

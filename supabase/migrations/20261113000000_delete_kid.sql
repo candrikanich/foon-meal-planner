@@ -22,8 +22,8 @@
 -- fresh sign-in could, which is why their own Delete my account still goes through delete-account.
 --
 -- Because it deletes an account, "kid" must mean a kid: members_guard_write now refuses to make someone who signed in as
--- an adult a kid, or one parent could flip another adult and delete them. And an account whose owner said they're an
--- adult when they claimed the profile is kept, only unlinked.
+-- an adult a kid, or one parent could flip another adult and delete them; and redeem_invite refuses someone who says
+-- they're an adult a kid's profile, as it already refused a minor an adult's.
 
 create function public.delete_kid(target_member uuid)
 returns void
@@ -107,10 +107,9 @@ begin
   delete from public.consents where member_id = kid.id;
   delete from public.members where id = kid.id;
 
-  -- Their sign-in. Sessions end with it, so the kid's phone loses access on its next request. Someone who said they're an
-  -- adult when they claimed the profile keeps their account, as after Remove: a parent deletes a kid's account, never an
-  -- adult's, even one who joined on a kid's invite.
-  if kid.user_id is not null and kid.declared_age_band is distinct from 'adult' then
+  -- Their sign-in. Sessions end with it, so the kid's phone loses access on its next request. An account on a kid's
+  -- profile is the kid's: one account joins one household, and redeem_invite refuses an adult's age on a kid's invite.
+  if kid.user_id is not null then
     delete from public.invite_redeem_attempts where user_id = kid.user_id;
     delete from auth.users where id = kid.user_id;
   end if;
@@ -200,3 +199,84 @@ begin
   return new;
 end;
 $$;
+
+-- As parental_consent_and_retention's (20261026205731), plus: someone who says they're an adult can't claim a kid's
+-- profile (#278), since a parent can delete a kid's account.
+CREATE OR REPLACE FUNCTION public.redeem_invite(code text, age_band public.age_band DEFAULT 'unknown')
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  caller uuid := (select auth.uid());
+  normalized text := upper(regexp_replace(coalesce(code, ''), '[^A-Za-z0-9]', '', 'g'));
+  invite public.invites;
+  member public.members;
+begin
+  if caller is null or not public.session_is_active() then
+    raise exception 'sign in first' using errcode = '42501';
+  end if;
+
+  -- One redeem at a time per account, so a burst of parallel guesses can't outrun the count.
+  perform pg_advisory_xact_lock(hashtextextended(caller::text, 0));
+
+  if (select count(*) from public.invite_redeem_attempts
+      where user_id = caller and not succeeded and attempted_at > now() - interval '15 minutes') >= 5 then
+    return 'rate_limited';
+  end if;
+
+  if public.user_has_household() then
+    return 'has_household';
+  end if;
+
+  if length(normalized) >= 8 then
+    select * into invite from public.invites
+    where code_hash = encode(extensions.digest(right(normalized, 8), 'sha256'), 'hex')
+    for update;
+  end if;
+
+  if invite.id is null then
+    insert into public.invite_redeem_attempts (user_id, succeeded) values (caller, false);
+    return 'invalid';
+  end if;
+  if invite.redeemed_at is not null then
+    return 'used';
+  end if;
+  if invite.revoked_at is not null or invite.expires_at < now() then
+    return 'expired';
+  end if;
+  if not exists (
+    select 1 from public.members
+    where household_id = invite.household_id and user_id = invite.created_by
+      and guardian and status <> 'removed'
+  ) and not exists (
+    select 1 from public.households where id = invite.household_id and owner = invite.created_by
+  ) then
+    return 'expired';
+  end if;
+
+  select * into member from public.members where id = invite.member_id for update;
+  if member.user_id is not null or member.status = 'removed' then
+    return 'used';
+  end if;
+  if member.age_group = 'kid' then
+    -- Lock the consent so a parent withdrawing it at this moment waits for this claim (and then unlinks it).
+    perform 1 from public.consents
+    where member_id = member.id and kind = 'parental' and revoked_at is null
+    for share;
+    if not found then
+      return 'needs_consent';
+    end if;
+  end if;
+  if (member.age_group = 'adult' and age_band in ('under_13', '13_15', '16_17'))
+     or (member.age_group = 'kid' and age_band = 'adult') then
+    return 'age_mismatch';
+  end if;
+
+  update public.members set user_id = caller, declared_age_band = age_band where id = invite.member_id;
+  update public.invites set redeemed_at = now(), redeemed_by = caller where id = invite.id;
+  insert into public.invite_redeem_attempts (user_id, succeeded) values (caller, true);
+  return 'claimed';
+end;
+$function$;

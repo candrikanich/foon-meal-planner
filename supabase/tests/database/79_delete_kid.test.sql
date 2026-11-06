@@ -2,7 +2,7 @@
 -- about them and their sign-in account at once. The family's plans, dishes, dinners and list lines stay, without naming
 -- them, and nobody else can do it.
 begin;
-select plan(42);
+select plan(41);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -332,20 +332,22 @@ select lives_ok($$ select public.delete_kid('00000000-0000-0000-0000-0000000000a
 select pg_temp.as_admin();
 select is(pg_temp.mentions('00000000-0000-0000-0000-0000000000a5'), '{}'::text[], 'and nothing names Owen');
 
--- Someone who said they're an adult but joined on a kid's invite ------------------------------------------------------
+-- Someone who says they're an adult can't claim a kid's profile ------------------------------------------------------
 insert into auth.users (id, email, aud, role) values
   ('f0000000-0000-0000-0000-00000000000f', 'ada@example.com', 'authenticated', 'authenticated');
-insert into public.members (id, household_id, first_name, age_group, user_id, declared_age_band) values
-  ('00000000-0000-0000-0000-0000000000a6', '00000000-0000-0000-0000-0000000000a0', 'Ada', 'kid',
-   'f0000000-0000-0000-0000-00000000000f', 'adult');
+insert into public.members (id, household_id, first_name, age_group) values
+  ('00000000-0000-0000-0000-0000000000a6', '00000000-0000-0000-0000-0000000000a0', 'Ada', 'kid');
+insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'parental',
+   'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v1');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann
-select lives_ok($$ select public.delete_kid('00000000-0000-0000-0000-0000000000a6') $$,
-  'a parent can delete the kid profile of someone who said they''re an adult');
+select set_config('test.ada', public.create_invite('00000000-0000-0000-0000-0000000000a6'), true);
+select pg_temp.as_user('f0000000-0000-0000-0000-00000000000f');
+select is(public.redeem_invite(current_setting('test.ada'), 'adult'), 'age_mismatch',
+  'someone who says they''re an adult can''t claim a kid''s profile');
 select pg_temp.as_admin();
-select is_empty($$ select 1 from public.members where id = '00000000-0000-0000-0000-0000000000a6' $$,
-  'the profile goes');
-select isnt_empty($$ select 1 from auth.users where id = 'f0000000-0000-0000-0000-00000000000f' $$,
-  'but their account stays: a parent never deletes an adult''s account');
+select is((select user_id from public.members where id = '00000000-0000-0000-0000-0000000000a6'), null::uuid,
+  'so the profile stays unclaimed');
 
 select * from finish();
 rollback;
