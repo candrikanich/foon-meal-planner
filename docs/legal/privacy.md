@@ -98,7 +98,7 @@ example, "under 13"), never a birthdate. [CHECK: this is planned for #88; the fi
 Meal photos have their location and camera details removed on your device before they're uploaded. Recipe photos from
 websites aren't saved.
 
-\*\* A replaced photo stays in storage until then. Deleting a dish removes its photo.
+\*\* Replacing a photo deletes the old one, and deleting a dish removes its photo.
 
 ### Reminders and notifications
 
@@ -136,7 +136,8 @@ household can see its subscription status.
 - **Invites.** An invite records who it's for, who made it, and when it was used. Only a scrambled form of the code is
   stored. Invites are deleted 30 days after they expire, are used or are cancelled.
 - **Safety counters.** To stop someone guessing invite codes, we record each attempt to use a code, wrong or right,
-  for 1 day. To keep the recipe importer fair, we count how many links each account reads a day.
+  for 1 day. To keep the recipe importer fair, we count how many links each account reads a day, and delete those
+  counts after 7 days.
 
 > **Review:** we don't currently use analytics or crash reporting in the app. If we add them (#28), this policy, the App
 > Store privacy label, and "no tracking" all need another look first.
@@ -201,7 +202,11 @@ account as a child's account under the Children's Online Privacy Protection Act 
 - **Withdrawing consent.** A parent can withdraw consent on the kid's profile at any time. The kid's account is unlinked
   at once and loses access to the household. If consent isn't given again within 30 days, what the kid entered
   themselves is deleted: their own ratings, comments, thank-yous, serving notes, requests and "me too"s, offers to
-  cook, poll votes, plan changes, and their age range. What a parent entered for them stays while they're in the family.
+  cook, poll votes, plan changes, and their age range. Shopping list lines stay on the family's list, but no longer
+  show the kid marked or ticked them. What a parent entered for them stays while they're in the family.
+
+> **Review:** a list line records no author and is shared by everyone who added that item, so a withdrawn kid's lines
+> stay on the family's list and only stop naming the kid (#286). Confirm that's enough under COPPA 312.10.
 - **Removing a kid.** Their account is unlinked at once and loses access to the household. 12 months later their
   profile becomes "Former member": the name, avatar, schedule, allergies, serving notes and comments go, and their
   ratings stay as anonymous history.
@@ -216,9 +221,6 @@ To ask about or delete your child's information, a parent can also write to supp
 > **Review:** COPPA. Confirm that a parent-run household app with parental consent in the invite meets the amended rule,
 > and whether the consent method (an in-app agreement by a signed-in adult) is enough or needs a stronger method.
 > Confirm the rule's notice requirements are met by this section and the retention policy (retention.md).
-
-> **Review:** a list item a withdrawn kid added stays on the list (only their "urgent" mark is cleared). The spec says
-> list items go too. Decide which is right; this section describes what the app does today.
 
 > **Review:** a kid's ratings are kept as anonymous history after they're removed. Erasing a withdrawn kid's own ratings
 > is a hard delete. Confirm both are acceptable.

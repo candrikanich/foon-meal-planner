@@ -17,6 +17,25 @@ struct PhotoStorageClient: Sendable {
     static func mealPhotoPath(householdID: UUID, photoID: UUID = UUID()) -> String {
         "\(householdID.uuidString.lowercased())/meals/\(photoID.uuidString.lowercased()).jpg"
     }
+
+    /// Uploads a meal's new photo, points the meal at it, then deletes the photo it replaced. `pointMeal` returns the
+    /// path the meal held before, read by the server, so a replacement made on another phone isn't left behind.
+    func replace(
+        householdID: UUID, preparedJPEG: Data,
+        pointMeal: @Sendable (_ path: String) async throws -> String?
+    ) async throws {
+        let path = try await upload(householdID, preparedJPEG)
+        let previous: String?
+        do {
+            previous = try await pointMeal(path)
+        } catch LibraryClientError.notAllowed {
+            // Only a refusal is sure to have changed nothing; after a lost reply the meal may already show the upload.
+            try? await remove(path)
+            throw LibraryClientError.notAllowed
+        }
+        // The meal shows the new photo either way, so a file that can't be deleted now doesn't fail the change.
+        if let previous, previous != path { try? await remove(previous) }
+    }
 }
 
 extension PhotoStorageClient {
