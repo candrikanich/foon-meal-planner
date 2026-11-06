@@ -28,7 +28,7 @@ $$;
 revoke execute on function public.set_meal_photo(uuid, text) from public, anon;
 grant execute on function public.set_meal_photo(uuid, text) to authenticated;
 
--- As #67's, plus import_usage.
+-- As #67's, plus import_usage and a withdrawn kid's checked_by.
 create or replace function public.anonymize_expired_profiles()
 returns integer
 language plpgsql security definer set search_path = ''

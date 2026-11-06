@@ -204,6 +204,9 @@ account as a child's account under the Children's Online Privacy Protection Act 
   themselves is deleted: their own ratings, comments, thank-yous, serving notes, requests and "me too"s, offers to
   cook, poll votes, plan changes, and their age range. Shopping list lines stay on the family's list, but no longer
   show the kid marked or ticked them. What a parent entered for them stays while they're in the family.
+
+> **Review:** a list line records no author and is shared by everyone who added that item, so a withdrawn kid's lines
+> stay on the family's list and only stop naming the kid (#286). Confirm that's enough under COPPA 312.10.
 - **Removing a kid.** Their account is unlinked at once and loses access to the household. 12 months later their
   profile becomes "Former member": the name, avatar, schedule, allergies, serving notes and comments go, and their
   ratings stay as anonymous history.
