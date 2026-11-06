@@ -69,9 +69,9 @@ Data used to track you: **None.**
 | Other user content (meals, comments, requests, receipt lines the family corrected, a dish's recipe lines queued for an AI tidy-up) | Yes | App functionality | Yes |
 | User ID | Yes | App functionality | Yes |
 | Purchase history | Yes | App functionality | Yes |
-| Product interaction | Yes | Analytics | No (anonymized) |
 | Product interaction (which reminders went out and were answered: kind, night, time) | Yes | App functionality | Yes |
-| Crash and performance data | Yes | App functionality | No (scrubbed) |
+
+Analytics (product interaction) and crash and performance data aren't collected: the app has neither yet. They come back to this table with #28.
 
 Not collected: precise or coarse location, contacts, browsing history, search history, financial info, sensitive info beyond allergies, calendar data (read on device only, never collected), library photos shown in Dinner memories (read on device only, never uploaded or kept), receipt photos (read on device only, never uploaded or kept; what's kept is "Other user content": receipt lines the family corrected and the item each is).
 
