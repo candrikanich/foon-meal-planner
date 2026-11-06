@@ -10,7 +10,7 @@ Draft App Store Connect data for Foon, ready to paste. Verify field limits and t
 | Subtitle | Plan, vote, shop. Together. | 30 chars (27) |
 | Primary category | Food & Drink | |
 | Secondary category | Lifestyle | |
-| Keywords | meal plan,grocery,shopping list,recipes,menu,weekly,kids,picky eater,leftovers,pantry,cooking,vote | 100 chars (98); no words repeated from the name |
+| Keywords | meal plan,grocery,shopping list,recipes,menu,weekly,picky eater,leftovers,pantry,cooking,vote | 100 chars (93); no words repeated from the name. No "kids": outside the Kids Category, metadata shouldn't suggest kids are the main audience (Guideline 2.3.8; see legal/compliance-check.md) |
 | Promotional text | Picky kids. Busy parents. One dinner. Plan the week together in minutes, build the shopping list automatically, and stop asking "what's for dinner?" | 170 chars |
 | Copyright | 2026 The Recruiting Compass LLC | |
 | Support URL | https://getfoon.com/support | Mailbox support@getfoon.com must exist |
@@ -36,7 +36,7 @@ MADE FOR REAL FAMILIES
 Allergy flags on every dish and the shopping list. Prep reminders to thaw the chicken. Leftovers nights, takeout nights, and "fend for yourselves" nights. Taco Tuesday on repeat.
 
 PRIVATE BY DESIGN
-No ads. No tracking. AI features run on your device, so your family's data never leaves your phone for AI processing.
+No ads. No tracking. AI runs on your family's own devices, and allergies are never sent anywhere for AI.
 
 One subscription covers your whole household. Try it free for 30 days.
 

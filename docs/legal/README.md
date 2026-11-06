@@ -7,6 +7,16 @@ These are drafts of Foon's legal documents, written for a lawyer to review befor
 - [privacy.md](privacy.md): the privacy policy.
 - [terms.md](terms.md): the terms of use.
 - [retention.md](retention.md): the data retention policy, which the amended COPPA rule requires in writing.
+- [consumer-health-data.md](consumer-health-data.md): the separate Consumer Health Data Privacy Policy for allergies
+  (Washington's My Health My Data Act, Nevada).
+- [compliance-check.md](compliance-check.md): our own check of these drafts against COPPA, the state health-data laws,
+  Apple's rules, app-store age laws and CAN-SPAM (2026-11-06). Not legal advice: start the review there.
+
+## Who reviews
+
+Either a lawyer, or, for the kids' privacy part, an FTC-approved COPPA Safe Harbor program, which reviews the app and
+the policy against COPPA and checks again each year: CARU, ESRB, iKeepSafe, kidSAFE, PRIVO or TRUSTe (from the FTC's
+list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state health-data laws.
 
 ## Status
 
@@ -31,15 +41,23 @@ These are drafts of Foon's legal documents, written for a lawyer to review befor
       removed, with ratings kept as anonymous history. Is the hard delete, and is keeping anonymous ratings, acceptable?
 - [ ] A withdrawn or removed kid's sign-in account (Apple ID and email) isn't deleted automatically. Should it be?
 - [ ] New consent for material changes to the privacy policy: how should the app ask?
-- [ ] Postal address in the notice.
+- [ ] Postal address in the notice (`[ADDRESS]`), and whether a phone number is needed (312.4(d)(1)).
+- [ ] Is email plus (312.5(b)(2)(viii)) the right consent method for Foon, and is a kid's name or comment being seen by
+      their own household a "disclosure" under 312.2 (which would rule it out)?
+- [ ] The written information security program (312.8(b)): who is named, and what goes in it.
+- [ ] Texas SB 2420 (§121.053–121.055): store notice before significant policy changes, age verification, and
+      deleting the App Store's age data after use.
 - [ ] Age at sign-up: the app doesn't check it today (Apple's age range check is #88). Is that acceptable, along with
       Texas's App Store Accountability Act?
 
 ### Allergies as health data
 
-- [ ] Allergies may be consumer health data under Washington's My Health My Data Act and similar laws (e.g. Nevada,
-      Connecticut). Do we need a separate consumer health data policy, and is the opt-in (Agree and save, logged as
-      `allergy-data-v1`) enough consent?
+- [ ] consumer-health-data.md: does it meet Washington (RCW 19.373.020) and Nevada (NRS 603A.495), and is the opt-in
+      (Agree and save, logged as `allergy-data-v1`) enough consent? The sentence doesn't yet name recipients or how to
+      withdraw (compliance-check.md proposes `allergy-data-v2`).
+- [ ] Is household members seeing each other's allergies "sharing" with a third party (RCW 19.373.010(27))?
+- [ ] Connecticut SB 1295: does the whole CTDPA reach Foon from 2026-07-01 because it processes sensitive data?
+- [ ] New York S9269 (Health Information Privacy Act): signed or not, before launch.
 - [ ] The allergy disclaimer in terms section 5: is it prominent and strong enough?
 
 ### Privacy laws
@@ -92,11 +110,29 @@ The drafts describe what the code does today. These are the places where that ma
   is deleted. Deleting a dish does remove its photo.
 - Owner transfer isn't built yet (spec, Outliers), so the drafts say it's planned.
 
+Found by the compliance self-check ([compliance-check.md](compliance-check.md), "Before launch" (b) has the detail):
+
+- Parental consent is an in-app agreement, not a method listed in COPPA 312.5(b)(2).
+- The kid-invite consent screen has no privacy-policy link and no line on what happens if the parent doesn't respond.
+- There's no way to ask parents for new consent after a material change.
+- There's no "delete everything about this child now"; the 30-day and 12-month delays apply.
+- Only planners can see a kid's reminder log and hidden comments, and only planners can export.
+- The allergy consent sentence doesn't name who receives allergies or how to withdraw.
+- No links yet to the privacy policy or the consumer health data policy on the homepage, the App Store page, the kid
+  invite and join screens, the paywall or Your data.
+- Paywall subscription terms and restore purchases aren't checked against Apple's rules.
+- Age assurance (#88) isn't built: Texas SB 2420 is in force; California, Utah and Louisiana follow in 2027.
+- No notice to the App Store before a significant change to the terms or privacy policy (Texas §121.053).
+- The waitlist email has no postal address, and the confirmation email includes an offer.
+- Not checked in code: whether a kid's self-delete removes their sign-in row, and whether the delete screen mentions
+  the Apple subscription.
+
 ## After review
 
 1. Fold the lawyer's changes into these files and remove the DRAFT headers, `Review` notes and `[CHECK]` marks.
 2. Publish the privacy policy at getfoon.com/privacy and the terms at getfoon.com/terms (web/app/pages), with the
-   retention policy linked from the privacy page. Update the "Last updated" dates.
+   retention policy linked from the privacy page. Update the "Last updated" dates. Publish the consumer health data
+   policy on its own page, linked prominently from the homepage, the App Store page and the app (RCW 19.373.020(1)(b)).
 3. Enter the URLs in App Store Connect (privacy policy URL; terms as the EULA or in the description) and check the
    privacy label.
 4. Show the terms and privacy policy in the app: linked from the paywall, onboarding and Family → Your data.
