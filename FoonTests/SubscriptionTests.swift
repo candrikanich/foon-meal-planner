@@ -208,3 +208,24 @@ struct SubscriptionStoreTests {
         #expect(!store.canEdit(asPlanner: false))
     }
 }
+
+/// Deleting the household doesn't stop Apple billing it, so the delete screens say so while a plan still renews (#283).
+struct BillingNoticeTests {
+    private func plan(autoRenews: Bool?) -> SubscriptionPlan {
+        SubscriptionPlan(productID: FoonProducts.annual, expiresAt: Date(timeIntervalSince1970: 2_000_000_000),
+                         autoRenews: autoRenews)
+    }
+
+    @Test func aPlanThatRenewsKeepsBilling() {
+        #expect(SubscriptionCopy.billingContinues(.subscribed(plan(autoRenews: true))))
+        #expect(SubscriptionCopy.billingContinues(.subscribed(plan(autoRenews: nil))),
+                "a local transaction doesn't know, so say it")
+    }
+
+    @Test func nothingToSayWhenNothingRenews() {
+        #expect(!SubscriptionCopy.billingContinues(.subscribed(plan(autoRenews: false))), "already cancelled")
+        #expect(!SubscriptionCopy.billingContinues(.freeBeta))
+        #expect(!SubscriptionCopy.billingContinues(.lapsed))
+        #expect(!SubscriptionCopy.billingContinues(.checking))
+    }
+}

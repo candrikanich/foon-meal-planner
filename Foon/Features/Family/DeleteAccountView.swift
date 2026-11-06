@@ -68,6 +68,9 @@ struct DeleteAccountView: View {
                 Section {
                     Text(outcome.consequence)
                 }
+                if case .household = outcome {
+                    BillingContinuesSection()
+                }
                 if case .household = outcome, household.canExport {
                     Section {
                         ExportButton(exportURL: $exportURL)
@@ -167,6 +170,22 @@ struct ExportButton: View {
         .environment(store)
         .environment(SessionStore(auth: .preview(signedIn: .previewUser)))
         .task { await store.load() }
+}
+
+#Preview("Owner, still subscribed") {
+    let store = HouseholdStore.preview()
+    let subscription = SubscriptionStore(
+        householdID: Household.sample.id,
+        client: .preview(entitled: true, subscription: ServerSubscription(
+            status: "active", founding: false,
+            plan: SubscriptionPlan(productID: FoonProducts.annual, expiresAt: .now.addingTimeInterval(86_400 * 200),
+                                   autoRenews: true))),
+        storeKit: .preview)
+    DeleteAccountView()
+        .environment(store)
+        .environment(subscription)
+        .environment(SessionStore(auth: .preview(signedIn: .previewUser)))
+        .task { await store.load(); await subscription.refresh() }
 }
 
 #Preview("No household yet") {

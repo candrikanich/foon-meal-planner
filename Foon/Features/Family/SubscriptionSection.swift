@@ -28,6 +28,45 @@ enum SubscriptionCopy {
             }
         }
     }
+
+    /// Whether Apple keeps charging after the household is deleted: a plan that hasn't been set to end. Foon can't cancel
+    /// an App Store subscription for anyone, so the delete screens say so (#283).
+    static func billingContinues(_ access: SubscriptionAccess) -> Bool {
+        guard case .subscribed(let plan) = access else { return false }
+        return plan.autoRenews != false
+    }
+}
+
+/// On the owner's delete screens: deleting the household doesn't cancel the subscription, which Apple bills (#283).
+/// Worded for whoever subscribed: after an owner transfer the payer may not be the owner looking at this.
+struct BillingContinuesSection: View {
+    @Environment(SubscriptionStore.self) private var subscription: SubscriptionStore?
+
+    var body: some View {
+        if let subscription, SubscriptionCopy.billingContinues(subscription.access) {
+            Section {
+                ManageSubscriptionButton()
+            } header: {
+                Text("Subscription")
+            } footer: {
+                Text("Deleting doesn't cancel the subscription. Apple keeps billing whoever subscribed until they cancel it in Manage subscription, or in Settings under their Apple Account, Subscriptions.")
+            }
+        }
+    }
+}
+
+/// Opens Apple's subscription management: a sheet on iPhone and iPad, the App Store account page on the Mac.
+struct ManageSubscriptionButton: View {
+    @State private var managing = false
+
+    var body: some View {
+        #if os(iOS)
+        Button("Manage subscription", systemImage: "creditcard") { managing = true }
+            .manageSubscriptionsSheet(isPresented: $managing)
+        #else
+        Link("Manage subscription", destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
+        #endif
+    }
 }
 
 /// The owner's header line: Founding Family badge and the subscription status.
@@ -52,7 +91,6 @@ struct SubscriptionHeaderLine: View {
 struct SubscriptionSection: View {
     @Environment(HouseholdStore.self) private var store
     @Environment(SubscriptionStore.self) private var subscription
-    @State private var managing = false
 
     private var isOwner: Bool { store.household?.owner == store.userID }
 
@@ -82,9 +120,6 @@ struct SubscriptionSection: View {
         .task(id: subscription.isFounding) {
             if case .buy = mode { await subscription.loadOffers() }
         }
-        #if os(iOS)
-        .manageSubscriptionsSheet(isPresented: $managing)
-        #endif
     }
 
     @ViewBuilder
@@ -105,7 +140,7 @@ struct SubscriptionSection: View {
         if let status = SubscriptionCopy.status(subscription.access) {
             Label(status, systemImage: "checkmark.seal")
         }
-        manageButton
+        ManageSubscriptionButton()
         restoreButton
     }
 
@@ -135,14 +170,6 @@ struct SubscriptionSection: View {
             Task { await subscription.restore() }
         }
         .disabled(subscription.isWorking)
-    }
-
-    private var manageButton: some View {
-        #if os(iOS)
-        Button("Manage subscription", systemImage: "creditcard") { managing = true }
-        #else
-        Link("Manage subscription", destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
-        #endif
     }
 
     @ViewBuilder
