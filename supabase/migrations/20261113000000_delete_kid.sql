@@ -23,7 +23,8 @@
 --
 -- Because it deletes an account, "kid" must mean a kid: members_guard_write now refuses to make someone who signed in as
 -- an adult a kid, or one parent could flip another adult and delete them; and redeem_invite refuses someone who says
--- they're an adult a kid's profile, as it already refused a minor an adult's.
+-- they're an adult a kid's profile, as it already refused a minor an adult's. The app doesn't send an age yet (#88), so
+-- until it does, whoever claims a kid's invite is taken to be the kid, and their account goes with the profile.
 
 create function public.delete_kid(target_member uuid)
 returns void
@@ -108,8 +109,9 @@ begin
   delete from public.members where id = kid.id;
 
   -- Their sign-in. Sessions end with it, so the kid's phone loses access on its next request. An account on a kid's
-  -- profile is the kid's: one account joins one household, and redeem_invite refuses an adult's age on a kid's invite.
-  -- One claimed before that refusal, by someone who said they're an adult, is only unlinked: fail closed on an account.
+  -- profile is taken to be the kid's: one account joins one household, and claiming a kid's invite is choosing to be
+  -- that kid. One claimed by someone who said they're an adult (only possible before redeem_invite refused it) is only
+  -- unlinked: fail closed on an account.
   if kid.user_id is not null and kid.declared_age_band is distinct from 'adult' then
     delete from public.invite_redeem_attempts where user_id = kid.user_id;
     delete from auth.users where id = kid.user_id;

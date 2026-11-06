@@ -212,7 +212,7 @@ select throws_ok($$ select public.delete_kid('00000000-0000-0000-0000-0000000000
   'a parent can''t delete an adult this way');
 -- Or by making them a kid first: someone who signed in as an adult stays one.
 select throws_ok($$ update public.members set age_group = 'kid' where id = '00000000-0000-0000-0000-0000000000a3' $$,
-  '42501', null, 'a parent can''t make a signed-in adult a kid');
+  '42501', 'someone who signed in as an adult stays an adult', 'a parent can''t make a signed-in adult a kid');
 select throws_ok($$ select public.delete_kid('00000000-0000-0000-0000-0000000000a3') $$, '22023', null,
   'so they still can''t be deleted this way');
 select throws_ok($$ select public.delete_kid('00000000-0000-0000-0000-0000000000ff') $$, 'P0002', null,

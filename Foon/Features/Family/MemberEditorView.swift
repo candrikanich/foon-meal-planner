@@ -43,7 +43,7 @@ struct MemberEditorView: View {
                         .pickerStyle(.segmented)
                         .disabled(staysAdult)
                         if staysAdult {
-                            Text("They sign in as an adult, so they stay one.")
+                            Text("Someone who signs in as an adult stays one.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }

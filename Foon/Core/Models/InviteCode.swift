@@ -50,7 +50,7 @@ enum RedeemResult: String, Decodable, Sendable, CaseIterable {
         case .hasHousehold: String(localized: "You're already in a household. Foon supports one household per person for now.")
         case .rateLimited: String(localized: "Too many tries. Wait 15 minutes and try again.")
         case .needsConsent: String(localized: "This invite needs a parent's OK first. Ask them to send a new one.")
-        case .ageMismatch: String(localized: "This invite is for an adult's profile. Ask your family for the right invite.")
+        case .ageMismatch: String(localized: "This invite is for someone else's profile. Ask your family for the right invite.")
         }
     }
 }

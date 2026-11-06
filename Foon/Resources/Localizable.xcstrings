@@ -3616,6 +3616,9 @@
     "Someone who eats separately isn't in the rotation." : {
 
     },
+    "Someone who signs in as an adult stays one." : {
+
+    },
     "Something else" : {
 
     },
@@ -4075,9 +4078,6 @@
     "They lose access right away. Their ratings and history stay." : {
 
     },
-    "They sign in as an adult, so they stay one." : {
-
-    },
     "They're an adult in the family now, so this doesn't apply." : {
 
     },
@@ -4141,7 +4141,7 @@
     "This idea is gone" : {
 
     },
-    "This invite is for an adult's profile. Ask your family for the right invite." : {
+    "This invite is for someone else's profile. Ask your family for the right invite." : {
 
     },
     "This invite needs a parent's OK first. Ask them to send a new one." : {
