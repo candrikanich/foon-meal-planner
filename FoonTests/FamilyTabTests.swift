@@ -672,6 +672,20 @@ struct OwnAllergyEditorTests {
         model.answer.allergens = [.eggs]
         #expect(await model.save() == nil)
         #expect(model.errorMessage == "Foon can't save these to your profile now. Ask a parent, or sign in again.")
+        #expect(model.canAdd, "the household still agrees, so it wasn't that")
+    }
+
+    @Test func aRefusalBecauseAParentTurnedAlertsOffSaysSo() async {
+        let reads = Mutex(0)
+        let model = model(rows: [], alerts: {
+            reads.withLock { $0 += 1; return $0 == 1 ? .on : .off }
+        }, set: { throw PostgrestError(code: "42501", message: "refused") }, calls: Calls())
+        await model.load()
+        model.answer.allergens = [.eggs]
+        #expect(await model.save() == nil)
+        #expect(!model.canAdd, "so the screen says to ask a parent")
+        #expect(model.errorMessage == nil)
+        #expect(reads.withLock { $0 } == 2)
     }
 }
 

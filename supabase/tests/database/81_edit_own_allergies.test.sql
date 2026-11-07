@@ -1,9 +1,10 @@
 -- Adults edit their own allergies one at a time (follow-up to #285): an adult who isn't a parent adds and removes single
 -- allergies on their own profile, through the function or a row at a time, under the household's allergy agreement like
 -- a parent. Never anyone else's, never a kid's, never another household's; a kid still can't touch their own; and a
--- parent can still add one back.
+-- parent can still add one back. A removed or signed-out adult can't add, and removing your last one takes the list
+-- notes naming you (#280's triggers).
 begin;
-select plan(29);
+select plan(32);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -18,6 +19,12 @@ $$;
 create function pg_temp.has(person uuid, allergen public.allergen) returns boolean language sql as $$
   select exists (select 1 from public.member_allergies where member_id = person and category = allergen);
 $$;
+-- Signed in with a session that has since been signed out (it's not in auth.sessions).
+create function pg_temp.as_session(uid uuid, session uuid) returns void language sql as $$
+  select set_config('request.jwt.claims',
+                    json_build_object('sub', uid, 'role', 'authenticated', 'session_id', session)::text, true),
+         set_config('role', 'authenticated', true);
+$$;
 
 -- Household A agreed to keep allergy data: Ann (owner, parent), Grace and Hal (adults who aren't parents, signed in),
 -- Kim (a kid, signed in), Ivy (a kid without an account). Household B agreed too: Carol (owner), Dan (an adult who isn't a
@@ -30,7 +37,8 @@ insert into auth.users (id, email, aud, role) values
   ('c0000000-0000-0000-0000-00000000000c', 'carol@example.com', 'authenticated', 'authenticated'),
   ('f0000000-0000-0000-0000-00000000000f', 'dan@example.com', 'authenticated', 'authenticated'),
   ('e1000000-0000-0000-0000-0000000000e1', 'eve@example.com', 'authenticated', 'authenticated'),
-  ('f1000000-0000-0000-0000-0000000000f1', 'fay@example.com', 'authenticated', 'authenticated');
+  ('f1000000-0000-0000-0000-0000000000f1', 'fay@example.com', 'authenticated', 'authenticated'),
+  ('a6000000-0000-0000-0000-0000000000a6', 'rex@example.com', 'authenticated', 'authenticated');
 insert into public.households (id, name, owner) values
   ('00000000-0000-0000-0000-0000000000a0', 'Andersons', 'a0000000-0000-0000-0000-00000000000a'),
   ('00000000-0000-0000-0000-0000000000b0', 'Carters', 'c0000000-0000-0000-0000-00000000000c'),
@@ -41,6 +49,8 @@ insert into public.members (id, household_id, first_name, role, age_group, guard
   ('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-0000000000a0', 'Hal', 'member', 'adult', false, 'active', 'e0000000-0000-0000-0000-00000000000e'),
   ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000a0', 'Kim', 'member', 'kid', false, 'active', '70000000-0000-0000-0000-000000000007'),
   ('00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-0000000000a0', 'Ivy', 'member', 'kid', false, 'active', null),
+  -- Rex was removed from the family, which unlinked his account.
+  ('00000000-0000-0000-0000-0000000000a6', '00000000-0000-0000-0000-0000000000a0', 'Rex', 'member', 'adult', false, 'removed', null),
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000b0', 'Carol', 'planner', 'adult', true, 'active', 'c0000000-0000-0000-0000-00000000000c'),
   ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000b0', 'Dan', 'member', 'adult', false, 'active', 'f0000000-0000-0000-0000-00000000000f'),
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000c0', 'Eve', 'planner', 'adult', true, 'active', 'e1000000-0000-0000-0000-0000000000e1'),
@@ -57,6 +67,11 @@ insert into public.member_allergies (household_id, member_id, category, custom_t
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', 'sesame', null),
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', 'wheat', null),
   ('00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000000b2', 'eggs', null);
+insert into public.items (id, household_id, canonical_name) values
+  ('00000000-0000-0000-0000-0000000001a1', '00000000-0000-0000-0000-0000000000a0', 'Peanut butter');
+insert into public.list_items (id, household_id, item_id, list, note) values
+  ('00000000-0000-0000-0000-0000000008a1', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a1',
+   'quick', 'Can''t have it (Hal); Couldn''t find it last trip');
 
 -- An adult who isn't a parent edits their own, one at a time -------------------------------------------------------------
 select pg_temp.as_user('d0000000-0000-0000-0000-00000000000d');  -- Grace
@@ -156,6 +171,28 @@ select lives_ok($$ select public.set_member_allergies('00000000-0000-0000-0000-0
 select pg_temp.as_user('e1000000-0000-0000-0000-0000000000e1');  -- Eve
 select throws_ok($$ select public.set_member_allergies('00000000-0000-0000-0000-0000000000c2', '{milk}', '{}') $$,
   '42501', null, 'a parent who hasn''t agreed can''t either');
+
+-- Removed, or signed out -----------------------------------------------------------------------------------------------------
+select pg_temp.as_user('a6000000-0000-0000-0000-0000000000a6');  -- Rex
+select throws_ok(
+  $$ insert into public.member_allergies (household_id, member_id, category) values
+       ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'milk') $$,
+  '42501', null, 'an adult removed from the family can''t add to their old profile');
+
+select pg_temp.as_session('e0000000-0000-0000-0000-00000000000e', '5e550000-0000-0000-0000-0000000000e1');  -- Hal, signed out
+select throws_ok(
+  $$ insert into public.member_allergies (household_id, member_id, category) values
+       ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'milk') $$,
+  '42501', null, 'a signed-out session can''t add to its own');
+
+-- Removing your last one takes the list notes naming you (#280) -------------------------------------------------------------
+select pg_temp.as_user('e0000000-0000-0000-0000-00000000000e');  -- Hal
+delete from public.member_allergies where member_id = '00000000-0000-0000-0000-0000000000a3';
+set constraints public.member_allergies_forget_list_notes immediate;
+set constraints public.member_allergies_forget_list_notes deferred;
+select pg_temp.as_admin();
+select is((select note from public.list_items where id = '00000000-0000-0000-0000-0000000008a1'),
+  'Couldn''t find it last trip', 'an adult deleting their last allergy row drops the list note part naming them');
 
 -- A parent can still add one back -------------------------------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann

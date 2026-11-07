@@ -10,12 +10,17 @@ struct MemberDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let memberID: UUID
     @State private var editing = false
-    /// Whether a parent has agreed to keep allergies; nil until known. Read only for someone who isn't a parent, so an
-    /// adult in a family that answered No never sees Add my allergies.
+    /// Whether a parent has agreed to keep allergies; nil until known. Read only on an adult's own profile when they
+    /// aren't a parent, so one in a family that answered No never sees Add my allergies.
     @State private var householdAgreed: Bool?
 
     private var member: Member? {
         store.members.first { $0.id == memberID && $0.status != .removed }
+    }
+
+    /// Changes once the family loads, so the agreement is read then rather than missed.
+    private var isOwnAdultProfile: Bool {
+        member.map { store.allergyScope(for: $0) == .own } ?? false
     }
 
     var body: some View {
@@ -30,8 +35,8 @@ struct MemberDetailView: View {
         // Everyone's latest: a parent may have added an allergy since this phone last loaded the library.
         .task { await library.load(members: store.members) }
         .task(id: store.household?.id) { await store.loadTriedThisMonth() }
-        .task(id: store.household?.id) {
-            guard let household = store.household, !store.canManagePeople else { return }
+        .task(id: isOwnAdultProfile) {
+            guard isOwnAdultProfile, let household = store.household else { return }
             // Unknown counts as no: the sheet would refuse to add anyway.
             householdAgreed = (try? await store.client.allergyAlerts(household.id)) == .on
         }

@@ -136,15 +136,25 @@ final class AllergyEditorModel {
             errorMessage = nil
             return merged
         } catch {
-            errorMessage = switch ((error as? PostgrestError)?.code == "42501", ownProfile) {
+            let refused = (error as? PostgrestError)?.code == "42501"
+            errorMessage = switch (refused, ownProfile) {
             // Signed out elsewhere, removed, or a parent turned allergy alerts off while this was open.
             case (true, true):
                 String(localized: "Foon can't save these to your profile now. Ask a parent, or sign in again.")
             case (true, false): String(localized: "Only parents can change allergies.")
             case (false, _): String(localized: "Couldn't save the allergies. Check your connection and try again.")
             }
+            if refused, ownProfile { await recheckAgreement() }
             return nil
         }
+    }
+
+    /// After a refusal, whether it was the household's agreement going: then the screen says so instead of offering
+    /// chips it can't keep. If this can't be read either, the refusal message stays.
+    private func recheckAgreement() async {
+        guard let alerts = try? await household.allergyAlerts(householdID), alerts != .on else { return }
+        householdAgreed = false
+        errorMessage = nil
     }
 }
 

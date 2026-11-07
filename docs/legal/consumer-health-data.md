@@ -44,8 +44,7 @@ can give or withdraw it for the household.
 ## Where it comes from
 
 A parent enters it in the app, for themselves or for someone in their household, or an adult enters their own. We
-don't infer allergies from anything
-else, and we don't get them from anyone else.
+don't infer allergies from anything else, and we don't get them from anyone else.
 
 ## Who we share it with
 
