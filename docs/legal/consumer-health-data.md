@@ -14,7 +14,7 @@ This policy covers the one kind of health information Foon keeps: food allergies
 ## What we collect, why, and how we use it
 
 - **What.** For each person in a household: which of the 9 major US food allergens apply, and any other food
-  allergies a parent types in.
+  allergies a parent types in, or an adult types in for themselves.
 - **Why.** To flag dishes and shopping items that contain them.
 - **How we use it.** Only for that flagging. We don't use allergies for anything else. They're never used for ads,
   never sold, never sent anywhere for AI, and never put in a notification's text.
