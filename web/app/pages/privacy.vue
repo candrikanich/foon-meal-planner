@@ -72,7 +72,7 @@ useSeoMeta({ title: "Privacy: Foon", description: "What Foon keeps, and what thi
 
     <h2>Changing your mind</h2>
     <ul>
-      <li>Parents can change or remove someone's allergies on their profile, and an adult can remove their own.</li>
+      <li>Parents can change or remove someone's allergies on their profile, and an adult can add and remove their own.</li>
       <li>Parents can delete everything about a kid on the kid's profile, sign-in account included, right away.</li>
       <li>Deleting a household in the app removes it from Foon for everyone, right away.</li>
       <li>Plan activity, votes on dinner, and the reminder log are deleted after eight weeks.</li>

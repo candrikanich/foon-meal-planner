@@ -571,6 +571,124 @@ struct AllergyEditorTests {
     }
 }
 
+/// An adult who isn't a parent edits their own allergies one at a time (#285), under the agreement a parent gave.
+@MainActor
+struct OwnAllergyEditorTests {
+    private struct Saved: Equatable {
+        let memberID: UUID
+        let allergens: [Allergen]
+        let custom: [String]
+    }
+
+    private final class Calls: Sendable {
+        let saved = Mutex<[Saved]>([])
+        let agreed = Mutex(0)
+    }
+
+    private let grace = UUID()
+    private let household = Household.sample.id
+
+    private func model(rows: [AllergyRow], alerts: @escaping @Sendable () throws -> AllergyAlerts = { .on },
+                       set: (@Sendable () throws -> Void)? = nil, calls: Calls) -> AllergyEditorModel {
+        AllergyEditorModel(memberID: grace, householdID: household, ownProfile: true, household: .fake(
+            grantAllergyConsent: { _, _ in calls.agreed.withLock { $0 += 1 } },
+            setAllergies: { member, allergens, custom in
+                try set?()
+                calls.saved.withLock { $0.append(Saved(memberID: member, allergens: allergens, custom: custom)) }
+            },
+            allergyAlerts: { _ in try alerts() }
+        ), library: .fake(allergies: { _ in rows }))
+    }
+
+    private var milkPeanutsKiwi: [AllergyRow] {
+        [
+            AllergyRow(memberID: grace, allergen: .milk, customText: nil),
+            AllergyRow(memberID: grace, allergen: .peanuts, customText: nil),
+            AllergyRow(memberID: grace, allergen: .custom, customText: "kiwi")
+        ]
+    }
+
+    @Test func removesOneAndKeepsTheRest() async throws {
+        let calls = Calls()
+        let model = model(rows: milkPeanutsKiwi, calls: calls)
+        await model.load()
+        model.answer.allergens = [.peanuts]  // Can have milk again.
+
+        let saved = try #require(await model.save())
+
+        #expect(calls.saved.withLock { $0 } == [Saved(memberID: grace, allergens: [.peanuts], custom: ["kiwi"])])
+        #expect(saved == AllergyChoice(allergens: [.peanuts], custom: ["kiwi"]))
+    }
+
+    @Test func addsOneWithoutAgreeingForTheHousehold() async throws {
+        let calls = Calls()
+        let model = model(rows: milkPeanutsKiwi, calls: calls)
+        await model.load()
+        model.answer.allergens.insert(.shellfish)
+        #expect(model.showsStatement, "they still see what Foon does with them")
+        #expect(!model.needsConsent, "but only a parent agrees for the household")
+        #expect(model.canSave)
+
+        _ = try #require(await model.save())
+
+        #expect(calls.agreed.withLock { $0 } == 0)
+        #expect(calls.saved.withLock { $0 }.first?.allergens.contains(.shellfish) == true)
+    }
+
+    @Test func beforeAParentAgreesNothingCanBeAdded() async {
+        let calls = Calls()
+        let model = model(rows: [], alerts: { .neverOn }, calls: calls)
+        await model.load()
+        #expect(model.phase == .ready)
+        #expect(!model.canAdd)
+        model.answer.allergens = [.eggs]
+        #expect(!model.canSave)
+        #expect(await model.save() == nil)
+        #expect(calls.saved.withLock { $0 }.isEmpty)
+    }
+
+    @Test func theParentsEditorStillAgreesForTheHousehold() async {
+        let agreed = Mutex(0)
+        let model = AllergyEditorModel(memberID: grace, householdID: household, household: .fake(
+            grantAllergyConsent: { _, _ in agreed.withLock { $0 += 1 } }
+        ), library: .fake(allergies: { _ in [] }))
+        await model.load()
+        model.answer.allergens = [.eggs]
+        #expect(model.needsConsent)
+        #expect(await model.save() != nil)
+        #expect(agreed.withLock { $0 } == 1)
+    }
+
+    @Test func notKnowingWhetherAParentAgreedIsAFailedLoad() async {
+        let model = model(rows: milkPeanutsKiwi, alerts: { throw URLError(.notConnectedToInternet) }, calls: Calls())
+        await model.load()
+        #expect(model.phase == .failed)
+        #expect(!model.canSave)
+    }
+
+    @Test func aRefusalAsksForAParentRatherThanBlamingTheConnection() async {
+        let model = model(rows: [], set: { throw PostgrestError(code: "42501", message: "refused") }, calls: Calls())
+        await model.load()
+        model.answer.allergens = [.eggs]
+        #expect(await model.save() == nil)
+        #expect(model.errorMessage == "Foon can't save these to your profile now. Ask a parent, or sign in again.")
+        #expect(model.canAdd, "the household still agrees, so it wasn't that")
+    }
+
+    @Test func aRefusalBecauseAParentTurnedAlertsOffSaysSo() async {
+        let reads = Mutex(0)
+        let model = model(rows: [], alerts: {
+            reads.withLock { $0 += 1; return $0 == 1 ? .on : .off }
+        }, set: { throw PostgrestError(code: "42501", message: "refused") }, calls: Calls())
+        await model.load()
+        model.answer.allergens = [.eggs]
+        #expect(await model.save() == nil)
+        #expect(!model.canAdd, "so the screen says to ask a parent")
+        #expect(model.errorMessage == nil)
+        #expect(reads.withLock { $0 } == 2)
+    }
+}
+
 @MainActor
 struct OwnAllergiesRemovalTests {
     private struct Cleared: Equatable {

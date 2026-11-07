@@ -117,7 +117,7 @@ select is((select count(*)::int from public.consents
            where household_id = '00000000-0000-0000-0000-0000000000a0' and revoked_at is null), 2,
   'a grandparent cannot revoke consent');
 
--- Who edits allergies: guardians only; everyone sees them ------------------------------------
+-- Who edits allergies: guardians, and adults their own (81); everyone sees them ------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-0000000000a2');  -- Paul
 select lives_ok(
   $$ insert into public.member_allergies (household_id, member_id, category) values
@@ -134,8 +134,8 @@ select lives_ok(
 select pg_temp.as_user('a0000000-0000-0000-0000-0000000000a3');  -- Grace
 select throws_ok(
   $$ insert into public.member_allergies (household_id, member_id, category) values
-       ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'soy') $$,
-  '42501', null, 'a grandparent cannot edit allergies, even their own');
+       ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'soy') $$,
+  '42501', null, 'a grandparent cannot add another adult''s allergy (their own: see 81)');
 select throws_ok(
   $$ insert into public.member_allergies (household_id, member_id, category) values
        ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'soy') $$,

@@ -49,9 +49,11 @@ struct AllergyChoice: Equatable, Sendable {
     }
 }
 
-/// Family → a person → allergies (parents only). The same consent as onboarding's one screen: the sentence shows whenever
-/// the answer has anything in it, and Agree and save records it. Taking the last allergy away keeps nothing, so it asks
-/// for nothing. Reads the list fresh, because an empty screen from a failed load must never save as "no allergies".
+/// Family → a person → allergies: a parent for anyone, or an adult who isn't a parent for themselves (#285). For a parent
+/// it's onboarding's one consent screen: the sentence shows whenever the answer has anything in it, and Agree and save
+/// records it. An adult on their own profile sees the same sentence but can't agree for the household, so they keep
+/// allergies only once a parent has. Taking the last allergy away keeps nothing, so it asks for nothing. Reads the list
+/// fresh, because an empty screen from a failed load must never save as "no allergies".
 @Observable @MainActor
 final class AllergyEditorModel {
     enum Phase: Equatable {
@@ -62,6 +64,8 @@ final class AllergyEditorModel {
     private(set) var isSaving = false
     private(set) var errorMessage: String?
     var answer = OnboardingModel.Answer()
+    /// Whether a parent has agreed to keep allergy data. Only read for an adult's own profile: a parent agrees on save.
+    private(set) var householdAgreed = true
 
     /// Bumped per load, so Try again finishing first can't be overwritten by the load it replaced.
     private var loadGeneration = 0
@@ -69,19 +73,32 @@ final class AllergyEditorModel {
 
     private let memberID: UUID
     private let householdID: UUID
+    private let ownProfile: Bool
     private let household: HouseholdClient
     private let library: LibraryClient
 
-    init(memberID: UUID, householdID: UUID, household: HouseholdClient, library: LibraryClient) {
+    init(memberID: UUID, householdID: UUID, ownProfile: Bool = false, household: HouseholdClient,
+         library: LibraryClient) {
         self.memberID = memberID
         self.householdID = householdID
+        self.ownProfile = ownProfile
         self.household = household
         self.library = library
     }
 
-    var needsConsent: Bool { !answer.isEmpty }
+    /// The sentence saying what Foon does with allergies, shown whenever the answer keeps any.
+    var showsStatement: Bool { !answer.isEmpty }
 
-    var canSave: Bool { phase == .ready && !isSaving && AllergyChoice(answer) != loaded }
+    /// A parent agrees to it on save; an adult on their own profile is under the agreement a parent already gave.
+    var needsConsent: Bool { !ownProfile && showsStatement }
+
+    /// Adding needs the household's agreement; taking away never does.
+    var canAdd: Bool { !ownProfile || householdAgreed }
+
+    var canSave: Bool {
+        let edit = AllergyChoice(answer)
+        return phase == .ready && !isSaving && edit != loaded && (canAdd || edit.isEmpty)
+    }
 
     func load() async {
         loadGeneration += 1
@@ -89,7 +106,9 @@ final class AllergyEditorModel {
         phase = .loading
         do {
             let rows = try await library.allergies(householdID)
+            let agreed = try await ownProfile ? household.allergyAlerts(householdID) == .on : true
             guard generation == loadGeneration else { return }
+            householdAgreed = agreed
             loaded = AllergyChoice(rows: rows, memberID: memberID)
             answer = OnboardingModel.Answer(allergens: loaded.allergens,
                                             otherText: loaded.custom.sorted().joined(separator: ", "))
@@ -117,16 +136,31 @@ final class AllergyEditorModel {
             errorMessage = nil
             return merged
         } catch {
-            errorMessage = (error as? PostgrestError)?.code == "42501"
-                ? String(localized: "Only parents can change allergies.")
-                : String(localized: "Couldn't save the allergies. Check your connection and try again.")
+            let refused = (error as? PostgrestError)?.code == "42501"
+            errorMessage = switch (refused, ownProfile) {
+            // Signed out elsewhere, removed, or a parent turned allergy alerts off while this was open.
+            case (true, true):
+                String(localized: "Foon can't save these to your profile now. Ask a parent, or sign in again.")
+            case (true, false): String(localized: "Only parents can change allergies.")
+            case (false, _): String(localized: "Couldn't save the allergies. Check your connection and try again.")
+            }
+            if refused, ownProfile { await recheckAgreement() }
             return nil
         }
     }
+
+    /// After a refusal, whether it was the household's agreement going: then the screen says so instead of offering
+    /// chips it can't keep. If this can't be read either, the refusal message stays.
+    private func recheckAgreement() async {
+        guard let alerts = try? await household.allergyAlerts(householdID), alerts != .on else { return }
+        householdAgreed = false
+        errorMessage = nil
+    }
 }
 
-/// An adult who isn't a parent removes all of their own allergies at once (#285). It's a delete, never an edit: adding
-/// and changing stay a parent's, so there's nothing to merge and no consent to ask for.
+/// An adult who isn't a parent removes all of their own allergies at once (#285): one step to delete their health data
+/// and withdraw for themselves. Editing one at a time is the editor's job; this only deletes, so there's nothing to
+/// merge and no consent to ask for.
 @Observable @MainActor
 final class OwnAllergiesRemoval {
     private(set) var isRemoving = false

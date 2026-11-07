@@ -743,6 +743,9 @@
     "A removed meal" : {
 
     },
+    "Add my allergies" : {
+
+    },
     "AI runs on your family's own devices, with Apple's on-device model, and a device that can run it sends nothing for AI. One that can't sends a dish's recipe lines through Foon's servers to a planner's device in your family that can, and only when a planner adds the dish." : {
 
     },
@@ -1127,6 +1130,9 @@
     "Change allergies" : {
 
     },
+    "Change my allergies" : {
+
+    },
     "Changes the night's effort" : {
 
     },
@@ -1346,6 +1352,9 @@
     "Couldn't load this week's dinners. Check your connection and try again." : {
 
     },
+    "Couldn't load your allergies. Check your connection and try again." : {
+
+    },
     "Couldn't load your dinners. Check your connection and try again." : {
 
     },
@@ -1524,6 +1533,9 @@
 
     },
     "Delete your account?" : {
+
+    },
+    "Deletes all of your allergies at once" : {
 
     },
     "Deletes their profile and everything Foon keeps about them, now." : {
@@ -1790,6 +1802,12 @@
     "Foon" : {
 
     },
+    "Foon can't save these to your profile now. Ask a parent, or sign in again." : {
+
+    },
+    "Foon deletes them all and stops flagging dishes for you. You or a parent can add them back." : {
+
+    },
     "Foon Family" : {
 
     },
@@ -1848,9 +1866,6 @@
     "Foon couldn't read that page, so it kept the name and link. Add ingredients when you can." : {
 
     },
-    "Foon deletes them all and stops flagging dishes for you. Only a parent can add them back." : {
-
-    },
     "Foon doesn't ask for birthdays, phone numbers, or your location." : {
 
     },
@@ -1894,6 +1909,9 @@
 
     },
     "Foon is view-only until your family's subscription is back. Open Foon to see why." : {
+
+    },
+    "Foon keeps allergies once a parent agrees. Ask a parent to add yours first." : {
 
     },
     "Foon keeps these so it can flag dishes. Only your household and our hosting provider, which stores them for us, receive them. They're never sold, never used for ads, and never leave your devices for AI. A parent can withdraw anytime in Family → Allergy alerts, which erases them all." : {
@@ -4672,13 +4690,13 @@
     "You" : {
 
     },
+    "You can change yours anytime, and a parent can too. Foon flags dishes, and you still check labels." : {
+
+    },
     "You can do that for yourself, or for someone without their own account." : {
 
     },
     "You can offer for yourself, or for someone without their own account." : {
-
-    },
-    "You can remove yours anytime. Foon flags dishes, and you still check labels." : {
 
     },
     "You can't change this meal. Only planners can." : {
@@ -4727,6 +4745,9 @@
 
     },
     "You've read 30 links today. Try again tomorrow, or save just the link." : {
+
+    },
+    "Your allergies" : {
 
     },
     "Your Apple sign-in: an account ID, an email, which can be Apple's private relay address, and your first name if Apple shares it." : {

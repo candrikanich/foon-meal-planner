@@ -61,9 +61,11 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 - [ ] Households that agreed to `allergy-data-v1`, which named neither, aren't asked again: Chris decided consent is
       asked once (2026-11-07, compliance-check.md "Decided by Chris"). Can v1 stand?
 - [ ] Is household members seeing each other's allergies "sharing" with a third party (RCW 19.373.010(27))?
-- [ ] An adult can remove their own allergies in the app (#285), and a parent can add them again under the
+- [ ] An adult can add and remove their own allergies in the app (#285), and a parent can add them again under the
       household's agreement: Chris decided not to block that (2026-11-07, #294). Is that enough for withdrawal
       (RCW 19.373.040(1)(b))?
+- [ ] An adult can add their own allergies under the household agreement a parent gave, without agreeing themselves
+      (#285). Is that their consent under RCW 19.373.030(1)(a), or should Foon ask and log theirs too?
 - [ ] Turning allergy alerts off also clears every note on the household's list lines, and someone's allergies all
       going takes the list notes naming them, or that might (#280). Notes are free text, so that's matched by name:
       confirm it's enough. A custom allergy typed with "; " in it can leave a part naming no one ("Check for nuts")
@@ -130,8 +132,9 @@ Found by the compliance self-check ([compliance-check.md](compliance-check.md), 
 - Age assurance (#88) isn't built: Texas SB 2420 is in force; California, Utah and Louisiana follow in 2027.
 - No notice to the App Store before a significant change to the terms or privacy policy (Texas §121.053).
 - The delete-account screen doesn't say billing continues through Apple or how to cancel.
-- Allergy consent is one household-wide agreement, and only parents can withdraw it for the household or add and
-  change allergies. An adult can remove their own in the app (#285), but a parent can add them again.
+- Allergy consent is one household-wide agreement, and only parents can give or withdraw it for the household or
+  change anyone's allergies. An adult can add and remove their own in the app (#285), adding only under that
+  agreement, and a parent can add them again after the adult removes them.
 
 ## After review
 
