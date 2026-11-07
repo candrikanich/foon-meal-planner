@@ -96,7 +96,8 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
    - allergies need separate sharing consent.
 3. **Whose consent.** Under Washington's law, who is the "consumer" and who consents for a child? Allergy consent is
    one household-wide agreement by a parent, and only parents can withdraw it for the household: is that enough for
-   another adult's allergies? Adults can now remove their own in the app (#285), but a parent can add them again.
+   another adult's allergies? Adults can now add and remove their own in the app (#285), adding under the parent's
+   agreement without giving their own, and a parent can add them again.
 4. **The state health-data laws.** Comply with Washington, Nevada and Connecticut, or block those states? This file
    recommends complying to Washington's standard.
 5. **Connecticut SB 1295.** Does it reach Foon with no volume floor (sensitive data)? This rests on secondary sources
@@ -164,7 +165,7 @@ violation is a Consumer Protection Act violation (.090). The AG's FAQ says peopl
 | Consent request names categories, purpose, recipients, how to withdraw | .030(2) | Allergy sentence names neither recipients nor withdrawal | partly | Code: `allergy-data-v2` |
 | Separate consent to share | .030(1)(b) | Nothing shared outside processors | n/a | Unless household visibility is "sharing" (decision 2) |
 | Access, including third parties and their contacts | .040(1)(a) | Visible in the household; planners and parents export (#279) | partly | Policy says no third parties; access request by email |
-| Withdraw consent | .040(1)(b) | Allergy alerts off erases all (a parent); any adult removes their own on their profile (#285), though a parent can add them again | partly | Decision 3 |
+| Withdraw consent | .040(1)(b) | Allergy alerts off erases all (a parent); any adult removes their own on their profile, one at a time or all at once (#285), though a parent can add them again | partly | Decision 3 |
 | Delete, including backups (up to 6 months) | .040(1)(c) | At once; backups 7 days | met | — |
 | 45 days, one 45-day extension; free twice a year; no new account needed | .040(1)(d), (f), (g) | Was "the time the law allows" | gap → fixed | Wording (this PR) |
 | Appeal: written answer in 45 days, AG contact if denied | .040(1)(h) | None | gap → fixed | Wording (this PR); AG link `[CHECK]` |

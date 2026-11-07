@@ -31,6 +31,16 @@ final class HouseholdStore {
         var schedule: Bool { self != .none }
     }
 
+    /// Whose allergies the signed-in person may change. Mirrors `set_member_allergies` and member_allergies' policies.
+    enum AllergyScope: Equatable {
+        /// A parent: anyone's, and they agree for the household to keep them.
+        case asParent
+        /// An adult who isn't a parent, on their own profile: they add and remove their own one at a time, under the
+        /// household's agreement (#285). Kids' stay with their parents.
+        case own
+        case none
+    }
+
     private(set) var phase: Phase = .loading
     private(set) var members: [Member] = []
     private(set) var errorMessage: String?
@@ -77,10 +87,10 @@ final class HouseholdStore {
         household?.owner == userID || me?.guardian == true
     }
 
-    /// An adult who isn't a parent can still delete their own allergies (health-data deletion rights, #285); parents
-    /// already can through Change allergies, and kids' stay with their parents.
-    func canRemoveOwnAllergies(of member: Member) -> Bool {
-        !canManagePeople && member.userID == userID && member.ageGroup == .adult && member.status != .removed
+    func allergyScope(for member: Member) -> AllergyScope {
+        if canManagePeople { return .asParent }
+        let ownAdultProfile = member.userID == userID && member.ageGroup == .adult && member.status != .removed
+        return ownAdultProfile ? .own : .none
     }
 
     /// Guardians first, then other adults, then kids; removed members are hidden.

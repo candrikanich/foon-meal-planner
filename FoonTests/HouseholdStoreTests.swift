@@ -201,7 +201,7 @@ struct HouseholdStoreTests {
         #expect(store.editScope(for: parent) == .none)
     }
 
-    @Test func onlyAnAdultWhoIsntAParentGetsRemoveTheirOwnAllergies() async {
+    @Test func anAdultWhoIsntAParentEditsOnlyTheirOwnAllergies() async {
         let grandmaUser = UUID()
         let kidUser = UUID()
         let parent = Member.fixture(firstName: "Ann", guardian: true, userID: me)
@@ -212,17 +212,23 @@ struct HouseholdStoreTests {
 
         let asGrandma = HouseholdStore(userID: grandmaUser, client: client)
         await asGrandma.load()
-        #expect(asGrandma.canRemoveOwnAllergies(of: grandma))
-        #expect(!asGrandma.canRemoveOwnAllergies(of: uncle), "only their own")
-        #expect(!asGrandma.canRemoveOwnAllergies(of: kid))
+        #expect(asGrandma.allergyScope(for: grandma) == .own)
+        #expect(asGrandma.allergyScope(for: uncle) == .none, "only their own")
+        #expect(asGrandma.allergyScope(for: kid) == .none)
+        #expect(asGrandma.allergyScope(for: parent) == .none)
+        var removedGrandma = grandma
+        removedGrandma.status = .removed
+        #expect(asGrandma.allergyScope(for: removedGrandma) == .none, "the server refuses a removed profile")
 
         let asKid = HouseholdStore(userID: kidUser, client: client)
         await asKid.load()
-        #expect(!asKid.canRemoveOwnAllergies(of: kid), "a kid's allergies stay with their parents")
+        #expect(asKid.allergyScope(for: kid) == .none, "a kid's allergies stay with their parents")
 
         let asParent = HouseholdStore(userID: me, client: client)
         await asParent.load()
-        #expect(!asParent.canRemoveOwnAllergies(of: parent), "a parent already has Change allergies")
+        #expect(asParent.allergyScope(for: parent) == .asParent)
+        #expect(asParent.allergyScope(for: grandma) == .asParent)
+        #expect(asParent.allergyScope(for: kid) == .asParent)
     }
 
     /// COPPA 312.6: a parent can review their kid's data, so every parent exports, planner or not (#279).

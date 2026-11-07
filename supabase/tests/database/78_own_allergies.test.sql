@@ -1,7 +1,8 @@
--- Adults remove their own allergies (#285): an adult who isn't a parent can delete their own, and only their own, and
--- can't add any. Kids still can't touch theirs; parents still manage everyone's; another household reaches nothing.
+-- Adults remove their own allergies (#285): an adult who isn't a parent can delete their own, and only their own. (They
+-- can add their own too since 81.) Kids still can't touch theirs; parents still manage everyone's; another household
+-- reaches nothing.
 begin;
-select plan(17);
+select plan(14);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -66,14 +67,7 @@ select throws_ok($$ select public.set_member_allergies('00000000-0000-0000-0000-
   '42501', null, 'or clear another adult''s through the function');
 select throws_ok($$ select public.set_member_allergies('00000000-0000-0000-0000-0000000000a5', '{}', '{}') $$,
   '42501', null, 'or a kid''s');
-select throws_ok($$ select public.set_member_allergies('00000000-0000-0000-0000-0000000000a2', '{milk,eggs}', '{}') $$,
-  '42501', null, 'adding to their own is still a parent''s');
-select throws_ok($$ select public.set_member_allergies('00000000-0000-0000-0000-0000000000a2', '{}', '{mango}') $$,
-  '42501', null, 'Other too');
-select throws_ok(
-  $$ insert into public.member_allergies (household_id, member_id, category) values
-       ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'soy') $$,
-  '42501', null, 'and so is inserting a row');
+-- Adding to their own came later, in 81.
 update public.member_allergies set category = 'soy' where member_id = '00000000-0000-0000-0000-0000000000a2';
 select is((select count(*)::int from public.member_allergies
            where member_id = '00000000-0000-0000-0000-0000000000a2' and category = 'soy'), 0,

@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Who someone is, at a glance (docs/spec.md → Family tab). Everyone in the household sees it; what they can change is in
-/// the editor, and allergies are a parent's. Looks the member up each time, so an edit shows as soon as it's saved.
+/// the editor, and allergies are a parent's, or an adult's own (#285). Looks the member up each time, so an edit shows as
+/// soon as it's saved.
 struct MemberDetailView: View {
     @Environment(HouseholdStore.self) private var store
     @Environment(LibraryStore.self) private var library
@@ -9,6 +10,9 @@ struct MemberDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let memberID: UUID
     @State private var editing = false
+    /// Whether a parent has agreed to keep allergies; nil until known. Read only for someone who isn't a parent, so an
+    /// adult in a family that answered No never sees Add my allergies.
+    @State private var householdAgreed: Bool?
 
     private var member: Member? {
         store.members.first { $0.id == memberID && $0.status != .removed }
@@ -26,6 +30,11 @@ struct MemberDetailView: View {
         // Everyone's latest: a parent may have added an allergy since this phone last loaded the library.
         .task { await library.load(members: store.members) }
         .task(id: store.household?.id) { await store.loadTriedThisMonth() }
+        .task(id: store.household?.id) {
+            guard let household = store.household, !store.canManagePeople else { return }
+            // Unknown counts as no: the sheet would refuse to add anyway.
+            householdAgreed = (try? await store.client.allergyAlerts(household.id)) == .on
+        }
         .onChange(of: member == nil) { _, gone in
             if gone { dismiss() }
         }
@@ -40,8 +49,7 @@ struct MemberDetailView: View {
             if library.hasLoaded {
                 if library.lastLoadFailed { staleNotice }
                 MemberAllergySection(member: member, allergies: library.allergies.first { $0.memberID == member.id },
-                                     canEdit: store.canManagePeople,
-                                     canRemoveOwn: store.canRemoveOwnAllergies(of: member))
+                                     scope: store.allergyScope(for: member), householdAgreed: householdAgreed == true)
                 MemberTasteSections(member: member, profile: TasteProfile(
                     memberID: member.id, verdicts: library.reactions.verdicts, notes: library.servingNotes, meals: library.meals
                 ))
@@ -144,25 +152,36 @@ private struct MemberAllergySection: View {
     @Environment(LibraryStore.self) private var library
     let member: Member
     let allergies: MemberAllergies?
-    let canEdit: Bool
-    let canRemoveOwn: Bool
+    let scope: HouseholdStore.AllergyScope
+    let householdAgreed: Bool
     @State private var editing = false
     @State private var confirmingRemoval = false
     @State private var removal: OwnAllergiesRemoval?
 
+    /// Parents always; an adult on their own profile once there's something to change or a parent has agreed.
+    private var canOpenEditor: Bool {
+        switch scope {
+        case .asParent: true
+        case .own: allergies != nil || householdAgreed
+        case .none: false
+        }
+    }
+
     var body: some View {
-        // A family without allergies never sees this. Parents get the way to add one later.
-        if allergies != nil || canEdit {
+        // A family without allergies never sees this, except a parent, who gets the way to add one later.
+        if allergies != nil || canOpenEditor {
             Section {
                 if let allergies {
                     Text(allergies.displayNames.joined(separator: ", "))
                 }
-                if canEdit {
-                    Button(allergies == nil ? "Add allergies" : "Change allergies") { editing = true }
+                if canOpenEditor {
+                    Button(editLabel) { editing = true }
                         .sheet(isPresented: $editing) {
-                            MemberAllergiesView(member: member, household: store.client, library: library.client)
+                            MemberAllergiesView(member: member, ownProfile: scope == .own, household: store.client,
+                                                library: library.client)
                         }
-                } else if canRemoveOwn, allergies != nil {
+                }
+                if scope == .own, allergies != nil {
                     removeOwnButton
                 }
             } header: {
@@ -173,21 +192,31 @@ private struct MemberAllergySection: View {
         }
     }
 
-    private var footer: LocalizedStringKey {
-        if canEdit { return "Everyone in the family sees these. Foon flags dishes, and you still check labels." }
-        if canRemoveOwn, allergies != nil {
-            return "You can remove yours anytime. Foon flags dishes, and you still check labels."
+    private var editLabel: LocalizedStringKey {
+        switch (scope, allergies == nil) {
+        case (.own, true): "Add my allergies"
+        case (.own, false): "Change my allergies"
+        case (_, true): "Add allergies"
+        case (_, false): "Change allergies"
         }
-        return "A parent keeps these up to date. Foon flags dishes, and you still check labels."
+    }
+
+    private var footer: LocalizedStringKey {
+        switch scope {
+        case .asParent: "Everyone in the family sees these. Foon flags dishes, and you still check labels."
+        case .own: "You can change yours anytime, and a parent can too. Foon flags dishes, and you still check labels."
+        case .none: "A parent keeps these up to date. Foon flags dishes, and you still check labels."
+        }
     }
 
     @ViewBuilder private var removeOwnButton: some View {
         Button("Remove my allergies", role: .destructive) { confirmingRemoval = true }
             .disabled(removal?.isRemoving == true)
+            .accessibilityHint("Deletes all of your allergies at once")
             .confirmationDialog("Remove your allergies?", isPresented: $confirmingRemoval, titleVisibility: .visible) {
                 Button("Remove my allergies", role: .destructive) { Task { await removeOwn() } }
             } message: {
-                Text("Foon deletes them all and stops flagging dishes for you. Only a parent can add them back.")
+                Text("Foon deletes them all and stops flagging dishes for you. You or a parent can add them back.")
             }
         if let message = removal?.errorMessage {
             Text(message).foregroundStyle(.red)

@@ -20,14 +20,20 @@ This policy covers the one kind of health information Foon keeps: food allergies
   never sold, never sent anywhere for AI, and never put in a notification's text.
 
 We keep allergies only after a parent agrees in the app (Agree and save). The server refuses to store an allergy
-without that agreement.
+without that agreement. An adult who adds their own allergies does it under that same agreement: they see the same
+sentence, but only a parent can give or withdraw it for the household.
+
+> **Review:** an adult who isn't a parent can now add their own allergies, relying on the household agreement a parent
+> gave. Their own agreement isn't recorded. Is that consent from the consumer under RCW 19.373.030(1)(a), or should
+> Foon ask that adult to agree too (and log it) before keeping theirs? [CHECK]
 
 > **Review:** a parent can type any text as an "other" allergy. Should this say that it could include something other
 > than a food allergy? [CHECK]
 
 ## Where it comes from
 
-A parent enters it in the app, for themselves or for someone in their household. We don't infer allergies from anything
+A parent enters it in the app, for themselves or for someone in their household, or an adult enters their own. We
+don't infer allergies from anything
 else, and we don't get them from anyone else.
 
 ## Who we share it with
@@ -35,7 +41,7 @@ else, and we don't get them from anyone else.
 **Outside your household: nobody.** We don't share allergies with any third party or affiliate. We have no affiliates.
 
 **Inside your household:** everyone in your household can see each person's allergies, so the whole family knows why
-a dish is flagged. Only parents can add or change them; an adult can remove their own.
+a dish is flagged. Parents can add or change anyone's; an adult can add and remove their own.
 
 > **Review:** confirm that household members seeing each other's allergies isn't "sharing" with a third party under
 > RCW 19.373.010(27). If it is, separate consent to share is needed.
@@ -50,10 +56,10 @@ You have the right to:
 - **Confirm and see** whether we collect your health data, and get a copy. Everyone in the household sees allergies in
   the app (on each person's profile in Family). We share them with no third parties, so there's no third-party list
   to give.
-- **Correct or remove your own.** An adult who isn't a parent can remove all of their own allergies on their profile
-  in Family (**Remove my allergies**); a parent does it with **Change allergies**. Only parents can add or change
-  allergies in the app, so an adult who isn't a parent can ask a parent in their household, or write to us, to
-  correct theirs.
+- **Correct or remove your own.** An adult who isn't a parent can add or remove their own allergies one at a time on
+  their profile in Family (**Change my allergies**), or remove all of them at once (**Remove my allergies**); a parent
+  does it with **Change allergies**. Adding one needs the household's agreement, so before a parent has given it, an
+  adult can ask a parent in their household, or write to us.
 - **Withdraw consent.** An adult withdraws for themselves by removing their own allergies (above): they're deleted at
   once. A parent can turn **Allergy alerts** off in Family, which withdraws consent for the household and erases every
   allergy recorded for it at once.
@@ -91,7 +97,8 @@ you and getting your consent.
 
 - **How we process it.** Allergies are stored with your household in our database in the United States and checked
   against your dishes' ingredients to flag them.
-- **Reviewing and correcting.** A parent can see and change anyone's allergies on their profile in Family at any time.
+- **Reviewing and correcting.** A parent can see and change anyone's allergies on their profile in Family at any time,
+  and an adult can change their own.
 - **Other websites and apps.** No third party collects health data about you through Foon, on our site or in the app.
 - **Changes to this policy.** If we change it in a way that matters, we'll update the effective date, post the new
   version, and tell you in the app before it takes effect. A new use or new kind of data needs your consent first.
