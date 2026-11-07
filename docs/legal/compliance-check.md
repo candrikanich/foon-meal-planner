@@ -60,12 +60,10 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 - **Delete everything about a child, now.** Done in #278: any parent, on the kid's profile, deletes the kid's data and
   their sign-in account at once (`delete_kid`, job K in retention.md). It answers 312.6 and the unlinked-account gap;
   withdrawing and removing still wait 30 days and 12 months.
-- **Allergy consent wording, `allergy-data-v2`.** The sentence must:
-  - name who receives allergies (the household, our host provider);
-  - say how to withdraw (Family → Allergy alerts).
-
-  The allergy sentence says Foon "keeps these with your household", while processors (Supabase, and Apple for push) handle
-  the data; it should say so. (The kid-invite consent says so since #276.)
+- **Allergy consent wording, `allergy-data-v2`.** Done in #280: the sentence names who receives allergies (the
+  household, our hosting provider) and how to withdraw (Family → Allergy alerts). Allergies are never in a
+  notification's text, so Apple isn't a recipient. The kid-invite consent names the hosting provider and Apple for
+  notifications since #276. Consent is asked once (Decided by Chris, below): households that agreed to v1 aren't asked again.
 - **Links to the policies:**
   - the privacy policy on the getfoon.com homepage, onboarding and Family → Your data (the paywall, kid invite and
     join screens have them, #282 and #276);
@@ -121,6 +119,10 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 16. **Research not done:** Vermont's and Nebraska's age-appropriate design codes, and the Texas SCOPE Act.
 
 **Decided by Chris (2026-11-07), for counsel to confirm in their review:**
+- **Allergy consent already given (#280).** Consent is asked once: households that agreed to `allergy-data-v1`, which
+  named neither recipients nor withdrawal, aren't asked again. Every new agreement uses `allergy-data-v2`, including
+  starting over (a household that erased and set up again, a parent turning allergy alerts back on). Counsel to
+  confirm v1 can stand under .030(2) and 603A.500.
 - **What a parent's export leaves out (#279).** A kid's sign-in details and push token stay out of the export, and
   support provides them on request. That's enough friction to stop casual requests, and still meets 312.6(a)(3).
 - **Re-adding allergies an adult removed (decision 3).** A parent can add them again, and Foon won't block it.
@@ -170,8 +172,8 @@ violation is a Consumer Protection Act violation (.090). The AG's FAQ says peopl
 | Categories, purpose, use; sources; categories shared; third parties and affiliates; how to use rights | .020(1)(a)(i)-(v) | consumer-health-data.md | met in draft | — |
 | No new categories or purposes without disclosure and consent | .020(1)(c)-(d) | Spec and policy limit use to flagging | met | Keep as an engineering rule |
 | Processor contract consistent with the policy | .060, .020(1)(e) | DPA not confirmed | partly | Decision 9 |
-| Consent before collecting | .030(1) | Agree and save, `allergy-data-v1`; server refuses without it. One household-wide agreement by a parent covers every adult's allergies | partly | Decision 3 |
-| Consent request names categories, purpose, recipients, how to withdraw | .030(2) | Allergy sentence names neither recipients nor withdrawal | partly | Code: `allergy-data-v2` |
+| Consent before collecting | .030(1) | Agree and save, `allergy-data-v2` (#280; v1 agreements stand, Decided by Chris); server refuses without it. One household-wide agreement by a parent covers every adult's allergies | partly | Decision 3 |
+| Consent request names categories, purpose, recipients, how to withdraw | .030(2) | `allergy-data-v2` (#280) names the household and hosting provider and Family → Allergy alerts; v1 agreements, which named neither, aren't asked again | met for new consent | Decided by Chris: counsel to confirm v1 can stand |
 | Separate consent to share | .030(1)(b) | Nothing shared outside processors | n/a | Unless household visibility is "sharing" (decision 2) |
 | Access, including third parties and their contacts | .040(1)(a) | Visible in the household; planners and parents export (#279) | partly | Policy says no third parties; access request by email |
 | Withdraw consent | .040(1)(b) | Allergy alerts off erases all (a parent); any adult removes their own on their profile (#285), though a parent can add them again | partly | Decision 3 |
@@ -191,7 +193,7 @@ Foon's use, flagging a known allergy, would still count.
 | --- | --- | --- | --- | --- |
 | Maintain and conspicuously link a policy | 603A.495 | consumer-health-data.md (this PR) | gap → draft | Code: links, as for Washington |
 | Extra contents: processing methods, request procedure, review and correction, material changes, cross-site collection, effective date | 603A.495 (paraphrased; read the section directly) | consumer-health-data.md Nevada section | met in draft | Confirm the list against 603A.495 |
-| Consent to collect, separate consent to share, disclosures in the request | 603A.500 | As Washington | partly | Code: `allergy-data-v2` |
+| Consent to collect, separate consent to share, disclosures in the request | 603A.500 | As Washington: `allergy-data-v2` (#280) | met for new consent | Decided by Chris: v1 stands |
 | Confirm, third-party list, stop collecting, delete; 45 days + 45 | 603A.505 | Wording (this PR) | met in draft | — |
 | Delete within 30 days of an authenticated request; processors too; backups ≤ 2 years | 603A.515 | In-app at once; backups 7 days | met | Draft states 30 days for emailed requests |
 | Appeal, 45 days, AG contact | 603A.520 | Wording (this PR) | met in draft | AG contact `[CHECK]` |

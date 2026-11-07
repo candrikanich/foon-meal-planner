@@ -19,8 +19,17 @@ This policy covers the one kind of health information Foon keeps: food allergies
 - **How we use it.** Only for that flagging. We don't use allergies for anything else. They're never used for ads,
   never sold, never sent anywhere for AI, and never put in a notification's text.
 
-We keep allergies only after a parent agrees in the app (Agree and save). The server refuses to store an allergy
-without that agreement.
+We keep allergies only after a parent agrees in the app. They read this and tap Agree and save:
+
+> Foon keeps these so it can flag dishes. Only your household and our hosting provider, which stores them for us,
+> receive them. They're never sold, never used for ads, and never leave your devices for AI. A parent can withdraw
+> anytime in Family → Allergy alerts, which erases them all.
+
+The server refuses to store an allergy without that agreement. We record who agreed, when, and which wording they saw.
+We ask once: a household that agreed to an earlier wording isn't asked again, and that agreement still stands.
+
+> **Review:** the earlier wording (`allergy-data-v1`) didn't name who receives allergies or how to withdraw. Chris
+> decided on 2026-11-07 not to ask those households again; confirm that's enough under RCW 19.373.030(2). [CHECK]
 
 > **Review:** a parent can type any text as an "other" allergy. Should this say that it could include something other
 > than a food allergy? [CHECK]
@@ -56,7 +65,7 @@ You have the right to:
   correct theirs.
 - **Withdraw consent.** An adult withdraws for themselves by removing their own allergies (above): they're deleted at
   once. A parent can turn **Allergy alerts** off in Family, which withdraws consent for the household and erases every
-  allergy recorded for it at once.
+  allergy recorded for it at once, with the allergy notes on its shopping lists.
 
 > **Review:** after an adult removes their own, a parent can still add them again under the household's agreement.
 > Chris decided not to block that (2026-11-07); counsel to confirm it's enough for withdrawal under RCW

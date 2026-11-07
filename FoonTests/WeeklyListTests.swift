@@ -138,6 +138,20 @@ struct WeeklyListTests {
         #expect(!ListNotes.covers("Can't have it for Ann's lunchbox", note("Ann")))
     }
 
+    /// The server forgets someone's allergy notes by the names in each segment's last parentheses (`list_note_without`, #280).
+    @Test func everyAllergyNoteEndsWithWhoItsFor() {
+        let allergies = [MemberAllergies(memberID: nora, firstName: "Nora", allergens: [.milk, .eggs],
+                                         customTexts: ["kiwi"]),
+                         MemberAllergies(memberID: owen, firstName: "Owen", allergens: [.milk])]
+        let dishes = [meal("Omelette", [(UUID(), "eggs", nil), (cheese, "cheddar cheese", nil), (UUID(), "kiwi", nil)])]
+        let lines = WeeklyList.build(nights: [night(dishes[0], home: [nora, owen])], library: dishes, allergies: allergies)
+        let segments = lines.compactMap(\.note).flatMap { $0.components(separatedBy: "; ") }
+        #expect(segments.count >= 3, "the egg, the cheese and the kiwi each have one")
+        for segment in segments {
+            #expect(segment.hasSuffix(")") && (segment.contains("(Nora") || segment.contains("(Owen")), "\(segment)")
+        }
+    }
+
     @Test func customAllergiesAskToCheck() {
         let allergies = [MemberAllergies(memberID: nora, firstName: "Nora", customTexts: ["kiwi"])]
         let fruit = meal("Fruit salad", [(UUID(), "kiwi", nil)])

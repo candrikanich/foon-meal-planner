@@ -4,6 +4,20 @@ import Synchronization
 import Testing
 @testable import Foon
 
+/// The sentence a parent agrees to before Foon keeps allergies (Washington MHMDA .030(2), #280).
+struct AllergyConsentWordingTests {
+    @Test func theWordingIsANewVersion() {
+        #expect(AllergyConsent.textVersion == "allergy-data-v2", "v2 names who receives allergies and how to withdraw")
+        #expect(AllergyConsent.sampleVersion != AllergyConsent.textVersion, "a sample family's record still says so")
+    }
+
+    @Test func itSaysWhoReceivesThemAndHowToWithdraw() {
+        let text = AllergyConsent.statement
+        #expect(text.contains("Only your household and our hosting provider"))
+        #expect(text.contains("Family → Allergy alerts"))
+    }
+}
+
 struct AllergyAlertsStateTests {
     @Test func aFamilyThatNeverAgreedHasNeverTurnedThemOn() {
         #expect(AllergyAlerts(revokedAt: []) == .neverOn)
