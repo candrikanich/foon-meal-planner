@@ -122,8 +122,9 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 - **What a parent's export leaves out (#279).** A kid's sign-in details and push token stay out of the export, and
   support provides them on request. That's enough friction to stop casual requests, and still meets 312.6(a)(3).
 - **Re-adding allergies an adult removed (decision 3).** A parent can add them again, and Foon won't block it.
-- **A kid's profile switched to adult.** Parents lose the reminder log and hidden comments from when the profile was a
-  kid's, since parents read those only while it's marked a kid. That stays as is.
+- **A kid's profile switched to adult.** A parent who isn't a planner loses the reminder log and hidden comments from
+  when the profile was a kid's, since a parent reads those only while it's marked a kid (planners still see hidden
+  comments). That stays as is.
 
 ## COPPA (16 CFR 312, as amended; compliance date 2026-04-22)
 
