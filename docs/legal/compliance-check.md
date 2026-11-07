@@ -120,6 +120,14 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 15. **New York.** Recheck S9269 (NY Health Information Privacy Act) before launch.
 16. **Research not done:** Vermont's and Nebraska's age-appropriate design codes, and the Texas SCOPE Act.
 
+**Decided by Chris (2026-11-07), for counsel to confirm in their review:**
+- **What a parent's export leaves out (#279).** A kid's sign-in details and push token stay out of the export, and
+  support provides them on request. That's enough friction to stop casual requests, and still meets 312.6(a)(3).
+- **Re-adding allergies an adult removed (decision 3).** A parent can add them again, and Foon won't block it.
+- **A kid's profile switched to adult.** A parent who isn't a planner loses the reminder log and hidden comments from
+  when the profile was a kid's, since a parent reads those only while it's marked a kid (planners still see hidden
+  comments). That stays as is.
+
 ## COPPA (16 CFR 312, as amended; compliance date 2026-04-22)
 
 Foon knowingly has under-13 users: a parent marks a profile as a kid and invites them. So COPPA applies whatever Foon's

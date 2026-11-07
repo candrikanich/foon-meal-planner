@@ -59,7 +59,8 @@ You have the right to:
   allergy recorded for it at once.
 
 > **Review:** after an adult removes their own, a parent can still add them again under the household's agreement.
-> Is that enough for withdrawal under RCW 19.373.040(1)(b), or should Foon stop a parent re-adding them? [CHECK]
+> Chris decided not to block that (2026-11-07); counsel to confirm it's enough for withdrawal under RCW
+> 19.373.040(1)(b). [CHECK]
 - **Delete.**
   - A parent can remove anyone's allergies on their profile at any time, and an adult can remove their own.
   - Deleting an adult's account deletes their allergies. A kid's allergies stay on the profile their parent manages,
