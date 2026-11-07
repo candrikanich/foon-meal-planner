@@ -44,7 +44,7 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 - [ ] Delete everything about a kid (#278) deletes the kid's parental consent record too, and can't revoke Foon's
       Sign in with Apple token. Are both acceptable? (retention.md, Kids.)
 - [ ] New consent for material changes to the privacy policy: how should the app ask?
-- [ ] Postal address in the notice (`[ADDRESS]`), and whether a phone number is needed (312.4(d)(1)).
+- [ ] Whether a phone number is needed in the notice (312.4(d)(1)). The postal address is set (#284).
 - [ ] Is email plus (312.5(b)(2)(viii)) the right consent method for Foon, and is a kid's name or comment being seen by
       their own household a "disclosure" under 312.2 (which would rule it out)?
 - [ ] The written information security program (312.8(b)): who is named, and what goes in it.
@@ -56,13 +56,20 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 ### Allergies as health data
 
 - [ ] consumer-health-data.md: does it meet Washington (RCW 19.373.020) and Nevada (NRS 603A.495), and is the opt-in
-      (Agree and save, logged as `allergy-data-v1`) enough consent? The sentence doesn't yet name recipients or how to
-      withdraw (compliance-check.md proposes `allergy-data-v2`).
+      (Agree and save, logged as `allergy-data-v2` since #280, which names recipients and how to withdraw) enough
+      consent?
+- [ ] Households that agreed to `allergy-data-v1`, which named neither, aren't asked again: Chris decided consent is
+      asked once (2026-11-07, compliance-check.md "Decided by Chris"). Can v1 stand?
 - [ ] Is household members seeing each other's allergies "sharing" with a third party (RCW 19.373.010(27))?
-- [ ] An adult can remove their own allergies in the app (#285), but a parent can add them again under the
-      household's agreement. Is that enough for withdrawal (RCW 19.373.040(1)(b)), or should a parent be stopped?
+- [ ] An adult can add and remove their own allergies in the app (#285), and a parent can add them again under the
+      household's agreement: Chris decided not to block that (2026-11-07, #294). Is that enough for withdrawal
+      (RCW 19.373.040(1)(b))?
 - [ ] An adult can add their own allergies under the household agreement a parent gave, without agreeing themselves
       (#285). Is that their consent under RCW 19.373.030(1)(a), or should Foon ask and log theirs too?
+- [ ] Turning allergy alerts off also clears every note on the household's list lines, and someone's allergies all
+      going takes the list notes naming them, or that might (#280). Notes are free text, so that's matched by name:
+      confirm it's enough. A custom allergy typed with "; " in it can leave a part naming no one ("Check for nuts")
+      until alerts go off or the list is rebuilt.
 - [ ] Connecticut SB 1295: does the whole CTDPA reach Foon from 2026-07-01 because it processes sensitive data?
 - [ ] New York S9269 (Health Information Privacy Act): signed or not, before launch.
 - [ ] The allergy disclaimer in terms section 5: is it prominent and strong enough?
@@ -118,12 +125,12 @@ Found by the compliance self-check ([compliance-check.md](compliance-check.md), 
 
 - Parental consent is an in-app agreement, not a method listed in COPPA 312.5(b)(2).
 - There's no way to ask parents for new consent after a material change.
-- The allergy consent sentence doesn't name who receives allergies or how to withdraw.
+- Households that agreed to the first allergy consent (`allergy-data-v1`) agreed to wording that named neither who
+  receives allergies nor how to withdraw; they aren't asked again (v2, #280, names both).
 - No links yet to the privacy policy or the consumer health data policy on the homepage, the App Store page, onboarding
   or Your data. (The paywall and the kid invite and join screens have their links, #282 and #276.)
 - Age assurance (#88) isn't built: Texas SB 2420 is in force; California, Utah and Louisiana follow in 2027.
 - No notice to the App Store before a significant change to the terms or privacy policy (Texas §121.053).
-- The waitlist email has no postal address, and the confirmation email includes an offer.
 - The delete-account screen doesn't say billing continues through Apple or how to cancel.
 - Allergy consent is one household-wide agreement, and only parents can give or withdraw it for the household or
   change anyone's allergies. An adult can add and remove their own in the app (#285), adding only under that

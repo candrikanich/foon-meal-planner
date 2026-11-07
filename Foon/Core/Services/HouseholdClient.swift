@@ -102,15 +102,22 @@ enum HouseholdDeletionError: Error, Equatable {
     case unfinished
 }
 
-/// The wording version logged with allergy consent; a change in what it promises means a new version.
+/// The wording version logged with allergy consent; a change in what it promises means a new version. Consent is asked
+/// once: a household that agreed to an earlier version isn't asked again, and its record stays valid.
 enum AllergyConsent {
-    static let textVersion = "allergy-data-v1"
+    /// v2 (#280): names who receives allergies and how to withdraw (Washington MHMDA .030(2)).
+    static let textVersion = "allergy-data-v2"
     /// Logged by "Load a sample family", where nobody read the sentence: the record says so.
     static let sampleVersion = "sample-family-v1"
 
     static var statement: String {
-        String(localized: "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime.",
-               comment: "Allergy consent: the one plain sentence parents agree to")
+        String(localized: """
+        Foon keeps these so it can flag dishes. Only your household and our hosting provider, which stores them for \
+        us, receive them. They're never sold, never used for ads, and never leave your devices for AI. A parent can \
+        withdraw anytime in Family → Allergy alerts, which erases them all.
+        """, comment: """
+            Allergy consent parents agree to. Must say exactly what the English says; see AllergyConsent.textVersion.
+            """)
     }
 }
 

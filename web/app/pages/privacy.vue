@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PRIVACY_UPDATED, SUPPORT_EMAIL } from "~/content";
+import { POSTAL_ADDRESS, PRIVACY_UPDATED, SUPPORT_EMAIL } from "~/content";
 
 useSeoMeta({ title: "Privacy: Foon", description: "What Foon keeps, and what this website keeps when you join the waitlist." });
 </script>
@@ -85,5 +85,12 @@ useSeoMeta({ title: "Privacy: Foon", description: "What Foon keeps, and what thi
       How long a hosted backup keeps deleted data is part of the full policy we are finalising. Questions:
       <a :href="`mailto:${SUPPORT_EMAIL}`">{{ SUPPORT_EMAIL }}</a>.
     </p>
+
+    <h2>Contact</h2>
+    <address>
+      The Recruiting Compass LLC<br>
+      <template v-for="line in POSTAL_ADDRESS" :key="line">{{ line }}<br></template>
+      <a :href="`mailto:${SUPPORT_EMAIL}`">{{ SUPPORT_EMAIL }}</a>
+    </address>
   </article>
 </template>

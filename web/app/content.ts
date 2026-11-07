@@ -1,5 +1,7 @@
 // Everything the pages say about Foon lives here, so copy changes in one place and the spec stays the source of truth.
 export const SUPPORT_EMAIL = "support@getfoon.com";
+// The same mailbox is in the waitlist email footer (supabase/functions/waitlist/email.ts) and docs/legal Contact.
+export const POSTAL_ADDRESS = ["34125 Center Ridge Road #1012", "North Ridgeville, OH 44039"] as const;
 export const PRIVACY_UPDATED = "November 7, 2026";
 
 export const mission = "Take the weight of dinner off one person and share it with the whole family.";

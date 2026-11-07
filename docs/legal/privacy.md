@@ -237,17 +237,25 @@ To ask about or delete your child's information, a parent can also write to supp
 
 Allergies can be health information. We treat them carefully.
 
-- **Opt-in.** Foon keeps allergies only after a parent reads one sentence and taps Agree and save. We record who
-  agreed, when, and which wording they saw. The server refuses to store an allergy without that consent.
+- **Opt-in.** Foon keeps allergies only after a parent reads this and taps Agree and save:
+
+  > Foon keeps these so it can flag dishes. Only your household and our hosting provider, which stores them for us,
+  > receive them. They're never sold, never used for ads, and never leave your devices for AI. A parent can withdraw
+  > anytime in Family → Allergy alerts, which erases them all.
+
+  We record who agreed, when, and which wording they saw. The server refuses to store an allergy without that consent.
+  We ask once: a household that agreed to an earlier wording isn't asked again.
 - **What's kept.** For each person: which of the 9 major US allergens apply, plus any others a parent types in.
 - **Who sees them.** Everyone in your household, so the whole family can see why a dish is flagged. Parents can add
-  or change anyone's, and an adult can add and remove their own. Other households can't see them.
+  or change anyone's, and an adult can add and remove their own. Other households can't see them. Our hosting
+  provider stores them for us and does nothing else with them.
 - **What they're for.** Flagging dishes and shopping items. That's all.
 - **Never for AI, never for ads.** Allergies are never sent anywhere for AI, never sold, and never used for advertising.
   They're never in a notification's text.
 - **Withdrawing.** A parent can remove anyone's allergies at any time, and an adult can remove their own on their
-  profile, one at a time or all at once. A parent can also turn allergy alerts off for the household, which withdraws consent and erases all of the
-  household's allergy data at once.
+  profile, one at a time or all at once. A parent can also turn allergy alerts off for the household, which
+  withdraws consent and erases all of the household's allergy data at once, including the allergy notes on shopping
+  lists.
 
 Allergy flags are a helper, not a guarantee. Always check labels. See our Terms of Use.
 
@@ -255,8 +263,9 @@ Allergies may be consumer health data under some state laws. Our [Consumer Healt
 Policy](consumer-health-data.md) covers them in full.
 
 > **Review:** confirm the opt-in sentence and its consent record are enough consent under Washington's, Nevada's and
-> Connecticut's laws (see compliance-check.md). The sentence doesn't yet name who receives allergies or how to
-> withdraw.
+> Connecticut's laws (see compliance-check.md). Since #280 (`allergy-data-v2`) it names who receives allergies and how
+> to withdraw. Households that agreed to v1, which named neither, aren't asked again (Chris's decision, 2026-11-07):
+> confirm v1 can stand.
 
 ## What stays on your device
 
@@ -416,8 +425,9 @@ information, we'll ask parents to consent again first.
 ## Contact
 
 The Recruiting Compass LLC
-[ADDRESS]
+34125 Center Ridge Road #1012
+North Ridgeville, OH 44039
 support@getfoon.com
 
-> **Review:** COPPA's notice lists the operator's address, phone and email (312.4(d)(1)), and CAN-SPAM needs a postal
-> address in emails. Choose an address (a registered mailbox or PO box works for CAN-SPAM) and whether to give a phone.
+> **Review:** COPPA's notice lists the operator's address, phone and email (312.4(d)(1)). The address is set (a
+> mailbox, also in every waitlist email's footer for CAN-SPAM). Still open: whether to give a phone.

@@ -205,7 +205,6 @@ new terms.
 ## 18. Contact
 
 The Recruiting Compass LLC
-Ohio, USA
+34125 Center Ridge Road #1012
+North Ridgeville, OH 44039
 support@getfoon.com
-
-> **Review:** add a postal address if needed.

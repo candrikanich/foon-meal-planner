@@ -19,9 +19,20 @@ This policy covers the one kind of health information Foon keeps: food allergies
 - **How we use it.** Only for that flagging. We don't use allergies for anything else. They're never used for ads,
   never sold, never sent anywhere for AI, and never put in a notification's text.
 
-We keep allergies only after a parent agrees in the app (Agree and save). The server refuses to store an allergy
-without that agreement. An adult who adds their own allergies does it under that same agreement: they see the same
-sentence, but only a parent can give or withdraw it for the household.
+We keep allergies only after a parent agrees in the app. They read this and tap Agree and save:
+
+> Foon keeps these so it can flag dishes. Only your household and our hosting provider, which stores them for us,
+> receive them. They're never sold, never used for ads, and never leave your devices for AI. A parent can withdraw
+> anytime in Family → Allergy alerts, which erases them all.
+
+The server refuses to store an allergy without that agreement. We record who agreed, when, and which wording they saw.
+We ask once: a household that agreed to an earlier wording isn't asked again, and that agreement still stands.
+
+> **Review:** the earlier wording (`allergy-data-v1`) didn't name who receives allergies or how to withdraw. Chris
+> decided on 2026-11-07 not to ask those households again; confirm that's enough under RCW 19.373.030(2). [CHECK]
+
+An adult who adds their own allergies does it under that same agreement: they see the same sentence, but only a parent
+can give or withdraw it for the household.
 
 > **Review:** an adult who isn't a parent can now add their own allergies, relying on the household agreement a parent
 > gave. Their own agreement isn't recorded. Is that consent from the consumer under RCW 19.373.030(1)(a), or should
@@ -62,10 +73,11 @@ You have the right to:
   adult can ask a parent in their household, or write to us.
 - **Withdraw consent.** An adult withdraws for themselves by removing their own allergies (above): they're deleted at
   once. A parent can turn **Allergy alerts** off in Family, which withdraws consent for the household and erases every
-  allergy recorded for it at once.
+  allergy recorded for it at once, with the allergy notes on its shopping lists.
 
 > **Review:** after an adult removes their own, a parent can still add them again under the household's agreement.
-> Is that enough for withdrawal under RCW 19.373.040(1)(b), or should Foon stop a parent re-adding them? [CHECK]
+> Chris decided not to block that (2026-11-07); counsel to confirm it's enough for withdrawal under RCW
+> 19.373.040(1)(b). [CHECK]
 - **Delete.**
   - A parent can remove anyone's allergies on their profile at any time, and an adult can remove their own.
   - Deleting an adult's account deletes their allergies. A kid's allergies stay on the profile their parent manages,
@@ -107,5 +119,6 @@ you and getting your consent.
 ## Contact
 
 The Recruiting Compass LLC
-[ADDRESS]
+34125 Center Ridge Road #1012
+North Ridgeville, OH 44039
 support@getfoon.com
