@@ -44,7 +44,7 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 - [ ] Delete everything about a kid (#278) deletes the kid's parental consent record too, and can't revoke Foon's
       Sign in with Apple token. Are both acceptable? (retention.md, Kids.)
 - [ ] New consent for material changes to the privacy policy: how should the app ask?
-- [ ] Postal address in the notice (`[ADDRESS]`), and whether a phone number is needed (312.4(d)(1)).
+- [ ] Whether a phone number is needed in the notice (312.4(d)(1)). The postal address is set (#284).
 - [ ] Is email plus (312.5(b)(2)(viii)) the right consent method for Foon, and is a kid's name or comment being seen by
       their own household a "disclosure" under 312.2 (which would rule it out)?
 - [ ] The written information security program (312.8(b)): who is named, and what goes in it.
@@ -121,7 +121,6 @@ Found by the compliance self-check ([compliance-check.md](compliance-check.md), 
   or Your data. (The paywall and the kid invite and join screens have their links, #282 and #276.)
 - Age assurance (#88) isn't built: Texas SB 2420 is in force; California, Utah and Louisiana follow in 2027.
 - No notice to the App Store before a significant change to the terms or privacy policy (Texas §121.053).
-- The waitlist email has no postal address, and the confirmation email includes an offer.
 - The delete-account screen doesn't say billing continues through Apple or how to cancel.
 - Allergy consent is one household-wide agreement, and only parents can withdraw it for the household or add and
   change allergies. An adult can remove their own in the app (#285), but a parent can add them again.

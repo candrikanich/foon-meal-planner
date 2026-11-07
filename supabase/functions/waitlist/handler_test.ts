@@ -3,6 +3,8 @@ import { callerAddress, clientKey, networkOf, safeEqual } from "./client.ts";
 import { sha256, signer } from "./crypto.ts";
 import {
   confirmationEmail,
+  emailFooter,
+  POSTAL_ADDRESS,
   resendConfigFromEnv,
   sendViaResend,
 } from "./email.ts";
@@ -377,6 +379,39 @@ Deno.test("the confirmation email says what's kept, and nothing the signer typed
   assertStringIncludes(html, "<p>Hi,</p>");
 });
 
+Deno.test("the confirmation pitches the founding offer, so it ends with the CAN-SPAM footer: sender, postal address, unsubscribe", () => {
+  const { text, html } = confirmationEmail({
+    confirmUrl: "https://x/c?confirm=t",
+    unsubscribeUrl: "https://x/w?unsubscribe=id.sig&a=b",
+  });
+  assertStringIncludes(text, "founding-family");
+  assertStringIncludes(
+    text,
+    "--\nFoon, from The Recruiting Compass LLC\n34125 Center Ridge Road #1012\nNorth Ridgeville, OH 44039\n" +
+      "Unsubscribe (deletes your address right away): https://x/w?unsubscribe=id.sig&a=b",
+  );
+  assertEquals(
+    text.trimEnd().endsWith("https://x/w?unsubscribe=id.sig&a=b"),
+    true,
+  );
+  assertStringIncludes(html, "34125 Center Ridge Road #1012<br>");
+  assertStringIncludes(html, "North Ridgeville, OH 44039");
+  assertStringIncludes(
+    html,
+    '<a href="https://x/w?unsubscribe=id.sig&amp;a=b">Unsubscribe</a>',
+  );
+});
+
+Deno.test("every footer has the address and the unsubscribe link, escaped in HTML", () => {
+  const { text, html } = emailFooter('https://x/u?"<>');
+  for (const line of POSTAL_ADDRESS) {
+    assertStringIncludes(text, line);
+    assertStringIncludes(html, line);
+  }
+  assertStringIncludes(text, 'https://x/u?"<>');
+  assertStringIncludes(html, 'href="https://x/u?&quot;&lt;&gt;"');
+});
+
 Deno.test("Resend is called with a bearer key and the one-click headers, and email stays off unless both settings exist", async () => {
   assertEquals(
     resendConfigFromEnv((key) => (key === "RESEND_API_KEY" ? "k" : undefined)),
@@ -386,7 +421,15 @@ Deno.test("Resend is called with a bearer key and the one-click headers, and ema
     ({ RESEND_API_KEY: "k", WAITLIST_FROM: "Foon <hello@getfoon.com>" })[key]
   )!;
   let seen:
-    | { url: string; auth: string | null; to: string[]; oneClick: string }
+    | {
+      url: string;
+      auth: string | null;
+      to: string[];
+      listUnsubscribe: string;
+      oneClick: string;
+      footerInText: boolean;
+      footerInHtml: boolean;
+    }
     | undefined;
   const fake = ((url: string, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
@@ -394,19 +437,25 @@ Deno.test("Resend is called with a bearer key and the one-click headers, and ema
       url,
       auth: new Headers(init.headers).get("Authorization"),
       to: body.to,
+      listUnsubscribe: body.headers["List-Unsubscribe"],
       oneClick: body.headers["List-Unsubscribe-Post"],
+      footerInText: body.text.includes(emailFooter("https://x/u").text),
+      footerInHtml: body.html.includes(emailFooter("https://x/u").html),
     };
     return Promise.resolve(new Response("{}", { status: 200 }));
   }) as unknown as typeof fetch;
   await sendViaResend(config, "a@example.com", {
     confirmUrl: "c",
-    unsubscribeUrl: "u",
+    unsubscribeUrl: "https://x/u",
   }, fake);
   assertEquals(seen, {
     url: "https://api.resend.com/emails",
     auth: "Bearer k",
     to: ["a@example.com"],
+    listUnsubscribe: "<https://x/u>",
     oneClick: "List-Unsubscribe=One-Click",
+    footerInText: true,
+    footerInHtml: true,
   });
   const failing = (() =>
     Promise.resolve(
