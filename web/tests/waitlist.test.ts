@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { beats, foundingOffer, screenshots, SUPPORT_EMAIL } from "../app/content";
+import { beats, foundingOffer, POSTAL_ADDRESS, screenshots, SUPPORT_EMAIL } from "../app/content";
 import { confirmSignup, submitWaitlist, unsubscribeSignup, waitlistSchema } from "../app/utils/waitlist";
 
 const reply = (status: number) => (() => Promise.resolve(new Response("{}", { status }))) as unknown as typeof fetch;
@@ -102,5 +102,9 @@ describe("content", () => {
 
   it("has one support address", () => {
     expect(SUPPORT_EMAIL).toBe("support@getfoon.com");
+  });
+
+  it("has the postal address the waitlist email footer uses", () => {
+    expect(POSTAL_ADDRESS).toEqual(["34125 Center Ridge Road #1012", "North Ridgeville, OH 44039"]);
   });
 });

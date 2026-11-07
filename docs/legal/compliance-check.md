@@ -34,7 +34,7 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
   - Foon doesn't disclose a child's information except to service providers;
   - providers are bound to protect data at least as strongly as this policy;
   - requests are answered in 45 days, with one 45-day extension, free twice a year, with an appeal route;
-  - `[ADDRESS]` in Contact;
+  - the postal address in Contact (an `[ADDRESS]` placeholder until #284 filled it in);
   - a link to the consumer health data policy;
   - the retention policy is stated to be part of the notice.
 - retention.md:
@@ -78,11 +78,12 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
   what the law allows. 121.055(b).
 - **Texas significant-change notice.** Tell the App Store before a significant change to the terms or privacy policy,
   for example through PermissionKit's Significant Change API. 121.053.
-- **CAN-SPAM footer.** The waitlist email needs a postal address in its footer.
+- **CAN-SPAM footer.** Done in #284: every waitlist email ends with the sender, the postal address and the unsubscribe
+  link (`emailFooter` in `supabase/functions/waitlist/email.ts`).
 - **Delete screen.** Say billing continues through Apple and how to cancel (`DeleteAccountView.swift` has no billing
   line).
-- **Waitlist confirmation email** (`supabase/functions/waitlist/email.ts`): drop the founding-family pitch, or add the
-  postal address and treat it as commercial.
+- **Waitlist confirmation email.** Done in #284: the founding-family pitch stays, and the email is treated as
+  commercial (postal address and unsubscribe in the footer, one-click `List-Unsubscribe`).
 
 ### (c) Decisions for Chris or counsel
 
@@ -100,8 +101,9 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 5. **Connecticut SB 1295.** Does it reach Foon with no volume floor (sensitive data)? This rests on secondary sources
    only.
 6. **Texas age range.** Keep Apple's age range after verification, or store only a derived kid/adult flag?
-7. **Contact details.** A postal address, a registered mailbox or PO box, for the privacy policy, the COPPA notice and
-   the CAN-SPAM footer. Also a phone number? 312.4(d)(1) lists one.
+7. **Contact details.** The postal address is decided (#284): 34125 Center Ridge Road #1012, North Ridgeville, OH
+   44039, in the privacy policy, the consumer health data policy, the terms, the website's privacy page and the
+   waitlist email footer. Still open: a phone number? 312.4(d)(1) lists one.
 8. **Security program.** Who is named in the written information security program (312.8(b)), and who signs the
    yearly review?
 9. **Processor agreements.** Sign and file DPAs with Supabase, Resend and Vercel. For Supabase, Washington .060 and
@@ -120,6 +122,14 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
     agreement uses `allergy-data-v2`, including starting over (a household that erased and set up again, a parent
     turning allergy alerts back on). Not blocking; counsel to confirm v1 can stand under .030(2) and 603A.500.
 
+**Decided by Chris (2026-11-07), for counsel to confirm in their review:**
+- **What a parent's export leaves out (#279).** A kid's sign-in details and push token stay out of the export, and
+  support provides them on request. That's enough friction to stop casual requests, and still meets 312.6(a)(3).
+- **Re-adding allergies an adult removed (decision 3).** A parent can add them again, and Foon won't block it.
+- **A kid's profile switched to adult.** A parent who isn't a planner loses the reminder log and hidden comments from
+  when the profile was a kid's, since a parent reads those only while it's marked a kid (planners still see hidden
+  comments). That stays as is.
+
 ## COPPA (16 CFR 312, as amended; compliance date 2026-04-22)
 
 Foon knowingly has under-13 users: a parent marks a profile as a kid and invites them. So COPPA applies whatever Foon's
@@ -128,7 +138,7 @@ size.
 | Requirement | Citation | Where we meet it | Verdict | Fix |
 | --- | --- | --- | --- | --- |
 | Online notice linked on the home page and where kids' information is collected | 312.4(d) | Linked on the paywall and the kid invite and join screens (#282, #276); planned for the homepage, onboarding and Your data | partly | Code: homepage, onboarding and Your data (#281) |
-| Operator name, address, phone, email | 312.4(d)(1) | privacy.md Contact: LLC, Ohio, email | gap | Wording (this PR): `[ADDRESS]`. Phone: decision 7 (whether email-only is accepted is UNVERIFIED) |
+| Operator name, address, phone, email | 312.4(d)(1) | privacy.md Contact: LLC, postal address (#284), email; no phone | partly | Phone: decision 7 (whether email-only is accepted is UNVERIFIED) |
 | What's collected from kids, how it's used, who gets it | 312.4(d)(2) | privacy.md "Children under 13" (this PR), Kids, tables | partly → met in this PR | Wording (this PR) |
 | Retention policy in the notice | 312.4(d)(2), 312.10 | privacy.md How long we keep it; retention.md Kids | partly | Wording (this PR): retention.md stated to be part of the notice, with business need. The passes disagreed: one said met; this file takes partly |
 | Internal-operations identifiers (account ID, push token, provider logs) | 312.4(d)(3) | privacy.md Your account, Reminders; provider logs `[CHECK]` | partly | Wording after confirming Supabase and Vercel logs |
@@ -294,8 +304,8 @@ Status as of 2026-11-06:
 | --- | --- | --- | --- | --- |
 | Accurate headers | FTC guide 1 | `WAITLIST_FROM` on a Resend-verified domain | met | Confirm the production value |
 | Honest subject | FTC guide 2 | "Confirm your spot on the Foon waitlist" | met | — |
-| Identified as an ad, unless the recipient opted in | FTC guide 3 | Opt-in; but the confirmation carries an offer | partly | Same decision as the confirmation pitch below |
-| Valid postal address | FTC guide 4 | None in the email or the policy | gap | Code: email footer; wording (this PR): `[ADDRESS]` |
+| Identified as an ad, unless the recipient opted in | FTC guide 3 | Opt-in; the confirmation carries an offer and is treated as commercial (#284) | partly | Counsel: whether a signer who asked to join counts as "opted in" before confirming (UNVERIFIED) |
+| Valid postal address | FTC guide 4 | Every waitlist email's footer and the privacy policy's Contact (#284) | met | — |
 | Clear opt-out, honored in 10 business days, working 30+ days | FTC guide 5, 7 | Unsubscribe link, one-click `List-Unsubscribe`, deletes at once, link doesn't expire | met | Optional: keep a suppression hash |
-| Transactional only if confirming is the main purpose | 16 CFR 316.3 (UNVERIFIED) | The confirmation pitches the founding offer | partly | Drop the pitch, or add the address and treat it as commercial |
+| Transactional only if confirming is the main purpose | 16 CFR 316.3 (UNVERIFIED) | The pitch stays; the confirmation is treated as commercial, with the address and unsubscribe (#284) | met | — |
 | Responsible for mail sent on your behalf | FTC guide 8 | Resend | met | — |
