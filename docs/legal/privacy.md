@@ -416,8 +416,9 @@ information, we'll ask parents to consent again first.
 ## Contact
 
 The Recruiting Compass LLC
-[ADDRESS]
+34125 Center Ridge Road #1012
+North Ridgeville, OH 44039
 support@getfoon.com
 
-> **Review:** COPPA's notice lists the operator's address, phone and email (312.4(d)(1)), and CAN-SPAM needs a postal
-> address in emails. Choose an address (a registered mailbox or PO box works for CAN-SPAM) and whether to give a phone.
+> **Review:** COPPA's notice lists the operator's address, phone and email (312.4(d)(1)). The address is set (a
+> mailbox, also in every waitlist email's footer for CAN-SPAM). Still open: whether to give a phone.
