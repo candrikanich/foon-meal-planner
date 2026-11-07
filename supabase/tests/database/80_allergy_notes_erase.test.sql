@@ -3,7 +3,7 @@
 -- segments naming them (or, if they had allergies, a "+2" or cut one) and marks their weeks for Update the list. A parent's
 -- edit keeps them; removing someone without allergies keeps grouped warnings; other households are untouched.
 begin;
-select plan(35);
+select plan(36);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -197,13 +197,15 @@ select is((select note from public.list_items where household_id = '00000000-000
   'Couldn''t find it last trip', 'a family that never agreed keeps its notes');
 
 -- Who may call what ----------------------------------------------------------------------------------------------------
-select ok(not has_function_privilege('authenticated', 'public.forget_in_list_notes(uuid, text)', 'execute'),
+select ok(not has_function_privilege('authenticated', 'public.forget_in_list_notes(uuid, text, boolean)', 'execute'),
   'nobody signed in calls the unchecked helpers');
 select ok(not has_function_privilege('authenticated', 'public.erase_allergy_list_notes(uuid)', 'execute'), 'either one');
 select ok(not exists (select 1 from pg_proc where proname = 'clear_allergy_list_notes'),
   'and there''s no clearing function a member could call to strip the family''s allergy warnings');
-select ok(not has_function_privilege('authenticated', 'public.list_note_without(text, text)', 'execute'),
+select ok(not has_function_privilege('authenticated', 'public.list_note_without(text, text, boolean)', 'execute'),
   'or the note helper');
+select ok(not has_function_privilege('authenticated', 'public.member_allergies_note_removal()', 'execute'),
+  'or the trigger that records whose allergies were removed');
 
 select * from finish();
 rollback;

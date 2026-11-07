@@ -177,9 +177,9 @@ released, and the reminder log about them is deleted. The parent-entered profile
 - **Someone without allergies deleted or anonymized:** only parts that name them go, so the family's grouped warnings
   stay.
 - **Some of someone's allergies removed, not all:** their notes stay until the next Update the list rebuilds them.
-  A phone offline since before the removal could still send an old note naming them. A custom allergy typed with "; "
-  in it ("nuts; seeds") can leave a part naming no one ("Check for nuts") until allergy alerts go off or Update the
-  list rebuilds the line.
+  A phone offline since before the removal could still send an old note naming them.
+- **A custom allergy typed with "; " in it** ("nuts; seeds"): whenever someone's notes go, it can leave a part
+  naming no one ("Check for nuts") until allergy alerts go off or Update the list rebuilds the line.
 
 ## Accounts
 
