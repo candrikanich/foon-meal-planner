@@ -1896,8 +1896,8 @@
     "Foon is view-only until your family's subscription is back. Open Foon to see why." : {
 
     },
-    "Foon keeps these with your household so it can flag dishes. They're never sold, never used for ads, and never leave your devices for AI. Parents can delete them anytime." : {
-      "comment" : "Allergy consent: the one plain sentence parents agree to"
+    "Foon keeps these so it can flag dishes. Only your household and our hosting provider, which stores them for us, receive them. They're never sold, never used for ads, and never leave your devices for AI. A parent can withdraw anytime in Family → Allergy alerts, which erases them all." : {
+      "comment" : "Allergy consent parents agree to. Must say exactly what the English says; see AllergyConsent.textVersion."
     },
     "Foon put %@ back to %@" : {
       "localizations" : {
