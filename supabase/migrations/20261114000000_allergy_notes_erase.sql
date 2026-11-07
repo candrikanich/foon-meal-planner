@@ -14,37 +14,40 @@
 -- 2. One person's allergies all gone (an adult removing their own, a parent clearing them, delete_kid, an account deleted,
 --    the retention job anonymizing a removed member): every note segment that names them goes, and the weeks whose lines
 --    changed are marked list_stale so a planner's Update the list puts back what the others still need. Every allergy note
---    ends with who it's for in parentheses; WeeklyList keeps that, and its tests say so. A segment that might be theirs
---    goes too: one whose names end "+2" (the short form, "Nora +2", hides who the others are) and one cut mid-name where
---    the name could be theirs. Changing some of someone's allergies, not all, leaves their notes until the next Update the
---    list.
+--    ends with who it's for in parentheses; WeeklyList keeps that, and its tests say so. Two kinds of segment might be
+--    theirs without spelling the name, and go too: a short list ("Nora +2" hides who the others are) and one cut inside
+--    its parentheses at the 400 limit. Those go only for someone who had allergies until now, so deleting or anonymizing
+--    someone who had none never strips the family's grouped warnings. delete_kid and the retention job delete the
+--    allergies before the profile, so a row trigger notes, for the rest of the transaction, whose allergies were just
+--    removed. Changing some of someone's allergies, not all, leaves their notes until the next Update the list.
 --
--- Segments are split at "; ". A custom allergy typed with "; " in it ("nuts; seeds") splits its note in two; the part
--- before has no names, so rule 2 leaves it ("Check for nuts"), naming no one. Rule 1 still clears it. Not worth refusing
--- the text for.
+-- Segments are split at "; ". A custom allergy typed with "; " in it ("nuts; seeds") splits its note in two. The part
+-- before has no names ("Check for nuts"), so rule 2 leaves it, naming no one, until allergy alerts go off or Update the
+-- list rebuilds the line. Not worth refusing the text for.
 
--- A line note without the segments that name, or might name, this person.
-create function public.list_note_without(note text, who text)
+-- A line note without the segments that name this person, and, when they might be in one (they had allergies), the
+-- segments that could be theirs without spelling it.
+create function public.list_note_without(note text, who text, might_be_them boolean default false)
 returns text
 language sql immutable set search_path = ''
 as $$
   select string_agg(part.segment, '; ' order by part.position)
   from unnest(string_to_array(note, '; ')) with ordinality as part(segment, position)
-  where not exists (
-    select 1
-    from unnest(string_to_array(coalesce(substring(part.segment from '\(([^()]*)\)…?$'),
-                                         substring(part.segment from '\(([^()]*)…$')), ', ')) as named(name),
-         regexp_replace(named.name, ' \+[0-9]*$', '') as stripped(person)
-    where stripped.person = who
-       or named.name ~ ' \+[0-9]*$'
-       or (part.segment like '%…' and starts_with(who, stripped.person))
+  where not (
+    exists (
+      select 1
+      from unnest(string_to_array(coalesce(substring(part.segment from '\(([^()]*)\)…?$'),
+                                           substring(part.segment from '\(([^()]*)…$')), ', ')) as named(name)
+      where regexp_replace(named.name, ' \+[0-9]*$', '') = who
+    )
+    or (might_be_them and (part.segment ~ '\([^()]*…$' or part.segment ~ ' \+[0-9]+\)…?$'))
   );
 $$;
 
-revoke execute on function public.list_note_without(text, text) from public, anon, authenticated;
+revoke execute on function public.list_note_without(text, text, boolean) from public, anon, authenticated;
 
 -- Rule 2. Runs from triggers, including the retention job's, where nobody is signed in.
-create function public.forget_in_list_notes(target_household uuid, who text)
+create function public.forget_in_list_notes(target_household uuid, who text, had_allergies boolean)
 returns void
 language plpgsql security definer set search_path = ''
 as $$
@@ -54,14 +57,14 @@ begin
   end if;
   with changed as (
     update public.list_items
-    set note = public.list_note_without(note, who),
-        kept_note = public.list_note_without(kept_note, who),
-        hand_note = public.list_note_without(hand_note, who)
+    set note = public.list_note_without(note, who, had_allergies),
+        kept_note = public.list_note_without(kept_note, who, had_allergies),
+        hand_note = public.list_note_without(hand_note, who, had_allergies)
     -- No cheaper filter on the name: a cut or "+2" segment that goes may not spell it.
     where household_id = target_household
-      and (note, kept_note, hand_note) is distinct from (public.list_note_without(note, who),
-                                                         public.list_note_without(kept_note, who),
-                                                         public.list_note_without(hand_note, who))
+      and (note, kept_note, hand_note) is distinct from (public.list_note_without(note, who, had_allergies),
+                                                         public.list_note_without(kept_note, who, had_allergies),
+                                                         public.list_note_without(hand_note, who, had_allergies))
     returning plan_id, also_for_plan, list
   )
   update public.plans set list_stale = true
@@ -70,7 +73,7 @@ begin
 end;
 $$;
 
-revoke execute on function public.forget_in_list_notes(uuid, text) from public, anon, authenticated;
+revoke execute on function public.forget_in_list_notes(uuid, text, boolean) from public, anon, authenticated;
 
 -- Rule 1.
 create function public.erase_allergy_list_notes(target_household uuid)
@@ -133,17 +136,39 @@ create trigger list_items_no_notes_while_allergies_off
   before insert or update of note, kept_note, hand_note on public.list_items
   for each row execute function public.list_items_no_notes_while_allergies_off();
 
--- Someone's last allergy removed. Deferred to commit: set_member_allergies deletes everything and then adds back what a
--- parent kept, and only an empty result is a removal. By then delete_kid has deleted the profile and the retention job has
--- renamed it, so those go by the triggers on members below, which still see the name.
-create function public.member_allergies_forget_list_notes()
+-- Whose allergies were just removed, for the rest of the transaction: delete_kid and the retention job delete them before
+-- the profile goes or is renamed, so the triggers on members can't look. A list of member ids in a transaction-local setting.
+create function public.member_allergies_note_removal()
 returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  if not exists (select 1 from public.member_allergies where member_id = old.member_id) then
-    perform public.forget_in_list_notes(old.household_id,
-                                        (select first_name from public.members where id = old.member_id));
+  perform set_config('foon.allergies_removed_for',
+                     concat(current_setting('foon.allergies_removed_for', true), ',', old.member_id), true);
+  return null;
+end;
+$$;
+
+revoke execute on function public.member_allergies_note_removal() from public, anon, authenticated;
+
+create trigger member_allergies_note_removal
+  after delete on public.member_allergies
+  for each row execute function public.member_allergies_note_removal();
+
+-- Someone's last allergy removed while they stay in the family. Deferred to commit: set_member_allergies deletes everything
+-- and then adds back what a parent kept, and only an empty result is a removal. A profile deleted or renamed by then went
+-- by the triggers on members below.
+create function public.member_allergies_forget_list_notes()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  who text;
+begin
+  select first_name into who from public.members where id = old.member_id;
+  if who is not null and who <> 'Former member'
+     and not exists (select 1 from public.member_allergies where member_id = old.member_id) then
+    perform public.forget_in_list_notes(old.household_id, who, true);
   end if;
   return null;
 end;
@@ -156,13 +181,16 @@ create constraint trigger member_allergies_forget_list_notes
   deferrable initially deferred
   for each row execute function public.member_allergies_forget_list_notes();
 
--- A profile deleted (delete_kid) or anonymized ("Former member": an account deleted, or the retention job).
+-- A profile deleted (delete_kid) or anonymized ("Former member": an account deleted, or the retention job). Segments naming
+-- them go whatever; the ones that might be theirs only if their allergies were removed in this transaction.
 create function public.members_forget_list_notes()
 returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  perform public.forget_in_list_notes(old.household_id, old.first_name);
+  perform public.forget_in_list_notes(
+    old.household_id, old.first_name,
+    position(old.id::text in coalesce(current_setting('foon.allergies_removed_for', true), '')) > 0);
   return null;
 end;
 $$;

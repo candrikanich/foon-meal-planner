@@ -173,9 +173,13 @@ released, and the reminder log about them is deleted. The parent-entered profile
   deleted): the parts of every note that name them, or might, go at once, and the weeks whose lines changed ask the
   planner to Update the list, which puts back what everyone else still needs. A note names people in parentheses at its
   end. A part that might be theirs goes too: a short list like "(Nora +2)", which hides the others' names, and a part cut
-  off mid-name where the name could be theirs.
+  off inside its parentheses at the length limit.
+- **Someone without allergies deleted or anonymized:** only parts that name them go, so the family's grouped warnings
+  stay.
 - **Some of someone's allergies removed, not all:** their notes stay until the next Update the list rebuilds them.
-  A phone offline since before the removal could still send an old note naming them.
+  A phone offline since before the removal could still send an old note naming them. A custom allergy typed with "; "
+  in it ("nuts; seeds") can leave a part naming no one ("Check for nuts") until allergy alerts go off or Update the
+  list rebuilds the line.
 
 ## Accounts
 

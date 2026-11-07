@@ -1,8 +1,9 @@
 -- Erasing allergies erases the allergy notes on list lines too (#280). Allergy alerts off clears the household's line notes
 -- and keeps new ones off; someone's allergies all gone (their own removal, delete_kid, the retention job) takes the note
--- segments naming them and marks their weeks for Update the list. A parent's edit keeps them; other households are untouched.
+-- segments naming them (or, if they had allergies, a "+2" or cut one) and marks their weeks for Update the list. A parent's
+-- edit keeps them; removing someone without allergies keeps grouped warnings; other households are untouched.
 begin;
-select plan(30);
+select plan(35);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -16,7 +17,7 @@ create function pg_temp.line(id uuid) returns public.list_items language sql as 
 $$;
 
 -- Household A: Ann (owner, parent), Grace and Hal (adults who aren't parents; Grace signed in), Ivy (a kid without an
--- account). Household B: Carol (owner) and Dan (signed in). Household C: Eve, who never turned allergy alerts on.
+-- account), Kay (a kid without an account or allergies), Jo (an adult without allergies). Household B: Carol (owner) and Dan (signed in). Household C: Eve, who never turned allergy alerts on.
 insert into auth.users (id, email, aud, role) values
   ('a0000000-0000-0000-0000-00000000000a', 'ann@example.com', 'authenticated', 'authenticated'),
   ('d0000000-0000-0000-0000-00000000000d', 'grace@example.com', 'authenticated', 'authenticated'),
@@ -32,6 +33,8 @@ insert into public.members (id, household_id, first_name, role, age_group, guard
   ('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000a0', 'Grace', 'member', 'adult', false, 'active', 'd0000000-0000-0000-0000-00000000000d'),
   ('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-0000000000a0', 'Hal', 'member', 'adult', false, 'active', null),
   ('00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-0000000000a0', 'Ivy', 'member', 'kid', false, 'active', null),
+  ('00000000-0000-0000-0000-0000000000a6', '00000000-0000-0000-0000-0000000000a0', 'Kay', 'member', 'kid', false, 'active', null),
+  ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000a0', 'Jo', 'member', 'adult', false, 'active', null),
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000b0', 'Carol', 'planner', 'adult', true, 'active', 'c0000000-0000-0000-0000-00000000000c'),
   ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000b0', 'Dan', 'member', 'adult', false, 'active', 'f0000000-0000-0000-0000-00000000000f'),
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000c0', 'Eve', 'planner', 'adult', true, 'active', 'e0000000-0000-0000-0000-00000000000e');
@@ -84,14 +87,16 @@ update public.list_items set checked_at = now() where id = '00000000-0000-0000-0
 select is(public.list_note_without('Get dairy-free (Grace, Ivy); Couldn''t find it last trip', 'Grace'),
   'Couldn''t find it last trip', 'a segment naming them goes, the rest stays');
 select is(public.list_note_without('Check: dairy, kiwi (Grace +2)', 'Grace'), null, 'a compact note naming them goes');
-select is(public.list_note_without('Check: dairy, kiwi (Grace +2)', 'Ivy'), null,
-  'so does one whose "+2" could be them');
-select is(public.list_note_without('Get dairy-free (Grace, Ivy)', 'Ann'), 'Get dairy-free (Grace, Ivy)',
+select is(public.list_note_without('Check: dairy, kiwi (Grace +2)', 'Ivy', true), null,
+  'so does one whose "+2" could be them, for someone who had allergies');
+select is(public.list_note_without('Check: dairy, kiwi (Grace +2)', 'Ivy'), 'Check: dairy, kiwi (Grace +2)',
+  'but not for someone who had none');
+select is(public.list_note_without('Get dairy-free (Grace, Ivy)', 'Ann', true), 'Get dairy-free (Grace, Ivy)',
   'one that names others and not them stays');
 select is(public.list_note_without('Can''t have it (Ann)', 'An'), 'Can''t have it (Ann)',
   'a name is a whole name, not the start of one');
-select is(public.list_note_without('Get soy-free (Hal); Get egg-free (Nora, Ow…', 'Owen'), 'Get soy-free (Hal)',
-  'a segment cut mid-name goes if the name could be theirs');
+select is(public.list_note_without('Get soy-free (Hal); Get egg-free (Nora, Ow…', 'Zed', true), 'Get soy-free (Hal)',
+  'a segment cut inside its parentheses goes, for someone who had allergies');
 select is(public.list_note_without('Check for nuts (all kinds) (Nora)', 'Nora'), null,
   'the names are the last parentheses');
 
@@ -106,6 +111,22 @@ select is((pg_temp.line('00000000-0000-0000-0000-0000000008a2')).note, 'Can''t h
 select is((select list_stale from public.plans where id = '00000000-0000-0000-0000-0000000003a1'), false,
   'and leaves the list as it was');
 
+-- Someone with no allergies deleted or anonymized: the family's grouped warnings stay -------------------------------
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann
+select public.delete_kid('00000000-0000-0000-0000-0000000000a6');
+select pg_temp.as_admin();
+select is((pg_temp.line('00000000-0000-0000-0000-0000000008a3')).note, 'Check: dairy, kiwi (Grace +2)',
+  'deleting a kid who had no allergies keeps a "+2" warning');
+update public.members set status = 'removed' where id = '00000000-0000-0000-0000-0000000000a7';
+update public.members set removed_at = now() - interval '13 months' where id = '00000000-0000-0000-0000-0000000000a7';
+select public.anonymize_expired_profiles();
+select is((select first_name from public.members where id = '00000000-0000-0000-0000-0000000000a7'), 'Former member',
+  'the retention job anonymizes Jo');
+select is((pg_temp.line('00000000-0000-0000-0000-0000000008a3')).note, 'Check: dairy, kiwi (Grace +2)',
+  'and the "+2" warning stays');
+select is((pg_temp.line('00000000-0000-0000-0000-0000000008a6')).note, 'Get gluten-free (Ann); Get egg-free (Ann, Iv…',
+  'as does a note cut inside its parentheses');
+
 -- An adult removes their own -------------------------------------------------------------------------------------------
 select pg_temp.as_user('d0000000-0000-0000-0000-00000000000d');  -- Grace
 select public.set_member_allergies('00000000-0000-0000-0000-0000000000a2', '{}', '{}');
@@ -115,7 +136,9 @@ select pg_temp.as_admin();
 select is((pg_temp.line('00000000-0000-0000-0000-0000000008a1')).note, 'Couldn''t find it last trip',
   'removing your own allergies takes the notes naming you');
 select is((pg_temp.line('00000000-0000-0000-0000-0000000008a1')).kept_note, null, 'from every note column');
-select is((pg_temp.line('00000000-0000-0000-0000-0000000008a3')).note, null, 'and from bought lines');
+select is((pg_temp.line('00000000-0000-0000-0000-0000000008a3')).note, null, 'and from bought lines, "+2" ones too');
+select is((pg_temp.line('00000000-0000-0000-0000-0000000008a6')).note, 'Get gluten-free (Ann)',
+  'a part cut inside its parentheses goes too');
 select is((pg_temp.line('00000000-0000-0000-0000-0000000008a4')).note, 'Get gluten-free (Ann)', 'others'' notes stay');
 select is((select list_stale from public.plans where id = '00000000-0000-0000-0000-0000000003a1'), true,
   'and the week asks for Update the list, to put back what Ivy still needs');
@@ -126,8 +149,6 @@ select public.delete_kid('00000000-0000-0000-0000-0000000000a5');
 select pg_temp.as_admin();
 select is((pg_temp.line('00000000-0000-0000-0000-0000000008a2')).note, null, 'deleting a kid takes the notes naming them');
 select is((pg_temp.line('00000000-0000-0000-0000-0000000008a2')).hand_note, null, 'every column');
-select is((pg_temp.line('00000000-0000-0000-0000-0000000008a6')).note, 'Get gluten-free (Ann)',
-  'and a part cut off mid-name that could be theirs');
 
 -- The retention job anonymizing a removed adult ------------------------------------------------------------------------
 -- Two steps: removing stamps removed_at with now, so the date is set back after.
