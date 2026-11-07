@@ -245,7 +245,8 @@ Allergies can be health information. We treat them carefully.
 
   We record who agreed, when, and which wording they saw. The server refuses to store an allergy without that consent.
   We ask once: a household that agreed to an earlier wording isn't asked again.
-- **What's kept.** For each person: which of the 9 major US allergens apply, plus any others a parent types in.
+- **What's kept.** For each person: which of the 9 major US allergens apply, plus any others a parent types in, or an adult types
+  in for themselves.
 - **Who sees them.** Everyone in your household, so the whole family can see why a dish is flagged. Parents can add
   or change anyone's, and an adult can add and remove their own. Other households can't see them. Our hosting
   provider stores them for us and does nothing else with them.
