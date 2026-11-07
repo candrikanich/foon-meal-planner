@@ -104,8 +104,8 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
    only.
 6. **Texas age range.** Keep Apple's age range after verification, or store only a derived kid/adult flag?
 7. **Contact details.** The postal address is decided (#284): 34125 Center Ridge Road #1012, North Ridgeville, OH
-   44039, in the privacy policy, the consumer health data policy and the waitlist email footer. Still open: a phone
-   number? 312.4(d)(1) lists one.
+   44039, in the privacy policy, the consumer health data policy, the terms, the website's privacy page and the
+   waitlist email footer. Still open: a phone number? 312.4(d)(1) lists one.
 8. **Security program.** Who is named in the written information security program (312.8(b)), and who signs the
    yearly review?
 9. **Processor agreements.** Sign and file DPAs with Supabase, Resend and Vercel. For Supabase, Washington .060 and
