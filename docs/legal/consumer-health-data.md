@@ -65,7 +65,7 @@ You have the right to:
   correct theirs.
 - **Withdraw consent.** An adult withdraws for themselves by removing their own allergies (above): they're deleted at
   once. A parent can turn **Allergy alerts** off in Family, which withdraws consent for the household and erases every
-  allergy recorded for it at once.
+  allergy recorded for it at once, with the allergy notes on its shopping lists.
 
 > **Review:** after an adult removes their own, a parent can still add them again under the household's agreement.
 > Chris decided not to block that (2026-11-07); counsel to confirm it's enough for withdrawal under RCW

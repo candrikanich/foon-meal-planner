@@ -163,6 +163,19 @@ released, and the reminder log about them is deleted. The parent-entered profile
 - **A parent deletes everything about a kid:** the kid's allergies are deleted at once (job **K**).
 - **The household is deleted:** all are erased (job **E**).
 
+**Allergy notes on list lines** ("Get dairy-free (Nora)") go with the allergies (#280,
+`20261114000000_allergy_notes_erase.sql`):
+
+- **Allergy alerts off:** every note on the household's list lines, bought ones too, is cleared at once, and no line
+  keeps a note while they stay off, so a phone with an old cache or queued change can't write one back. A note is free
+  text, so "Couldn't find it last trip" goes too.
+- **Someone's allergies all gone** (removed by a parent or by themselves, their account deleted, anonymized, or the kid
+  deleted): the parts of every note that name them go at once, and the weeks whose lines changed ask the planner to
+  Update the list, which puts back what everyone else still needs. A note names people in parentheses at its end;
+  a part cut off mid-name goes if the name could be theirs.
+- **Some of someone's allergies removed, not all:** their notes stay until the next Update the list rebuilds them.
+  A phone offline since before the removal could still send an old note naming them.
+
 ## Accounts
 
 - **The owner deletes their account:** the household is erased, as for Delete household, then the account

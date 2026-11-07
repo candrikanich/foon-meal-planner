@@ -254,7 +254,7 @@ Allergies can be health information. We treat them carefully.
   They're never in a notification's text.
 - **Withdrawing.** A parent can remove anyone's allergies at any time, and an adult can remove their own on their
   profile. A parent can also turn allergy alerts off for the household, which withdraws consent and erases all of the
-  household's allergy data at once.
+  household's allergy data at once, including the allergy notes on shopping lists.
 
 Allergy flags are a helper, not a guarantee. Always check labels. See our Terms of Use.
 
