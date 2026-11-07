@@ -14,10 +14,16 @@
 -- 2. One person's allergies all gone (an adult removing their own, a parent clearing them, delete_kid, an account deleted,
 --    the retention job anonymizing a removed member): every note segment that names them goes, and the weeks whose lines
 --    changed are marked list_stale so a planner's Update the list puts back what the others still need. Every allergy note
---    ends with who it's for in parentheses; WeeklyList keeps that, and its tests say so. A segment cut mid-name goes if the
---    name could be theirs. Changing some of someone's allergies, not all, leaves their notes until the next Update the list.
+--    ends with who it's for in parentheses; WeeklyList keeps that, and its tests say so. A segment that might be theirs
+--    goes too: one whose names end "+2" (the short form, "Nora +2", hides who the others are) and one cut mid-name where
+--    the name could be theirs. Changing some of someone's allergies, not all, leaves their notes until the next Update the
+--    list.
+--
+-- Segments are split at "; ". A custom allergy typed with "; " in it ("nuts; seeds") splits its note in two; the part
+-- before has no names, so rule 2 leaves it ("Check for nuts"), naming no one. Rule 1 still clears it. Not worth refusing
+-- the text for.
 
--- A line note without the segments naming this person.
+-- A line note without the segments that name, or might name, this person.
 create function public.list_note_without(note text, who text)
 returns text
 language sql immutable set search_path = ''
@@ -29,7 +35,9 @@ as $$
     from unnest(string_to_array(coalesce(substring(part.segment from '\(([^()]*)\)…?$'),
                                          substring(part.segment from '\(([^()]*)…$')), ', ')) as named(name),
          regexp_replace(named.name, ' \+[0-9]*$', '') as stripped(person)
-    where stripped.person = who or (part.segment like '%…' and starts_with(who, stripped.person))
+    where stripped.person = who
+       or named.name ~ ' \+[0-9]*$'
+       or (part.segment like '%…' and starts_with(who, stripped.person))
   );
 $$;
 
@@ -49,8 +57,8 @@ begin
     set note = public.list_note_without(note, who),
         kept_note = public.list_note_without(kept_note, who),
         hand_note = public.list_note_without(hand_note, who)
+    -- No cheaper filter on the name: a cut or "+2" segment that goes may not spell it.
     where household_id = target_household
-      and position(who in concat(note, kept_note, hand_note)) > 0
       and (note, kept_note, hand_note) is distinct from (public.list_note_without(note, who),
                                                          public.list_note_without(kept_note, who),
                                                          public.list_note_without(hand_note, who))
@@ -75,28 +83,8 @@ $$;
 
 revoke execute on function public.erase_allergy_list_notes(uuid) from public, anon, authenticated;
 
--- For a function that removes allergies itself: the household's allergy notes (no member), or the ones naming a member.
--- The triggers below already cover every removal, so calling it is only needed for a path they don't see.
-create function public.clear_allergy_list_notes(target_household uuid, target_member uuid default null)
-returns void
-language plpgsql security definer set search_path = ''
-as $$
-begin
-  if not public.is_household_member(target_household) then
-    raise exception 'not in this household' using errcode = '42501';
-  end if;
-  if target_member is null then
-    perform public.erase_allergy_list_notes(target_household);
-  else
-    perform public.forget_in_list_notes(
-      target_household,
-      (select first_name from public.members where id = target_member and household_id = target_household));
-  end if;
-end;
-$$;
-
-revoke execute on function public.clear_allergy_list_notes(uuid, uuid) from public, anon;
-grant execute on function public.clear_allergy_list_notes(uuid, uuid) to authenticated;
+-- Nothing signed in calls either helper: the triggers below run them on every removal, and one a member could call would
+-- let anyone, a kid included, strip the allergy warnings off the family's list.
 
 -- Allergy alerts off: its own trigger beside consents_erase_on_revoke, which deletes the allergies.
 create function public.consents_erase_list_notes_on_revoke()

@@ -65,7 +65,8 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
       household's agreement: Chris decided not to block that (2026-11-07, #294). Is that enough for withdrawal
       (RCW 19.373.040(1)(b))?
 - [ ] Turning allergy alerts off also clears every note on the household's list lines, and someone's allergies all
-      going takes the list notes naming them (#280). Notes are free text, so that's matched by name: confirm it's enough.
+      going takes the list notes naming them, or that might (#280). Notes are free text, so that's matched by name:
+      confirm it's enough.
 - [ ] Connecticut SB 1295: does the whole CTDPA reach Foon from 2026-07-01 because it processes sensitive data?
 - [ ] New York S9269 (Health Information Privacy Act): signed or not, before launch.
 - [ ] The allergy disclaimer in terms section 5: is it prominent and strong enough?

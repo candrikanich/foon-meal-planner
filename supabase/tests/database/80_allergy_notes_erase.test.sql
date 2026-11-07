@@ -2,7 +2,7 @@
 -- and keeps new ones off; someone's allergies all gone (their own removal, delete_kid, the retention job) takes the note
 -- segments naming them and marks their weeks for Update the list. A parent's edit keeps them; other households are untouched.
 begin;
-select plan(28);
+select plan(30);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -57,6 +57,7 @@ insert into public.items (id, household_id, canonical_name) values
   ('00000000-0000-0000-0000-0000000001a4', '00000000-0000-0000-0000-0000000000a0', 'Bread'),
   ('00000000-0000-0000-0000-0000000001a5', '00000000-0000-0000-0000-0000000000a0', 'Soy sauce'),
   ('00000000-0000-0000-0000-0000000001a6', '00000000-0000-0000-0000-0000000000a0', 'Milk'),
+  ('00000000-0000-0000-0000-0000000001a7', '00000000-0000-0000-0000-0000000000a0', 'Pancake mix'),
   ('00000000-0000-0000-0000-0000000001b1', '00000000-0000-0000-0000-0000000000b0', 'Eggs'),
   ('00000000-0000-0000-0000-0000000001c1', '00000000-0000-0000-0000-0000000000c0', 'Milk');
 insert into public.list_items (id, household_id, item_id, list, source, plan_id, note, kept_note, hand_note) values
@@ -71,6 +72,9 @@ insert into public.list_items (id, household_id, item_id, list, source, plan_id,
    'weekly', 'plan', '00000000-0000-0000-0000-0000000003a1', 'Get gluten-free (Ann)', null, null),
   ('00000000-0000-0000-0000-0000000008a5', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a5',
    'quick', 'pivot', null, 'Get soy-free (Hal)', null, null),
+  -- Cut at the limit mid-name: merge_line_notes keeps the newest and ends with "…".
+  ('00000000-0000-0000-0000-0000000008a6', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a7',
+   'quick', 'pivot', null, 'Get gluten-free (Ann); Get egg-free (Ann, Iv…', null, null),
   ('00000000-0000-0000-0000-0000000008b1', '00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000001b1',
    'quick', 'pivot', null, 'Get egg-free (Dan)', null, null);
 -- One bought, still in the history.
@@ -80,8 +84,10 @@ update public.list_items set checked_at = now() where id = '00000000-0000-0000-0
 select is(public.list_note_without('Get dairy-free (Grace, Ivy); Couldn''t find it last trip', 'Grace'),
   'Couldn''t find it last trip', 'a segment naming them goes, the rest stays');
 select is(public.list_note_without('Check: dairy, kiwi (Grace +2)', 'Grace'), null, 'a compact note naming them goes');
-select is(public.list_note_without('Check: dairy, kiwi (Grace +2)', 'Ivy'), 'Check: dairy, kiwi (Grace +2)',
-  'one that doesn''t name them stays');
+select is(public.list_note_without('Check: dairy, kiwi (Grace +2)', 'Ivy'), null,
+  'so does one whose "+2" could be them');
+select is(public.list_note_without('Get dairy-free (Grace, Ivy)', 'Ann'), 'Get dairy-free (Grace, Ivy)',
+  'one that names others and not them stays');
 select is(public.list_note_without('Can''t have it (Ann)', 'An'), 'Can''t have it (Ann)',
   'a name is a whole name, not the start of one');
 select is(public.list_note_without('Get soy-free (Hal); Get egg-free (Nora, Ow…', 'Owen'), 'Get soy-free (Hal)',
@@ -120,10 +126,15 @@ select public.delete_kid('00000000-0000-0000-0000-0000000000a5');
 select pg_temp.as_admin();
 select is((pg_temp.line('00000000-0000-0000-0000-0000000008a2')).note, null, 'deleting a kid takes the notes naming them');
 select is((pg_temp.line('00000000-0000-0000-0000-0000000008a2')).hand_note, null, 'every column');
+select is((pg_temp.line('00000000-0000-0000-0000-0000000008a6')).note, 'Get gluten-free (Ann)',
+  'and a part cut off mid-name that could be theirs');
 
 -- The retention job anonymizing a removed adult ------------------------------------------------------------------------
-update public.members set status = 'removed', removed_at = now() - interval '13 months'
-where id = '00000000-0000-0000-0000-0000000000a3';
+-- Two steps: removing stamps removed_at with now, so the date is set back after.
+update public.members set status = 'removed' where id = '00000000-0000-0000-0000-0000000000a3';
+update public.members set removed_at = now() - interval '13 months' where id = '00000000-0000-0000-0000-0000000000a3';
+select is((select count(*)::int from public.member_allergies where member_id = '00000000-0000-0000-0000-0000000000a3'), 1,
+  'Hal is removed a year ago, allergies still kept');
 select public.anonymize_expired_profiles();
 select is((pg_temp.line('00000000-0000-0000-0000-0000000008a5')).note, null,
   'anonymizing a removed adult takes the notes naming them');
@@ -168,15 +179,10 @@ select is((select note from public.list_items where household_id = '00000000-000
 select ok(not has_function_privilege('authenticated', 'public.forget_in_list_notes(uuid, text)', 'execute'),
   'nobody signed in calls the unchecked helpers');
 select ok(not has_function_privilege('authenticated', 'public.erase_allergy_list_notes(uuid)', 'execute'), 'either one');
-select ok(not has_function_privilege('anon', 'public.clear_allergy_list_notes(uuid, uuid)', 'execute'),
-  'signed-out callers can''t clear notes');
-select pg_temp.as_user('f0000000-0000-0000-0000-00000000000f');  -- Dan
-select throws_ok($$ select public.clear_allergy_list_notes('00000000-0000-0000-0000-0000000000a0') $$, '42501', null,
-  'another household''s member can''t clear them');
-select public.clear_allergy_list_notes('00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000000b2');
-select pg_temp.as_admin();
-select is((pg_temp.line('00000000-0000-0000-0000-0000000008b1')).note, null,
-  'a member clears the notes naming someone in their own household');
+select ok(not exists (select 1 from pg_proc where proname = 'clear_allergy_list_notes'),
+  'and there''s no clearing function a member could call to strip the family''s allergy warnings');
+select ok(not has_function_privilege('authenticated', 'public.list_note_without(text, text)', 'execute'),
+  'or the note helper');
 
 select * from finish();
 rollback;

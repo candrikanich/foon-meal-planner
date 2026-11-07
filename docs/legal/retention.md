@@ -170,9 +170,10 @@ released, and the reminder log about them is deleted. The parent-entered profile
   keeps a note while they stay off, so a phone with an old cache or queued change can't write one back. A note is free
   text, so "Couldn't find it last trip" goes too.
 - **Someone's allergies all gone** (removed by a parent or by themselves, their account deleted, anonymized, or the kid
-  deleted): the parts of every note that name them go at once, and the weeks whose lines changed ask the planner to
-  Update the list, which puts back what everyone else still needs. A note names people in parentheses at its end;
-  a part cut off mid-name goes if the name could be theirs.
+  deleted): the parts of every note that name them, or might, go at once, and the weeks whose lines changed ask the
+  planner to Update the list, which puts back what everyone else still needs. A note names people in parentheses at its
+  end. A part that might be theirs goes too: a short list like "(Nora +2)", which hides the others' names, and a part cut
+  off mid-name where the name could be theirs.
 - **Some of someone's allergies removed, not all:** their notes stay until the next Update the list rebuilds them.
   A phone offline since before the removal could still send an old note naming them.
 
