@@ -31,6 +31,10 @@ useSeoMeta({ title: "Privacy: Foon", description: "What Foon keeps, and what thi
         turned back into the address.
       </li>
       <li>We send these emails through a mail service, Resend, and store the list with our database host, Supabase. We don't sell or share the list.</li>
+      <li>
+        The consent pages are where a parent agrees to, says no to, or withdraws consent for their kid, from the link in
+        our email. They send the link's code to Foon and nothing else, and set no cookies.
+      </li>
     </ul>
 
     <h2>What the Foon app keeps</h2>

@@ -1,4 +1,5 @@
-// A static marketing site: every page is prerendered. The waitlist form talks to the Supabase `waitlist` Edge Function.
+// A static marketing site: every page is prerendered. The waitlist form talks to the Supabase `waitlist` Edge Function,
+// and the parental consent pages to `parental-consent`.
 export default defineNuxtConfig({
   compatibilityDate: "2026-11-01",
   devtools: { enabled: false },
@@ -10,6 +11,8 @@ export default defineNuxtConfig({
     public: {
       // NUXT_PUBLIC_WAITLIST_URL: https://<project-ref>.supabase.co/functions/v1/waitlist (read at build time).
       waitlistUrl: "",
+      // NUXT_PUBLIC_CONSENT_URL: https://<project-ref>.supabase.co/functions/v1/parental-consent (read at build time).
+      consentUrl: "",
       // NUXT_PUBLIC_SITE_URL: the canonical origin, for Open Graph and canonical links.
       siteUrl: "https://getfoon.com",
     },
