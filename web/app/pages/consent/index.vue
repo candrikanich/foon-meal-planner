@@ -38,8 +38,9 @@ onNuxtReady(() => send("lookup"));
         <li v-for="item in consentKept(state.firstName)" :key="item">{{ item }}</li>
       </ul>
       <p>
-        It's used only to run Foon for your family, and everyone in your household can see it. Only the services that run
-        Foon for us handle it (Supabase hosts it; Apple delivers notifications). It's never sold or used for ads.
+        It's used only to run Foon for your family, and everyone in your household can see it. We don't disclose it to
+        anyone else. Only the services that run Foon for us handle it (Supabase hosts it; Apple delivers notifications).
+        It's never sold or used for ads.
       </p>
       <p>If you say no, Foon collects nothing from {{ state.firstName }}, and they can't sign in.</p>
       <p>

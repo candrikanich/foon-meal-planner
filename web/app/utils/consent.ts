@@ -93,7 +93,10 @@ export async function answerConsent(
   if (!token) return { step: "go", to: CONSENT_ROUTES.expired };
   if (!endpoint) return { step: "error" };
   const parsed = consentReply.safeParse(await postDecision(endpoint, "consent", token, decision, post));
-  return parsed.success ? consentStep(parsed.data) : { step: "error" };
+  if (!parsed.success) return { step: "error" };
+  const step = consentStep(parsed.data);
+  // A refuse gets try_again only while an agree is mid-send (another tab); "Almost done" would misread that.
+  return step.step === "again" && decision !== "agree" ? { step: "error" } : step;
 }
 
 export async function answerWithdraw(

@@ -46,6 +46,11 @@ describe("answerConsent", () => {
     }
   });
 
+  it("says almost done only for I agree", async () => {
+    expect(await answerConsent(fn, token, "refuse", json(200, { result: "try_again" }))).toEqual({ step: "error" });
+    expect(await answerConsent(fn, token, "lookup", json(200, { result: "try_again" }))).toEqual({ step: "error" });
+  });
+
   it("goes to expired without a token, and never calls out", async () => {
     expect(await answerConsent(fn, "", "lookup", never)).toEqual({ step: "go", to: "/consent/expired" });
   });
