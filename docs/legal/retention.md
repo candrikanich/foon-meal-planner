@@ -22,6 +22,7 @@ Scheduled jobs run in the database (pg_cron), every day unless noted. Times are 
 | P | `prune_push_outbox()` | `20261102210000_store_run.sql` | Daily, 03:29 |
 | S | `prune_subscription_events()` | `20261107000000_entitlement.sql` | Daily, 03:41 |
 | W | `prune_waitlist()` | `20261108000000_waitlist.sql` | Daily, 04:17 |
+| C | `purge_parental_consent_requests()` | `20261116000000_email_plus_consent.sql` | Daily, 04:23 |
 | J | `expire_ai_jobs()` | `20261103210000_ai_jobs.sql` | Hourly, :41 |
 | E | `erase_household()` | `20261107000000_entitlement.sql` | On Delete household or the owner's account delete |
 | D | `delete_account_data()` | `20261103040000_kid_delete_own_words.sql` | On Delete my account |
@@ -72,6 +73,9 @@ when a parent deletes everything about that kid (job **K**).
 | Invites | 30 days | Invite expires (7 days), is redeemed or is cancelled | A |
 | Invite-code attempts, wrong or right (`invite_redeem_attempts`) | 1 day | Attempt | A |
 | Daily recipe-import counts (`import_usage`) | 7 days | Import day (UTC) | A, and `claim_import_slot()` on each import |
+| Parental consent requests (`parental_consent_requests`): kid, parent who asked, status, times | 30 days | Request ends: confirmed, refused, cancelled, or its 7-day link lapses | C |
+| An email address a parent typed for a consent request (their account had none) | Until the confirming email is sent or the request ends: at most 7 days, and up to a day more | Typed | `activate_parental_consent()`, the request's end, C |
+| Consent email bookkeeping (`parental_consent_sends`: who asked, when) | 1 day | Send | C |
 
 ## People who leave
 
@@ -96,7 +100,8 @@ and help. We never use it for ads, never sell it, and never send it anywhere for
 | --- | --- | --- | --- |
 | Profile a parent enters: name, avatar, schedule | Who's home | The plan is built around who's home each night | In the household; anonymized 12 months after removal |
 | Allergies a parent enters | Flagging dishes | Every new dish and list is checked against them | Until removed, alerts off, or anonymized |
-| Parental consent record | Proof a parent agreed | To show consent was given, while the kid's information exists | While the household exists, or until a parent deletes everything about the kid |
+| Parental consent record: who agreed, when, how (email plus, or in the app before #275), when the confirming email went out, the wording | Proof a parent agreed | To show consent was given, while the kid's information exists | While the household exists, or until a parent deletes everything about the kid |
+| Consent requests about the kid (status and times) | Asking a parent by email | Shows the parent where the request stands, and keeps the withdraw link working | 30 days after the request ends; at once if a parent deletes everything about the kid |
 | Apple account ID and email (from Sign in with Apple), and first name if Apple shares it | Signing in | Needed for each sign-in | Until the kid deletes their account, or a parent deletes everything about them |
 | Apple age range (#88, not yet used) | Age checks | See the note on Texas below | Until consent is withdrawn (30 days) or the account is deleted |
 | What they enter (ratings, comments, votes) | Family planning | It's the family's dinner history, which planning draws on | As for all; erased 30 days after withdrawal |
@@ -198,6 +203,18 @@ released, and the reminder log about them is deleted. The parent-entered profile
 - **Delete household:** everything is erased at once, photos included; everyone's accounts stay (`delete-account` Edge
   Function, job **E**).
 
+## Parental consent emails (#275)
+
+A parent's consent for a kid is asked by email (COPPA's email plus). The address is the one on the asking parent's own
+Sign in with Apple account, read when each email is sent; Foon doesn't copy it. Only when that account has no email
+does the parent type one, and that address is kept on the request alone: it's cleared once the confirming email is
+sent, or when the request is refused, cancelled or lapses, and goes with the request when it's deleted. A SHA-256 hash of
+the address email 1 went to is kept on the request until it ends, so email 2 goes only there. Only SHA-256
+hashes of the emailed links' tokens are stored. We keep no copy of either email.
+
+Resend, which sends them, keeps its own logs of each email (such as the recipient, subject and delivery status) for
+its own period. [CHECK: Resend's log retention, and whether it can be shortened.]
+
 ## Push devices
 
 A device's push token is deleted when the person signs out or turns reminders off, when the sign-in session that
@@ -241,5 +258,5 @@ restore the service after a failure.
 Payment details (Apple keeps them), birthdays, phone numbers, location (apart from the household time zone), calendar
 events, receipt photos, library photos shown in Dinner memories, and photos from recipe websites.
 
-> **Review:** our providers keep their own logs (for example, Supabase sign-in and request logs, Vercel request logs)
-> under their own retention periods. Confirm the periods and whether to list them. [CHECK]
+> **Review:** our providers keep their own logs (for example, Supabase sign-in and request logs, Vercel request logs,
+> Resend's logs of the emails it sends) under their own retention periods. Confirm the periods and whether to list them. [CHECK]

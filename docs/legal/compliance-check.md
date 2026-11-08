@@ -14,7 +14,9 @@ review shorter, not to replace it.
 
 Some sources couldn't be read directly:
 
-- eCFR redirected, so the current text of 16 CFR 312.2, 312.4(c)(1), 312.5 and 312.6 wasn't read word for word.
+- eCFR redirected, so the current text of 16 CFR 312.2, 312.4(c)(1), 312.5 and 312.6 wasn't read word for word at
+  first. For #275 (2026-11-08), 312.4(c)(1) and 312.5(b)(2)(viii) were read on Cornell LII's copy of the current
+  16 CFR; 312.2's "disclose" still rests on the earlier passes.
 - Connecticut's site (cga.ct.gov) failed its certificate check.
 - The California and Louisiana code pages refused the request.
 - Some fetches came back as summaries, not verbatim text.
@@ -50,9 +52,11 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 
 ### (b) Needs code (not built here)
 
-- **Verifiable parental consent.** Today's in-app agreement isn't a method listed in 312.5(b)(2). The cheapest listed
-  one is "email plus": a direct notice to the parent's email, consent, then a confirming step. Foon collects no parent
-  email or phone today.
+- **Verifiable parental consent.** Done in #275 (decision 1 below): "email plus", 312.5(b)(2)(viii). The
+  `parental-consent` Edge Function emails the direct notice to the asking parent's sign-in address, the parent agrees
+  on getfoon.com, and a confirming email with a withdraw link goes out; only then is the consent written
+  (`method = 'email_plus'`, `parental-invite-v3`). The app can no longer write a parental consent itself. Part A is
+  the server; the site pages (B) and the app (C) follow. Consents given in the app before it stay until #277.
 - **Direct notice to the parent.** Done in #276: the kid-invite consent screen links the policies, says no invite goes
   out without a yes, and the wording is `parental-invite-v2`.
 - **New consent for material changes.** Store the consent version per kid, and hold a kid's access until a parent
@@ -87,8 +91,10 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 
 ### (c) Decisions for Chris or counsel
 
-1. **Consent method.** Use email plus, or text plus, or ask a Safe Harbor program to approve another method under
-   312.5(b)(3)?
+1. **Consent method.** Decided: email plus (Chris, 2026-11-08; below), built in #275. Its condition is decision 2.
+   [CHECK] for counsel: if household visibility is "disclosure", email plus isn't available. Is the fallback then a
+   method on the 312.5(b)(2) list that doesn't carry that condition, or a Safe Harbor program's approval of another
+   method under 312.5(b)(3)?
 2. **Household visibility.** Do household members seeing a kid's name, comments, or anyone's allergies count as
    "disclosure" (COPPA 312.2) or "sharing" with a third party (Washington .010(27))? If yes:
    - email plus is off the table;
@@ -119,6 +125,18 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 15. **New York.** Recheck S9269 (NY Health Information Privacy Act) before launch.
 16. **Research not done:** Vermont's and Nebraska's age-appropriate design codes, and the Texas SCOPE Act.
 
+**Decided by Chris (2026-11-08), for counsel to confirm in their review (#275):**
+- **Consent method: email plus** (312.5(b)(2)(viii)). Email 1 is the direct notice, to the address on the asking
+  parent's own Sign in with Apple account; the parent agrees on getfoon.com; email 2 confirms it and says how to
+  withdraw. Consent is active once email 2 has gone out, with no second click: the rule asks for a confirmatory
+  email after consent, not a reply to it.
+- **No email on the account.** The parent may type one. It's kept only on the request and cleared once email 2 is
+  sent or the request ends (312.5(c)(1) lets an operator collect a parent's online contact for consent).
+- **Link lifetimes.** The consent link works 7 days; the withdraw link 30 days. Withdrawing in the app always works.
+- **No carry-over.** Consents given in the app before #275 were never a listed method. They're tagged `in_app`,
+  nothing is revoked, and #277 holds those kids' access until a parent completes email plus.
+- **Sender and language.** From info@getfoon.com (`CONSENT_FROM`), in English only.
+
 **Decided by Chris (2026-11-07), for counsel to confirm in their review:**
 - **Allergy consent already given (#280).** Consent is asked once: households that agreed to `allergy-data-v1`, which
   named neither recipients nor withdrawal, aren't asked again. Every new agreement uses `allergy-data-v2`, including
@@ -144,10 +162,10 @@ size.
 | Retention policy in the notice | 312.4(d)(2), 312.10 | privacy.md How long we keep it; retention.md Kids | partly | Wording (this PR): retention.md stated to be part of the notice, with business need. The passes disagreed: one said met; this file takes partly |
 | Internal-operations identifiers (account ID, push token, provider logs) | 312.4(d)(3) | privacy.md Your account, Reminders; provider logs `[CHECK]` | partly | Wording after confirming Supabase and Vercel logs |
 | Parent's right to review, delete, refuse further collection, stated | 312.4(d), 312.6 | privacy.md Kids (this PR states all three) | partly → met in this PR | Wording (this PR) |
-| Direct notice to the parent before consent | 312.4(b), (c)(1) (exact text UNVERIFIED) | `ParentalConsent.statement` (`parental-invite-v2`, #276): names data types (including the Apple sign-in and notification token) and who receives them (household, hosting, Apple for notifications), says no invite goes out without a yes, how to withdraw; Terms and Privacy links under it | met | Counsel to confirm the wording |
+| Direct notice to the parent before consent | 312.4(b), (c)(1) (read on LII, #275) | Email 1 (`noticeEmail` in `supabase/functions/parental-consent/email.ts`, `parental-invite-v3`): (i) why the parent gets it and that nothing was collected from the kid, (ii) consent is needed and what happens without it, (iii) what's collected and how it's used, (iv) no disclosure beyond the services that run Foon, (v) the privacy policy link, (vi) how to consent, (vii) the 7-day lapse; plus how to withdraw, the operator and contact. Unit-tested element by element | met pending counsel | Counsel to confirm the wording |
 | New consent for material changes | 312.4(b), 312.5(a)(1) | privacy.md Changes promises it; no mechanism | gap | Code |
-| Verifiable parental consent before collection | 312.5(a)(1), (b)(1) | In-app agreement by a signed-in adult (`parental-invite-v2`); nothing checks it's the parent | gap | Code (email plus), or Safe Harbor approval (312.5(b)(3)). One pass called this UNVERIFIED; this file takes gap |
-| Accepted method in the safe list | 312.5(b)(2)(i)-(ix) | Not on the list. Apple subscription isn't a card notice Foon sees (312.5(b)(2)(ii)) | gap | As above |
+| Verifiable parental consent before collection | 312.5(a)(1), (b)(1) | Email plus (#275): a kid can't be invited or claim a profile until a parent agreed from email 1 and email 2 went out; the record keeps the method, both times and the wording. Consents from before #275 are `in_app` and stay until #277 | met pending counsel | Decision 2; #277 for the earlier consents |
+| Accepted method in the safe list | 312.5(b)(2)(i)-(ix) | Email plus, 312.5(b)(2)(viii): confirmatory email after consent, with the notice that the parent can revoke (#275) | met pending counsel | Decision 2 |
 | Email plus / text plus only for operators that don't disclose | 312.5(b)(2)(viii)-(ix); "disclose" in 312.2 (UNVERIFIED) | Processors are service providers, not disclosure | open | Decision 2 |
 | Separate consent for third-party disclosure | 312.5(a)(2) | No disclosure to third parties for their own use | n/a | Wording (this PR): said plainly. Analytics (#28) would need it |
 | Parent can review a kid's information | 312.6(a)(1), (a)(3) | Visible in the household; every parent reads a kid's reminder log and hidden comments, and exports (#279) | met | None |
@@ -300,6 +318,9 @@ Status as of 2026-11-06:
 | FTC Act §5 and state deceptive-practice laws | Yes: "no ads, no tracking, never sold" are enforceable promises | met | Keep them true when #28 ships |
 
 ## CAN-SPAM (waitlist emails)
+
+The parental consent emails (#275) are transactional: they carry no offer and go only to a parent who asked. They
+still name the sender and postal address.
 
 | Requirement | Citation | Where we meet it | Verdict | Fix |
 | --- | --- | --- | --- | --- |

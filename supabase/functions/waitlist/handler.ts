@@ -6,6 +6,7 @@
 //                                           (Safe Links, Mimecast) open every link in an email before the person does
 // Everything about storage and mail is behind WaitlistDeps so the rules here are testable without either.
 import { z } from "zod";
+import { tokenPattern } from "../_shared/token.ts";
 import { clientKey, safeEqual } from "./client.ts";
 
 export type JoinResult =
@@ -57,7 +58,6 @@ const signupSchema = z.object({
   website: z.string().optional(),
 });
 
-const tokenPattern = /^[A-Za-z0-9_-]{20,100}$/;
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
