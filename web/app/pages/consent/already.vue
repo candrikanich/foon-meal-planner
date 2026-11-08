@@ -2,7 +2,7 @@
 useSeoMeta({ title: "Already agreed: Foon", robots: "noindex" });
 useHead({ meta: [{ name: "referrer", content: "no-referrer" }] });
 
-// Another parent in the household gave consent first, so this link has nothing left to do. No email goes out from it.
+// Another parent in the household gave consent first, so this link has nothing left to do.
 const name = useConsentName();
 </script>
 
