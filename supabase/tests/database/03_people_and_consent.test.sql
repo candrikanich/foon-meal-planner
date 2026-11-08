@@ -98,10 +98,15 @@ select throws_ok(
   $$ insert into public.consents (household_id, member_id, kind, text_version) values
        ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'parental', 'v1') $$,
   '42501', null, 'parental consent is only for a kid''s profile');
-select lives_ok(
+select throws_ok(
   $$ insert into public.consents (household_id, member_id, kind, text_version) values
        ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'parental', 'v1') $$,
-  'a guardian gives parental consent for a kid');
+  '42501', null, 'parental consent comes only from the email-plus flow (#275), not the app');
+-- As activate_parental_consent records it, once a guardian has agreed by email.
+select pg_temp.as_admin();
+insert into public.consents (household_id, member_id, kind, granted_by, text_version, method, confirmed_at) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'parental',
+   'a0000000-0000-0000-0000-0000000000a2', 'v1', 'email_plus', now());
 
 select pg_temp.as_user('d0000000-0000-0000-0000-00000000000d');  -- Dave, no household
 select is(public.has_active_consent('00000000-0000-0000-0000-0000000000a0', 'allergy_data'), false,

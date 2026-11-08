@@ -53,8 +53,12 @@ insert into public.member_allergies (household_id, member_id, category) values
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice
 select throws_ok($$ select public.create_invite('00000000-0000-0000-0000-0000000000a2') $$,
   '22023', null, 'a kid''s profile needs parental consent before an invite');
-insert into public.consents (household_id, member_id, kind, text_version) values
-  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'parental', 'parental-invite-v1');
+-- Parental consent is written by the email-plus flow (#275), so the fixture records it as admin, in Alice's name.
+select pg_temp.as_admin();
+insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'parental',
+   'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v1');
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice
 select set_config('test.nora', public.create_invite('00000000-0000-0000-0000-0000000000a2'), true);
 select set_config('test.ben', public.create_invite('00000000-0000-0000-0000-0000000000a4'), true);
 select ok(current_setting('test.ben') <> '', 'an adult''s profile needs no parental consent');
@@ -74,9 +78,11 @@ select is(public.redeem_invite(current_setting('test.ben')), 'claimed',
   'without an age signal (older app or unsupported region) the claim goes ahead');
 
 -- Consent revoked between invite and claim --------------------------------------------------
+select pg_temp.as_admin();
+insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'parental',
+   'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v1');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice
-insert into public.consents (household_id, member_id, kind, text_version) values
-  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'parental', 'parental-invite-v1');
 select set_config('test.owen', public.create_invite('00000000-0000-0000-0000-0000000000a3'), true);
 update public.consents set revoked_at = now()
 where member_id = '00000000-0000-0000-0000-0000000000a3' and kind = 'parental';
