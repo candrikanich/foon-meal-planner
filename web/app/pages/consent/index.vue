@@ -48,6 +48,9 @@ onNuxtReady(() => send("lookup"));
         Read our <NuxtLink to="/privacy">privacy policy</NuxtLink>.
       </p>
       <p v-if="state.notice === 'again'" class="message problem" role="alert">Almost done, tap again.</p>
+      <p v-else-if="state.notice === 'wait'" class="message problem" role="alert">
+        An answer is being saved right now. Try again in a moment.
+      </p>
       <p v-else-if="state.notice === 'problem'" class="message problem" role="alert">
         Something went wrong. Please try again in a few minutes.
       </p>

@@ -46,8 +46,8 @@ describe("answerConsent", () => {
     }
   });
 
-  it("says almost done only for I agree", async () => {
-    expect(await answerConsent(fn, token, "refuse", json(200, { result: "try_again" }))).toEqual({ step: "error" });
+  it("says almost done only for I agree, and wait for a No mid-send", async () => {
+    expect(await answerConsent(fn, token, "refuse", json(200, { result: "try_again" }))).toEqual({ step: "wait" });
     expect(await answerConsent(fn, token, "lookup", json(200, { result: "try_again" }))).toEqual({ step: "error" });
   });
 
@@ -129,6 +129,13 @@ describe("page states", () => {
   it("keeps the buttons with a note when a tap doesn't finish", () => {
     expect(nextPage(asking, { step: "again" })).toEqual({ state: { ...asking, notice: "again" } });
     expect(nextPage(asking, { step: "error" })).toEqual({ state: { ...asking, notice: "problem" } });
+  });
+
+  it("keeps the parent on the page when No lands while an I agree is sending", () => {
+    expect(nextPage(asking, { step: "wait" })).toEqual({ state: { ...asking, notice: "wait" } });
+    expect(nextPage({ ...asking, notice: "wait" }, { step: "go", to: CONSENT_ROUTES.refused })).toEqual({
+      navigate: "/consent/refused",
+    });
     expect(nextPage({ ...asking, notice: "again" }, { step: "ask", firstName: "Nora" })).toEqual({ state: asking });
   });
 

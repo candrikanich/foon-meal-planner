@@ -20,6 +20,8 @@ export type ConsentStep =
   | { step: "ask"; firstName: string }
   // I agree was kept but email 2 didn't go out yet: tapping again resends.
   | { step: "again" }
+  // No arrived while an I agree (another tab) is sending email 2: try again in a moment.
+  | { step: "wait" }
   | { step: "go"; to: ConsentRoute }
   | { step: "error" };
 
@@ -95,8 +97,9 @@ export async function answerConsent(
   const parsed = consentReply.safeParse(await postDecision(endpoint, "consent", token, decision, post));
   if (!parsed.success) return { step: "error" };
   const step = consentStep(parsed.data);
-  // A refuse gets try_again only while an agree is mid-send (another tab); "Almost done" would misread that.
-  return step.step === "again" && decision !== "agree" ? { step: "error" } : step;
+  if (step.step !== "again" || decision === "agree") return step;
+  // A refuse gets try_again only while an agree is mid-send; a lookup never should.
+  return decision === "refuse" ? { step: "wait" } : { step: "error" };
 }
 
 export async function answerWithdraw(
@@ -115,7 +118,7 @@ export async function answerWithdraw(
 export type PageState =
   | { view: "loading" }
   | { view: "unreachable" }
-  | { view: "ask"; firstName: string; notice: "none" | "again" | "problem" };
+  | { view: "ask"; firstName: string; notice: "none" | "again" | "wait" | "problem" };
 
 export type PageMove = { state: PageState } | { navigate: ConsentRoute };
 
@@ -124,5 +127,5 @@ export function nextPage(current: PageState, step: ConsentStep | WithdrawStep): 
   if (step.step === "go") return { navigate: step.to };
   if (step.step === "ask") return { state: { view: "ask", firstName: step.firstName, notice: "none" } };
   if (current.view !== "ask") return { state: { view: "unreachable" } };
-  return { state: { ...current, notice: step.step === "again" ? "again" : "problem" } };
+  return { state: { ...current, notice: step.step === "error" ? "problem" : step.step } };
 }
