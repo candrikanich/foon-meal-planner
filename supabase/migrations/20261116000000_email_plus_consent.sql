@@ -61,6 +61,9 @@ create table public.parental_consent_requests (
   -- without keeping a copy of an account's email. Cleared when the request ends.
   email_hash text,
   pending_email_hash text,
+  -- Where a Send again is going, until it's out: a failed resend leaves the live link's address as it was.
+  pending_email_source text check (pending_email_source in ('account', 'typed')),
+  pending_typed_email text check (pending_typed_email is null or char_length(pending_typed_email) between 3 and 254),
   -- The wording emailed; set with the token when email 1 goes out.
   text_version text check (text_version is null or char_length(btrim(text_version)) between 1 and 40),
   token_hash text unique,
@@ -131,7 +134,7 @@ language sql security definer set search_path = ''
 as $$
   update public.parental_consent_requests
      set status = final_status, ended_at = now(), typed_email = null, email_hash = null, pending_email_hash = null,
-         send_reserved_at = null, confirm_reserved_at = null
+         pending_email_source = null, pending_typed_email = null, send_reserved_at = null, confirm_reserved_at = null
    where id = target and status in ('pending', 'consented');
 $$;
 revoke execute on function public.end_parental_consent_request(uuid, text) from public, anon, authenticated;
@@ -213,8 +216,11 @@ begin
    where member_id = kid.id and requested_by = caller and status in ('pending', 'consented')
    order by created_at desc limit 1
    for update;
+  -- An agreed request (consented) waits for email 2, which tapping I agree again resends: a new email 1 would throw
+  -- the agreement away.
   if open_request.id is not null
-     and (open_request.token_sent_at > now() - interval '10 minutes'
+     and (open_request.status = 'consented'
+          or open_request.token_sent_at > now() - interval '10 minutes'
           or open_request.send_reserved_at > now() - interval '5 minutes') then
     return jsonb_build_object('outcome', 'rate_limited');
   end if;
@@ -238,8 +244,8 @@ begin
     returning * into open_request;
   else
     update public.parental_consent_requests
-       set send_reserved_at = now(), email_source = source,
-           typed_email = case when source = 'typed' then address end,
+       set send_reserved_at = now(), pending_email_source = source,
+           pending_typed_email = case when source = 'typed' then address end,
            pending_email_hash = public.consent_email_hash(address)
      where id = open_request.id;
   end if;
@@ -252,8 +258,9 @@ begin
 end;
 $$;
 
--- Email 1 went out: its token is the one that works (an earlier link stops working), for 7 days. Any other parent's
--- open request for the kid is cancelled, so only one link is live.
+-- Email 1 went out: its token is the one that works (an earlier link stops working), for 7 days, with the address it
+-- went to. Any other parent's pending request for the kid is cancelled, so only one link is live; one already agreed
+-- (consented) is left to finish.
 create function public.parental_consent_mark_sent(p_request_id uuid, p_send_id bigint, p_token_hash text,
                                                   p_text_version text)
 returns void
@@ -265,14 +272,18 @@ declare
 begin
   update public.parental_consent_requests
      set token_hash = p_token_hash, token_sent_at = now(), expires_at = now() + interval '7 days',
-         email_hash = pending_email_hash, pending_email_hash = null, send_reserved_at = null, text_version = p_text_version, status = 'pending', decided_at = null,
-         confirm_reserved_at = null
-   where id = p_request_id and status in ('pending', 'consented')
+         email_hash = pending_email_hash, pending_email_hash = null,
+         email_source = coalesce(pending_email_source, email_source),
+         typed_email = case pending_email_source when 'typed' then pending_typed_email when 'account' then null
+                            else typed_email end,
+         pending_email_source = null, pending_typed_email = null, send_reserved_at = null,
+         text_version = p_text_version
+   where id = p_request_id and status = 'pending'
   returning * into request;
   update public.parental_consent_sends set sent = true where id = p_send_id;
   if request.id is null then return; end if;
   for other in select id from public.parental_consent_requests
-                where member_id = request.member_id and id <> request.id and status in ('pending', 'consented')
+                where member_id = request.member_id and id <> request.id and status = 'pending'
                 for update loop
     perform public.end_parental_consent_request(other, 'cancelled');
   end loop;
@@ -288,7 +299,8 @@ as $$
 begin
   update public.parental_consent_sends set reserved_at = null where id = p_send_id and not sent;
   delete from public.parental_consent_requests where id = p_request_id and token_sent_at is null;
-  update public.parental_consent_requests set send_reserved_at = null, pending_email_hash = null
+  update public.parental_consent_requests
+     set send_reserved_at = null, pending_email_hash = null, pending_email_source = null, pending_typed_email = null
    where id = p_request_id;
 end;
 $$;
@@ -434,8 +446,8 @@ begin
   on conflict do nothing;
   update public.parental_consent_requests
      set status = 'confirmed', confirmed_at = now(), ended_at = now(), withdraw_token_hash = p_withdraw_token_hash,
-         typed_email = null, email_hash = null, pending_email_hash = null, confirm_reserved_at = null,
-         send_reserved_at = null
+         typed_email = null, email_hash = null, pending_email_hash = null, pending_email_source = null,
+         pending_typed_email = null, confirm_reserved_at = null, send_reserved_at = null
    where id = request.id;
   for other in select id from public.parental_consent_requests
                 where member_id = request.member_id and id <> request.id and status in ('pending', 'consented')

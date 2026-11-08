@@ -2,7 +2,7 @@
 -- a parental consent, after the parent agreed from email 1 and email 2 went out. Pending, refused, expired, confirmed
 -- and withdrawn; the limits; who reads requests; retention.
 begin;
-select plan(90);
+select plan(94);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -22,7 +22,8 @@ $$;
 -- Household A: Alice (owner, parent), Paul (parent, no email on his account), Grace (adult, not a parent), Kim (kid,
 -- claimed), Eve (parent with a confirmed email but no Apple sign-in). Unclaimed: Nora, Owen, Pia, Quin, Rex (kids),
 -- Ben (adult). Household B: Carol (owner), Bo (parent, email not marked confirmed) and kid Cal. Alice, Carol and Bo
--- sign in with Apple. Household C (Fay) only holds other families' sends for the overall cap.
+-- sign in with Apple. Household C: Fay (owner, no Apple sign-in, so she types an address) and kid Kai; it also holds
+-- other families' sends for the overall cap.
 insert into auth.users (id, email, email_confirmed_at, aud, role) values
   ('a0000000-0000-0000-0000-00000000000a', 'alice@example.com', now(), 'authenticated', 'authenticated'),
   ('a0000000-0000-0000-0000-0000000000a2', '', null, 'authenticated', 'authenticated'),
@@ -56,7 +57,9 @@ insert into public.members (id, household_id, first_name, role, age_group, guard
   ('00000000-0000-0000-0000-0000000000aa', '00000000-0000-0000-0000-0000000000a0', 'Rex', 'member', 'kid', false, 'active', null),
   ('00000000-0000-0000-0000-0000000000ae', '00000000-0000-0000-0000-0000000000a0', 'Eve', 'member', 'adult', true, 'active', 'a0000000-0000-0000-0000-0000000000ae'),
   ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000b0', 'Cal', 'member', 'kid', false, 'active', null),
-  ('00000000-0000-0000-0000-0000000000b3', '00000000-0000-0000-0000-0000000000b0', 'Bo', 'member', 'adult', true, 'active', 'c0000000-0000-0000-0000-0000000000b3');
+  ('00000000-0000-0000-0000-0000000000b3', '00000000-0000-0000-0000-0000000000b0', 'Bo', 'member', 'adult', true, 'active', 'c0000000-0000-0000-0000-0000000000b3'),
+  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000c0', 'Fay', 'planner', 'adult', true, 'active', 'f0000000-0000-0000-0000-00000000000f'),
+  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000c0', 'Kai', 'member', 'kid', false, 'active', null);
 
 -- The app can't write a parental consent any more ---------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice
@@ -294,6 +297,47 @@ select pg_temp.as_admin();
 select is((select status from public.parental_consent_requests where token_hash = 'hash-r1'), 'cancelled',
   'the request is cancelled; the parent asks again');
 update auth.users set email = 'alice@example.com' where id = 'a0000000-0000-0000-0000-00000000000a';
+
+-- An agreement isn't thrown away by a later email 1 ---------------------------------------------------------------------
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice asks again for Rex
+select set_config('test.rex2', public.request_parental_consent('00000000-0000-0000-0000-0000000000aa')::text, true);
+select pg_temp.as_service();
+select public.parental_consent_mark_sent((current_setting('test.rex2')::jsonb ->> 'request_id')::uuid,
+  (current_setting('test.rex2')::jsonb ->> 'send_id')::bigint, 'hash-r2', 'parental-invite-v3');
+select public.parental_consent_decide('hash-r2', 'agree');
+select pg_temp.as_admin();
+update public.parental_consent_requests set token_sent_at = now() - interval '11 minutes' where token_hash = 'hash-r2';
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice
+select is(public.request_parental_consent('00000000-0000-0000-0000-0000000000aa') ->> 'outcome', 'rate_limited',
+  'Send again waits while an agreement is finishing');
+select pg_temp.as_user('a0000000-0000-0000-0000-0000000000a2');  -- Paul asks for Rex meanwhile
+select set_config('test.rex3',
+  public.request_parental_consent('00000000-0000-0000-0000-0000000000aa', 'paul@example.com')::text, true);
+select pg_temp.as_service();
+select public.parental_consent_mark_sent((current_setting('test.rex3')::jsonb ->> 'request_id')::uuid,
+  (current_setting('test.rex3')::jsonb ->> 'send_id')::bigint, 'hash-r3', 'parental-invite-v3');
+select is((select status from public.parental_consent_requests where token_hash = 'hash-r2'), 'consented',
+  'another parent''s email 1 leaves an agreed request alone');
+select is(public.activate_parental_consent((current_setting('test.rex2')::jsonb ->> 'request_id')::uuid, 'whash-r'),
+  'confirmed', 'so email 2 still activates it');
+
+-- A failed Send again to a new address leaves the live link's address ------------------------------------------------
+select pg_temp.as_user('f0000000-0000-0000-0000-00000000000f');  -- Fay types an address
+select set_config('test.kai1',
+  public.request_parental_consent('00000000-0000-0000-0000-0000000000c2', 'first@example.com')::text, true);
+select pg_temp.as_service();
+select public.parental_consent_mark_sent((current_setting('test.kai1')::jsonb ->> 'request_id')::uuid,
+  (current_setting('test.kai1')::jsonb ->> 'send_id')::bigint, 'hash-k1', 'parental-invite-v3');
+select pg_temp.as_admin();
+update public.parental_consent_requests set token_sent_at = now() - interval '11 minutes' where token_hash = 'hash-k1';
+select pg_temp.as_user('f0000000-0000-0000-0000-00000000000f');  -- Fay, Send again to another address, which fails
+select set_config('test.kai2',
+  public.request_parental_consent('00000000-0000-0000-0000-0000000000c2', 'second@example.com')::text, true);
+select pg_temp.as_service();
+select public.parental_consent_release_send((current_setting('test.kai2')::jsonb ->> 'request_id')::uuid,
+  (current_setting('test.kai2')::jsonb ->> 'send_id')::bigint);
+select is(public.parental_consent_decide('hash-k1', 'agree') ->> 'email', 'first@example.com',
+  'agreeing from the live email still sends email 2 to that email''s address');
 
 -- Limits ---------------------------------------------------------------------------------------------------------------
 insert into public.parental_consent_sends (household_id, requested_by, reserved_at, sent)
