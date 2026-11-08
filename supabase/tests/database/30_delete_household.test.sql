@@ -84,6 +84,8 @@ insert into public.consent_agreements (household_id, agreed_by, text_version) va
 insert into public.parental_consent_requests (household_id, member_id, requested_by, email_source) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3',
    'a0000000-0000-0000-0000-00000000000a', 'account');
+insert into public.parental_consent_sends (household_id, requested_by, reserved_at, sent) values
+  ('00000000-0000-0000-0000-0000000000a0', 'a0000000-0000-0000-0000-00000000000a', now(), true);
 insert into public.meal_ingredients (household_id, meal_id, item_id) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000002a1',
    '00000000-0000-0000-0000-0000000001a1');

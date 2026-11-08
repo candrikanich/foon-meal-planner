@@ -14,8 +14,10 @@
 --   consent and still withdraws either kind in the app.
 -- * parental_consent_requests: one row per emailed request. Only token hashes are stored. A typed email is kept only on
 --   the row, and is cleared once email 2 goes out or the request ends (refused, cancelled, expired, purged).
--- * The account's email is used only when it's verified: confirmed, or from Sign in with Apple. Otherwise the parent
---   is asked to type one. Email 2 goes only to the address email 1 went to (compared by hash).
+-- * The account's email is used only when the account signs in with Apple, which vouches for it (Foon is Sign in with
+--   Apple only, and email_confirmed_at proves nothing while sign-ups autoconfirm). Otherwise the parent is asked to
+--   type one: that's their own claim, and the notice sent there is what confirms it. Email 2 goes only to the address
+--   email 1 went to (compared by hash).
 -- * Rate limits: one email 1 per request every 10 minutes, 5 a day per parent, 10 a day per household, 200 an hour
 --   overall. The overall cap is a cost and abuse ceiling like the waitlist's: it means a flood of parents could delay
 --   others by up to an hour, which we accept. A send is reserved under a lock before it starts; a failed one is
@@ -90,10 +92,12 @@ create policy "parents read their kids' consent requests" on public.parental_con
   for select to authenticated
   using (public.is_household_manager(household_id));
 
--- Email 1 sends, for the per-parent and overall limits. No household_id: it's bookkeeping, pruned after a day.
+-- Email 1 sends, for the per-parent, per-household and overall limits. Who asked and for which household are stored on
+-- the send itself, so deleting a request or the kid doesn't reset a count; rows go after a day, or with the household.
 create table public.parental_consent_sends (
   id bigint generated always as identity primary key,
   request_id uuid references public.parental_consent_requests (id) on delete set null,
+  household_id uuid not null references public.households (id) on delete cascade,
   requested_by uuid not null,
   created_at timestamptz not null default now(),
   -- Cleared if the send fails. Counted while sent, or reserved in the last 5 minutes.
@@ -101,6 +105,7 @@ create table public.parental_consent_sends (
   sent boolean not null default false
 );
 create index parental_consent_sends_by_idx on public.parental_consent_sends (requested_by, reserved_at);
+create index parental_consent_sends_household_idx on public.parental_consent_sends (household_id, reserved_at);
 alter table public.parental_consent_sends enable row level security;
 revoke all on table public.parental_consent_sends from public, anon, authenticated;
 
@@ -131,16 +136,15 @@ as $$
 $$;
 revoke execute on function public.end_parental_consent_request(uuid, text) from public, anon, authenticated;
 
--- The account's email, only if it's verified: confirmed, or the account signs in with Apple (whose email Apple vouches
--- for). Null otherwise, so an unverified address is never emailed a notice in someone's name.
+-- The account's email, only if the account signs in with Apple, which vouches for it. Null otherwise (email_confirmed_at
+-- proves nothing while sign-ups autoconfirm), so an unverified address is never emailed a notice in someone's name.
 create function public.verified_account_email(account uuid)
 returns text
 language sql stable security definer set search_path = ''
 as $$
   select nullif(btrim(u.email), '') from auth.users u
    where u.id = account
-     and (u.email_confirmed_at is not null
-          or exists (select 1 from auth.identities i where i.user_id = u.id and i.provider = 'apple'));
+     and exists (select 1 from auth.identities i where i.user_id = u.id and i.provider = 'apple');
 $$;
 revoke execute on function public.verified_account_email(uuid) from public, anon, authenticated;
 
@@ -220,10 +224,9 @@ begin
      or (select count(*) from public.parental_consent_sends
          where reserved_at > now() - interval '1 hour'
            and (sent or reserved_at > now() - interval '5 minutes')) >= 200
-     or (select count(*) from public.parental_consent_sends s
-         join public.parental_consent_requests r on r.id = s.request_id
-         where r.household_id = kid.household_id and s.reserved_at > now() - interval '1 day'
-           and (s.sent or s.reserved_at > now() - interval '5 minutes')) >= 10 then
+     or (select count(*) from public.parental_consent_sends
+         where household_id = kid.household_id and reserved_at > now() - interval '1 day'
+           and (sent or reserved_at > now() - interval '5 minutes')) >= 10 then
     return jsonb_build_object('outcome', 'rate_limited');
   end if;
 
@@ -240,8 +243,8 @@ begin
            pending_email_hash = public.consent_email_hash(address)
      where id = open_request.id;
   end if;
-  insert into public.parental_consent_sends (request_id, requested_by, reserved_at)
-  values (open_request.id, caller, now())
+  insert into public.parental_consent_sends (request_id, household_id, requested_by, reserved_at)
+  values (open_request.id, kid.household_id, caller, now())
   returning id into send_id;
 
   return jsonb_build_object('outcome', 'send', 'request_id', open_request.id, 'send_id', send_id,
