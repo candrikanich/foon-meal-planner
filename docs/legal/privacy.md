@@ -41,7 +41,8 @@ When you sign in with Apple, Apple gives us:
 - an email address, which can be Apple's private relay address if you chose "Hide My Email",
 - your first name, if you chose to share it.
 
-We use these to sign you in and to tell your account apart from others. We don't use your email for marketing.
+We use these to sign you in and to tell your account apart from others. We don't use your email for marketing. If you
+invite your kid to their own account, we use your email to ask for your consent (see Kids and parental consent).
 
 > **Review:** our hosting provider (Supabase) keeps sign-in records for the accounts it manages, which can include
 > device and network details. Confirm what Supabase Auth logs and for how long, and whether to say so here. [CHECK]
@@ -132,7 +133,8 @@ household can see its subscription status.
 ### Other records
 
 - **Consent records.** When a parent agrees to keep allergies, or to invite a kid, we record who agreed, when, and which
-  wording they saw. These stay with the household even if the parent who agreed later deletes their account, so we can
+  wording they saw; for a kid, also how they consented (by email) and when the confirming email went out. Each
+  request for a kid's consent (its status and times) is kept until 30 days after it ends. These stay with the household even if the parent who agreed later deletes their account, so we can
   show the consent was given. They're deleted when the household is, and a kid's parental consent record is deleted
   when a parent deletes everything about that kid.
 - **Invites.** An invite records who it's for, who made it, and when it was used. Only a scrambled form of the code is
@@ -181,8 +183,18 @@ account as a child's account under the Children's Online Privacy Protection Act 
   purposes and periods" is our written retention policy for children's information: why we keep each kind, the need
   for it, and when it's deleted.
 
-- **Accounts.** Foon is set up by an adult. A kid gets their own account only when a parent invites them, and the
-  invite asks the parent to consent first. We record which parent agreed, when, and the wording they saw.
+- **Accounts.** Foon is set up by an adult. A kid gets their own account only when a parent invites them, and only
+  after that parent has given verifiable consent by email (COPPA's "email plus", 312.5(b)(2)(viii)):
+  - When a parent asks to invite a kid, we email them a notice: what we'd keep about the kid, who receives it, that
+    nothing is collected from the kid without their consent, and a link to agree. It goes to the address on that
+    parent's own Sign in with Apple account. If the account has no email, the parent can type one; we keep that
+    address only until our confirming email is sent or the request ends.
+  - The parent opens the link and agrees on getfoon.com (or says no). We then send a second email confirming the
+    consent, with a link to withdraw it. The consent counts only once that second email has gone out.
+  - The link in the first email works for 7 days; the withdraw link in the second, 30 days. Withdrawing in the app
+    always works.
+  - We record which parent agreed, when they agreed, when the confirming email went out, how they consented, and the
+    wording they saw. We keep no copy of either email.
 
 > **Review:** today the app doesn't check the age of someone who signs up and creates a household; a kid's account
 > is only marked as a kid by the parent who invites them. Apple's age range check is planned (#88). Confirm this is
@@ -226,9 +238,12 @@ account as a child's account under the Children's Online Privacy Protection Act 
 
 To ask about or delete your child's information, a parent can also write to support@getfoon.com.
 
-> **Review:** COPPA. Confirm that a parent-run household app with parental consent in the invite meets the amended rule,
-> and whether the consent method (an in-app agreement by a signed-in adult) is enough or needs a stronger method.
-> Confirm the rule's notice requirements are met by this section and the retention policy (retention.md).
+> **Review:** COPPA. The consent method is email plus (decided 2026-11-08, #275), which 312.5(b)(2)(viii) allows only
+> to an operator that doesn't disclose a child's information. Confirm that household members seeing a kid's name and
+> comments isn't "disclosure" (compliance-check.md decision 2), and what the fallback would be if it is. [CHECK]
+> Confirm the direct notice (email 1) meets 312.4(c)(1), and that this section and the retention policy
+> (retention.md) meet the rest of the notice requirements. Consents given in the app before #275 stay active until
+> #277 asks those parents again by email.
 
 > **Review:** a kid's ratings are kept as anonymous history after they're removed. Erasing a withdrawn kid's own ratings
 > is a hard delete. Confirm both are acceptable.
@@ -293,7 +308,7 @@ policy does. [CHECK: data processing agreements on file.]
 | --- | --- | --- |
 | Supabase | Database, sign-in, photo storage, server functions | Everything Foon keeps on its servers |
 | Apple | Sign in with Apple, push notifications, App Store payments | Sign-in, push tokens and text, subscriptions |
-| Resend | Sends waitlist emails | Waitlist email addresses and names |
+| Resend | Sends waitlist emails, and parental consent emails | Waitlist email addresses and names; a parent's email address and their kid's first name, in consent emails. Resend keeps its own logs of each email sent [CHECK: period] |
 | Vercel | Hosts the getfoon.com website | Website requests |
 
 Our servers are in the United States (Supabase's us-east-1 region, AWS, N. Virginia).
@@ -328,7 +343,9 @@ deleted sooner:
 - invites: 30 days after they expire, are used or are cancelled;
 - subscription notices from Apple: 2 years;
 - a removed person's profile: anonymized 12 months after they're removed;
-- what a kid entered themselves: 30 days after a parent withdraws consent.
+- what a kid entered themselves: 30 days after a parent withdraws consent;
+- a request for a parent's consent: 30 days after it ends; an email address a parent typed for it, once our
+  confirming email is sent or the request ends.
 
 Deleted data can remain in our hosting provider's backups for up to 7 days, and is then gone.
 
@@ -411,6 +428,8 @@ We won't treat you differently for using these rights.
   unsubscribing deletes your email and name right away.
 - To limit abuse, the form keeps your network address for up to 2 days, as a keyed hash, not as the address.
 - Waitlist emails are sent through Resend, and the list is stored with Supabase.
+- The consent pages (getfoon.com/consent) are where a parent agrees to, refuses or withdraws consent for their kid,
+  from the link in our email. They send the link's code to Foon and nothing else, and set no cookies.
 
 > **Review:** after launch, should confirmed waitlist entries be deleted after a set time even without unsubscribing?
 
