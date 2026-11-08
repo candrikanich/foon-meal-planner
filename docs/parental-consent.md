@@ -9,7 +9,7 @@ How consent by "email plus" behaves is in [spec.md](spec.md) (Email → Consent 
 | Where | Name | Notes |
 | --- | --- | --- |
 | Edge Function secret | `RESEND_API_KEY` | Already set for the waitlist; the same key sends both |
-| Edge Function secret | `CONSENT_FROM` | `Foon <info@getfoon.com>` (decided 2026-11-08). Must be on a domain verified in Resend. Without it (or the key) nothing is sent: the app is told email is off (503 `email_off`) and no request is kept |
+| Edge Function secret | `CONSENT_FROM` | `Foon <info@getfoon.com>` (decided 2026-11-08). Must be on a domain verified in Resend. Without it (or the key) nothing is sent and the app is told email is off (503 `email_off`). A first request that never sent anything is deleted; a Send again leaves the existing request and its live link as they were |
 | Edge Function secret | `CONSENT_SITE_URL` | Optional. Defaults to `https://getfoon.com`; set it to point the emailed links at a preview |
 | Vercel env (build time) | `NUXT_PUBLIC_CONSENT_URL` | `https://<project-ref>.supabase.co/functions/v1/parental-consent`, which the site's /consent pages POST to |
 | Edge Function (built in) | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Set by Supabase. The anon key is used only to run the parent's request as the parent (their JWT) |
@@ -84,7 +84,9 @@ reserved under a lock in `request_parental_consent`. The overall cap is a cost a
 waitlist. The tradeoff we accept: someone with many accounts and households could use it up and delay other
 parents' emails by up to an hour (each account is held to 5 a day and each household to 10). Sends record their household and parent
 themselves, so deleting a request or the kid doesn't reset a count; they go after a day, or with the household. The app is told
-`rate_limited` and says "Try again in a little while." A send that fails is released; a reservation nobody settled lapses after 5 minutes.
+`rate_limited` and says "Try again in a little while." A send that fails is released and stops counting. A reservation nobody settled (say, the RPC called
+directly and no email sent) keeps counting toward the per-parent, per-household and overall limits for their whole
+window; only the per-request "sending now" check lapses after 5 minutes.
 Email 2 is reserved per request for 5 minutes, so two taps of I agree send it once.
 
 ## Retention

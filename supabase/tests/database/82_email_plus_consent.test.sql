@@ -2,7 +2,7 @@
 -- a parental consent, after the parent agreed from email 1 and email 2 went out. Pending, refused, expired, confirmed
 -- and withdrawn; the limits; who reads requests; retention.
 begin;
-select plan(100);
+select plan(102);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -14,6 +14,13 @@ $$;
 create function pg_temp.as_service() returns void language sql as $$
   select set_config('request.jwt.claims', '{"role": "service_role"}', true),
          set_config('role', 'service_role', true);
+$$;
+-- Five minutes pass for this parent's reservations (as admin).
+create function pg_temp.age_reservations(account uuid) returns void language sql as $$
+  update public.parental_consent_requests set send_reserved_at = send_reserved_at - interval '6 minutes'
+   where requested_by = account and send_reserved_at is not null;
+  update public.parental_consent_sends set reserved_at = reserved_at - interval '6 minutes'
+   where requested_by = account and reserved_at is not null;
 $$;
 create function pg_temp.req(kid uuid) returns public.parental_consent_requests language sql as $$
   select * from public.parental_consent_requests where member_id = kid order by created_at desc, id limit 1;
@@ -87,6 +94,11 @@ select throws_ok($$ select public.parental_consent_decide('x', 'agree') $$, '425
 select throws_ok($$ select public.withdraw_parental_consent('x') $$, '42501', null, 'and withdrawing by link');
 
 -- Who can ask -----------------------------------------------------------------------------------------------------------
+select set_config('request.jwt.claims', json_build_object('sub', 'a0000000-0000-0000-0000-00000000000a',
+  'role', 'authenticated', 'session_id', gen_random_uuid())::text, true);
+select set_config('role', 'authenticated', true);  -- Alice, with a session that has ended
+select throws_ok($$ select public.request_parental_consent('00000000-0000-0000-0000-0000000000a5') $$, '28000', null,
+  'an ended session is told to sign in again');
 select pg_temp.as_user('a0000000-0000-0000-0000-0000000000a3');  -- Grace
 select throws_ok($$ select public.request_parental_consent('00000000-0000-0000-0000-0000000000a5') $$, '42501', null,
   'an adult who isn''t a parent can''t ask');
@@ -135,6 +147,33 @@ select is(public.request_parental_consent('00000000-0000-0000-0000-0000000000b2'
   'nor an Apple email marked unverified');
 select pg_temp.as_admin();
 update auth.identities set identity_data = identity_data - 'email_verified' where provider_id = 'apple-bo';
+-- Reservations that never send (the RPC called directly) still count, after the 5 minutes a send in flight is held.
+select pg_temp.as_user('c0000000-0000-0000-0000-0000000000b3');  -- Bo
+select public.request_parental_consent('00000000-0000-0000-0000-0000000000b2');
+select pg_temp.as_admin();
+select pg_temp.age_reservations('c0000000-0000-0000-0000-0000000000b3');
+select pg_temp.as_user('c0000000-0000-0000-0000-0000000000b3');
+select public.request_parental_consent('00000000-0000-0000-0000-0000000000b2');
+select pg_temp.as_admin();
+select pg_temp.age_reservations('c0000000-0000-0000-0000-0000000000b3');
+select pg_temp.as_user('c0000000-0000-0000-0000-0000000000b3');
+select public.request_parental_consent('00000000-0000-0000-0000-0000000000b2');
+select pg_temp.as_admin();
+select pg_temp.age_reservations('c0000000-0000-0000-0000-0000000000b3');
+select pg_temp.as_user('c0000000-0000-0000-0000-0000000000b3');
+select public.request_parental_consent('00000000-0000-0000-0000-0000000000b2');
+select pg_temp.as_admin();
+select pg_temp.age_reservations('c0000000-0000-0000-0000-0000000000b3');
+select pg_temp.as_user('c0000000-0000-0000-0000-0000000000b3');
+select public.request_parental_consent('00000000-0000-0000-0000-0000000000b2');
+select pg_temp.as_admin();
+select pg_temp.age_reservations('c0000000-0000-0000-0000-0000000000b3');
+select pg_temp.as_user('c0000000-0000-0000-0000-0000000000b3');
+select is(public.request_parental_consent('00000000-0000-0000-0000-0000000000b2') ->> 'outcome', 'rate_limited',
+  'five reservations that never sent still use up the day''s five');
+select pg_temp.as_admin();
+delete from public.parental_consent_sends where requested_by = 'c0000000-0000-0000-0000-0000000000b3';
+delete from public.parental_consent_requests where requested_by = 'c0000000-0000-0000-0000-0000000000b3';
 
 -- Email 1 sent, and sent again ------------------------------------------------------------------------------------------
 select pg_temp.as_service();

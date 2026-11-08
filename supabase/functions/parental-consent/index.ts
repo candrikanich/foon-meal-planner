@@ -56,7 +56,7 @@ Deno.serve((req) =>
         email_address: email,
       });
       if (error) {
-        if (["42501", "22023", "22000"].includes(error.code)) throw new RefusedError(error.code);
+        if (["28000", "42501", "22023", "22000"].includes(error.code)) throw new RefusedError(error.code);
         throw error;
       }
       const row = data as Row;

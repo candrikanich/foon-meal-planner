@@ -21,7 +21,9 @@
 -- * Rate limits: one email 1 per request every 10 minutes, 5 a day per parent, 10 a day per household, 200 an hour
 --   overall. The overall cap is a cost and abuse ceiling like the waitlist's: it means a flood of parents could delay
 --   others by up to an hour, which we accept. A send is reserved under a lock before it starts; a failed one is
---   released, and a reservation nobody settled lapses after 5 minutes.
+--   released. A reservation nobody settled keeps counting toward the daily and hourly limits (only release_send
+--   clears it), so calling the RPC directly and never sending can't hold the pool; only the per-request "sending
+--   now" check lapses after 5 minutes.
 -- * Retention: a daily job marks requests whose link lapsed (7 days) as expired, and deletes a request 30 days after it
 --   ended, which also ends its withdraw link. A kid's requests go with the kid (delete_kid) and the household
 --   (erase_household), by cascade.
@@ -103,7 +105,7 @@ create table public.parental_consent_sends (
   household_id uuid not null references public.households (id) on delete cascade,
   requested_by uuid not null,
   created_at timestamptz not null default now(),
-  -- Cleared if the send fails. Counted while sent, or reserved in the last 5 minutes.
+  -- Cleared only by release_send, when the send failed. Counted toward every limit while set.
   reserved_at timestamptz,
   sent boolean not null default false
 );
@@ -169,7 +171,8 @@ revoke execute on function public.consent_email_hash(text) from public, anon, au
 --   {"outcome": "rate_limited"}
 --   {"outcome": "send", "request_id", "send_id", "email", "email_source", "first_name"}
 --     email, then parental_consent_mark_sent; or parental_consent_release_send if it didn't go out
--- A typed email is used only when the account has no verified one. Raises 42501 for someone who isn't a parent in the kid's
+-- A typed email is used only when the account has no verified one. Raises 28000 without a signed-in, active session,
+-- 42501 for someone who isn't a parent in the kid's
 -- household (or no such profile), 22023 for a profile that isn't an unclaimed kid's, and 22000 for a typed email that
 -- isn't one.
 create function public.request_parental_consent(target_member uuid, email_address text default null)
@@ -186,7 +189,8 @@ declare
   send_id bigint;
 begin
   if caller is null or not public.session_is_active() then
-    raise exception 'sign in first' using errcode = '42501';
+    -- Its own code, so the Edge Function answers 401 (sign in again), not 403.
+    raise exception 'sign in first' using errcode = '28000';
   end if;
 
   select * into kid from public.members where id = target_member;
@@ -230,14 +234,11 @@ begin
     return jsonb_build_object('outcome', 'rate_limited');
   end if;
   if (select count(*) from public.parental_consent_sends
-      where requested_by = caller and reserved_at > now() - interval '1 day'
-        and (sent or reserved_at > now() - interval '5 minutes')) >= 5
+      where requested_by = caller and reserved_at > now() - interval '1 day') >= 5
      or (select count(*) from public.parental_consent_sends
-         where reserved_at > now() - interval '1 hour'
-           and (sent or reserved_at > now() - interval '5 minutes')) >= 200
+         where reserved_at > now() - interval '1 hour') >= 200
      or (select count(*) from public.parental_consent_sends
-         where household_id = kid.household_id and reserved_at > now() - interval '1 day'
-           and (sent or reserved_at > now() - interval '5 minutes')) >= 10 then
+         where household_id = kid.household_id and reserved_at > now() - interval '1 day') >= 10 then
     return jsonb_build_object('outcome', 'rate_limited');
   end if;
 
@@ -274,7 +275,14 @@ as $$
 declare
   request public.parental_consent_requests;
   other uuid;
+  kid uuid;
 begin
+  -- The same per-kid lock as activate, before any row lock: two parents' sends for one kid cancel each other's pending
+  -- request, and would otherwise lock the two rows in opposite orders.
+  select member_id into kid from public.parental_consent_requests where id = p_request_id;
+  if kid is not null then
+    perform pg_advisory_xact_lock(hashtextextended('parental_consent:' || kid::text, 0));
+  end if;
   update public.parental_consent_requests
      set token_hash = p_token_hash, token_sent_at = now(), expires_at = now() + interval '7 days',
          email_hash = pending_email_hash, pending_email_hash = null,
@@ -439,7 +447,7 @@ begin
   -- One activation per kid at a time, so two parents' activations serialize instead of deadlocking.
   select member_id into kid from public.parental_consent_requests where id = p_request_id;
   if kid is null then return 'expired'; end if;
-  perform pg_advisory_xact_lock(hashtextextended('activate_parental_consent:' || kid::text, 0));
+  perform pg_advisory_xact_lock(hashtextextended('parental_consent:' || kid::text, 0));
   select * into request from public.parental_consent_requests where id = p_request_id for update;
   if not found or request.status <> 'consented' then
     return case when request.status = 'confirmed' then 'confirmed' else 'expired' end;

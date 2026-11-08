@@ -35,7 +35,8 @@ export type WithdrawLookupResult =
   | { outcome: "active"; firstName: string }
   | { outcome: "withdrawn" | "expired" | "invalid" };
 
-// A database refusal: 42501 not a parent there, 22023 not an unclaimed kid's profile, 22000 not an email address.
+// A database refusal: 28000 no active session, 42501 not a parent there, 22023 not an unclaimed kid's profile, 22000
+// not an email address.
 export class RefusedError extends Error {
   constructor(readonly code: string) {
     super(`refused (${code})`);
@@ -155,6 +156,7 @@ async function requestConsent(req: Request, deps: ConsentDeps): Promise<Response
     requested = await deps.request(jwt, { memberId: parsed.data.memberId, email: parsed.data.email ?? null });
   } catch (error) {
     if (error instanceof RefusedError) {
+      if (error.code === "28000") return json(401, { error: "not_signed_in" });
       if (error.code === "42501") return json(403, { error: "not_a_parent" });
       if (error.code === "22023") return json(409, { error: "not_eligible" });
       if (error.code === "22000") return json(400, { error: "bad_email" });
