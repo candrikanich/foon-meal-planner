@@ -251,7 +251,9 @@ struct LapsedBanner: View {
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
-            .background(Palette.cardSurface)
+            .background(Palette.cardSurface, in: .rect(cornerRadius: 16))
+            .padding(.horizontal)
+            .padding(.bottom, 8)
             .accessibilityElement(children: .contain)
         }
     }

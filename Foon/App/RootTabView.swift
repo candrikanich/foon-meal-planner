@@ -46,8 +46,10 @@ struct RootTabView: View {
         TabView(selection: $selection) {
             ForEach(AppTab.allCases) { tab in
                 Tab(tab.title, systemImage: tab.systemImage, value: tab) {
+                    // At the bottom: a top inset sits outside each tab's NavigationStack and on iOS 26 pushes out the
+                    // navigation bar, so a pushed screen loses Back and Edit while a share waits.
                     screen(for: tab)
-                        .safeAreaInset(edge: .top, spacing: 0) {
+                        .safeAreaInset(edge: .bottom, spacing: 0) {
                             VStack(spacing: 0) {
                                 LapsedBanner()
                                 sharedBanner
@@ -120,7 +122,9 @@ struct RootTabView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
                     .padding(.vertical, 10)
-                    .background(Palette.cardSurface)
+                    .background(Palette.cardSurface, in: .rect(cornerRadius: 16))
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
             }
             .buttonStyle(.plain)
             .accessibilityHint("Opens it")
