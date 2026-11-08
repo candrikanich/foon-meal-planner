@@ -51,7 +51,8 @@ export interface ConsentDeps {
   userFromToken(jwt: string): Promise<string | null>;
   // request_parental_consent, run as the parent (their JWT), so the database checks who they are.
   request(jwt: string, input: { memberId: string; email: string | null }): Promise<RequestResult>;
-  markSent(input: { requestId: string; sendId: number; tokenHash: string; textVersion: string }): Promise<void>;
+  // False when the request wasn't pending any more (it was agreed, refused or ended meanwhile): the link is dead.
+  markSent(input: { requestId: string; sendId: number; tokenHash: string; textVersion: string }): Promise<boolean>;
   releaseSend(input: { requestId: string; sendId: number }): Promise<void>;
   lookup(tokenHash: string): Promise<LookupResult>;
   decide(tokenHash: string, decision: "agree" | "refuse"): Promise<DecideResult>;
@@ -119,12 +120,17 @@ async function sendNotice(deps: ConsentDeps, send: Extract<RequestResult, { outc
     return json(503, { error: "email_off" });
   }
   try {
-    await deps.markSent({
+    const recorded = await deps.markSent({
       requestId: send.requestId,
       sendId: send.sendId,
       tokenHash: await deps.sha256(token),
       textVersion: TEXT_VERSION,
     });
+    if (!recorded) {
+      // The request changed while the email was going out, so its link won't work. The app reloads the real state.
+      deps.log(`parental-consent: notice sent for request ${send.requestId}, which was no longer pending`);
+      return json(500, { error: "try_again" });
+    }
   } catch (error) {
     // The email is out but its token wasn't saved, so its link won't work; the reservation lapses in 5 minutes.
     deps.log(`parental-consent: notice sent but not recorded for request ${send.requestId}`, error);

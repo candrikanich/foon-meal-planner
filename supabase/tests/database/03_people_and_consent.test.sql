@@ -97,7 +97,7 @@ select throws_ok(
 select throws_ok(
   $$ insert into public.consents (household_id, member_id, kind, text_version) values
        ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'parental', 'v1') $$,
-  '42501', null, 'parental consent is only for a kid''s profile');
+  '42501', null, 'nor for an adult''s profile (the app records no parental consent at all, #275)');
 select throws_ok(
   $$ insert into public.consents (household_id, member_id, kind, text_version) values
        ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'parental', 'v1') $$,

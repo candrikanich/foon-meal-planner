@@ -45,7 +45,7 @@ function fakeDeps(overrides: Partial<ConsentDeps> = {}) {
     },
     markSent: (input) => {
       calls.push(`markSent ${input.requestId} ${input.sendId} ${input.textVersion}`);
-      return Promise.resolve();
+      return Promise.resolve(true);
     },
     releaseSend: (input) => {
       calls.push(`releaseSend ${input.requestId} ${input.sendId}`);
@@ -130,6 +130,13 @@ Deno.test("a request emails the notice, then records its token and wording", asy
   assertEquals(emails[0].to, "parent@example.com");
   assertStringIncludes(emails[0].text, `${fn}?consent=${token}`);
   assertEquals(TEXT_VERSION, "parental-invite-v3");
+});
+
+Deno.test("a notice whose request changed meanwhile isn't reported as sent", async () => {
+  const { deps, logs } = fakeDeps({ markSent: () => Promise.resolve(false) });
+  const response = await handleParentalConsent(fromApp({ memberId }), deps);
+  assertEquals([response.status, await response.json()], [500, { error: "try_again" }]);
+  assert(logs.some((line) => line.includes("no longer pending")));
 });
 
 Deno.test("a typed address is checked and passed on", async () => {
@@ -264,6 +271,7 @@ Deno.test("logs never hold an email address, a name or a token", async () => {
     fakeDeps({ sendEmail: () => Promise.reject(new Error("Resend answered 500")) }),
     fakeDeps({ sendEmail: () => Promise.resolve("off") }),
     fakeDeps({ markSent: () => Promise.reject(new Error("db down")) }),
+    fakeDeps({ markSent: () => Promise.resolve(false) }),
     fakeDeps({ activate: () => Promise.resolve("expired") }),
   ];
   for (const { deps } of runs) {

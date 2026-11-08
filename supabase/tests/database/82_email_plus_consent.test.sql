@@ -2,7 +2,7 @@
 -- a parental consent, after the parent agreed from email 1 and email 2 went out. Pending, refused, expired, confirmed
 -- and withdrawn; the limits; who reads requests; retention.
 begin;
-select plan(94);
+select plan(100);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -36,9 +36,12 @@ insert into auth.users (id, email, email_confirmed_at, aud, role) values
   ('d0000000-0000-0000-0000-00000000000d', 'dave@example.com', now(), 'authenticated', 'authenticated'),
   ('e0000000-0000-0000-0000-00000000000e', 'erin@example.com', now(), 'authenticated', 'authenticated');
 insert into auth.identities (provider_id, user_id, identity_data, provider) values
-  ('apple-alice', 'a0000000-0000-0000-0000-00000000000a', '{"sub": "apple-alice"}', 'apple'),
-  ('apple-carol', 'c0000000-0000-0000-0000-00000000000c', '{"sub": "apple-carol"}', 'apple'),
-  ('apple-bo', 'c0000000-0000-0000-0000-0000000000b3', '{"sub": "apple-bo"}', 'apple');
+  ('apple-alice', 'a0000000-0000-0000-0000-00000000000a',
+   '{"sub": "apple-alice", "email": "alice@example.com", "email_verified": true}', 'apple'),
+  ('apple-carol', 'c0000000-0000-0000-0000-00000000000c',
+   '{"sub": "apple-carol", "email": "carol@example.com", "email_verified": "true"}', 'apple'),
+  ('apple-bo', 'c0000000-0000-0000-0000-0000000000b3', '{"sub": "apple-bo", "email": "bo@privaterelay.appleid.com"}',
+   'apple');
 insert into public.households (id, name, owner) values
   ('00000000-0000-0000-0000-0000000000a0', 'Andersons', 'a0000000-0000-0000-0000-00000000000a'),
   ('00000000-0000-0000-0000-0000000000b0', 'Carters', 'c0000000-0000-0000-0000-00000000000c'),
@@ -125,6 +128,13 @@ select is(current_setting('test.bo')::jsonb - 'request_id' - 'send_id',
 select pg_temp.as_service();
 select public.parental_consent_release_send((current_setting('test.bo')::jsonb ->> 'request_id')::uuid,
   (current_setting('test.bo')::jsonb ->> 'send_id')::bigint);
+select pg_temp.as_admin();
+update auth.identities set identity_data = identity_data || '{"email_verified": false}' where provider_id = 'apple-bo';
+select pg_temp.as_user('c0000000-0000-0000-0000-0000000000b3');  -- Bo
+select is(public.request_parental_consent('00000000-0000-0000-0000-0000000000b2'), '{"outcome": "no_email"}'::jsonb,
+  'nor an Apple email marked unverified');
+select pg_temp.as_admin();
+update auth.identities set identity_data = identity_data - 'email_verified' where provider_id = 'apple-bo';
 
 -- Email 1 sent, and sent again ------------------------------------------------------------------------------------------
 select pg_temp.as_service();
@@ -192,6 +202,8 @@ select throws_ok($$ select public.parental_consent_lookup('hash-n2') $$, '42501'
 select pg_temp.as_service();
 select is(public.parental_consent_decide('hash-n2', 'agree'), '{"outcome": "busy"}'::jsonb,
   'a second tap while email 2 is going out waits');
+select is(public.parental_consent_decide('hash-n2', 'refuse'), '{"outcome": "busy"}'::jsonb,
+  'and so does a no');
 select public.parental_consent_release_confirmation((current_setting('test.agree')::jsonb ->> 'request_id')::uuid);
 select is((pg_temp.req('00000000-0000-0000-0000-0000000000a5')).status, 'consented',
   'email 2 failing keeps the agreement');
@@ -291,12 +303,24 @@ select public.parental_consent_mark_sent((current_setting('test.rex')::jsonb ->>
 select pg_temp.as_admin();
 update auth.users set email = 'someone-else@example.com' where id = 'a0000000-0000-0000-0000-00000000000a';
 select pg_temp.as_service();
+select is(public.parental_consent_decide('hash-r1', 'agree') ->> 'email', 'alice@example.com',
+  'an address changed through Auth is never used: the email is Apple''s');
+select public.parental_consent_release_confirmation((current_setting('test.rex')::jsonb ->> 'request_id')::uuid);
+select pg_temp.as_admin();
+update auth.identities set identity_data = identity_data || '{"email": "alice-new@example.com"}'
+where provider_id = 'apple-alice';
+select pg_temp.as_service();
 select is(public.parental_consent_decide('hash-r1', 'agree'), '{"outcome": "expired"}'::jsonb,
-  'if the account''s email changed since email 1, email 2 isn''t sent to the new one');
+  'if the Apple email changed since email 1, email 2 isn''t sent to the new one');
+select is(public.parental_consent_mark_sent((current_setting('test.rex')::jsonb ->> 'request_id')::uuid, 0,
+                                            'hash-late', 'parental-invite-v3'), false,
+  'a send recorded on a request that ended says it didn''t apply');
 select pg_temp.as_admin();
 select is((select status from public.parental_consent_requests where token_hash = 'hash-r1'), 'cancelled',
   'the request is cancelled; the parent asks again');
 update auth.users set email = 'alice@example.com' where id = 'a0000000-0000-0000-0000-00000000000a';
+update auth.identities set identity_data = identity_data || '{"email": "alice@example.com"}'
+where provider_id = 'apple-alice';
 
 -- An agreement isn't thrown away by a later email 1 ---------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice asks again for Rex
@@ -397,6 +421,8 @@ select throws_ok($$ select token_hash from public.parental_consent_requests $$, 
 select throws_ok($$ select withdraw_token_hash from public.parental_consent_requests $$, '42501', null,
   'or a withdraw token hash');
 select throws_ok($$ select typed_email from public.parental_consent_requests $$, '42501', null, 'or a typed address');
+select throws_ok($$ select * from public.parental_consent_sends $$, '42501', null,
+  'nor the send bookkeeping, even in their own household');
 select throws_ok($$ update public.parental_consent_requests set status = 'confirmed' $$, '42501', null,
   'and nobody changes one from the app');
 select pg_temp.as_user('a0000000-0000-0000-0000-0000000000a3');  -- Grace
@@ -405,6 +431,8 @@ select pg_temp.as_user('a0000000-0000-0000-0000-0000000000a4');  -- Kim
 select is_empty($$ select 1 from public.parental_consent_requests $$, 'nor does a kid');
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');  -- Carol
 select is_empty($$ select 1 from public.parental_consent_requests $$, 'nor another household');
+select throws_ok($$ select household_id from public.parental_consent_sends $$, '42501', null,
+  'and no signed-in user reads anyone''s send bookkeeping');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice
 select is(jsonb_array_length(public.export_household('00000000-0000-0000-0000-0000000000a0') -> 'parental_consent_requests'),
   (select count(*)::int from public.parental_consent_requests), 'the export has the requests');

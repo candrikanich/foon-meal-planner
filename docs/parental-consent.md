@@ -20,13 +20,14 @@ carry none; the function checks the app's JWT itself).
 
 ## Which address is used
 
-The account's email, only when the account has an Apple identity (`auth.identities.provider = 'apple'`): Foon is
-Sign in with Apple only, and `email_confirmed_at` proves nothing while sign-ups autoconfirm. Otherwise the app is
-told `no_email` and the parent types one. A typed address is the parent's own claim; the notice sent there is what
-confirms it. Email 2 goes only to the address email 1
-went to: the request keeps its SHA-256 and compares it before sending; a mismatch cancels the request. The local
-`config.toml` has email sign-ups on with confirmations off (`[auth.email]`, the CLI default); check the hosted
-projects' Auth settings, though only an Apple identity's email is used either way.
+The email Apple gave for the account's Sign in with Apple identity: `auth.identities.identity_data ->> 'email'` where
+`provider = 'apple'`, and not marked `email_verified: false`. Not `auth.users.email`, which a signed-in user can change
+through Auth while the Apple identity stays; and `email_confirmed_at` proves nothing while sign-ups autoconfirm. With no
+such identity email, the app is told `no_email` and the parent types one. A typed address is the parent's own claim;
+the notice sent there is what confirms it. Email 2 goes only to the address email 1 went to: the request keeps its
+SHA-256 and compares it before sending; a mismatch cancels the request. The local `config.toml` has email sign-ups on
+with confirmations off (`[auth.email]`, the CLI default); check the hosted projects' Auth settings, though only the
+Apple identity's email is used either way.
 
 ## Sign in with Apple's private email relay (Chris)
 

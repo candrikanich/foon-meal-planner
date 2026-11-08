@@ -72,7 +72,7 @@ Deno.serve((req) =>
         : { outcome: row.outcome as "already_consented" | "no_email" | "rate_limited" };
     },
     markSent: ({ requestId, sendId, tokenHash, textVersion }) =>
-      rpc("parental_consent_mark_sent", {
+      rpc<boolean>("parental_consent_mark_sent", {
         p_request_id: requestId,
         p_send_id: sendId,
         p_token_hash: tokenHash,

@@ -139,15 +139,20 @@ as $$
 $$;
 revoke execute on function public.end_parental_consent_request(uuid, text) from public, anon, authenticated;
 
--- The account's email, only if the account signs in with Apple, which vouches for it. Null otherwise (email_confirmed_at
--- proves nothing while sign-ups autoconfirm), so an unverified address is never emailed a notice in someone's name.
+-- The email Apple gave for the account's Sign in with Apple identity, which Apple vouches for. Not auth.users.email: a
+-- signed-in user can change that through Auth while the Apple identity stays, and email_confirmed_at proves nothing
+-- while sign-ups autoconfirm. An identity that says its email isn't verified doesn't count. Null otherwise, so an
+-- address nobody vouched for is never emailed a notice in someone's name.
 create function public.verified_account_email(account uuid)
 returns text
 language sql stable security definer set search_path = ''
 as $$
-  select nullif(btrim(u.email), '') from auth.users u
-   where u.id = account
-     and exists (select 1 from auth.identities i where i.user_id = u.id and i.provider = 'apple');
+  select nullif(btrim(i.identity_data ->> 'email'), '') from auth.identities i
+   where i.user_id = account and i.provider = 'apple'
+     and nullif(btrim(i.identity_data ->> 'email'), '') is not null
+     and coalesce(lower(i.identity_data ->> 'email_verified'), 'true') in ('true', 't', '1')
+   order by i.updated_at desc nulls last, i.created_at desc nulls last
+   limit 1;
 $$;
 revoke execute on function public.verified_account_email(uuid) from public, anon, authenticated;
 
@@ -260,10 +265,10 @@ $$;
 
 -- Email 1 went out: its token is the one that works (an earlier link stops working), for 7 days, with the address it
 -- went to. Any other parent's pending request for the kid is cancelled, so only one link is live; one already agreed
--- (consented) is left to finish.
+-- (consented) is left to finish. False when the request wasn't pending any more, so the token went nowhere.
 create function public.parental_consent_mark_sent(p_request_id uuid, p_send_id bigint, p_token_hash text,
                                                   p_text_version text)
-returns void
+returns boolean
 language plpgsql security definer set search_path = ''
 as $$
 declare
@@ -281,12 +286,13 @@ begin
    where id = p_request_id and status = 'pending'
   returning * into request;
   update public.parental_consent_sends set sent = true where id = p_send_id;
-  if request.id is null then return; end if;
+  if request.id is null then return false; end if;
   for other in select id from public.parental_consent_requests
                 where member_id = request.member_id and id <> request.id and status = 'pending'
                 for update loop
     perform public.end_parental_consent_request(other, 'cancelled');
   end loop;
+  return true;
 end;
 $$;
 
@@ -360,7 +366,7 @@ $$;
 -- Email 2 goes to the address email 1 went to, derived the same way and checked against its hash: if the account's
 -- email changed (or stopped being verified) in between, the request is cancelled and the parent asks again.
 -- confirmed covers a consent that already exists (this request's, or another parent's). busy: email 2 is being sent
--- right now.
+-- right now (for agree or refuse).
 create function public.parental_consent_decide(p_token_hash text, p_decision text)
 returns jsonb
 language plpgsql security definer set search_path = ''
@@ -380,15 +386,17 @@ begin
   ended := public.parental_consent_still_valid(request);
   if ended is not null then return jsonb_build_object('outcome', ended); end if;
 
+  -- Email 2 may be on its way right now; a no waits until it has settled.
+  if request.confirm_reserved_at > now() - interval '5 minutes' then
+    return jsonb_build_object('outcome', 'busy');
+  end if;
+
   if p_decision = 'refuse' then
     update public.parental_consent_requests set decided_at = now() where id = request.id;
     perform public.end_parental_consent_request(request.id, 'refused');
     return jsonb_build_object('outcome', 'refused');
   end if;
 
-  if request.confirm_reserved_at > now() - interval '5 minutes' then
-    return jsonb_build_object('outcome', 'busy');
-  end if;
   address := case when request.email_source = 'typed' then request.typed_email
                   else public.verified_account_email(request.requested_by) end;
   if address is null or public.consent_email_hash(address) is distinct from request.email_hash then
@@ -426,7 +434,12 @@ declare
   request public.parental_consent_requests;
   ended text;
   other uuid;
+  kid uuid;
 begin
+  -- One activation per kid at a time, so two parents' activations serialize instead of deadlocking.
+  select member_id into kid from public.parental_consent_requests where id = p_request_id;
+  if kid is null then return 'expired'; end if;
+  perform pg_advisory_xact_lock(hashtextextended('activate_parental_consent:' || kid::text, 0));
   select * into request from public.parental_consent_requests where id = p_request_id for update;
   if not found or request.status <> 'consented' then
     return case when request.status = 'confirmed' then 'confirmed' else 'expired' end;
