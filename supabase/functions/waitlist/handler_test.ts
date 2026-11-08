@@ -1,13 +1,9 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { callerAddress, clientKey, networkOf, safeEqual } from "./client.ts";
-import { sha256, signer } from "./crypto.ts";
-import {
-  confirmationEmail,
-  emailFooter,
-  POSTAL_ADDRESS,
-  resendConfigFromEnv,
-  sendViaResend,
-} from "./email.ts";
+import { POSTAL_ADDRESS, resendConfigFromEnv } from "../_shared/resend.ts";
+import { sha256 } from "../_shared/token.ts";
+import { signer } from "./crypto.ts";
+import { confirmationEmail, emailFooter, sendViaResend } from "./email.ts";
 import {
   type ConfirmOutcome,
   handleWaitlist,
@@ -414,11 +410,16 @@ Deno.test("every footer has the address and the unsubscribe link, escaped in HTM
 
 Deno.test("Resend is called with a bearer key and the one-click headers, and email stays off unless both settings exist", async () => {
   assertEquals(
-    resendConfigFromEnv((key) => (key === "RESEND_API_KEY" ? "k" : undefined)),
+    resendConfigFromEnv(
+      (key) => (key === "RESEND_API_KEY" ? "k" : undefined),
+      "WAITLIST_FROM",
+    ),
     null,
   );
-  const config = resendConfigFromEnv((key) =>
-    ({ RESEND_API_KEY: "k", WAITLIST_FROM: "Foon <hello@getfoon.com>" })[key]
+  const config = resendConfigFromEnv(
+    (key) =>
+      ({ RESEND_API_KEY: "k", WAITLIST_FROM: "Foon <hello@getfoon.com>" })[key],
+    "WAITLIST_FROM",
   )!;
   let seen:
     | {

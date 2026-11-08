@@ -1,29 +1,14 @@
-// The confirmation email, through Resend's HTTP API. With no RESEND_API_KEY or WAITLIST_FROM nothing is sent.
-export interface ResendConfig {
-  apiKey: string;
-  from: string;
-}
-
-export function resendConfigFromEnv(
-  get: (key: string) => string | undefined,
-): ResendConfig | null {
-  const apiKey = get("RESEND_API_KEY");
-  const from = get("WAITLIST_FROM");
-  return apiKey && from ? { apiKey, from } : null;
-}
-
-const escapeHtml = (value: string) =>
-  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+// The confirmation email, through Resend (_shared/resend.ts). With no RESEND_API_KEY or WAITLIST_FROM nothing is sent.
+import {
+  escapeHtml,
+  POSTAL_ADDRESS,
+  type ResendConfig,
+  sendEmail,
+  SENDER,
+} from "../_shared/resend.ts";
 
 // CAN-SPAM: the confirmation carries the founding-family offer, so it's commercial. Every waitlist email ends with this
 // footer: who sent it, a valid postal address, and a working unsubscribe link.
-export const SENDER = "Foon, from The Recruiting Compass LLC";
-export const POSTAL_ADDRESS = [
-  "34125 Center Ridge Road #1012",
-  "North Ridgeville, OH 44039",
-] as const;
-
 export function emailFooter(unsubscribeUrl: string) {
   const text = [
     "--",
@@ -74,24 +59,12 @@ export async function sendViaResend(
   message: { confirmUrl: string; unsubscribeUrl: string },
   post: typeof fetch = fetch,
 ): Promise<void> {
-  const { subject, text, html } = confirmationEmail(message);
-  const response = await post("https://api.resend.com/emails", {
-    method: "POST",
+  await sendEmail(config, {
+    to,
+    ...confirmationEmail(message),
     headers: {
-      Authorization: `Bearer ${config.apiKey}`,
-      "Content-Type": "application/json",
+      "List-Unsubscribe": `<${message.unsubscribeUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
     },
-    body: JSON.stringify({
-      from: config.from,
-      to: [to],
-      subject,
-      text,
-      html,
-      headers: {
-        "List-Unsubscribe": `<${message.unsubscribeUrl}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-      },
-    }),
-  });
-  if (!response.ok) throw new Error(`Resend answered ${response.status}`);
+  }, post);
 }

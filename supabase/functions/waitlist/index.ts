@@ -2,8 +2,10 @@
 // handler.ts. Needs the service role. RESEND_API_KEY and WAITLIST_FROM turn the confirmation email on; without them a
 // signup is stored and the log says email is off. WAITLIST_SITE_URL overrides https://getfoon.com (e.g. a preview).
 import { createClient } from "@supabase/supabase-js";
-import { newToken, sha256, signer } from "./crypto.ts";
-import { resendConfigFromEnv, sendViaResend } from "./email.ts";
+import { resendConfigFromEnv } from "../_shared/resend.ts";
+import { newToken, sha256 } from "../_shared/token.ts";
+import { signer } from "./crypto.ts";
+import { sendViaResend } from "./email.ts";
 import { type ConfirmOutcome, handleWaitlist } from "./handler.ts";
 
 function required(key: string): string {
@@ -17,7 +19,7 @@ const serviceKey = required("SUPABASE_SERVICE_ROLE_KEY");
 const admin = createClient(supabaseUrl, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
-const resend = resendConfigFromEnv((key) => Deno.env.get(key));
+const resend = resendConfigFromEnv((key) => Deno.env.get(key), "WAITLIST_FROM");
 const sign = signer(serviceKey);
 
 // Supabase's runtime global: keeps the function alive for work started after the response.

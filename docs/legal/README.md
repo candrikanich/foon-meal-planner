@@ -35,8 +35,10 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 - [ ] The amended COPPA rule (compliance date April 22, 2026): does a parent-run household app, outside the Kids
       category, with kids joining only by a parent's invite, meet it?
 - [ ] Written retention policy: does retention.md's "Kids: purposes and periods" section meet the requirement?
-- [ ] Parental consent method: today a signed-in parent agrees in the app when inviting a kid (`parental-invite-v2` since #276; earlier consents are v1 until #277 asks again),
-      logged with who, when and the wording. Is that a sufficient verifiable-consent method?
+- [ ] Parental consent method: email plus since #275 (`parental-invite-v3`): a notice to the asking parent's sign-in
+      email, agreement on getfoon.com, then a confirming email with a withdraw link; consent counts once that has
+      gone out. Consents given in the app before (v1, v2) stay until #277 asks again. Is the notice (email 1)
+      enough under 312.4(c)(1), and is a typed address for an account with no email acceptable?
 - [ ] Kids' self-entered content: erased 30 days after a parent withdraws consent; anonymized 12 months after a kid is
       removed, with ratings kept as anonymous history. Is the hard delete, and is keeping anonymous ratings, acceptable?
 - [ ] A withdrawn or removed kid's sign-in account (Apple ID and email) isn't deleted automatically. Should it be?
@@ -123,7 +125,8 @@ The drafts describe what the code does today. These are the places where that ma
 
 Found by the compliance self-check ([compliance-check.md](compliance-check.md), "Before launch" (b) has the detail):
 
-- Parental consent is an in-app agreement, not a method listed in COPPA 312.5(b)(2).
+- Parental consent is by email plus since #275, but consents given in the app before it stay active until #277.
+- Resend's log retention for the consent emails isn't confirmed (retention.md).
 - There's no way to ask parents for new consent after a material change.
 - Households that agreed to the first allergy consent (`allergy-data-v1`) agreed to wording that named neither who
   receives allergies nor how to withdraw; they aren't asked again (v2, #280, names both).

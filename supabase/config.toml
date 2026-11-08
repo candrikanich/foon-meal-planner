@@ -400,6 +400,11 @@ verify_jwt = false
 [functions.waitlist]
 verify_jwt = false
 
+# The links in a parent's consent emails and the site's consent pages carry no JWT; the app's request does, and the
+# function checks it itself (handler.ts). Link tokens are hashed, single-purpose and expire.
+[functions.parental-consent]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54427
