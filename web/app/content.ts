@@ -2,7 +2,7 @@
 export const SUPPORT_EMAIL = "support@getfoon.com";
 // The same mailbox is in the waitlist email footer (supabase/functions/waitlist/email.ts) and docs/legal Contact.
 export const POSTAL_ADDRESS = ["34125 Center Ridge Road #1012", "North Ridgeville, OH 44039"] as const;
-export const PRIVACY_UPDATED = "November 7, 2026";
+export const PRIVACY_UPDATED = "November 8, 2026";
 
 export const mission = "Take the weight of dinner off one person and share it with the whole family.";
 export const tagline = "Dinner, planned together.";
@@ -43,3 +43,12 @@ export const foundingOffer = {
   fineprint:
     "Foon is built for the whole family, so the waitlist is for adults. We close the founding spots after 50 families, or a year, whichever comes first.",
 } as const;
+
+// What Foon keeps about a kid once a parent agrees: the same list as the consent email (parental-invite-v3, in
+// supabase/functions/parental-consent/email.ts). Change both together.
+export const consentKept = (name: string) => [
+  `what your family enters about ${name}: first name, avatar, allergies and schedule`,
+  `what ${name} adds: requests, ratings, comments and list items`,
+  "an age range from Apple (never a birthdate)",
+  `${name}'s Apple sign-in (account ID and email) and a notification token`,
+];

@@ -121,3 +121,4 @@ jobs:
       - run: npm run build
         env:
           NUXT_PUBLIC_WAITLIST_URL: https://example.invalid/functions/v1/waitlist
+          NUXT_PUBLIC_CONSENT_URL: https://example.invalid/functions/v1/parental-consent
