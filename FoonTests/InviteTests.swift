@@ -117,44 +117,196 @@ struct HouseholdStoreInviteTests {
     }
 }
 
-/// The direct notice a parent reads before a kid's invite (COPPA 312.4(c), #276).
-struct ParentalConsentNoticeTests {
-    @Test func theWordingIsANewVersion() {
-        #expect(ParentalConsent.textVersion == "parental-invite-v2", "v2 names the services and the no-answer case")
-    }
-
-    @Test func itSaysWhoGetsTheDataAndWhatHappensWithoutAYes() {
-        let text = ParentalConsent.statement(firstName: "Nora")
-        #expect(text.contains("the services that run Foon for us"))
-        #expect(text.contains("If I don't agree, no invite is sent"))
-    }
-}
-
+/// A kid's invite waits for a parent's consent by email (COPPA email plus, #275).
 @MainActor
 struct ParentalConsentTests {
     private let me = UUID()
     private var owned: Household { Household(id: Household.sample.id, name: "The Smiths", emoji: nil, owner: me) }
 
+    private func request(
+        _ status: ParentalConsentRequest.Status, for kid: Member, by parent: UUID? = nil
+    ) -> ParentalConsentRequest {
+        ParentalConsentRequest(
+            id: UUID(), householdID: Household.sample.id, memberID: kid.id, requestedBy: parent ?? me, status: status,
+            emailSource: .account, expiresAt: .now.addingTimeInterval(86_400), createdAt: .now
+        )
+    }
+
+    private func loadedStore(_ client: HouseholdClient) async -> HouseholdStore {
+        let store = HouseholdStore(userID: me, client: client)
+        await store.load()
+        await store.loadConsentRequests()
+        return store
+    }
+
     @Test func aKidNeedsAParentsConsentBeforeAnInvite() async {
         let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
         let adult = Member.fixture(firstName: "Ben")
-        let store = HouseholdStore(userID: me, client: .preview(household: owned, members: [kid, adult]))
-        await store.load()
+        let store = await loadedStore(.preview(household: owned, members: [kid, adult]))
         #expect(store.needsParentalConsent(kid))
         #expect(!store.needsParentalConsent(adult))
+        #expect(store.consentStep(for: kid) == .emailMe)
     }
 
-    @Test func consentingRecordsItAndInvites() async {
+    @Test func emailMeShowsCheckYourEmailWithTheAddress() async {
         let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
-        let consented = Mutex<[UUID]>([])
+        let asked = Mutex<[UUID]>([])
+        let emails = Mutex<[String?]>([])
         var client = HouseholdClient.preview(household: owned, members: [kid])
-        client.recordParentalConsent = { _, memberID in consented.withLock { $0.append(memberID) } }
-        client.createInvite = { _ in "THESM-7KQ4-M9XP" }
-        let store = HouseholdStore(userID: me, client: client)
-        await store.load()
-        #expect(await store.consentAndInvite(kid) == "THESM-7KQ4-M9XP")
-        #expect(consented.withLock { $0 } == [kid.id])
+        client.requestParentalConsent = { memberID, email in
+            asked.withLock { $0.append(memberID) }
+            emails.withLock { $0.append(email) }
+            return .sent(requestID: UUID(), email: "ann@example.com", source: .account)
+        }
+        let store = await loadedStore(client)
+        await store.askForConsent(kid)
+        #expect(asked.withLock { $0 } == [kid.id])
+        #expect(emails.withLock { $0 } == [nil], "the account's own address is used")
+        #expect(store.consentStep(for: kid) == .checkEmail(sentTo: .address("ann@example.com"), askedBy: .me))
+        #expect(store.needsParentalConsent(kid), "consent is active only once the parent agrees in the email")
+    }
+
+    @Test func aHideMyEmailAddressIsDescribedNotShown() async {
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        var client = HouseholdClient.preview(household: owned, members: [kid])
+        client.requestParentalConsent = { _, _ in
+            .sent(requestID: UUID(), email: "x7q2p9@PrivateRelay.AppleID.com", source: .account)
+        }
+        let store = await loadedStore(client)
+        await store.askForConsent(kid)
+        #expect(store.consentStep(for: kid) == .checkEmail(sentTo: .hideMyEmail, askedBy: .me))
+        let shown = ConsentEmailAddress.hideMyEmail.description
+        #expect(shown.contains("Hide My Email"))
+        #expect(!shown.contains("@"))
+        #expect(ConsentEmailAddress(sentTo: "ann@example.com").description == "ann@example.com")
+    }
+
+    @Test func sendAgainAsksTheServerAgainForTheSameKid() async {
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        let asks = Mutex(0)
+        var client = HouseholdClient.preview(household: owned, members: [kid])
+        let pending = request(.pending, for: kid)
+        client.parentalConsentRequests = { _ in [pending] }
+        client.requestParentalConsent = { _, _ in
+            asks.withLock { $0 += 1 }
+            return .sent(requestID: UUID(), email: "ann@example.com", source: .account)
+        }
+        let store = await loadedStore(client)
+        #expect(store.consentStep(for: kid) == .checkEmail(sentTo: .accountEmail, askedBy: .me),
+                "after a reload the address isn't known, so it says which one")
+        #expect(store.consentStep(for: kid).button == "Send again")
+        await store.askForConsent(kid)
+        #expect(asks.withLock { $0 } == 1)
+        #expect(store.consentStep(for: kid) == .checkEmail(sentTo: .address("ann@example.com"), askedBy: .me))
+    }
+
+    @Test func noEmailAsksForOneAndSendAgainReusesIt() async {
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        let emails = Mutex<[String?]>([])
+        var client = HouseholdClient.preview(household: owned, members: [kid])
+        client.requestParentalConsent = { _, email in
+            emails.withLock { $0.append(email) }
+            guard let email else { return .noEmail }
+            return .sent(requestID: UUID(), email: email, source: .typed)
+        }
+        let store = await loadedStore(client)
+        await store.askForConsent(kid)
+        #expect(store.consentRequests.needsTypedEmail(kid.id))
+        #expect(store.consentStep(for: kid) == .emailMe)
+
+        await store.askForConsent(kid, email: "ann@example")
+        #expect(emails.withLock { $0.count } == 1, "a malformed address isn't sent")
+        #expect(store.consentRequests.notice(for: kid.id) == ParentalConsentError.badEmail.message)
+
+        await store.askForConsent(kid, email: "ann@example.com")
+        #expect(store.consentStep(for: kid) == .checkEmail(sentTo: .address("ann@example.com"), askedBy: .me))
+        #expect(store.consentRequests.notice(for: kid.id) == nil)
+        #expect(!store.consentRequests.needsTypedEmail(kid.id), "the typed address is known for Send again")
+
+        await store.askForConsent(kid)
+        #expect(emails.withLock { $0 } == [nil, "ann@example.com", "ann@example.com"])
+    }
+
+    @Test func aRateLimitSaysTryAgainInALittleWhile() async {
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        var client = HouseholdClient.preview(household: owned, members: [kid])
+        client.requestParentalConsent = { _, _ in throw ParentalConsentError.rateLimited }
+        let store = await loadedStore(client)
+        await store.askForConsent(kid)
+        #expect(store.consentRequests.notice(for: kid.id) == String(localized: "Try again in a little while."))
+        #expect(store.consentStep(for: kid) == .emailMe)
+        #expect(store.errorMessage == nil, "a calm note in the section, not an error")
+    }
+
+    @Test(arguments: [ParentalConsentError.emailOff, .sendFailed, .tryAgain, .notEligible])
+    func otherRefusalsLeaveACalmNote(error: ParentalConsentError) async {
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        var client = HouseholdClient.preview(household: owned, members: [kid])
+        client.requestParentalConsent = { _, _ in throw error }
+        let store = await loadedStore(client)
+        await store.askForConsent(kid)
+        #expect(store.consentRequests.notice(for: kid.id) == error.message)
+    }
+
+    @Test func aTryAgainReloadsAndShowsTheRealState() async {
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        let asked = Mutex(false)
+        var client = HouseholdClient.preview(household: owned, members: [kid])
+        let consented = request(.consented, for: kid)
+        client.parentalConsentRequests = { _ in asked.withLock { $0 } ? [consented] : [] }
+        client.requestParentalConsent = { _, _ in
+            asked.withLock { $0 = true }
+            throw ParentalConsentError.tryAgain
+        }
+        let store = await loadedStore(client)
+        await store.askForConsent(kid)
+        #expect(store.consentStep(for: kid) == .almostDone(askedBy: .me))
+        #expect(store.consentRequests.notice(for: kid.id) == ParentalConsentError.tryAgain.message)
+    }
+
+    @Test func aDroppedConnectionLeavesACalmNoteToo() async {
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        var client = HouseholdClient.preview(household: owned, members: [kid])
+        client.requestParentalConsent = { _, _ in throw URLError(.notConnectedToInternet) }
+        let store = await loadedStore(client)
+        await store.askForConsent(kid)
+        #expect(store.consentRequests.notice(for: kid.id) == ParentalConsentError.tryAgain.message)
+    }
+
+    @Test func alreadyConsentedShowsInvite() async {
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        var client = HouseholdClient.preview(household: owned, members: [kid])
+        client.requestParentalConsent = { _, _ in .alreadyConsented }
+        let store = await loadedStore(client)
+        await store.askForConsent(kid)
         #expect(!store.needsParentalConsent(kid))
+        #expect(store.consentStep(for: kid) == .invite)
+    }
+
+    @Test func agreeingInTheEmailShowsInviteOnTheNextLoad() async {
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        let agreed = Mutex(false)
+        var client = HouseholdClient.preview(household: owned, members: [kid])
+        client.parentalConsentMemberIDs = { _ in agreed.withLock { $0 } ? [kid.id] : [] }
+        let pending = request(.pending, for: kid)
+        let confirmed = request(.confirmed, for: kid)
+        client.parentalConsentRequests = { _ in [agreed.withLock { $0 } ? confirmed : pending] }
+        let store = await loadedStore(client)
+        #expect(store.consentStep(for: kid) == .checkEmail(sentTo: .accountEmail, askedBy: .me))
+        agreed.withLock { $0 = true }
+        await store.loadConsentRequests()
+        #expect(store.consentStep(for: kid) == .invite)
+        #expect(await store.invite(kid) == "THESM-7KQ4-M9XP", "the invite code is still made in the app")
+    }
+
+    @Test func anotherParentsRequestIsShownAsTheirs() async {
+        let ben = Member.fixture(firstName: "Ben", guardian: true, userID: UUID())
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        var client = HouseholdClient.preview(household: owned, members: [ben, kid])
+        let theirs = request(.refused, for: kid, by: ben.userID)
+        client.parentalConsentRequests = { _ in [theirs] }
+        let store = await loadedStore(client)
+        #expect(store.consentStep(for: kid) == .refused(askedBy: .otherParent(firstName: "Ben")))
     }
 
     @Test func withdrawingConsentUnlinksTheKidLocally() async {
@@ -170,7 +322,7 @@ struct ParentalConsentTests {
         #expect(store.members.first?.userID == nil)
     }
 
-    @Test func anExistingConsentThatFailedToLoadStillLetsTheInviteGoOut() async {
+    @Test func aConsentThatFailedToLoadIsFoundWhenTheEditorOpens() async {
         let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
         let loads = Mutex(0)
         var client = HouseholdClient.preview(household: owned, members: [kid])
@@ -179,12 +331,24 @@ struct ParentalConsentTests {
             if loads.withLock({ $0 }) == 1 { throw URLError(.timedOut) }
             return [kid.id]
         }
-        client.recordParentalConsent = { _, _ in throw URLError(.badServerResponse) }  // already consented
-        client.createInvite = { _ in "THESM-7KQ4-M9XP" }
         let store = HouseholdStore(userID: me, client: client)
         await store.load()
-        #expect(store.needsParentalConsent(kid))
-        #expect(await store.consentAndInvite(kid) == "THESM-7KQ4-M9XP")
+        #expect(store.consentStep(for: kid) == .emailMe)
+        await store.loadConsentRequests()
+        #expect(store.consentStep(for: kid) == .invite)
+    }
+
+    @Test func aParentWhoIsntOneReadsNoRequests() async {
+        let kid = Member.fixture(firstName: "Nora", ageGroup: .kid)
+        let someoneElses = Household(id: Household.sample.id, name: "The Smiths", emoji: nil, owner: UUID())
+        var client = HouseholdClient.preview(household: someoneElses, members: [kid])
+        client.parentalConsentRequests = { _ in
+            Issue.record("only parents ask for the requests")
+            return []
+        }
+        let store = HouseholdStore(userID: me, client: client)
+        await store.load()
+        await store.loadConsentRequests()
     }
 
     @Test(arguments: [RedeemResult.needsConsent, .ageMismatch])

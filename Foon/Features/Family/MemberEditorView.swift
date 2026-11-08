@@ -4,6 +4,7 @@ import SwiftUI
 struct MemberEditorView: View {
     @Environment(HouseholdStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     let member: Member?
     @State private var draft: MemberDraft
     @State private var isSaving = false
@@ -147,6 +148,11 @@ struct MemberEditorView: View {
                 // so nobody else's save carries a status they can't set.
                 if scope.planning { draft = draft.settlingReturn(today: today) }
             }
+            // A parent agrees in the email, outside Foon: look again when the editor opens and when Foon comes back.
+            .task { await reloadConsentIfWaiting() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await reloadConsentIfWaiting() } }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -242,6 +248,11 @@ struct MemberEditorView: View {
         }
     }
 
+    private func reloadConsentIfWaiting() async {
+        guard let member, store.canInvite(member), store.needsParentalConsent(member) else { return }
+        await store.loadConsentRequests()
+    }
+
     /// The household's day, which is what the server starts weeks by.
     private var today: CalendarDay {
         (store.household?.planningSettings ?? HouseholdSettings()).today()
@@ -262,17 +273,7 @@ struct MemberEditorView: View {
                     )
                 )
             } else if store.needsParentalConsent(member) {
-                Text(ParentalConsent.statement(firstName: member.firstName))
-                    .font(.callout)
-                PolicyLinks()
-                Button("Agree and invite \(member.firstName)") {
-                    Task {
-                        isSaving = true
-                        inviteCode = await store.consentAndInvite(member)
-                        isSaving = false
-                    }
-                }
-                .disabled(isSaving)
+                ParentalConsentRows(member: member)
             } else {
                 Button(store.invitedMemberIDs.contains(member.id) ? "Invite again" : "Invite \(member.firstName)") {
                     Task {
@@ -286,9 +287,11 @@ struct MemberEditorView: View {
         } header: {
             Text("Invite")
         } footer: {
-            Text(inviteCode == nil
-                 ? "Sends a link and a code so \(member.firstName) can join on their own device. Codes work once and expire in 7 days."
-                 : "This code is shown only now. Inviting again replaces it.")
+            if inviteCode != nil {
+                Text("This code is shown only now. Inviting again replaces it.")
+            } else if !store.needsParentalConsent(member) {
+                Text("Sends a link and a code so \(member.firstName) can join on their own device. Codes work once and expire in 7 days.")
+            }
         }
     }
 

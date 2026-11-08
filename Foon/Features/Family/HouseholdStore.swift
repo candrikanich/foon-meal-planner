@@ -49,6 +49,10 @@ final class HouseholdStore {
     private(set) var invitedMemberIDs: Set<UUID> = []
     /// Kids whose parental consent is active (#12).
     private(set) var parentalConsentMemberIDs: Set<UUID> = []
+    /// Where each kid's consent email stands (#275), loaded when their editor opens or the app comes back.
+    private(set) var consentRequests = ParentalConsentBook()
+    /// Bumped per ask, so a reload that started before it can't bring back the older request.
+    private var consentGeneration = 0
     /// Saved schedules ("School year"), by name; loaded when their screen opens.
     private(set) var attendanceTemplates: [AttendanceTemplate] = []
     /// "This month" on the Family tab; nil until it loads, and left as it was if a refresh fails.
@@ -160,6 +164,7 @@ final class HouseholdStore {
         members = []
         invitedMemberIDs = []
         parentalConsentMemberIDs = []
+        consentRequests = ParentalConsentBook()
         attendanceTemplates = []
         phase = .needsHousehold
         return true
@@ -657,29 +662,52 @@ final class HouseholdStore {
         }
     }
 
-    /// A kid's invite needs a parent's recorded consent first (COPPA, #12).
+    /// A kid's invite needs a parent's verified consent first (COPPA, #12, #275).
     func needsParentalConsent(_ member: Member) -> Bool {
         member.ageGroup == .kid && !parentalConsentMemberIDs.contains(member.id)
     }
 
-    /// Records the parent's consent, then creates the invite. Returns the code, or nil with a message.
-    func consentAndInvite(_ member: Member) async -> String? {
-        errorMessage = nil
-        guard let household else { return nil }
-        if needsParentalConsent(member) {
-            do {
-                try await client.recordParentalConsent(household.id, member.id)
-                parentalConsentMemberIDs.insert(member.id)
-            } catch {
-                // Consent may already exist (it failed to load earlier); check before giving up.
-                parentalConsentMemberIDs = (try? await client.parentalConsentMemberIDs(household.id)) ?? parentalConsentMemberIDs
-                guard !needsParentalConsent(member) else {
-                    errorMessage = String(localized: "Couldn't record your consent. Check your connection and try again.")
-                    return nil
-                }
-            }
+    /// What a kid's invite section offers: Email me, Check your email, and so on, up to Invite.
+    func consentStep(for member: Member, now: Date = .now) -> ParentalConsentStep {
+        consentRequests.step(for: member.id, hasConsent: !needsParentalConsent(member), me: userID, now: now) { userID in
+            members.first { $0.userID == userID }?.firstName
         }
-        return await invite(member)
+    }
+
+    /// Picks up an answer given in the email: whether consent is active now, and each kid's newest request. Quiet on
+    /// failure, since the section keeps what it knew.
+    func loadConsentRequests() async {
+        guard let household, canManagePeople else { return }
+        let generation = consentGeneration
+        let client = client
+        async let consents = client.parentalConsentMemberIDs(household.id)
+        async let requests = client.parentalConsentRequests(household.id)
+        if let loaded = try? await consents, self.household?.id == household.id {
+            parentalConsentMemberIDs = loaded
+        }
+        if let loaded = try? await requests, self.household?.id == household.id, generation == consentGeneration {
+            consentRequests.replace(with: loaded)
+        }
+    }
+
+    /// Emails this parent the consent notice for the kid (email 1); `email` only once the server asked for one.
+    func askForConsent(_ member: Member, email typed: String? = nil, now: Date = .now) async {
+        errorMessage = nil
+        consentGeneration += 1
+        let email = typed ?? consentRequests.resendAddress(for: member.id)
+        if let email, !ConsentEmail.isValid(email) {
+            consentRequests.record(ParentalConsentError.badEmail, for: member.id)
+            return
+        }
+        do {
+            let answer = try await client.requestParentalConsent(member.id, email)
+            if answer == .alreadyConsented { parentalConsentMemberIDs.insert(member.id) }
+            consentRequests.record(answer, for: member, me: userID, now: now)
+        } catch {
+            consentRequests.record(error, for: member.id)
+            // A refusal often means the request moved on elsewhere (agreed, or the kid joined): show where it is.
+            await loadConsentRequests()
+        }
     }
 
     func canWithdrawConsent(_ member: Member) -> Bool {
@@ -733,6 +761,7 @@ final class HouseholdStore {
         loadGeneration += 1
         members = members.filter { $0.id != member.id }
         parentalConsentMemberIDs.remove(member.id)
+        consentRequests.forget(member.id)
         invitedMemberIDs.remove(member.id)
         return true
     }
