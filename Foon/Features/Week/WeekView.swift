@@ -414,7 +414,7 @@ struct WeekView: View {
             // The list leans on the offline cache for stock and staples, so wait for its first sync.
             .disabled(isApproving || week.isBuilding || !library.hasLoaded || (sync != nil && sync?.lastPulled == nil))
             Text(!approved ? "Approving builds the weekly list from these nights."
-                 : week.listNeedsUpdating ? "A doubled or freezer night changed what to buy. Update the list."
+                 : week.listNeedsUpdating ? "Something changed what to buy. Update the list."
                  : "Approved. Changed a night? Update the list.")
                 .font(.foonCaption)
                 .foregroundStyle(week.listNeedsUpdating && approved ? Palette.paprika : .secondary)

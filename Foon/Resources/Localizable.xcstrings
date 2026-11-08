@@ -692,9 +692,6 @@
     "A dish" : {
       "comment" : "Leftovers whose dish name couldn't be read\nPoll option whose name couldn't be read"
     },
-    "A doubled or freezer night changed what to buy. Update the list." : {
-
-    },
     "A family favorite" : {
       "comment" : "Reason chip"
     },
@@ -741,9 +738,6 @@
 
     },
     "A removed meal" : {
-
-    },
-    "Add my allergies" : {
 
     },
     "AI runs on your family's own devices, with Apple's on-device model, and a device that can run it sends nothing for AI. One that can't sends a dish's recipe lines through Foon's servers to a planner's device in your family that can, and only when a planner adds the dish." : {
@@ -813,6 +807,9 @@
 
     },
     "Add member" : {
+
+    },
+    "Add my allergies" : {
 
     },
     "Add some meals to your library first, then Foon can plan the week." : {
@@ -1802,12 +1799,6 @@
     "Foon" : {
 
     },
-    "Foon can't save these to your profile now. Ask a parent, or sign in again." : {
-
-    },
-    "Foon deletes them all and stops flagging dishes for you. You or a parent can add them back." : {
-
-    },
     "Foon Family" : {
 
     },
@@ -1830,6 +1821,9 @@
 
     },
     "Foon can't remove these from your profile now. Sign in again, or ask a parent." : {
+
+    },
+    "Foon can't save these to your profile now. Ask a parent, or sign in again." : {
 
     },
     "Foon can't see your calendar. Allow it in Settings." : {
@@ -1864,6 +1858,9 @@
 
     },
     "Foon couldn't read that page, so it kept the name and link. Add ingredients when you can." : {
+
+    },
+    "Foon deletes them all and stops flagging dishes for you. You or a parent can add them back." : {
 
     },
     "Foon doesn't ask for birthdays, phone numbers, or your location." : {
@@ -3001,16 +2998,16 @@
     "Open the recipe" : {
 
     },
-    "Opens it" : {
-
-    },
-    "Opens the night to see everyone" : {
-
-    },
     "Opens Foon's privacy policy on the web" : {
 
     },
     "Opens Foon's terms on the web" : {
+
+    },
+    "Opens it" : {
+
+    },
+    "Opens the night to see everyone" : {
 
     },
     "Opens the recipe" : {
@@ -3082,13 +3079,13 @@
     "Pause planning while you're all away, and switch everyone's usual nights home when the season changes." : {
 
     },
+    "Payment is charged to your Apple Account. Subscriptions renew automatically unless cancelled at least 24 hours before the period ends. Cancel anytime in Settings." : {
+
+    },
     "People set their own notifications; a parent sets a kid's." : {
 
     },
     "People write their own notes; parents can write anyone's." : {
-
-    },
-    "Payment is charged to your Apple Account. Subscriptions renew automatically unless cancelled at least 24 hours before the period ends. Cancel anytime in Settings." : {
 
     },
     "Personal care" : {
@@ -3178,6 +3175,9 @@
     "Prep steps need 120 characters or fewer." : {
 
     },
+    "Privacy Policy" : {
+
+    },
     "Produce" : {
 
     },
@@ -3185,9 +3185,6 @@
 
     },
     "Put %@ back in the freezer" : {
-
-    },
-    "Privacy Policy" : {
 
     },
     "Put %@ down to cook %@" : {
@@ -3637,6 +3634,9 @@
     "Someone who signs in as an adult stays one." : {
 
     },
+    "Something changed what to buy. Update the list." : {
+
+    },
     "Something else" : {
 
     },
@@ -3873,13 +3873,13 @@
     "Tells you tonight's dinner from your family's plan." : {
 
     },
+    "Terms of Use" : {
+
+    },
     "Tex-Mex" : {
       "comment" : "Dish category in a variety note"
     },
     "Thanked" : {
-
-    },
-    "Terms of Use" : {
 
     },
     "Thanked %lld times for the %@" : {
@@ -4747,9 +4747,6 @@
     "You've read 30 links today. Try again tomorrow, or save just the link." : {
 
     },
-    "Your allergies" : {
-
-    },
     "Your Apple sign-in: an account ID, an email, which can be Apple's private relay address, and your first name if Apple shares it." : {
 
     },
@@ -4757,6 +4754,9 @@
 
     },
     "Your account is deleted. This can't be undone." : {
+
+    },
+    "Your allergies" : {
 
     },
     "Your calendar has plans around dinner. Nothing changes unless you tap." : {

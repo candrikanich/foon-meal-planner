@@ -22,6 +22,7 @@ struct RootTabView: View {
     @State private var waitingShares: [SharedItem] = []
     @State private var shared: SharedItem?
     @State private var postponedShares: Set<UUID> = []
+    @State private var keyboardShown = false
 
     init(householdID: UUID, libraryClient: LibraryClient, weekClient: WeekClient, dinnerClient: DinnerClient,
          ideasClient: IdeasClient, freezerClient: FreezerClient, notificationClient: NotificationClient = .preview,
@@ -46,11 +47,16 @@ struct RootTabView: View {
         TabView(selection: $selection) {
             ForEach(AppTab.allCases) { tab in
                 Tab(tab.title, systemImage: tab.systemImage, value: tab) {
+                    // At the bottom: a top inset sits outside each tab's NavigationStack and on iOS 26 pushes out the
+                    // navigation bar, so a pushed screen loses Back and Edit while a share waits.
                     screen(for: tab)
-                        .safeAreaInset(edge: .top, spacing: 0) {
-                            VStack(spacing: 0) {
-                                LapsedBanner()
-                                sharedBanner
+                        .safeAreaBar(edge: .bottom, spacing: 0) {
+                            // Hidden while typing, so the cards don't ride up on the keyboard.
+                            if !keyboardShown {
+                                VStack(spacing: 0) {
+                                    LapsedBanner()
+                                    sharedBanner
+                                }
                             }
                         }
                 }
@@ -99,6 +105,14 @@ struct RootTabView: View {
             Task { await subscription.refresh() }
         }
         #if os(iOS)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            keyboardShown = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            keyboardShown = false
+        }
+        #endif
+        #if os(iOS)
         .fullScreenCover(isPresented: onboarding) { onboardingFlow }
         #else
         .sheet(isPresented: onboarding) { onboardingFlow.frame(minWidth: 520, minHeight: 640) }
@@ -120,7 +134,9 @@ struct RootTabView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
                     .padding(.vertical, 10)
-                    .background(Palette.cardSurface)
+                    .background(Palette.cardSurface, in: .rect(cornerRadius: 16))
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
             }
             .buttonStyle(.plain)
             .accessibilityHint("Opens it")
