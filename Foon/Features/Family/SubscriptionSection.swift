@@ -224,7 +224,7 @@ private struct OfferRow: View {
     }
 }
 
-/// Shown at the top of every tab when the household has lapsed: a gentle way to say view-only, and who can fix it.
+/// Shown at the bottom of every tab when the household has lapsed: a gentle way to say view-only, and who can fix it.
 struct LapsedBanner: View {
     @Environment(HouseholdStore.self) private var store
     @Environment(SubscriptionStore.self) private var subscription
