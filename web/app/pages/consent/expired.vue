@@ -14,8 +14,8 @@ const withdrawLink = computed(() => route.query.link === "withdraw");
       This link has expired. You can still withdraw in Foon: open Family, then your kid, then Withdraw consent.
     </p>
     <p v-else>
-      It may be more than 7 days old, or replaced by a newer email. To try again, open your kid's profile in Foon and
-      send a new email.
+      It may be more than 7 days old, replaced by a newer email, or your kid's profile may have changed. Open their
+      profile in Foon to see where things stand, and send a new email if you need to.
     </p>
   </StatusCard>
 </template>

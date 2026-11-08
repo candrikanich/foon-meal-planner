@@ -6,6 +6,8 @@ import { z } from "zod";
 export const CONSENT_ROUTES = {
   done: "/consent/done",
   refused: "/consent/refused",
+  // Another parent in the household already agreed for this kid.
+  already: "/consent/already",
   expired: "/consent/expired",
   withdrawExpired: "/consent/expired?link=withdraw",
   withdrawn: "/consent/withdrawn",
@@ -29,7 +31,9 @@ export type WithdrawStep = { step: "ask"; firstName: string } | { step: "go"; to
 
 const consentReply = z.union([
   z.object({ result: z.literal("pending"), firstName: z.string().min(1) }),
-  z.object({ result: z.enum(["try_again", "confirmed", "refused", "expired", "invalid"]) }),
+  z.object({
+    result: z.enum(["try_again", "confirmed", "refused", "already_consented", "withdrawn", "expired", "invalid"]),
+  }),
 ]);
 
 const withdrawReply = z.union([
@@ -47,6 +51,11 @@ export function consentStep(reply: z.infer<typeof consentReply>): ConsentStep {
       return { step: "go", to: CONSENT_ROUTES.done };
     case "refused":
       return { step: "go", to: CONSENT_ROUTES.refused };
+    case "already_consented":
+      return { step: "go", to: CONSENT_ROUTES.already };
+    // The consent from this link was given, then withdrawn.
+    case "withdrawn":
+      return { step: "go", to: CONSENT_ROUTES.withdrawn };
     case "expired":
     case "invalid":
       return { step: "go", to: CONSENT_ROUTES.expired };

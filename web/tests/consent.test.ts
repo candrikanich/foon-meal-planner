@@ -38,6 +38,16 @@ describe("answerConsent", () => {
       step: "go",
       to: "/consent/refused",
     });
+    for (const decision of ["lookup", "agree", "refuse"] as const) {
+      expect(await answerConsent(fn, token, decision, json(200, { result: "already_consented" }))).toEqual({
+        step: "go",
+        to: "/consent/already",
+      });
+      expect(await answerConsent(fn, token, decision, json(200, { result: "withdrawn" }))).toEqual({
+        step: "go",
+        to: "/consent/withdrawn",
+      });
+    }
     for (const result of ["expired", "invalid"]) {
       expect(await answerConsent(fn, token, "lookup", json(200, { result }))).toEqual({
         step: "go",
@@ -129,6 +139,15 @@ describe("page states", () => {
   it("keeps the buttons with a note when a tap doesn't finish", () => {
     expect(nextPage(asking, { step: "again" })).toEqual({ state: { ...asking, notice: "again" } });
     expect(nextPage(asking, { step: "error" })).toEqual({ state: { ...asking, notice: "problem" } });
+  });
+
+  it("sends an already-agreed or withdrawn consent link to its own page, never done", () => {
+    for (const current of [loading, asking]) {
+      expect(nextPage(current, { step: "go", to: CONSENT_ROUTES.already })).toEqual({ navigate: "/consent/already" });
+      expect(nextPage(current, { step: "go", to: CONSENT_ROUTES.withdrawn })).toEqual({
+        navigate: "/consent/withdrawn",
+      });
+    }
   });
 
   it("keeps the parent on the page when No lands while an I agree is sending", () => {
