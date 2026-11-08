@@ -329,7 +329,7 @@ declare
 begin
   if public.has_parental_consent(request.member_id) then
     perform public.end_parental_consent_request(request.id, 'cancelled');
-    return 'confirmed';
+    return 'already_consented';
   end if;
   if request.expires_at is null or request.expires_at < now() then
     perform public.end_parental_consent_request(request.id, 'expired');
@@ -347,8 +347,29 @@ $$;
 revoke execute on function public.parental_consent_still_valid(public.parental_consent_requests)
   from public, anon, authenticated;
 
+-- What a consent link's request has come to, or null while it's still open for an answer. Read only.
+--   confirmed: this request's consent is active. withdrawn: it was, and has been withdrawn. refused.
+--   already_consented: another parent (or an earlier consent) already consented for the kid; this request goes no
+--   further. expired: lapsed or cancelled.
+create function public.parental_consent_settled(request public.parental_consent_requests)
+returns text
+language sql stable security definer set search_path = ''
+as $$
+  select case
+    when request.status = 'confirmed' then
+      case when exists (select 1 from public.consents c where c.request_id = request.id and c.revoked_at is null)
+           then 'confirmed' else 'withdrawn' end
+    when request.status = 'refused' then 'refused'
+    when public.has_parental_consent(request.member_id) then 'already_consented'
+    when request.status in ('cancelled', 'expired') or request.expires_at < now() then 'expired'
+  end;
+$$;
+revoke execute on function public.parental_consent_settled(public.parental_consent_requests)
+  from public, anon, authenticated;
+
 -- What the site's /consent page shows, without changing anything (only parental_consent_decide does):
---   {"outcome": "pending", "first_name", "expires_at"} | {"outcome": "confirmed" | "refused" | "expired" | "invalid"}
+--   {"outcome": "pending", "first_name", "expires_at"}
+--   | {"outcome": "confirmed" | "withdrawn" | "refused" | "already_consented" | "expired" | "invalid"}
 create function public.parental_consent_lookup(p_token_hash text)
 returns jsonb
 language plpgsql stable security definer set search_path = ''
@@ -358,9 +379,8 @@ declare
 begin
   select * into request from public.parental_consent_requests where token_hash = p_token_hash;
   if not found then return jsonb_build_object('outcome', 'invalid'); end if;
-  if request.status in ('confirmed', 'refused') then return jsonb_build_object('outcome', request.status); end if;
-  if request.status in ('cancelled', 'expired') or request.expires_at < now() then
-    return jsonb_build_object('outcome', 'expired');
+  if public.parental_consent_settled(request) is not null then
+    return jsonb_build_object('outcome', public.parental_consent_settled(request));
   end if;
   return jsonb_build_object('outcome', 'pending', 'expires_at', request.expires_at,
                             'first_name', (select first_name from public.members where id = request.member_id));
@@ -368,7 +388,7 @@ end;
 $$;
 
 -- The parent's answer, from the site's button. p_decision is 'agree' or 'refuse'.
---   {"outcome": "refused" | "confirmed" | "expired" | "invalid" | "busy"}
+--   {"outcome": "refused" | "confirmed" | "withdrawn" | "already_consented" | "expired" | "invalid" | "busy"}
 --   {"outcome": "send_confirmation", "request_id", "email", "first_name", "decided_at"}
 --     agreed: send email 2, then activate_parental_consent; or parental_consent_release_confirmation if it didn't go out
 -- Email 2 goes to the address email 1 went to, derived the same way and checked against its hash: if the account's
@@ -389,8 +409,14 @@ begin
   end if;
   select * into request from public.parental_consent_requests where token_hash = p_token_hash for update;
   if not found then return jsonb_build_object('outcome', 'invalid'); end if;
-  if request.status in ('confirmed', 'refused') then return jsonb_build_object('outcome', request.status); end if;
-  if request.status in ('cancelled', 'expired') then return jsonb_build_object('outcome', 'expired'); end if;
+  ended := public.parental_consent_settled(request);
+  if ended is not null then
+    if request.status in ('pending', 'consented') then
+      perform public.end_parental_consent_request(request.id,
+        case when ended = 'already_consented' then 'cancelled' else 'expired' end);
+    end if;
+    return jsonb_build_object('outcome', ended);
+  end if;
   ended := public.parental_consent_still_valid(request);
   if ended is not null then return jsonb_build_object('outcome', ended); end if;
 
@@ -433,7 +459,9 @@ $$;
 
 -- Email 2 went out: consent is active. Checks everything again first (the kid is still an unclaimed kid in the family,
 -- the parent who asked is still a parent there), and cancels the request if not.
---   'confirmed' | 'expired' (the request ended, or can't lead to consent any more)
+--   'confirmed' | 'already_consented' (another consent got there first) | 'expired' (the request ended, or can't lead
+--   to consent any more). Email 2 has gone out by now either way: a known limit, since the checks run again here for
+--   whatever changed while it was sending (docs/parental-consent.md).
 create function public.activate_parental_consent(p_request_id uuid, p_withdraw_token_hash text)
 returns text
 language plpgsql security definer set search_path = ''

@@ -2,7 +2,7 @@
 -- a parental consent, after the parent agreed from email 1 and email 2 went out. Pending, refused, expired, confirmed
 -- and withdrawn; the limits; who reads requests; retention.
 begin;
-select plan(102);
+select plan(106);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -274,6 +274,10 @@ select is(public.parental_consent_withdraw_lookup('whash-n'), '{"outcome": "acti
   'the withdraw page can show whom it''s for');
 select is(public.withdraw_parental_consent('whash-n'), 'withdrawn', 'the link withdraws');
 select is(public.withdraw_parental_consent('whash-n'), 'withdrawn', 'twice is fine');
+select is(public.parental_consent_lookup('hash-n2'), '{"outcome": "withdrawn"}'::jsonb,
+  'email 1''s link now says the consent was withdrawn');
+select is(public.parental_consent_decide('hash-n2', 'agree'), '{"outcome": "withdrawn"}'::jsonb,
+  'and agreeing from it doesn''t bring it back');
 select is(public.withdraw_parental_consent('nope'), 'invalid', 'an unknown link is invalid');
 select pg_temp.as_admin();
 select is((select user_id from public.members where id = '00000000-0000-0000-0000-0000000000a5'), null,
@@ -383,6 +387,10 @@ select is((select status from public.parental_consent_requests where token_hash 
   'another parent''s email 1 leaves an agreed request alone');
 select is(public.activate_parental_consent((current_setting('test.rex2')::jsonb ->> 'request_id')::uuid, 'whash-r'),
   'confirmed', 'so email 2 still activates it');
+select is(public.parental_consent_lookup('hash-r3'), '{"outcome": "already_consented"}'::jsonb,
+  'the other parent''s link then says the kid already has consent');
+select is(public.parental_consent_decide('hash-r3', 'agree'), '{"outcome": "already_consented"}'::jsonb,
+  'and agreeing from it sends nothing');
 
 -- A failed Send again to a new address leaves the live link's address ------------------------------------------------
 select pg_temp.as_user('f0000000-0000-0000-0000-00000000000f');  -- Fay types an address

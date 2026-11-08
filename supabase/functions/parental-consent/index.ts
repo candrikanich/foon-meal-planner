@@ -7,6 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 import { resendConfigFromEnv, sendEmail } from "../_shared/resend.ts";
 import { newToken, sha256 } from "../_shared/token.ts";
 import {
+  consentOrigins,
   type DecideResult,
   handleParentalConsent,
   type LookupResult,
@@ -36,13 +37,7 @@ async function rpc<T>(name: string, args: Row): Promise<T> {
 
 Deno.serve((req) =>
   handleParentalConsent(req, {
-    allowedOrigins: [
-      "https://getfoon.com",
-      "https://www.getfoon.com",
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://127.0.0.1:3000",
-    ],
+    allowedOrigins: consentOrigins(Deno.env.get("CONSENT_SITE_URL")),
     siteUrl: Deno.env.get("CONSENT_SITE_URL") ?? "https://getfoon.com",
     functionUrl: `${supabaseUrl}/functions/v1/parental-consent`,
     userFromToken: async (jwt) => (await admin.auth.getUser(jwt)).data.user?.id ?? null,

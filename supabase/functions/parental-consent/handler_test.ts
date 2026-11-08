@@ -4,6 +4,7 @@ import { newToken, sha256 } from "../_shared/token.ts";
 import { confirmationEmail, noticeEmail, PRIVACY_URL, TEXT_VERSION } from "./email.ts";
 import {
   type ConsentDeps,
+  consentOrigins,
   type DecideResult,
   handleParentalConsent,
   RefusedError,
@@ -236,6 +237,31 @@ Deno.test("refusing, a used link and a send in progress each answer plainly", as
   const busy = fakeDeps({ decide: () => Promise.resolve({ outcome: "busy" }) });
   const response = await handleParentalConsent(fromSite(`?consent=${token}`, { decision: "agree" }), busy.deps);
   assertEquals(await response.json(), { result: "try_again" });
+});
+
+Deno.test("a link whose kid already has consent, or whose consent was withdrawn, says so", async () => {
+  for (const outcome of ["already_consented", "withdrawn"] as const) {
+    const { deps, emails, calls } = fakeDeps({
+      lookup: () => Promise.resolve({ outcome }),
+      decide: () => Promise.resolve({ outcome }),
+    });
+    const lookup = await handleParentalConsent(fromSite(`?consent=${token}`, { decision: "lookup" }), deps);
+    assertEquals(await lookup.json(), { result: outcome });
+    const agree = await handleParentalConsent(fromSite(`?consent=${token}`, { decision: "agree" }), deps);
+    assertEquals(await agree.json(), { result: outcome });
+    assertEquals(emails, []);
+    assert(!calls.some((call) => call.startsWith("activate")));
+  }
+  const raced = fakeDeps({ activate: () => Promise.resolve("already_consented") });
+  const response = await handleParentalConsent(fromSite(`?consent=${token}`, { decision: "agree" }), raced.deps);
+  assertEquals(await response.json(), { result: "already_consented" });
+});
+
+Deno.test("a preview's site URL is allowed by its origin only", () => {
+  assertEquals(consentOrigins(undefined).length, 5);
+  assertEquals(consentOrigins("https://getfoon.com").length, 5);
+  assertEquals(consentOrigins("https://foon-git-x.vercel.app/some/path").at(-1), "https://foon-git-x.vercel.app");
+  assertEquals(consentOrigins("not a url").length, 5);
 });
 
 Deno.test("the withdraw page looks up, then withdraws", async () => {

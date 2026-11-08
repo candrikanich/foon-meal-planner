@@ -25,10 +25,10 @@ export type RequestResult =
 
 export type LookupResult =
   | { outcome: "pending"; firstName: string; expiresAt: string }
-  | { outcome: "confirmed" | "refused" | "expired" | "invalid" };
+  | { outcome: "confirmed" | "withdrawn" | "refused" | "already_consented" | "expired" | "invalid" };
 
 export type DecideResult =
-  | { outcome: "confirmed" | "refused" | "expired" | "invalid" | "busy" }
+  | { outcome: "confirmed" | "withdrawn" | "refused" | "already_consented" | "expired" | "invalid" | "busy" }
   | { outcome: "send_confirmation"; requestId: string; email: string; firstName: string; decidedAt: string };
 
 export type WithdrawLookupResult =
@@ -58,7 +58,7 @@ export interface ConsentDeps {
   lookup(tokenHash: string): Promise<LookupResult>;
   decide(tokenHash: string, decision: "agree" | "refuse"): Promise<DecideResult>;
   releaseConfirmation(requestId: string): Promise<void>;
-  activate(requestId: string, withdrawTokenHash: string): Promise<"confirmed" | "expired">;
+  activate(requestId: string, withdrawTokenHash: string): Promise<"confirmed" | "already_consented" | "expired">;
   withdrawLookup(tokenHash: string): Promise<WithdrawLookupResult>;
   withdraw(tokenHash: string): Promise<"withdrawn" | "expired" | "invalid">;
   newToken(): string;
@@ -67,6 +67,28 @@ export interface ConsentDeps {
   sendEmail(email: Email): Promise<"sent" | "off">;
   // Ids and outcomes only: never an email address, a name or a token.
   log(message: string, error?: unknown): void;
+}
+
+const FIXED_ORIGINS = [
+  "https://getfoon.com",
+  "https://www.getfoon.com",
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
+] as const;
+
+// The site's origins, plus CONSENT_SITE_URL's when it points the links at a preview (its origin only, never a path).
+export function consentOrigins(siteUrl: string | undefined): string[] {
+  if (!siteUrl) return [...FIXED_ORIGINS];
+  let origin: string;
+  try {
+    origin = new URL(siteUrl).origin;
+  } catch {
+    return [...FIXED_ORIGINS];
+  }
+  return origin === "null" || FIXED_ORIGINS.includes(origin as typeof FIXED_ORIGINS[number])
+    ? [...FIXED_ORIGINS]
+    : [...FIXED_ORIGINS, origin];
 }
 
 const requestSchema = z.object({

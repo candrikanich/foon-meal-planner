@@ -10,7 +10,7 @@ How consent by "email plus" behaves is in [spec.md](spec.md) (Email → Consent 
 | --- | --- | --- |
 | Edge Function secret | `RESEND_API_KEY` | Already set for the waitlist; the same key sends both |
 | Edge Function secret | `CONSENT_FROM` | `Foon <info@getfoon.com>` (decided 2026-11-08). Must be on a domain verified in Resend. Without it (or the key) nothing is sent and the app is told email is off (503 `email_off`). A first request that never sent anything is deleted; a Send again leaves the existing request and its live link as they were |
-| Edge Function secret | `CONSENT_SITE_URL` | Optional. Defaults to `https://getfoon.com`; set it to point the emailed links at a preview |
+| Edge Function secret | `CONSENT_SITE_URL` | Optional. Defaults to `https://getfoon.com`; set it to point the emailed links at a preview. Its origin is then also allowed to POST (CORS), so the preview's pages work |
 | Vercel env (build time) | `NUXT_PUBLIC_CONSENT_URL` | `https://<project-ref>.supabase.co/functions/v1/parental-consent`, which the site's /consent pages POST to |
 | Edge Function (built in) | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Set by Supabase. The anon key is used only to run the parent's request as the parent (their JWT) |
 
@@ -76,6 +76,14 @@ Mail scanners open every link in a message, so a GET never changes anything:
 The database stores only SHA-256 hashes of both tokens. The consent link works for 7 days and Send again replaces it;
 the withdraw link works for 30 days, and withdrawing in the app always works. The site's POST must come from
 getfoon.com, www.getfoon.com or localhost (CORS).
+
+## Known limit
+
+The server checks everything when the parent taps I agree, sends email 2, then checks again before activating. If
+something changes in those seconds (the kid's profile is claimed or removed, the parent stops being a parent, or
+another parent's consent lands first), email 2 has already gone out but no consent from this request is activated:
+the page shows the real outcome (`expired` or `already_consented`), and email 2's withdraw link leads to the
+expired page. Ordering can't close this: the rule makes the confirming email the step that activates consent.
 
 ## Limits
 
