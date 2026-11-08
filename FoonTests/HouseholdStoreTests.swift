@@ -429,7 +429,7 @@ extension HouseholdClient {
             redeemInvite: { _ in .invalid },
             invitedMemberIDs: { _ in [] },
             parentalConsentMemberIDs: { _ in [] },
-            recordParentalConsent: { _, _ in },
+            requestParentalConsent: { _, _ in throw URLError(.unknown) },
             revokeParentalConsent: { _ in },
             grantAllergyConsent: grantAllergyConsent,
             setAllergies: setAllergies,

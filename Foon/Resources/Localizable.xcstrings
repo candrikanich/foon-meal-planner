@@ -246,6 +246,16 @@
         }
       }
     },
+    "%@ said no in the email. %@ can't be invited." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ said no in the email. %2$@ can't be invited."
+          }
+        }
+      }
+    },
     "%@ sat out for a food rule" : {
       "comment" : "Reason chip: the night's tradition looks to break a food rule"
     },
@@ -725,6 +735,9 @@
     "A parent keeps these up to date. Foon flags dishes, and you still check labels." : {
 
     },
+    "A parent said no in the email. %@ can't be invited." : {
+
+    },
     "A plain summary, not the privacy policy. What you can export or delete is back on Family, under Your data." : {
 
     },
@@ -884,9 +897,6 @@
     "Age" : {
 
     },
-    "Agree and invite %@" : {
-
-    },
     "Agree and save" : {
 
     },
@@ -924,6 +934,12 @@
 
     },
     "Allergy flags" : {
+
+    },
+    "Almost done. Open the email and tap I agree again to finish." : {
+
+    },
+    "Almost done: %@ agreed in the email, and it's finishing up." : {
 
     },
     "Almost there…" : {
@@ -996,6 +1012,9 @@
 
     },
     "Ask %@ to unlock Foon" : {
+
+    },
+    "Ask again" : {
 
     },
     "Ask for a dish, a name, or a link (names up to 80 characters, notes up to 200)." : {
@@ -1157,6 +1176,9 @@
       "comment" : "Shopping note for an allergy typed as Other"
     },
     "Check your connection and try again." : {
+
+    },
+    "Check your email. We sent it to %@. Tap the link to agree, then come back here." : {
 
     },
     "Check: %@ (%@)" : {
@@ -1394,9 +1416,6 @@
     "Couldn't read the latest week, so the list wasn't updated. Check your connection and try again." : {
 
     },
-    "Couldn't record your consent. Check your connection and try again." : {
-
-    },
     "Couldn't remove your allergies. Check your connection and try again." : {
 
     },
@@ -1446,6 +1465,9 @@
 
     },
     "Couldn't send that. Check your connection and try again." : {
+
+    },
+    "Couldn't send the email. Check your connection and try again." : {
 
     },
     "Couldn't send the idea. Check your connection and try again." : {
@@ -1667,6 +1689,12 @@
     "Effort: %@" : {
 
     },
+    "Email me" : {
+
+    },
+    "Email me instead" : {
+
+    },
     "End the poll" : {
 
     },
@@ -1832,6 +1860,9 @@
     "Foon can't see your photos. Allow it in Settings." : {
 
     },
+    "Foon can't send email right now. Try again later." : {
+
+    },
     "Foon cleared %@" : {
 
     },
@@ -1868,6 +1899,16 @@
     },
     "Foon drafts the week from your library and who's home each night. You can change any night." : {
 
+    },
+    "Foon emailed %@ to confirm. Once they agree, you can invite %@ here." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Foon emailed %1$@ to confirm. Once they agree, you can invite %2$@ here."
+          }
+        }
+      }
     },
     "Foon flags dishes that contain them, and you plan as usual." : {
 
@@ -2214,17 +2255,6 @@
     },
     "I'll cook tonight" : {
 
-    },
-    "I'm %@'s parent or guardian, and I agree to %@ using Foon on their own device. Foon stores what our family enters about %@ (first name, avatar, allergies, and schedule), what %@ adds (requests, ratings, comments, and list items), an age range from Apple (never a birthdate), and their Apple sign-in (account ID and email) and a notification token. It's shared only with this household and the services that run Foon for us (our hosting provider, and Apple for notifications), and never used for ads. If I don't agree, no invite is sent and %@ can't sign in. I can withdraw this at any time in Family." : {
-      "comment" : "Parental consent (COPPA). Every placeholder is the child's first name. Must say exactly what the English says; see ParentalConsent.textVersion.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "I'm %1$@'s parent or guardian, and I agree to %2$@ using Foon on their own device. Foon stores what our family enters about %3$@ (first name, avatar, allergies, and schedule), what %4$@ adds (requests, ratings, comments, and list items), an age range from Apple (never a birthdate), and their Apple sign-in (account ID and email) and a notification token. It's shared only with this household and the services that run Foon for us (our hosting provider, and Apple for notifications), and never used for ads. If I don't agree, no invite is sent and %5$@ can't sign in. I can withdraw this at any time in Family."
-          }
-        }
-      }
     },
     "Ideas" : {
 
@@ -2929,6 +2959,9 @@
     "One subscription covers the whole family. Until then you can still see everything and export or delete your data. %@" : {
 
     },
+    "Only a parent in the family can ask for this." : {
+
+    },
     "Only a parent in the family can delete a kid." : {
 
     },
@@ -3428,6 +3461,12 @@
 
     },
     "Send" : {
+
+    },
+    "Send a new email" : {
+
+    },
+    "Send again" : {
 
     },
     "Send invite" : {
@@ -3934,6 +3973,9 @@
     "That doesn't look like a web link." : {
 
     },
+    "That email doesn't look right. Check it and try again." : {
+
+    },
     "That file isn't a photo Foon can use." : {
 
     },
@@ -4186,6 +4228,9 @@
     "This poll has closed." : {
 
     },
+    "This profile can't be invited this way any more." : {
+
+    },
     "This rating is locked in now, so it can't take a comment." : {
 
     },
@@ -4235,6 +4280,9 @@
 
     },
     "Tired of it" : {
+
+    },
+    "To invite %@, Foon emails you to confirm you're their parent." : {
 
     },
     "Today's schedule takes its place, and what it held is gone." : {
@@ -4332,6 +4380,9 @@
 
     },
     "Try again" : {
+
+    },
+    "Try again in a little while." : {
 
     },
     "Try another meal or ingredient." : {
@@ -4705,6 +4756,9 @@
     "You cooked" : {
 
     },
+    "You said no in the email. %@ can't be invited." : {
+
+    },
     "You said you won't be home tonight." : {
 
     },
@@ -4747,6 +4801,9 @@
     "You've read 30 links today. Try again tomorrow, or save just the link." : {
 
     },
+    "Your Apple sign-in doesn't share an email with Foon. Type the one to send it to." : {
+
+    },
     "Your Apple sign-in: an account ID, an email, which can be Apple's private relay address, and your first name if Apple shares it." : {
 
     },
@@ -4763,6 +4820,9 @@
 
     },
     "Your data" : {
+
+    },
+    "Your email" : {
 
     },
     "Your first name" : {
@@ -4824,6 +4884,9 @@
     "Your rhythm" : {
 
     },
+    "Your sign-in has ended. Sign in again, then try again." : {
+
+    },
     "Your week of dinners is ready." : {
       "comment" : "Reminder title: the weekly recap"
     },
@@ -4835,6 +4898,9 @@
     },
     "^[%lld item](inflect: true) marked bought" : {
 
+    },
+    "another parent" : {
+      "comment" : "Stands in for a parent whose name isn't known"
     },
     "answered %lld check-ins" : {
       "comment" : "Who's pitching in: \"Home tonight?\" check-ins someone answered",
@@ -5049,6 +5115,12 @@
     "soy" : {
       "comment" : "Allergen, lowercase inside a sentence"
     },
+    "the address you gave" : {
+
+    },
+    "the email on your Apple sign-in" : {
+
+    },
     "the owner" : {
 
     },
@@ -5078,6 +5150,9 @@
     },
     "yesterday" : {
       "comment" : "Freezer stash: made yesterday"
+    },
+    "your Hide My Email address, which forwards to your inbox" : {
+
     }
   },
   "version" : "1.0"

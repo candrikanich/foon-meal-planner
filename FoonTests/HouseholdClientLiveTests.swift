@@ -48,6 +48,8 @@ struct HouseholdClientLiveTests {
         #expect(removed.status == .removed)
     }
 
+    /// Parental consent is written only by the server after the confirming email (#275), which pgTAP 82 and the
+    /// Edge Function's tests cover; here, a kid stays uninvitable and an adult's invite goes through.
     @Test func aParentInvitesAndASecondAccountJoins() async throws {
         let parent = try await Self.signedUpClient()
         let household = try await parent.createHousehold("Invite family", nil, "Ann", HouseholdSettings())
@@ -59,10 +61,15 @@ struct HouseholdClientLiveTests {
         await #expect(throws: (any Error).self, "a kid can't be invited before a parent consents") {
             _ = try await parent.createInvite(owen.id)
         }
-        try await parent.recordParentalConsent(household.id, owen.id)
-        #expect(try await parent.parentalConsentMemberIDs(household.id) == [owen.id])
-        let code = try await parent.createInvite(owen.id)
-        #expect(try await parent.invitedMemberIDs(household.id) == [owen.id])
+        #expect(try await parent.parentalConsentMemberIDs(household.id).isEmpty)
+        #expect(try await parent.parentalConsentRequests(household.id).isEmpty,
+                "parents read consent requests through the granted columns")
+
+        var adult = MemberDraft()
+        adult.firstName = "Grace"
+        let grace = try await parent.addMember(household.id, try #require(adult.validated()))
+        let code = try await parent.createInvite(grace.id)
+        #expect(try await parent.invitedMemberIDs(household.id) == [grace.id])
 
         let newcomer = try await Self.signedUpClient()
         #expect(try await newcomer.redeemInvite("WRONG-2222-2222") == .invalid)
@@ -70,10 +77,7 @@ struct HouseholdClientLiveTests {
         #expect(try await newcomer.myHousehold()?.id == household.id)
         #expect(try await parent.invitedMemberIDs(household.id).isEmpty, "a redeemed invite is no longer open")
         #expect(try await newcomer.redeemInvite(code) == .hasHousehold)
-
-        try await parent.revokeParentalConsent(owen.id)
-        #expect(try await newcomer.myHousehold() == nil, "withdrawing consent takes the kid out of the household")
-        #expect(try await parent.parentalConsentMemberIDs(household.id).isEmpty)
+        #expect(try await newcomer.parentalConsentRequests(household.id).isEmpty, "only parents read the requests")
     }
 
     @Test func signingOutEverywhereEndsOtherDevicesAccessAtOnce() async throws {

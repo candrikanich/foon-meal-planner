@@ -72,7 +72,7 @@ extension HouseholdClient {
             redeemInvite: { _ in .invalid },
             invitedMemberIDs: { _ in [] },
             parentalConsentMemberIDs: { _ in [] },
-            recordParentalConsent: { _, _ in },
+            requestParentalConsent: { _, _ in .sent(requestID: UUID(), email: "ann@example.com", source: .account) },
             revokeParentalConsent: { _ in },
             // The sample family has a kid's milk allergy, so it agreed.
             allergyAlerts: { _ in .on },

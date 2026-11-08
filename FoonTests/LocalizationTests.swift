@@ -43,7 +43,7 @@ struct LocalizationTests {
     }
 
     /// Long multi-line keys are checked by prefix rather than retyped in full.
-    @Test(arguments: ["I'm %@'s parent or guardian", "%@, join %@ on Foon"])
+    @Test(arguments: ["Check your email. We sent it to %@", "%@, join %@ on Foon"])
     func longMessageIsInTheCatalog(prefix: String) throws {
         #expect(try Self.catalogKeys().contains { $0.hasPrefix(prefix) })
     }

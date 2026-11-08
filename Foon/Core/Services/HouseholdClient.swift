@@ -19,7 +19,11 @@ struct HouseholdClient: Sendable {
     var invitedMemberIDs: @Sendable (_ householdID: UUID) async throws -> Set<UUID>
     /// Kids whose parental consent is active.
     var parentalConsentMemberIDs: @Sendable (_ householdID: UUID) async throws -> Set<UUID>
-    var recordParentalConsent: @Sendable (_ householdID: UUID, _ memberID: UUID) async throws -> Void
+    /// Emails the parent the consent notice (COPPA email plus, #275); `email` only after a `.noEmail` answer.
+    /// A refusal throws `ParentalConsentError`.
+    var requestParentalConsent: @Sendable (_ memberID: UUID, _ email: String?) async throws -> ParentalConsentAnswer
+    /// The household's consent requests, newest first (parents only; others get none).
+    var parentalConsentRequests: @Sendable (_ householdID: UUID) async throws -> [ParentalConsentRequest] = { _ in [] }
     /// Unlinks the kid's account at once (the database does it when consent is revoked).
     var revokeParentalConsent: @Sendable (_ memberID: UUID) async throws -> Void
     /// Deletes a kid's profile, everything about them, and their sign-in account, at once (`delete_kid`, parents only).
@@ -195,10 +199,23 @@ extension HouseholdClient {
                     .value
                 return Set(rows.map(\.memberID))
             },
-            recordParentalConsent: { householdID, memberID in
-                try await client.from("consents")
-                    .insert(NewParentalConsent(householdID: householdID, memberID: memberID))
+            requestParentalConsent: { memberID, email in
+                let options = FunctionInvokeOptions(body: ConsentAsk(memberID: memberID, email: email))
+                do {
+                    return try await client.functions.invoke("parental-consent", options: options) { data, response in
+                        try ParentalConsentAnswer.decode(status: response.statusCode, body: data)
+                    }
+                } catch FunctionsError.httpError(let code, let data) {
+                    return try ParentalConsentAnswer.decode(status: code, body: data)
+                }
+            },
+            parentalConsentRequests: { householdID in
+                try await client.from("parental_consent_requests")
+                    .select(ParentalConsentRequest.columns)
+                    .eq("household_id", value: householdID)
+                    .order("created_at", ascending: false)
                     .execute()
+                    .value
             },
             revokeParentalConsent: { memberID in
                 // The database stamps the real revocation time.
@@ -572,17 +589,20 @@ private struct OpenInvite: Decodable, Sendable {
     }
 }
 
-private struct NewParentalConsent: Encodable, Sendable {
-    let householdID: UUID
+/// `email` is left out unless the parent typed one.
+struct ConsentAsk: Encodable, Sendable {
     let memberID: UUID
-    let kind = "parental"
-    let textVersion = ParentalConsent.textVersion
+    let email: String?
 
     enum CodingKeys: String, CodingKey {
-        case kind
-        case householdID = "household_id"
-        case memberID = "member_id"
-        case textVersion = "text_version"
+        case email
+        case memberID = "memberId"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(memberID.uuidString.lowercased(), forKey: .memberID)
+        try container.encodeIfPresent(email, forKey: .email)
     }
 }
 
