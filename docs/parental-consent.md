@@ -11,6 +11,7 @@ How consent by "email plus" behaves is in [spec.md](spec.md) (Email → Consent 
 | Edge Function secret | `RESEND_API_KEY` | Already set for the waitlist; the same key sends both |
 | Edge Function secret | `CONSENT_FROM` | `Foon <info@getfoon.com>` (decided 2026-11-08). Must be on a domain verified in Resend. Without it (or the key) nothing is sent: the app is told email is off (503 `email_off`) and no request is kept |
 | Edge Function secret | `CONSENT_SITE_URL` | Optional. Defaults to `https://getfoon.com`; set it to point the emailed links at a preview |
+| Vercel env (build time) | `NUXT_PUBLIC_CONSENT_URL` | `https://<project-ref>.supabase.co/functions/v1/parental-consent`, which the site's /consent pages POST to |
 | Edge Function (built in) | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Set by Supabase. The anon key is used only to run the parent's request as the parent (their JWT) |
 
 Set the secrets on staging and production (Supabase → Edge Functions → Secrets, or
