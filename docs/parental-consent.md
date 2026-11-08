@@ -18,6 +18,14 @@ Set the secrets on staging and production (Supabase → Edge Functions → Secre
 deploy workflows deploy every function, and `config.toml` turns the gateway's JWT check off for this one (the links
 carry none; the function checks the app's JWT itself).
 
+## Which address is used
+
+The account's email, only when it's verified: `auth.users.email_confirmed_at` is set, or the account has an Apple
+identity. Otherwise the app is told `no_email` and the parent types one. Email 2 goes only to the address email 1
+went to: the request keeps its SHA-256 and compares it before sending; a mismatch cancels the request. The local
+`config.toml` has email sign-ups on with confirmations off (`[auth.email]`, the CLI default); check the hosted
+projects' Auth settings, though an unconfirmed email is never used either way.
+
 ## Sign in with Apple's private email relay (Chris)
 
 Parents who chose Hide My Email have a `@privaterelay.appleid.com` address. Apple forwards mail to it only from
@@ -67,8 +75,11 @@ getfoon.com, www.getfoon.com or localhost (CORS).
 
 ## Limits
 
-One email 1 per request every 10 minutes, 5 a day per parent, 200 an hour overall, reserved under a lock in
-`request_parental_consent`. A send that fails is released; a reservation nobody settled lapses after 5 minutes.
+One email 1 per request every 10 minutes, 5 a day per parent, 10 a day per household, 200 an hour overall,
+reserved under a lock in `request_parental_consent`. The overall cap is a cost and abuse ceiling, as for the
+waitlist. The tradeoff we accept: someone with many accounts and households could use it up and delay other
+parents' emails by up to an hour (each account is held to 5 a day and each household to 10). The app is told
+`rate_limited` and says "Try again in a little while." A send that fails is released; a reservation nobody settled lapses after 5 minutes.
 Email 2 is reserved per request for 5 minutes, so two taps of I agree send it once.
 
 ## Retention

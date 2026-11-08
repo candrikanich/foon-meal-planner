@@ -146,7 +146,7 @@ Deno.test("each database answer has its own response", async () => {
   const cases: Array<[RequestResult | RefusedError, number, Record<string, string>]> = [
     [{ outcome: "already_consented" }, 200, { result: "already_consented" }],
     [{ outcome: "no_email" }, 200, { result: "no_email" }],
-    [{ outcome: "rate_limited" }, 429, { error: "rate_limited" }],
+    [{ outcome: "rate_limited" }, 429, { error: "rate_limited", message: "Try again in a little while." }],
     [new RefusedError("42501"), 403, { error: "not_a_parent" }],
     [new RefusedError("22023"), 409, { error: "not_eligible" }],
     [new RefusedError("22000"), 400, { error: "bad_email" }],

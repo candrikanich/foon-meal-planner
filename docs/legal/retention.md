@@ -208,7 +208,8 @@ released, and the reminder log about them is deleted. The parent-entered profile
 A parent's consent for a kid is asked by email (COPPA's email plus). The address is the one on the asking parent's own
 Sign in with Apple account, read when each email is sent; Foon doesn't copy it. Only when that account has no email
 does the parent type one, and that address is kept on the request alone: it's cleared once the confirming email is
-sent, or when the request is refused, cancelled or lapses, and goes with the request when it's deleted. Only SHA-256
+sent, or when the request is refused, cancelled or lapses, and goes with the request when it's deleted. A SHA-256 hash of
+the address email 1 went to is kept on the request until it ends, so email 2 goes only there. Only SHA-256
 hashes of the emailed links' tokens are stored. We keep no copy of either email.
 
 Resend, which sends them, keeps its own logs of each email (such as the recipient, subject and delivery status) for

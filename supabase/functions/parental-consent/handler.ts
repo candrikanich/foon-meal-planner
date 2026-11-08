@@ -157,7 +157,8 @@ async function requestConsent(req: Request, deps: ConsentDeps): Promise<Response
   }
   switch (requested.outcome) {
     case "rate_limited":
-      return json(429, { error: "rate_limited" });
+      // Calm, and never which limit: the app shows its own localized "Try again in a little while."
+      return json(429, { error: "rate_limited", message: "Try again in a little while." });
     case "already_consented":
     case "no_email":
       return json(200, { result: requested.outcome });

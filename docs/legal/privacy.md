@@ -187,7 +187,8 @@ account as a child's account under the Children's Online Privacy Protection Act 
   after that parent has given verifiable consent by email (COPPA's "email plus", 312.5(b)(2)(viii)):
   - When a parent asks to invite a kid, we email them a notice: what we'd keep about the kid, who receives it, that
     nothing is collected from the kid without their consent, and a link to agree. It goes to the address on that
-    parent's own Sign in with Apple account. If the account has no email, the parent can type one; we keep that
+    parent's own account, if it's verified (as Sign in with Apple's is). If it has no verified email, the parent can
+    type one; we keep that
     address only until our confirming email is sent or the request ends.
   - The parent opens the link and agrees on getfoon.com (or says no). We then send a second email confirming the
     consent, with a link to withdraw it. The consent counts only once that second email has gone out.

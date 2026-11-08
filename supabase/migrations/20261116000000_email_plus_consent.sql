@@ -14,8 +14,12 @@
 --   consent and still withdraws either kind in the app.
 -- * parental_consent_requests: one row per emailed request. Only token hashes are stored. A typed email is kept only on
 --   the row, and is cleared once email 2 goes out or the request ends (refused, cancelled, expired, purged).
--- * Rate limits: one email 1 per request every 10 minutes, 5 a day per parent, 200 an hour overall. A send is reserved
---   under a lock before it starts; a failed one is released, and a reservation nobody settled lapses after 5 minutes.
+-- * The account's email is used only when it's verified: confirmed, or from Sign in with Apple. Otherwise the parent
+--   is asked to type one. Email 2 goes only to the address email 1 went to (compared by hash).
+-- * Rate limits: one email 1 per request every 10 minutes, 5 a day per parent, 10 a day per household, 200 an hour
+--   overall. The overall cap is a cost and abuse ceiling like the waitlist's: it means a flood of parents could delay
+--   others by up to an hour, which we accept. A send is reserved under a lock before it starts; a failed one is
+--   released, and a reservation nobody settled lapses after 5 minutes.
 -- * Retention: a daily job marks requests whose link lapsed (7 days) as expired, and deletes a request 30 days after it
 --   ended, which also ends its withdraw link. A kid's requests go with the kid (delete_kid) and the household
 --   (erase_household), by cascade.
@@ -51,6 +55,10 @@ create table public.parental_consent_requests (
   -- Where email 1 went: the address on the parent's sign-in, or one they typed because it had none.
   email_source text not null check (email_source in ('account', 'typed')),
   typed_email text check (typed_email is null or char_length(typed_email) between 3 and 254),
+  -- SHA-256 of the address email 1 went to (pending_: of the send in flight), so email 2 goes only to that same address
+  -- without keeping a copy of an account's email. Cleared when the request ends.
+  email_hash text,
+  pending_email_hash text,
   -- The wording emailed; set with the token when email 1 goes out.
   text_version text check (text_version is null or char_length(btrim(text_version)) between 1 and 40),
   token_hash text unique,
@@ -117,20 +125,39 @@ returns void
 language sql security definer set search_path = ''
 as $$
   update public.parental_consent_requests
-     set status = final_status, ended_at = now(), typed_email = null,
+     set status = final_status, ended_at = now(), typed_email = null, email_hash = null, pending_email_hash = null,
          send_reserved_at = null, confirm_reserved_at = null
    where id = target and status in ('pending', 'consented');
 $$;
 revoke execute on function public.end_parental_consent_request(uuid, text) from public, anon, authenticated;
 
+-- The account's email, only if it's verified: confirmed, or the account signs in with Apple (whose email Apple vouches
+-- for). Null otherwise, so an unverified address is never emailed a notice in someone's name.
+create function public.verified_account_email(account uuid)
+returns text
+language sql stable security definer set search_path = ''
+as $$
+  select nullif(btrim(u.email), '') from auth.users u
+   where u.id = account
+     and (u.email_confirmed_at is not null
+          or exists (select 1 from auth.identities i where i.user_id = u.id and i.provider = 'apple'));
+$$;
+revoke execute on function public.verified_account_email(uuid) from public, anon, authenticated;
+
+create function public.consent_email_hash(address text)
+returns text
+language sql immutable set search_path = ''
+as $$ select encode(extensions.digest(lower(btrim(address)), 'sha256'), 'hex') $$;
+revoke execute on function public.consent_email_hash(text) from public, anon, authenticated;
+
 -- Called by the Edge Function with the parent's JWT, so auth.uid() and the session check apply. Reserves an email 1
 -- send and says what the function should do:
 --   {"outcome": "already_consented"}
---   {"outcome": "no_email"}       the account has no email and none was typed
+--   {"outcome": "no_email"}       the account has no verified email and none was typed
 --   {"outcome": "rate_limited"}
 --   {"outcome": "send", "request_id", "send_id", "email", "email_source", "first_name"}
 --     email, then parental_consent_mark_sent; or parental_consent_release_send if it didn't go out
--- A typed email is used only when the account has none. Raises 42501 for someone who isn't a parent in the kid's
+-- A typed email is used only when the account has no verified one. Raises 42501 for someone who isn't a parent in the kid's
 -- household (or no such profile), 22023 for a profile that isn't an unclaimed kid's, and 22000 for a typed email that
 -- isn't one.
 create function public.request_parental_consent(target_member uuid, email_address text default null)
@@ -161,7 +188,7 @@ begin
     return jsonb_build_object('outcome', 'already_consented');
   end if;
 
-  select nullif(btrim(email), '') into account_email from auth.users where id = caller;
+  account_email := public.verified_account_email(caller);
   if account_email is not null then
     address := account_email;
     source := 'account';
@@ -192,20 +219,25 @@ begin
         and (sent or reserved_at > now() - interval '5 minutes')) >= 5
      or (select count(*) from public.parental_consent_sends
          where reserved_at > now() - interval '1 hour'
-           and (sent or reserved_at > now() - interval '5 minutes')) >= 200 then
+           and (sent or reserved_at > now() - interval '5 minutes')) >= 200
+     or (select count(*) from public.parental_consent_sends s
+         join public.parental_consent_requests r on r.id = s.request_id
+         where r.household_id = kid.household_id and s.reserved_at > now() - interval '1 day'
+           and (s.sent or s.reserved_at > now() - interval '5 minutes')) >= 10 then
     return jsonb_build_object('outcome', 'rate_limited');
   end if;
 
   if open_request.id is null then
     insert into public.parental_consent_requests (household_id, member_id, requested_by, email_source, typed_email,
-                                                  send_reserved_at)
+                                                  pending_email_hash, send_reserved_at)
     values (kid.household_id, kid.id, caller, source,
-            case when source = 'typed' then address end, now())
+            case when source = 'typed' then address end, public.consent_email_hash(address), now())
     returning * into open_request;
   else
     update public.parental_consent_requests
        set send_reserved_at = now(), email_source = source,
-           typed_email = case when source = 'typed' then address end
+           typed_email = case when source = 'typed' then address end,
+           pending_email_hash = public.consent_email_hash(address)
      where id = open_request.id;
   end if;
   insert into public.parental_consent_sends (request_id, requested_by, reserved_at)
@@ -230,7 +262,7 @@ declare
 begin
   update public.parental_consent_requests
      set token_hash = p_token_hash, token_sent_at = now(), expires_at = now() + interval '7 days',
-         send_reserved_at = null, text_version = p_text_version, status = 'pending', decided_at = null,
+         email_hash = pending_email_hash, pending_email_hash = null, send_reserved_at = null, text_version = p_text_version, status = 'pending', decided_at = null,
          confirm_reserved_at = null
    where id = p_request_id and status in ('pending', 'consented')
   returning * into request;
@@ -253,7 +285,8 @@ as $$
 begin
   update public.parental_consent_sends set reserved_at = null where id = p_send_id and not sent;
   delete from public.parental_consent_requests where id = p_request_id and token_sent_at is null;
-  update public.parental_consent_requests set send_reserved_at = null where id = p_request_id;
+  update public.parental_consent_requests set send_reserved_at = null, pending_email_hash = null
+   where id = p_request_id;
 end;
 $$;
 
@@ -309,6 +342,8 @@ $$;
 --   {"outcome": "refused" | "confirmed" | "expired" | "invalid" | "busy"}
 --   {"outcome": "send_confirmation", "request_id", "email", "first_name", "decided_at"}
 --     agreed: send email 2, then activate_parental_consent; or parental_consent_release_confirmation if it didn't go out
+-- Email 2 goes to the address email 1 went to, derived the same way and checked against its hash: if the account's
+-- email changed (or stopped being verified) in between, the request is cancelled and the parent asks again.
 -- confirmed covers a consent that already exists (this request's, or another parent's). busy: email 2 is being sent
 -- right now.
 create function public.parental_consent_decide(p_token_hash text, p_decision text)
@@ -318,6 +353,7 @@ as $$
 declare
   request public.parental_consent_requests;
   ended text;
+  address text;
 begin
   if p_decision not in ('agree', 'refuse') then
     raise exception 'decision must be agree or refuse' using errcode = '22023';
@@ -338,6 +374,12 @@ begin
   if request.confirm_reserved_at > now() - interval '5 minutes' then
     return jsonb_build_object('outcome', 'busy');
   end if;
+  address := case when request.email_source = 'typed' then request.typed_email
+                  else public.verified_account_email(request.requested_by) end;
+  if address is null or public.consent_email_hash(address) is distinct from request.email_hash then
+    perform public.end_parental_consent_request(request.id, 'cancelled');
+    return jsonb_build_object('outcome', 'expired');
+  end if;
   update public.parental_consent_requests
      set status = 'consented', decided_at = coalesce(decided_at, now()), confirm_reserved_at = now()
    where id = request.id
@@ -345,7 +387,7 @@ begin
   return jsonb_build_object(
     'outcome', 'send_confirmation', 'request_id', request.id, 'decided_at', request.decided_at,
     'first_name', (select first_name from public.members where id = request.member_id),
-    'email', coalesce(request.typed_email, (select email from auth.users where id = request.requested_by)));
+    'email', address);
 end;
 $$;
 
@@ -389,7 +431,8 @@ begin
   on conflict do nothing;
   update public.parental_consent_requests
      set status = 'confirmed', confirmed_at = now(), ended_at = now(), withdraw_token_hash = p_withdraw_token_hash,
-         typed_email = null, confirm_reserved_at = null, send_reserved_at = null
+         typed_email = null, email_hash = null, pending_email_hash = null, confirm_reserved_at = null,
+         send_reserved_at = null
    where id = request.id;
   for other in select id from public.parental_consent_requests
                 where member_id = request.member_id and id <> request.id and status in ('pending', 'consented')

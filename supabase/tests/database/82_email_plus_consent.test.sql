@@ -2,7 +2,7 @@
 -- a parental consent, after the parent agreed from email 1 and email 2 went out. Pending, refused, expired, confirmed
 -- and withdrawn; the limits; who reads requests; retention.
 begin;
-select plan(84);
+select plan(89);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -20,15 +20,20 @@ create function pg_temp.req(kid uuid) returns public.parental_consent_requests l
 $$;
 
 -- Household A: Alice (owner, parent), Paul (parent, no email on his account), Grace (adult, not a parent), Kim (kid,
--- claimed). Unclaimed: Nora, Owen, Pia, Quin (kids), Ben (adult). Household B: Carol (owner) and her kid Cal.
-insert into auth.users (id, email, aud, role) values
-  ('a0000000-0000-0000-0000-00000000000a', 'alice@example.com', 'authenticated', 'authenticated'),
-  ('a0000000-0000-0000-0000-0000000000a2', '', 'authenticated', 'authenticated'),
-  ('a0000000-0000-0000-0000-0000000000a3', 'grace@example.com', 'authenticated', 'authenticated'),
-  ('a0000000-0000-0000-0000-0000000000a4', 'kim@example.com', 'authenticated', 'authenticated'),
-  ('c0000000-0000-0000-0000-00000000000c', 'carol@example.com', 'authenticated', 'authenticated'),
-  ('d0000000-0000-0000-0000-00000000000d', 'dave@example.com', 'authenticated', 'authenticated'),
-  ('e0000000-0000-0000-0000-00000000000e', 'erin@example.com', 'authenticated', 'authenticated');
+-- claimed), Eve (parent whose email isn't verified, no Apple sign-in). Unclaimed: Nora, Owen, Pia, Quin, Rex (kids),
+-- Ben (adult). Household B: Carol (owner), Bo (parent signed in with Apple, email not marked confirmed) and kid Cal.
+insert into auth.users (id, email, email_confirmed_at, aud, role) values
+  ('a0000000-0000-0000-0000-00000000000a', 'alice@example.com', now(), 'authenticated', 'authenticated'),
+  ('a0000000-0000-0000-0000-0000000000a2', '', null, 'authenticated', 'authenticated'),
+  ('a0000000-0000-0000-0000-0000000000a3', 'grace@example.com', now(), 'authenticated', 'authenticated'),
+  ('a0000000-0000-0000-0000-0000000000a4', 'kim@example.com', now(), 'authenticated', 'authenticated'),
+  ('a0000000-0000-0000-0000-0000000000ae', 'eve@example.com', null, 'authenticated', 'authenticated'),
+  ('c0000000-0000-0000-0000-00000000000c', 'carol@example.com', now(), 'authenticated', 'authenticated'),
+  ('c0000000-0000-0000-0000-0000000000b3', 'bo@privaterelay.appleid.com', null, 'authenticated', 'authenticated'),
+  ('d0000000-0000-0000-0000-00000000000d', 'dave@example.com', now(), 'authenticated', 'authenticated'),
+  ('e0000000-0000-0000-0000-00000000000e', 'erin@example.com', now(), 'authenticated', 'authenticated');
+insert into auth.identities (provider_id, user_id, identity_data, provider) values
+  ('apple-bo', 'c0000000-0000-0000-0000-0000000000b3', '{"sub": "apple-bo"}', 'apple');
 insert into public.households (id, name, owner) values
   ('00000000-0000-0000-0000-0000000000a0', 'Andersons', 'a0000000-0000-0000-0000-00000000000a'),
   ('00000000-0000-0000-0000-0000000000b0', 'Carters', 'c0000000-0000-0000-0000-00000000000c');
@@ -43,7 +48,10 @@ insert into public.members (id, household_id, first_name, role, age_group, guard
   ('00000000-0000-0000-0000-0000000000a8', '00000000-0000-0000-0000-0000000000a0', 'Pia', 'member', 'kid', false, 'active', null),
   ('00000000-0000-0000-0000-0000000000a9', '00000000-0000-0000-0000-0000000000a0', 'Quin', 'member', 'kid', false, 'active', null),
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000b0', 'Carol', 'planner', 'adult', true, 'active', 'c0000000-0000-0000-0000-00000000000c'),
-  ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000b0', 'Cal', 'member', 'kid', false, 'active', null);
+  ('00000000-0000-0000-0000-0000000000aa', '00000000-0000-0000-0000-0000000000a0', 'Rex', 'member', 'kid', false, 'active', null),
+  ('00000000-0000-0000-0000-0000000000ae', '00000000-0000-0000-0000-0000000000a0', 'Eve', 'member', 'adult', true, 'active', 'a0000000-0000-0000-0000-0000000000ae'),
+  ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000b0', 'Cal', 'member', 'kid', false, 'active', null),
+  ('00000000-0000-0000-0000-0000000000b3', '00000000-0000-0000-0000-0000000000b0', 'Bo', 'member', 'adult', true, 'active', 'c0000000-0000-0000-0000-0000000000b3');
 
 -- The app can't write a parental consent any more ---------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice
@@ -98,6 +106,17 @@ select set_config('test.owen1',
   public.request_parental_consent('00000000-0000-0000-0000-0000000000a7', ' Paul@Example.com ')::text, true);
 select is(current_setting('test.owen1')::jsonb ->> 'email', 'paul@example.com', 'a typed address is used');
 select is(current_setting('test.owen1')::jsonb ->> 'email_source', 'typed', 'and says so');
+select pg_temp.as_user('a0000000-0000-0000-0000-0000000000ae');  -- Eve, unverified email, no Apple sign-in
+select is(public.request_parental_consent('00000000-0000-0000-0000-0000000000aa'), '{"outcome": "no_email"}'::jsonb,
+  'an unverified account email is never used: the parent types one');
+select pg_temp.as_user('c0000000-0000-0000-0000-0000000000b3');  -- Bo, Sign in with Apple
+select set_config('test.bo', public.request_parental_consent('00000000-0000-0000-0000-0000000000b2')::text, true);
+select is(current_setting('test.bo')::jsonb - 'request_id' - 'send_id',
+  '{"outcome": "send", "email": "bo@privaterelay.appleid.com", "email_source": "account", "first_name": "Cal"}'::jsonb,
+  'an Apple sign-in''s email is verified by Apple');
+select pg_temp.as_service();
+select public.parental_consent_release_send((current_setting('test.bo')::jsonb ->> 'request_id')::uuid,
+  (current_setting('test.bo')::jsonb ->> 'send_id')::bigint);
 
 -- Email 1 sent, and sent again ------------------------------------------------------------------------------------------
 select pg_temp.as_service();
@@ -255,6 +274,22 @@ select is((select array_agg(status order by token_hash) from public.parental_con
            where token_hash in ('hash-p1', 'hash-q1')), '{cancelled,cancelled}'::text[], 'both requests are cancelled');
 update public.members set guardian = true where id = '00000000-0000-0000-0000-0000000000a2';
 
+-- Email 2 goes only where email 1 went ----------------------------------------------------------------------------------
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice, for Rex
+select set_config('test.rex', public.request_parental_consent('00000000-0000-0000-0000-0000000000aa')::text, true);
+select pg_temp.as_service();
+select public.parental_consent_mark_sent((current_setting('test.rex')::jsonb ->> 'request_id')::uuid,
+  (current_setting('test.rex')::jsonb ->> 'send_id')::bigint, 'hash-r1', 'parental-invite-v3');
+select pg_temp.as_admin();
+update auth.users set email = 'someone-else@example.com' where id = 'a0000000-0000-0000-0000-00000000000a';
+select pg_temp.as_service();
+select is(public.parental_consent_decide('hash-r1', 'agree'), '{"outcome": "expired"}'::jsonb,
+  'if the account''s email changed since email 1, email 2 isn''t sent to the new one');
+select pg_temp.as_admin();
+select is((select status from public.parental_consent_requests where token_hash = 'hash-r1'), 'cancelled',
+  'the request is cancelled; the parent asks again');
+update auth.users set email = 'alice@example.com' where id = 'a0000000-0000-0000-0000-00000000000a';
+
 -- Limits ---------------------------------------------------------------------------------------------------------------
 insert into public.parental_consent_sends (requested_by, reserved_at, sent)
 select 'c0000000-0000-0000-0000-00000000000c', now() - interval '2 hours', true from generate_series(1, 5);
@@ -270,6 +305,17 @@ select is(public.request_parental_consent('00000000-0000-0000-0000-0000000000b2'
   '200 an hour overall');
 select pg_temp.as_admin();
 update public.parental_consent_sends set reserved_at = now() - interval '2 hours' where request_id is null;
+insert into public.parental_consent_requests (id, household_id, member_id, requested_by, email_source, status, ended_at)
+values ('00000000-0000-0000-0000-00000000c0de', '00000000-0000-0000-0000-0000000000b0',
+        '00000000-0000-0000-0000-0000000000b2', gen_random_uuid(), 'account', 'refused', now());
+insert into public.parental_consent_sends (request_id, requested_by, reserved_at, sent)
+select '00000000-0000-0000-0000-00000000c0de', gen_random_uuid(), now() - interval '2 hours', true
+from generate_series(1, 10);
+select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');  -- Carol
+select is(public.request_parental_consent('00000000-0000-0000-0000-0000000000b2') ->> 'outcome', 'rate_limited',
+  '10 emails a day per household, whichever parent asks');
+select pg_temp.as_admin();
+delete from public.parental_consent_requests where id = '00000000-0000-0000-0000-00000000c0de';
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');  -- Carol
 select set_config('test.cal', public.request_parental_consent('00000000-0000-0000-0000-0000000000b2')::text, true);
 select is(current_setting('test.cal')::jsonb ->> 'outcome', 'send', 'and an hour later it sends');
