@@ -155,7 +155,8 @@ async function sendNotice(deps: ConsentDeps, send: Extract<RequestResult, { outc
       return json(500, { error: "try_again" });
     }
   } catch (error) {
-    // The email is out but its token wasn't saved, so its link won't work; the reservation lapses in 5 minutes.
+    // The email is out but its token wasn't saved, so its link won't work. The send still counts toward the daily and
+    // hourly limits.
     deps.log(`parental-consent: notice sent but not recorded for request ${send.requestId}`, error);
     return json(500, { error: "try_again" });
   }

@@ -393,8 +393,8 @@ $$;
 --     agreed: send email 2, then activate_parental_consent; or parental_consent_release_confirmation if it didn't go out
 -- Email 2 goes to the address email 1 went to, derived the same way and checked against its hash: if the account's
 -- email changed (or stopped being verified) in between, the request is cancelled and the parent asks again.
--- confirmed covers a consent that already exists (this request's, or another parent's). busy: email 2 is being sent
--- right now (for agree or refuse).
+-- confirmed: this request's consent is active. already_consented: another parent's (or an earlier) consent is.
+-- busy: email 2 is being sent right now (for agree or refuse).
 create function public.parental_consent_decide(p_token_hash text, p_decision text)
 returns jsonb
 language plpgsql security definer set search_path = ''
@@ -477,8 +477,10 @@ begin
   if kid is null then return 'expired'; end if;
   perform pg_advisory_xact_lock(hashtextextended('parental_consent:' || kid::text, 0));
   select * into request from public.parental_consent_requests where id = p_request_id for update;
-  if not found or request.status <> 'consented' then
-    return case when request.status = 'confirmed' then 'confirmed' else 'expired' end;
+  if not found then return 'expired'; end if;
+  -- Another parent's activation cancels this request in the same transaction, so report what it came to.
+  if request.status <> 'consented' then
+    return coalesce(public.parental_consent_settled(request), 'expired');
   end if;
   -- The link may lapse while email 2 is on its way; the parent agreed in time.
   if request.expires_at < now() then

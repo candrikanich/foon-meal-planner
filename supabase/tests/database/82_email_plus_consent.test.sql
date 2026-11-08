@@ -2,7 +2,7 @@
 -- a parental consent, after the parent agreed from email 1 and email 2 went out. Pending, refused, expired, confirmed
 -- and withdrawn; the limits; who reads requests; retention.
 begin;
-select plan(106);
+select plan(107);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -383,10 +383,13 @@ select set_config('test.rex3',
 select pg_temp.as_service();
 select public.parental_consent_mark_sent((current_setting('test.rex3')::jsonb ->> 'request_id')::uuid,
   (current_setting('test.rex3')::jsonb ->> 'send_id')::bigint, 'hash-r3', 'parental-invite-v3');
+select public.parental_consent_decide('hash-r3', 'agree');  -- Paul agrees too; both email 2s are on their way
 select is((select status from public.parental_consent_requests where token_hash = 'hash-r2'), 'consented',
   'another parent''s email 1 leaves an agreed request alone');
 select is(public.activate_parental_consent((current_setting('test.rex2')::jsonb ->> 'request_id')::uuid, 'whash-r'),
   'confirmed', 'so email 2 still activates it');
+select is(public.activate_parental_consent((current_setting('test.rex3')::jsonb ->> 'request_id')::uuid, 'whash-r3'),
+  'already_consented', 'the other parent''s activation, landing second, says the kid already has consent');
 select is(public.parental_consent_lookup('hash-r3'), '{"outcome": "already_consented"}'::jsonb,
   'the other parent''s link then says the kid already has consent');
 select is(public.parental_consent_decide('hash-r3', 'agree'), '{"outcome": "already_consented"}'::jsonb,

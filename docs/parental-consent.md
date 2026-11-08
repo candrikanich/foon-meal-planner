@@ -75,7 +75,7 @@ Mail scanners open every link in a message, so a GET never changes anything:
 
 The database stores only SHA-256 hashes of both tokens. The consent link works for 7 days and Send again replaces it;
 the withdraw link works for 30 days, and withdrawing in the app always works. The site's POST must come from
-getfoon.com, www.getfoon.com or localhost (CORS).
+getfoon.com, www.getfoon.com, localhost, or the origin of `CONSENT_SITE_URL` (CORS).
 
 ## Known limit
 
