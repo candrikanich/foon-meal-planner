@@ -149,9 +149,9 @@ struct MemberEditorView: View {
                 if scope.planning { draft = draft.settlingReturn(today: today) }
             }
             // A parent agrees in the email, outside Foon: look again when the editor opens and when Foon comes back.
-            .task { await reloadConsentIfWaiting() }
+            .task { await reloadConsent() }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active { Task { await reloadConsentIfWaiting() } }
+                if phase == .active { Task { await reloadConsent() } }
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -248,8 +248,9 @@ struct MemberEditorView: View {
         }
     }
 
-    private func reloadConsentIfWaiting() async {
-        guard let member, store.canInvite(member), store.needsParentalConsent(member) else { return }
+    /// Also runs once consent is active: a parent can withdraw it from email 2's link while Foon is in the background.
+    private func reloadConsent() async {
+        guard let member, member.ageGroup == .kid, store.canInvite(member) else { return }
         await store.loadConsentRequests()
     }
 
