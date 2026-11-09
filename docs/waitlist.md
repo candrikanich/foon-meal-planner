@@ -55,6 +55,12 @@ the per-address limit: the 200-emails-an-hour cap counts reserved and sent email
 - A signup from a phone on cellular got its own hash in `waitlist_attempts`, apart from the first network's: two
   networks were counted separately. (That doesn't rule out visitors behind one shared proxy hop sharing a key.)
 
+**Checked on production, 2026-11-09:** the whole loop on getfoon.com with a real iCloud address. Signup showed
+"Almost done", the confirmation email arrived, its link opened Confirm your email, and the button showed "You're on the
+list". The email's Unsubscribe link opened Unsubscribe, and Delete my address showed "You're unsubscribed". That email
+had no postal address: production's functions were last deployed 2026-11-05, before #284 added it, so the footer
+arrives with the next production deploy.
+
 ## Re-run the address check (after a platform or function change)
 
 No debug code is needed. Send seven signups from one machine, each with a different forged forwarding header. All of
