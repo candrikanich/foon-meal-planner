@@ -259,6 +259,16 @@
         }
       }
     },
+    "%@ said no in the email. %@ can't use Foon until a parent agrees." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ said no in the email. %2$@ can't use Foon until a parent agrees."
+          }
+        }
+      }
+    },
     "%@ sat out for a food rule" : {
       "comment" : "Reason chip: the night's tradition looks to break a food rule"
     },
@@ -750,10 +760,10 @@
     "A parent needs to agree to Foon's new allergy wording before you add any. Taking one away still works." : {
 
     },
-    "A parent said no in the email, so %@ stays signed out. Nothing was deleted." : {
+    "A parent said no in the email. %@ can't be invited." : {
 
     },
-    "A parent said no in the email. %@ can't be invited." : {
+    "A parent said no in the email. %@ can't use Foon until a parent agrees." : {
 
     },
     "A plain summary, not the privacy policy. What you can export or delete is back on Family, under Your data." : {
@@ -1222,6 +1232,16 @@
     },
     "Check your email. We sent it to %@. Tap the link to agree, then come back here." : {
 
+    },
+    "Check your email. We sent the form to %@. Once you agree there, %@ can use Foon." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Check your email. We sent the form to %1$@. Once you agree there, %2$@ can use Foon."
+          }
+        }
+      }
     },
     "Check: %@ (%@)" : {
       "comment" : "Compact allergy note: everything to avoid, then who",
@@ -1896,7 +1916,7 @@
     "Foon can't open that link. Try the recipe's web page." : {
 
     },
-    "Foon can't record this for you now. Pull to refresh, then try again." : {
+    "Foon can't record this for you now. Try again in a moment, or sign in again." : {
 
     },
     "Foon can't remove these from your profile now. Sign in again, or ask a parent." : {
@@ -1920,7 +1940,7 @@
     "Foon changed what it asks you to agree to, and this version can't show it." : {
 
     },
-    "Foon changed what parents agree to for kids, so %@ is signed out until a parent agrees again. Nothing was deleted." : {
+    "Foon changed what parents agree to for kids. %@ needs a parent's OK again before using Foon. Nothing was deleted." : {
 
     },
     "Foon cleared %@" : {
@@ -1959,6 +1979,16 @@
     },
     "Foon drafts the week from your library and who's home each night. You can change any night." : {
 
+    },
+    "Foon emailed %@ the form. Once a parent agrees, %@ can use Foon." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Foon emailed %1$@ the form. Once a parent agrees, %2$@ can use Foon."
+          }
+        }
+      }
     },
     "Foon emailed %@ to confirm. Once they agree, you can invite %@ here." : {
       "localizations" : {
@@ -4899,6 +4929,9 @@
 
     },
     "You said no in the email. %@ can't be invited." : {
+
+    },
+    "You said no in the email. %@ can't use Foon until a parent agrees." : {
 
     },
     "You said you won't be home tonight." : {

@@ -110,16 +110,19 @@ enum ParentalConsentStep: Equatable, Sendable {
     /// Consent is active: the normal Invite button.
     case invite
 
+    /// `renewing`: the kid is held until a parent agrees to changed wording (#277). Their latest request may then be
+    /// the confirmed one behind the old consent, which is history, not a lapsed ask: it's a first ask of the form.
     static func decide(
         hasConsent: Bool,
         latest: ParentalConsentRequest?,
         me: UUID,
         sentAddress: String?,
         parentName: (UUID) -> String?,
-        now: Date
+        now: Date,
+        renewing: Bool = false
     ) -> ParentalConsentStep {
         if hasConsent { return .invite }
-        guard let latest else { return .emailMe }
+        guard let latest, !(renewing && latest.status == .confirmed) else { return .emailMe }
         let asker: Asker = latest.requestedBy == me ? .me : .otherParent(firstName: parentName(latest.requestedBy))
         if latest.isOpen(now: now) {
             if latest.status == .consented { return .almostDone(askedBy: asker) }
@@ -220,11 +223,12 @@ struct ParentalConsentBook: Equatable, Sendable {
     static let linkLife: TimeInterval = 7 * 24 * 60 * 60
 
     func step(
-        for memberID: UUID, hasConsent: Bool, me: UUID, now: Date, parentName: (UUID) -> String?
+        for memberID: UUID, hasConsent: Bool, me: UUID, now: Date, renewing: Bool = false,
+        parentName: (UUID) -> String?
     ) -> ParentalConsentStep {
         ParentalConsentStep.decide(
             hasConsent: hasConsent, latest: latest[memberID], me: me, sentAddress: sentAddresses[memberID],
-            parentName: parentName, now: now
+            parentName: parentName, now: now, renewing: renewing
         )
     }
 
@@ -244,10 +248,16 @@ struct ParentalConsentBook: Equatable, Sendable {
     }
 
     /// Keeps the newest of each kid's requests, from rows in any order. A notice belongs to the request it was about,
-    /// so it goes once that request moves on (agreed, ended, or replaced by a new one).
-    mutating func replace(with requests: [ParentalConsentRequest]) {
+    /// so it goes once that request moves on (agreed, ended, or replaced by a new one). Renewal emails go to every
+    /// parent at once (#277), so on a tie `me`'s own request wins: it's the one in their inbox.
+    mutating func replace(with requests: [ParentalConsentRequest], me: UUID? = nil) {
         let loaded: [UUID: ParentalConsentRequest] = requests.reduce(into: [:]) { newest, request in
-            if newest[request.memberID].map({ $0.createdAt < request.createdAt }) ?? true {
+            guard let kept = newest[request.memberID] else {
+                newest[request.memberID] = request
+                return
+            }
+            let mineOnATie = kept.createdAt == request.createdAt && request.requestedBy == me && kept.requestedBy != me
+            if kept.createdAt < request.createdAt || mineOnATie {
                 newest[request.memberID] = request
             }
         }

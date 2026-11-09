@@ -238,8 +238,9 @@ final class HouseholdStore {
         let generation = loadGeneration
         do {
             guard let loaded = try await client.myHousehold() else {
-                // A held kid's account has no household either; anyone else starts or joins one.
-                let hold = try? await client.accessHold()
+                // A held kid's account has no household either. Not knowing is a failure, never "not held": a held
+                // kid who started a household of their own couldn't be linked back.
+                let hold = try await readAccessHold()
                 let status = hold == nil ? try? await client.agreements(nil) : nil
                 guard generation == loadGeneration else { return }
                 agreements = status ?? agreements
@@ -259,7 +260,7 @@ final class HouseholdStore {
         } catch {
             // A view going away cancels its load; that isn't a failure to show.
             guard generation == loadGeneration, !Task.isCancelled, !quietly else { return }
-            if household == nil { phase = .failed }
+            if household == nil, !phase.isHeld { phase = .failed }
             errorMessage = String(localized: "Couldn't load your household. Check your connection and try again.")
             return
         }
@@ -563,9 +564,11 @@ final class HouseholdStore {
         agreements = status
     }
 
-    /// Agree went through: the gate goes now, whether or not the reload after it gets through.
+    /// Agree went through: the gate goes now, whether or not the reload after it gets through. A later gate (changed
+    /// wording) wasn't agreed on joining.
     func recordTermsAccepted() async {
         agreements = agreements.acceptingTerms()
+        joinedJustNow = false
         await reloadAgreements()
     }
 
@@ -640,11 +643,6 @@ final class HouseholdStore {
         }
     }
 
-    /// Parents invite profiles nobody has claimed yet.
-    func canInvite(_ member: Member) -> Bool {
-        canManagePeople && member.userID == nil && member.status != .removed
-    }
-
     /// Creates an invite and returns the code to share, or nil with a message.
     func invite(_ member: Member) async -> String? {
         errorMessage = nil
@@ -665,7 +663,8 @@ final class HouseholdStore {
 
     /// What a kid's invite section offers: Email me, Check your email, and so on, up to Invite.
     func consentStep(for member: Member, now: Date = .now) -> ParentalConsentStep {
-        consentRequests.step(for: member.id, hasConsent: !needsParentalConsent(member), me: userID, now: now) { userID in
+        consentRequests.step(for: member.id, hasConsent: !needsParentalConsent(member), me: userID, now: now,
+                             renewing: kidHold(for: member) != nil) { userID in
             members.first { $0.userID == userID }?.firstName
         }
     }
@@ -687,7 +686,7 @@ final class HouseholdStore {
             agreements = loaded
         }
         if let loaded = try? await requests, self.household?.id == household.id, generation == consentGeneration {
-            consentRequests.replace(with: loaded)
+            consentRequests.replace(with: loaded, me: userID)
         }
     }
 
@@ -716,10 +715,6 @@ final class HouseholdStore {
         }
     }
 
-    func canWithdrawConsent(_ member: Member) -> Bool {
-        canManagePeople && member.ageGroup == .kid && parentalConsentMemberIDs.contains(member.id)
-    }
-
     /// Withdraws a kid's parental consent: their account is unlinked at once and open invites end;
     /// the profile and its history stay. Returns whether it worked.
     func withdrawConsent(_ member: Member) async -> Bool {
@@ -739,11 +734,6 @@ final class HouseholdStore {
             errorMessage = String(localized: "Couldn't withdraw consent. Check your connection and try again.")
             return false
         }
-    }
-
-    /// Any parent, for any kid (COPPA 312.6, #278). The server checks both.
-    func canDeleteKid(_ member: Member) -> Bool {
-        canManagePeople && member.ageGroup == .kid
     }
 
     /// Deletes the kid's profile, everything about them, and their sign-in account, at once. Returns whether they're

@@ -51,29 +51,26 @@ struct ParentalConsentRows: View {
         isSending = false
     }
 
-    /// Asking again: what changed and that nothing was deleted, then the same steps as a first ask.
+    /// Asking again: what changed and that nothing was deleted, whatever the step, since the renewal email usually
+    /// means a request is already waiting; then the step, worded for asking again. The kid may never have signed in, so it
+    /// doesn't say they were signed out.
     @ViewBuilder
     private func renewalExplanation(_ hold: AgreementStatus.KidHold, step: ParentalConsentStep) -> some View {
-        switch step {
-        case .refused:
-            Text("A parent said no in the email, so \(member.firstName) stays signed out. Nothing was deleted.")
-                .font(.callout)
-        case .emailMe, .sendNewEmail, .invite:
-            Text("""
-            Foon changed what parents agree to for kids, so \(member.firstName) is signed out until a parent agrees \
-            again. Nothing was deleted.
-            """)
-            .font(.callout)
-            if let summary = hold.summary {
-                Text(summary).font(.callout).foregroundStyle(.secondary)
-            }
-            if let emailed = hold.emailedMeAt {
-                Text("We emailed you on \(emailed, format: .dateTime.month(.wide).day()).")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-        case .checkEmail, .almostDone:
-            explanation(for: step)
+        Text("""
+        Foon changed what parents agree to for kids. \(member.firstName) needs a parent's OK again before using \
+        Foon. Nothing was deleted.
+        """)
+        .font(.callout)
+        if let summary = hold.summary {
+            Text(summary).font(.callout).foregroundStyle(.secondary)
+        }
+        if let emailed = hold.emailedMeAt {
+            Text("We emailed you on \(emailed, format: .dateTime.month(.wide).day()).")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        if let line = step.renewalLine(firstName: member.firstName) {
+            Text(line).font(.callout)
         }
     }
 
@@ -123,6 +120,31 @@ extension ParentalConsentStep {
         case .refused: "Ask again"
         case .sendNewEmail: "Send a new email"
         case .almostDone, .invite: nil
+        }
+    }
+
+    /// Asking again after the kids' wording changed (#277): what this step adds under the hold's lines, never about
+    /// inviting. Nil when the hold's lines say it all.
+    func renewalLine(firstName name: String) -> String? {
+        let another = String(localized: "another parent", comment: "Stands in for a parent whose name isn't known")
+        return switch self {
+        case .emailMe, .sendNewEmail, .invite: nil
+        case .checkEmail(let sentTo, .me):
+            String(localized: """
+            Check your email. We sent the form to \(sentTo.description). Once you agree there, \(name) can use Foon.
+            """)
+        case .checkEmail(_, .otherParent(let parent)):
+            String(localized: "Foon emailed \(parent ?? another) the form. Once a parent agrees, \(name) can use Foon.")
+        case .almostDone(.me):
+            String(localized: "Almost done. Open the email and tap I agree again to finish.")
+        case .almostDone(.otherParent(let parent)):
+            String(localized: "Almost done: \(parent ?? another) agreed in the email, and it's finishing up.")
+        case .refused(.me):
+            String(localized: "You said no in the email. \(name) can't use Foon until a parent agrees.")
+        case .refused(.otherParent(let parent?)):
+            String(localized: "\(parent) said no in the email. \(name) can't use Foon until a parent agrees.")
+        case .refused(.otherParent(nil)):
+            String(localized: "A parent said no in the email. \(name) can't use Foon until a parent agrees.")
         }
     }
 

@@ -30,4 +30,18 @@ extension HouseholdStore {
         case own
         case none
     }
+
+    /// Parents invite profiles nobody has claimed yet.
+    func canInvite(_ member: Member) -> Bool {
+        canManagePeople && member.userID == nil && member.status != .removed
+    }
+
+    func canWithdrawConsent(_ member: Member) -> Bool {
+        canManagePeople && member.ageGroup == .kid && parentalConsentMemberIDs.contains(member.id)
+    }
+
+    /// Any parent, for any kid (COPPA 312.6, #278). The server checks both.
+    func canDeleteKid(_ member: Member) -> Bool {
+        canManagePeople && member.ageGroup == .kid
+    }
 }

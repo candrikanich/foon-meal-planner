@@ -334,7 +334,7 @@ struct HouseholdStoreAgreementTests {
         client.grantAllergyConsent = { _, _ in throw PostgrestError(code: "42501", message: "refused") }
         let actions = AgreementActions()
         #expect(await !actions.agreeForHousehold(Household.sample.id, using: client))
-        #expect(actions.errorMessage == "Foon can't record this for you now. Pull to refresh, then try again.")
+        #expect(actions.errorMessage == "Foon can't record this for you now. Try again in a moment, or sign in again.")
     }
 }
 

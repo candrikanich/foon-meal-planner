@@ -37,7 +37,8 @@ final class AgreementActions {
             errorMessage = switch (error as? PostgrestError)?.code {
             case "28000": String(localized: "Sign in again, then agree.")
             case "22023": String(localized: "Update Foon to review the new wording.")
-            case "42501": String(localized: "Foon can't record this for you now. Pull to refresh, then try again.")
+            case "42501":
+                String(localized: "Foon can't record this for you now. Try again in a moment, or sign in again.")
             default: String(localized: "Couldn't save that. Check your connection and try again.")
             }
             return false
