@@ -166,9 +166,10 @@ select is(pg_temp.error_of(format('select public.parental_consent_mark_sent(%L, 
 select public.parental_consent_mark_sent(pg_temp.request('test.kit'), pg_temp.send('test.kit'), 'hash-k1',
                                          'parental-invite-v3');
 select is(public.parental_consent_lookup('hash-k1') - 'expires_at' - 'agreed_before',
-  jsonb_build_object('outcome', 'pending', 'reason', 'renewal', 'first_name', 'Kit', 'summary',
-    'Foon now confirms a parent''s consent by email, and names the services that store and send your kid''s information.'),
-  'the page says it''s a renewal and what changed');
+  jsonb_build_object('outcome', 'pending', 'reason', 'renewal', 'first_name', 'Kit', 'was_linked', true, 'summary',
+    (select string_agg(summary, ' ' order by ordinal) from public.agreement_versions
+      where version in ('parental-invite-v2', 'parental-invite-v3'))),
+  'the page says it''s a renewal, what changed since v1 (v2, then v3), and that Kit had signed in');
 select ok((public.parental_consent_lookup('hash-k1') ->> 'agreed_before') is not null,
   'and when a parent agreed before');
 select public.parental_consent_decide('hash-k1', 'agree');

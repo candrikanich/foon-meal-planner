@@ -24,6 +24,8 @@ export interface Renewal {
   summary: string | null;
   // When a parent last agreed for this kid (ISO).
   agreedBefore: string | null;
+  // Whether the kid had signed in on their own device. False: never say "signed out". Null: an older server.
+  wasLinked: boolean | null;
 }
 
 export type ConsentStep =
@@ -45,6 +47,7 @@ export const consentReply = z.union([
     summary: z.string().min(1).nullish(),
     // Postgres's timestamptz text; agreedDay words it, or leaves it out if it doesn't parse.
     agreedBefore: z.string().nullish(),
+    wasLinked: z.boolean().nullish(),
   }),
   z.object({
     result: z.enum(["try_again", "confirmed", "refused", "already_consented", "withdrawn", "expired", "invalid"]),
@@ -63,7 +66,11 @@ export function consentStep(reply: z.infer<typeof consentReply>): ConsentStep {
         step: "ask",
         firstName: reply.firstName,
         renewal: reply.reason === "renewal"
-          ? { summary: reply.summary ?? null, agreedBefore: reply.agreedBefore ?? null }
+          ? {
+            summary: reply.summary ?? null,
+            agreedBefore: reply.agreedBefore ?? null,
+            wasLinked: reply.wasLinked ?? null,
+          }
           : null,
       };
     case "try_again":
@@ -81,6 +88,33 @@ export function consentStep(reply: z.infer<typeof consentReply>): ConsentStep {
     case "invalid":
       return { step: "go", to: CONSENT_ROUTES.expired };
   }
+}
+
+// A renewal's words about where the kid stands, as the renewal email words them. A kid who never signed in on their
+// own device (wasLinked false) is never "signed out"; true or unknown (an older server) keeps the signed-out words.
+export interface RenewalWords {
+  until: string;
+  ifNo: string;
+  refuseButton: string;
+  // /consent/refused, after a No. `name` may be empty there (a page opened directly).
+  refused: string;
+}
+
+export function renewalWords(name: string, wasLinked: boolean | null): RenewalWords {
+  const who = name || "Your kid";
+  return wasLinked === false
+    ? {
+      until: `Until a parent agrees, ${name} can't use Foon on their own device.`,
+      ifNo: `If you say no, ${name} still can't use Foon on their own device, and Foon collects nothing new from them.`,
+      refuseButton: `No, don't let ${name} use Foon`,
+      refused: `${who} still can't use Foon on their own device. Nothing is deleted.`,
+    }
+    : {
+      until: `Until a parent agrees, ${name} is signed out of Foon.`,
+      ifNo: `If you say no, ${name} stays signed out and Foon collects nothing new from them.`,
+      refuseButton: `No, keep ${name} signed out`,
+      refused: `${who} stays signed out of Foon. Nothing is deleted.`,
+    };
 }
 
 // "October 1, 2026", in UTC like the renewal email; null when there's no date to show.

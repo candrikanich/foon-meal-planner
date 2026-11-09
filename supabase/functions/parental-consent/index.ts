@@ -12,7 +12,7 @@ import {
   consentOrigins,
   type DecideResult,
   handleParentalConsent,
-  type LookupResult,
+  lookupFromRow,
   RefusedError,
   type RenewalClaim,
   type WithdrawLookupResult,
@@ -91,14 +91,7 @@ Deno.serve((req) =>
       }),
     releaseSend: ({ requestId, sendId }) =>
       rpc("parental_consent_release_send", { p_request_id: requestId, p_send_id: sendId }),
-    lookup: async (tokenHash) => {
-      const row = await rpc<Row>("parental_consent_lookup", { p_token_hash: tokenHash });
-      if (row.outcome !== "pending") return { outcome: row.outcome } as LookupResult;
-      const pending = { outcome: "pending", firstName: row.first_name, expiresAt: row.expires_at };
-      return (row.reason === "renewal"
-        ? { ...pending, renewal: { summary: row.summary ?? null, agreedBefore: row.agreed_before ?? null } }
-        : pending) as LookupResult;
-    },
+    lookup: async (tokenHash) => lookupFromRow(await rpc<Row>("parental_consent_lookup", { p_token_hash: tokenHash })),
     decide: async (tokenHash, decision) => {
       const row = await rpc<Row>("parental_consent_decide", { p_token_hash: tokenHash, p_decision: decision });
       return (row.outcome === "send_confirmation"

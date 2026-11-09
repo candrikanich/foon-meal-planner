@@ -44,14 +44,16 @@ the run's 40-second budget.
 - **Renewal notice** ("Can <name> keep using Foon?"), to every parent whose account has a verified email: email 1's
   direct notice, plus what changed (the registry's `summary` of every version that needs agreeing again since the one
   a parent agreed to, oldest first: v2's then v3's for a v1 kid), when a parent agreed before, that the kid is signed
-  out until a parent agrees (or, for a kid who never signed in on their own device, `was_linked` false, that they
-  can't use Foon on their own device: never "signed out"), that nothing is deleted, and how to withdraw instead. Its link opens the same /consent page,
-  worded as a renewal; No keeps the kid signed out.
+  out until a parent agrees, that nothing is deleted, and how to withdraw instead. For a kid who never signed in on
+  their own device (`was_linked` false) it says they can't use Foon on their own device, never "signed out". Its link
+  opens the same /consent page, worded the same way as a renewal; No keeps things as they are.
 - **Reminder**, once, 7 days after the first: the same email, subject "Reminder: Can <name> keep using Foon?".
-- A parent's Email me the form in the app sends the same notice, with the same what changed and date:
-  `request_parental_consent` takes the function's wording and returns `summary`, `agreed_before`, `held` and
-  `was_linked` for a renewal (`claim_consent_renewal_emails` returns the same for the cron's) (since `20261119000000_agreements_in_force.sql`). In the hour between a wording change and the job that holds
-  the kid, `held` is false and the email says the kid "will be signed out soon".
+- A parent's Email me the form in the app sends the same notice, with the same what changed and date. Since
+  `20261119000000_agreements_in_force.sql`, `request_parental_consent` takes the function's wording and returns
+  `summary`, `agreed_before`, `held` and `was_linked` for a renewal; `claim_consent_renewal_emails` returns the same
+  for the cron's, and `parental_consent_lookup` the summary and `was_linked` for the /consent page. In the hour between
+  a wording change and the job that holds the kid, `held` is false and the email says the kid "will be signed out
+  soon".
 - The function sends its `TEXT_VERSION` while that wording is registered and at or after the one in force
   (`parental_wording_ok`), so one deployed ahead of a new wording keeps sending. Left on outdated wording, it sends
   nothing: the claim reserves nothing and the run answers 503 `wording_outdated` (the app's request answers the same).

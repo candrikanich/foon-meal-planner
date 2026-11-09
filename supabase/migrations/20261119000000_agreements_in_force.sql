@@ -13,7 +13,10 @@
 --   to the one being emailed: v2 then v3 for a v1 kid), when a parent last agreed, whether the kid is held yet, and
 --   whether they had signed in on their own device (was_linked), so the email never says a kid who never signed in
 --   is "signed out".
--- * my_agreements' kids_held adds was_linked, so the app can say a kid who had their own account is signed out.
+-- * my_agreements' kids_held adds was_linked, so the app can say a kid who had their own account is signed out, and
+--   its summary is what changed since the held version (as the emails say).
+-- * parental_consent_lookup (the /consent page) gives the same "what changed" and was_linked as the emails, so the
+--   page never says "signed out" about a kid who never signed in.
 --
 -- Run as the migration role (postgres, which owns these security definer functions): nobody is signed in, so
 -- auth.uid() is null and household_allergy_agreement_current answers for every household, as it does for the cron job.
@@ -245,10 +248,49 @@ begin
 end;
 $$;
 
+-- The /consent page ------------------------------------------------------------------------------------------------------
+
+-- As 20261117000000_agreements.sql's (not redefined since). A renewal's pending page gets the emails' "what changed"
+-- (every version that needs agreeing again since the one a parent agreed to, up to the one this link's email sent)
+-- and was_linked: its hold's, or before a hold opens, whether the kid is signed in now. Grants are unchanged (service
+-- role only, 20261116000000).
+create or replace function public.parental_consent_lookup(p_token_hash text)
+returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  request public.parental_consent_requests;
+  active uuid;
+begin
+  select * into request from public.parental_consent_requests where token_hash = p_token_hash;
+  if not found then return jsonb_build_object('outcome', 'invalid'); end if;
+  if public.parental_consent_settled(request) is not null then
+    return jsonb_build_object('outcome', public.parental_consent_settled(request));
+  end if;
+  if request.reason <> 'renewal' then
+    return jsonb_build_object('outcome', 'pending', 'expires_at', request.expires_at,
+                              'first_name', (select first_name from public.members where id = request.member_id));
+  end if;
+  select id into active from public.consents
+   where member_id = request.member_id and kind = 'parental' and revoked_at is null;
+  return jsonb_build_object(
+    'outcome', 'pending', 'expires_at', request.expires_at, 'reason', 'renewal',
+    'first_name', (select first_name from public.members where id = request.member_id),
+    'summary', public.parental_changes_since(public.latest_agreed_version(active, 'parental'),
+                                             coalesce(request.text_version, public.current_agreement_version('parental'))),
+    'agreed_before', coalesce((select max(a.agreed_at) from public.consent_agreements a
+                                where a.consent_id = active and a.kind = 'parental'),
+                              (select c.granted_at from public.consents c where c.id = active)),
+    'was_linked', coalesce((select h.was_linked from public.agreement_holds h where h.id = request.hold_id),
+                           (select m.user_id is not null from public.members m where m.id = request.member_id)));
+end;
+$$;
+
 -- What the app needs to know ---------------------------------------------------------------------------------------------
 
 -- As 20261117000000_agreements.sql's, plus was_linked on each held kid: whether the kid had signed in on their own
--- device when the hold began, so the app can say they're signed out (older apps ignore it).
+-- device when the hold began, so the app can say they're signed out (older apps ignore it). A held kid's summary is
+-- what changed since the version they were held on, every version that needs agreeing again, as the emails say.
 create or replace function public.my_agreements(target_household uuid default null)
 returns jsonb
 language plpgsql stable security definer set search_path = ''
@@ -294,7 +336,7 @@ begin
                'emailed_at', h.emailed_at, 'reminded_at', h.reminded_at,
                'held_version', h.held_version, 'required_version', h.required_version,
                'was_linked', h.was_linked,
-               'summary', (select v.summary from public.agreement_versions v where v.version = h.required_version),
+               'summary', public.parental_changes_since(h.held_version, h.required_version),
                'emailed_me_at', (select max(r.token_sent_at) from public.parental_consent_requests r
                                   where r.hold_id = h.id and r.requested_by = caller))
              order by h.held_at, m.first_name), '[]'::jsonb)

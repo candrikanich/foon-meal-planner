@@ -7,6 +7,7 @@ import {
   consentOrigins,
   type DecideResult,
   handleParentalConsent,
+  lookupFromRow,
   RefusedError,
   RENEWAL_BATCH,
   RENEWAL_BUDGET_MS,
@@ -620,7 +621,7 @@ Deno.test("a renewal link's lookup passes on what changed and when a parent agre
         outcome: "pending",
         firstName: "Nora",
         expiresAt: "2026-11-15T00:00:00Z",
-        renewal: { summary: "What changed.", agreedBefore: "2026-10-01T12:00:00Z" },
+        renewal: { summary: "What changed.", agreedBefore: "2026-10-01T12:00:00Z", wasLinked: false },
       }),
   });
   const response = await handleParentalConsent(fromSite(`?consent=${token}`, { decision: "lookup" }), deps);
@@ -631,7 +632,33 @@ Deno.test("a renewal link's lookup passes on what changed and when a parent agre
     reason: "renewal",
     summary: "What changed.",
     agreedBefore: "2026-10-01T12:00:00Z",
+    wasLinked: false,
   });
+});
+
+Deno.test("the lookup's row maps a renewal's fields, and an older database's or an invite's without them", () => {
+  const base = { outcome: "pending", first_name: "Nora", expires_at: "2026-11-15T00:00:00Z" };
+  assertEquals(
+    lookupFromRow({ ...base, reason: "renewal", summary: "V2. V3.", agreed_before: "2026-10-01", was_linked: true }),
+    {
+      outcome: "pending",
+      firstName: "Nora",
+      expiresAt: "2026-11-15T00:00:00Z",
+      renewal: { summary: "V2. V3.", agreedBefore: "2026-10-01", wasLinked: true },
+    },
+  );
+  assertEquals(lookupFromRow({ ...base, reason: "renewal" }), {
+    outcome: "pending",
+    firstName: "Nora",
+    expiresAt: "2026-11-15T00:00:00Z",
+    renewal: { summary: null, agreedBefore: null, wasLinked: null },
+  });
+  assertEquals(lookupFromRow({ ...base, reason: "invite", was_linked: true }), {
+    outcome: "pending",
+    firstName: "Nora",
+    expiresAt: "2026-11-15T00:00:00Z",
+  });
+  assertEquals(lookupFromRow({ outcome: "expired" }), { outcome: "expired" });
 });
 
 Deno.test("email 1 is the direct notice: every 312.4(c)(1) element", () => {

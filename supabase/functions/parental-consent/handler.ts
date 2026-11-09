@@ -31,23 +31,42 @@ export type RequestResult =
   };
 
 export interface Renewal {
-  // The registry's "what changed" for the wording asked for.
+  // The registry's "what changed" since the wording a parent agreed to, up to the one asked for.
   summary: string | null;
   // When a parent last agreed for this kid (ISO).
   agreedBefore: string | null;
+  // Whether the kid had signed in on their own device; null when the database didn't say.
+  wasLinked: boolean | null;
 }
 
 // What the app's renewal request gets back for its email, as the cron's claim does.
 export interface RenewalRequest extends Renewal {
   // False when the wording changed but the hourly job hasn't signed the kid out yet.
   held: boolean;
-  // Whether the kid had signed in on their own device; null when the database didn't say.
-  wasLinked: boolean | null;
 }
 
 export type LookupResult =
   | { outcome: "pending"; firstName: string; expiresAt: string; renewal?: Renewal }
   | { outcome: "confirmed" | "withdrawn" | "refused" | "already_consented" | "expired" | "invalid" };
+
+// parental_consent_lookup's answer. A renewal's fields are absent from a database before 20261119000000: null.
+export function lookupFromRow(row: Record<string, unknown>): LookupResult {
+  if (row.outcome !== "pending") return { outcome: row.outcome } as LookupResult;
+  const pending = {
+    outcome: "pending" as const,
+    firstName: row.first_name as string,
+    expiresAt: row.expires_at as string,
+  };
+  if (row.reason !== "renewal") return pending;
+  return {
+    ...pending,
+    renewal: {
+      summary: (row.summary as string | null) ?? null,
+      agreedBefore: (row.agreed_before as string | null) ?? null,
+      wasLinked: typeof row.was_linked === "boolean" ? row.was_linked : null,
+    },
+  };
+}
 
 // One renewal email claim_consent_renewal_emails reserved.
 export interface RenewalClaim {
@@ -408,7 +427,13 @@ async function answerConsent(token: string, req: Request, deps: ConsentDeps, ori
     return json(
       200,
       found.renewal
-        ? { ...pending, reason: "renewal", summary: found.renewal.summary, agreedBefore: found.renewal.agreedBefore }
+        ? {
+          ...pending,
+          reason: "renewal",
+          summary: found.renewal.summary,
+          agreedBefore: found.renewal.agreedBefore,
+          wasLinked: found.renewal.wasLinked,
+        }
         : pending,
       origin,
     );
