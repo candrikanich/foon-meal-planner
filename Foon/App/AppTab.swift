@@ -38,7 +38,23 @@ extension ReminderRoute {
     }
 }
 
+/// Switches the app's tab, e.g. the cart on This Week opens Lists. Set by RootTabView.
+/// A struct rather than a bare closure so SwiftUI can compare it: every instance does the same job, so readers don't
+/// redraw each time RootTabView rebuilds the closure.
+struct ShowTabAction: Equatable {
+    private let action: (AppTab) -> Void
+
+    init(_ action: @escaping (AppTab) -> Void) {
+        self.action = action
+    }
+
+    func callAsFunction(_ tab: AppTab) {
+        action(tab)
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool { true }
+}
+
 extension EnvironmentValues {
-    /// Switches the app's tab, e.g. the cart on This Week opens Lists. Set by RootTabView.
-    @Entry var showTab: (AppTab) -> Void = { _ in }
+    @Entry var showTab = ShowTabAction { _ in }
 }

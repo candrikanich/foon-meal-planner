@@ -55,11 +55,11 @@ struct RequestDetailView: View {
                 PlanItSheet(meal: meal) { night in
                     await ideas.update(requestID, RequestUpdate(status: .planned, nightID: night))
                 }
-                .environment(\.showTab) { tab in
+                .environment(\.showTab, ShowTabAction { tab in
                     // Go to This Week from inside Plan it: this sheet goes too.
                     showTab(tab)
                     dismiss()
-                }
+                })
             }
             // Linked once the sheet is gone, since Plan it opens next and two sheets can't be up at once.
             .sheet(item: $readingLink, onDismiss: { Task { await linkDishFromTheLink() } }) { link in
