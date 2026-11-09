@@ -534,7 +534,45 @@ Deno.test("the app's request sends only while this function's wording satisfies 
   assertEquals([failed.status, unchecked.calls.at(-1), unchecked.emails], [500, `releaseSend ${requestId} 7`, []]);
 });
 
-Deno.test("the app's renewal request sends the renewal notice", async () => {
+Deno.test("the app's renewal request asks in this function's wording and emails what the cron's does", async () => {
+  const wordings: string[] = [];
+  const { deps, emails } = fakeDeps({
+    request: (_jwt, input) => {
+      wordings.push(input.wording);
+      return Promise.resolve({
+        ...send,
+        reason: "renewal",
+        renewal: {
+          summary: "Foon now confirms a parent's consent by email.",
+          agreedBefore: "2026-10-01T12:00:00Z",
+          held: true,
+        },
+      } as RequestResult);
+    },
+  });
+  const response = await handleParentalConsent(fromApp({ memberId }), deps);
+  assertEquals(response.status, 200);
+  assertEquals(wordings, [TEXT_VERSION]);
+  assertEquals(emails[0].subject, "Can Nora keep using Foon?");
+  assertStringIncludes(emails[0].text, "What changed: Foon now confirms a parent's consent by email.");
+  assertStringIncludes(emails[0].text, "agreed on October 1, 2026");
+  assertStringIncludes(emails[0].text, "Until a parent agrees, Nora is signed out of Foon.");
+});
+
+Deno.test("a renewal the app asks for before the hold opens says the kid will be signed out", async () => {
+  const { deps, emails } = fakeDeps({
+    request: () =>
+      Promise.resolve({
+        ...send,
+        reason: "renewal",
+        renewal: { summary: null, agreedBefore: null, held: false },
+      } as RequestResult),
+  });
+  assertEquals((await handleParentalConsent(fromApp({ memberId }), deps)).status, 200);
+  assertStringIncludes(emails[0].text, "Until a parent agrees, Nora will be signed out of Foon soon.");
+});
+
+Deno.test("an older database's renewal answer, without the renewal fields, still sends a whole notice", async () => {
   const { deps, emails } = fakeDeps({
     request: () => Promise.resolve({ ...send, reason: "renewal" } as RequestResult),
   });
@@ -542,6 +580,7 @@ Deno.test("the app's renewal request sends the renewal notice", async () => {
   assertEquals(response.status, 200);
   assertEquals(emails[0].subject, "Can Nora keep using Foon?");
   assert(!emails[0].text.includes("What changed"));
+  assertStringIncludes(emails[0].text, "Until a parent agrees, Nora is signed out of Foon.");
 });
 
 Deno.test("I agree after a renewal confirms that the kid is back in, not that they can be invited", async () => {

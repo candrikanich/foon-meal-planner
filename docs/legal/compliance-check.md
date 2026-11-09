@@ -56,18 +56,22 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
   `parental-consent` Edge Function emails the direct notice to the asking parent's sign-in address, the parent agrees
   on getfoon.com, and a confirming email with a withdraw link goes out; only then is the consent written
   (`method = 'email_plus'`, `parental-invite-v3`). The app can no longer write a parental consent itself. Part A is
-  the server; the site pages (B) and the app (C) follow. Consents given in the app before it stay until #277.
+  the server; the site pages (B) and the app (C) follow. Consents given in the app before it no longer count since
+  #277 put v3 in force: those kids are held until a parent completes email plus.
 - **Direct notice to the parent.** Done in #276: the kid-invite consent screen links the policies, says no invite goes
   out without a yes, and the wording is `parental-invite-v2`.
-- **New consent for material changes.** Store the consent version per kid, and hold a kid's access until a parent
-  agrees to the new one.
+- **New consent for material changes.** Done in #277: every agreement is logged per person with its wording
+  (`agreement_versions`), and a wording change in force asks again. A kid whose consent is outdated is signed out
+  (profile kept, no erase clock) while every parent with a verified email gets a renewal notice and one reminder; a
+  household whose allergy agreement is outdated can't add allergies; adults see the Terms and Privacy prompt. In force
+  since `20261119000000_agreements_in_force.sql`.
 - **Delete everything about a child, now.** Done in #278: any parent, on the kid's profile, deletes the kid's data and
   their sign-in account at once (`delete_kid`, job K in retention.md). It answers 312.6 and the unlinked-account gap;
   withdrawing and removing still wait 30 days and 12 months.
 - **Allergy consent wording, `allergy-data-v2`.** Done in #280: the sentence names who receives allergies (the
   household, our hosting provider) and how to withdraw (Family → Allergy alerts). Allergies are never in a
   notification's text, so Apple isn't a recipient. The kid-invite consent names the hosting provider and Apple for
-  notifications since #276. Consent is asked once (Decided by Chris, below): households that agreed to v1 aren't asked again.
+  notifications since #276. Households that agreed to v1 are asked again since #277 (Decided by Chris, below).
 - **Links to the policies:**
   - the privacy policy on the getfoon.com homepage, onboarding and Family → Your data (the paywall, kid invite and
     join screens have them, #282 and #276);
@@ -134,14 +138,14 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
   sent or the request ends (312.5(c)(1) lets an operator collect a parent's online contact for consent).
 - **Link lifetimes.** The consent link works 7 days; the withdraw link 30 days. Withdrawing in the app always works.
 - **No carry-over.** Consents given in the app before #275 were never a listed method. They're tagged `in_app`,
-  nothing is revoked, and #277 holds those kids' access until a parent completes email plus.
+  nothing is revoked, and since #277's turn-on those kids are held until a parent completes email plus.
 - **Sender and language.** From info@getfoon.com (`CONSENT_FROM`), in English only.
 
 **Decided by Chris (2026-11-07), for counsel to confirm in their review:**
-- **Allergy consent already given (#280).** Consent is asked once: households that agreed to `allergy-data-v1`, which
-  named neither recipients nor withdrawal, aren't asked again. Every new agreement uses `allergy-data-v2`, including
-  starting over (a household that erased and set up again, a parent turning allergy alerts back on). Counsel to
-  confirm v1 can stand under .030(2) and 603A.500.
+- **Allergy consent already given (#280).** ~~Consent is asked once: households that agreed to `allergy-data-v1`
+  aren't asked again.~~ Reversed by Chris on 2026-11-09 (#277: over-cover, over-log, over-communicate): households
+  that agreed to v1, which named neither recipients nor withdrawal, are asked again. Their allergies keep flagging and
+  removing still works, but nobody adds one until a parent agrees to `allergy-data-v2`. Every new agreement uses v2.
 - **What a parent's export leaves out (#279).** A kid's sign-in details and push token stay out of the export, and
   support provides them on request. That's enough friction to stop casual requests, and still meets 312.6(a)(3).
 - **Re-adding allergies an adult removed (decision 3).** A parent can add them again, and Foon won't block it.
@@ -163,7 +167,7 @@ size.
 | Internal-operations identifiers (account ID, push token, provider logs) | 312.4(d)(3) | privacy.md Your account, Reminders; provider logs `[CHECK]` | partly | Wording after confirming Supabase and Vercel logs |
 | Parent's right to review, delete, refuse further collection, stated | 312.4(d), 312.6 | privacy.md Kids (this PR states all three) | partly → met in this PR | Wording (this PR) |
 | Direct notice to the parent before consent | 312.4(b), (c)(1) (read on LII, #275) | Email 1 (`noticeEmail` in `supabase/functions/parental-consent/email.ts`, `parental-invite-v3`): (i) why the parent gets it and that nothing was collected from the kid, (ii) consent is needed and what happens without it, (iii) what's collected and how it's used, (iv) no disclosure beyond the services that run Foon, (v) the privacy policy link, (vi) how to consent, (vii) the 7-day lapse; plus how to withdraw, the operator and contact. Unit-tested element by element | met pending counsel | Counsel to confirm the wording |
-| New consent for material changes | 312.4(b), 312.5(a)(1) | privacy.md Changes promises it; no mechanism | gap | Code |
+| New consent for material changes | 312.4(b), 312.5(a)(1) | Wording versions and holds (#277): an outdated kid consent signs the kid out until a parent renews by email plus (renewal notice, one reminder) | met in code | Counsel to confirm the renewal notice |
 | Verifiable parental consent before collection | 312.5(a)(1), (b)(1) | Email plus (#275): a kid can't be invited or claim a profile until a parent agreed from email 1 and email 2 went out; the record keeps the method, both times and the wording. Consents from before #275 are `in_app` and stay until #277 | met pending counsel | Decision 2; #277 for the earlier consents |
 | Accepted method in the safe list | 312.5(b)(2)(i)-(ix) | Email plus, 312.5(b)(2)(viii): confirmatory email after consent, with the notice that the parent can revoke (#275) | met pending counsel | Decision 2 |
 | Email plus / text plus only for operators that don't disclose | 312.5(b)(2)(viii)-(ix); "disclose" in 312.2 (UNVERIFIED) | Processors are service providers, not disclosure | open | Decision 2 |

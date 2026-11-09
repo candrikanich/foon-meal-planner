@@ -26,6 +26,8 @@ export type RequestResult =
     firstName: string;
     // renewal: the kid's consent is active but was given to older wording.
     reason: "invite" | "renewal";
+    // A renewal's what changed, when a parent agreed before, and whether the kid is held yet.
+    renewal?: RenewalRequest;
   };
 
 export interface Renewal {
@@ -33,6 +35,12 @@ export interface Renewal {
   summary: string | null;
   // When a parent last agreed for this kid (ISO).
   agreedBefore: string | null;
+}
+
+// What the app's renewal request gets back for its email, as the cron's claim does.
+export interface RenewalRequest extends Renewal {
+  // False when the wording changed but the hourly job hasn't signed the kid out yet.
+  held: boolean;
 }
 
 export type LookupResult =
@@ -81,8 +89,9 @@ export interface ConsentDeps {
   // The Edge Function's own public URL, which the emailed links point at.
   functionUrl: string;
   userFromToken(jwt: string): Promise<string | null>;
-  // request_parental_consent, run as the parent (their JWT), so the database checks who they are.
-  request(jwt: string, input: { memberId: string; email: string | null }): Promise<RequestResult>;
+  // request_parental_consent, run as the parent (their JWT), so the database checks who they are. `wording` is the one
+  // this function emails, so a renewal's "what changed" describes it.
+  request(jwt: string, input: { memberId: string; email: string | null; wording: string }): Promise<RequestResult>;
   // False when the request wasn't pending any more (it was agreed, refused or ended meanwhile): the link is dead.
   markSent(input: { requestId: string; sendId: number; tokenHash: string; textVersion: string }): Promise<boolean>;
   releaseSend(input: { requestId: string; sendId: number }): Promise<void>;
@@ -224,13 +233,14 @@ async function sendNotice(deps: ConsentDeps, send: Extract<RequestResult, { outc
   }
   const delivery = await deliverNotice(deps, reservation, send.email, (consentUrl) =>
     send.reason === "renewal"
-      // The app's request carries neither what changed nor when a parent agreed: the email words itself without them.
+      // An older database's answer has no renewal fields: the email words itself without them, as if held.
       ? renewalNoticeEmail({
         firstName: send.firstName,
         consentUrl,
         emailSource: send.emailSource,
-        summary: null,
-        agreedBefore: null,
+        summary: send.renewal?.summary ?? null,
+        agreedBefore: send.renewal?.agreedBefore ?? null,
+        held: send.renewal?.held ?? true,
         reminder: false,
       })
       : noticeEmail({ firstName: send.firstName, consentUrl, emailSource: send.emailSource }));
@@ -288,6 +298,8 @@ async function sendRenewals(req: Request, deps: ConsentDeps): Promise<Response> 
         emailSource: "account",
         summary: claim.summary,
         agreedBefore: claim.agreedAt,
+        // Only a held kid's parents are claimed.
+        held: true,
         reminder: claim.reminder,
       }));
     if (delivery === "sent") totals.sent += 1;
@@ -313,7 +325,11 @@ async function requestConsent(req: Request, deps: ConsentDeps): Promise<Response
 
   let requested: RequestResult;
   try {
-    requested = await deps.request(jwt, { memberId: parsed.data.memberId, email: parsed.data.email ?? null });
+    requested = await deps.request(jwt, {
+      memberId: parsed.data.memberId,
+      email: parsed.data.email ?? null,
+      wording: TEXT_VERSION,
+    });
   } catch (error) {
     if (error instanceof RefusedError) {
       if (error.code === "28000") return json(401, { error: "not_signed_in" });

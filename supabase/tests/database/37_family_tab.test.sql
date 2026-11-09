@@ -107,7 +107,7 @@ select throws_ok($$ select public.update_household_settings('00000000-0000-0000-
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
 select throws_ok($$ select public.set_member_allergies('00000000-0000-0000-0000-0000000000a4', array['milk']::public.allergen[], '{}') $$,
   '42501', null, 'a household that said no to allergies has no consent: the sentence comes first');
-select lives_ok($$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v1') $$,
+select lives_ok($$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2') $$,
   'a parent agrees');
 select lives_ok($$ select public.set_member_allergies('00000000-0000-0000-0000-0000000000a4', array['milk']::public.allergen[], array['kiwi']) $$,
   'then a parent who isn''t the owner adds them');
@@ -117,7 +117,7 @@ select is((select count(*)::int from public.member_allergies where member_id = '
   'a kid sees them');
 select throws_ok($$ select public.set_member_allergies('00000000-0000-0000-0000-0000000000a4', '{}', '{}') $$,
   '42501', null, 'but can''t change their own');
-select throws_ok($$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v1') $$,
+select throws_ok($$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2') $$,
   '42501', null, 'or agree');
 
 select pg_temp.as_user('d0000000-0000-0000-0000-00000000000d');
@@ -136,7 +136,7 @@ select public.set_member_allergies('00000000-0000-0000-0000-0000000000a4', array
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
 select throws_ok($$ select public.set_member_allergies('00000000-0000-0000-0000-0000000000a4', '{}', '{}') $$,
   'P0002', null, 'another household can''t even find the member to change their allergies');
-select throws_ok($$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v1') $$,
+select throws_ok($$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2') $$,
   '42501', null, 'or agree for this household');
 select is((select count(*)::int from public.member_allergies where household_id = '00000000-0000-0000-0000-0000000000a0'), 0,
   'and can''t read its allergies');
@@ -147,25 +147,30 @@ select is((select count(*)::int from public.member_allergies where member_id = '
 -- Who agreed: every parent's agreement to each wording is on the record, without a second active consent -----------------
 select has_table('public', 'consent_agreements', 'agreements have their own record');
 select is((select count(*)::int from public.consent_agreements where household_id = '00000000-0000-0000-0000-0000000000a0'
-             and agreed_by = 'b0000000-0000-0000-0000-00000000000b' and text_version = 'allergy-data-v1'), 1,
+             and agreed_by = 'b0000000-0000-0000-0000-00000000000b' and text_version = 'allergy-data-v2'), 1,
   'the first parent''s agreement is recorded');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
-select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v1');
+select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2');
 select is((select count(*)::int from public.consent_agreements where household_id = '00000000-0000-0000-0000-0000000000a0'), 2,
   'so is a second parent''s, to the same wording');
-select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v1');
+select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2');
 select is((select count(*)::int from public.consent_agreements where household_id = '00000000-0000-0000-0000-0000000000a0'), 2,
   'agreeing again to the same wording adds nothing');
-select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2');
+-- allergy-data-v2 has been in force since #277 PR D, so the newer wording is registered here, not yet in force.
+select pg_temp.as_admin();
+insert into public.agreement_versions (version, kind, ordinal, summary)
+values ('allergy-data-v3', 'allergy_data', 3, 'A later wording, for this test.');
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v3');
 select is((select count(*)::int from public.consent_agreements where household_id = '00000000-0000-0000-0000-0000000000a0'
-             and text_version = 'allergy-data-v2'), 1, 'a new wording is recorded');
+             and text_version = 'allergy-data-v3'), 1, 'a new wording is recorded');
 select is((select count(*)::int from public.consents where household_id = '00000000-0000-0000-0000-0000000000a0'
              and kind = 'allergy_data' and revoked_at is null), 1, 'and there''s still one active consent');
 
 select pg_temp.as_user('e0000000-0000-0000-0000-00000000000e');
 select is((select count(*)::int from public.consent_agreements), 3, 'everyone in the family can read who agreed');
 select throws_ok($$ insert into public.consent_agreements (household_id, text_version)
-                    values ('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v1') $$,
+                    values ('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2') $$,
   '42501', null, 'a kid can''t add an agreement');
 -- Since #277 only the functions write the log (grant_allergy_consent here): not even a parent's own row goes in.
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
@@ -179,10 +184,10 @@ select is((select count(*)::int from public.consent_agreements where household_i
 
 -- A sample family's consent says nobody read the sentence. A parent who then does is on the record.
 select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000b0', 'sample-family-v1');
-select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000b0', 'allergy-data-v1');
+select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000b0', 'allergy-data-v2');
 select is((select array_agg(text_version order by text_version) from public.consent_agreements
            where household_id = '00000000-0000-0000-0000-0000000000b0'),
-  array['allergy-data-v1', 'sample-family-v1'], 'a parent agreeing in a sample family is recorded beside it');
+  array['allergy-data-v2', 'sample-family-v1'], 'a parent agreeing in a sample family is recorded beside it');
 
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select is((select count(*)::int from jsonb_array_elements(

@@ -199,8 +199,8 @@ where you live.
 ## 17. Changes to these terms
 
 We may update these terms. We'll post the new version at getfoon.com/terms and update the date at the top. If a change
-is significant, we'll tell you in the app before it takes effect. If you keep using Foon after that, you agree to the
-new terms.
+is significant, we'll tell you in the app before it takes effect, and ask you to agree to the new terms before you go
+on using Foon. We keep a record of which version you agreed to and when.
 
 ## 18. Contact
 

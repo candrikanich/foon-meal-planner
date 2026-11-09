@@ -50,6 +50,13 @@ insert into public.members (id, household_id, first_name, role, age_group, guard
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000b0', 'Carol', 'planner', 'adult', true,
    'c0000000-0000-0000-0000-00000000000c');
 
+-- Replays the rollout from the dormant state #277 shipped in: PR D (20261119000000_agreements_in_force.sql) put these
+-- in force, so they're taken back out here and each step below puts back what it tests. 89 tests the state PR D leaves.
+select pg_temp.as_admin();
+update public.agreement_versions set effective_at = null
+ where version in ('allergy-data-v2', 'own-allergy-v1', 'parental-invite-v2', 'parental-invite-v3', 'terms-draft-v1',
+                   'privacy-draft-v1');
+
 -- Dormant -------------------------------------------------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann
 select throws_ok($$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'made-up-v9') $$,

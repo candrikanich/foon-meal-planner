@@ -52,15 +52,12 @@ struct ParentalConsentRows: View {
     }
 
     /// Asking again: what changed and that nothing was deleted, whatever the step, since the renewal email usually
-    /// means a request is already waiting; then the step, worded for asking again. The kid may never have signed in, so it
-    /// doesn't say they were signed out.
+    /// means a request is already waiting; then the step, worded for asking again. It says the kid is signed out only
+    /// when they had signed in (`KidHold.renewalExplanation`).
     @ViewBuilder
     private func renewalExplanation(_ hold: AgreementStatus.KidHold, step: ParentalConsentStep) -> some View {
-        Text("""
-        Foon changed what parents agree to for kids. \(member.firstName) needs a parent's OK again before using \
-        Foon. Nothing was deleted.
-        """)
-        .font(.callout)
+        Text(hold.renewalExplanation)
+            .font(.callout)
         if let summary = hold.summary {
             Text(summary).font(.callout).foregroundStyle(.secondary)
         }

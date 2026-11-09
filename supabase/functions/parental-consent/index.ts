@@ -44,7 +44,7 @@ Deno.serve((req) =>
     siteUrl: Deno.env.get("CONSENT_SITE_URL") ?? "https://getfoon.com",
     functionUrl: `${supabaseUrl}/functions/v1/parental-consent`,
     userFromToken: async (jwt) => (await admin.auth.getUser(jwt)).data.user?.id ?? null,
-    request: async (jwt, { memberId, email }) => {
+    request: async (jwt, { memberId, email, wording }) => {
       const asParent = createClient(supabaseUrl, anonKey, {
         auth: session,
         global: { headers: { Authorization: `Bearer ${jwt}` } },
@@ -52,6 +52,7 @@ Deno.serve((req) =>
       const { data, error } = await asParent.rpc("request_parental_consent", {
         target_member: memberId,
         email_address: email,
+        wording,
       });
       if (error) {
         if (["28000", "42501", "22023", "22000"].includes(error.code)) throw new RefusedError(error.code);
@@ -67,6 +68,16 @@ Deno.serve((req) =>
           emailSource: row.email_source as "account" | "typed",
           firstName: row.first_name as string,
           reason: row.reason === "renewal" ? "renewal" : "invite",
+          ...(row.reason === "renewal"
+            ? {
+              renewal: {
+                summary: (row.summary as string | null) ?? null,
+                agreedBefore: (row.agreed_before as string | null) ?? null,
+                // Absent from a database before 20261119000000: word it as held, as before.
+                held: row.held !== false,
+              },
+            }
+            : {}),
         }
         : { outcome: row.outcome as "already_consented" | "no_email" | "rate_limited" };
     },

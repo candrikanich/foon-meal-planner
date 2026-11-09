@@ -89,6 +89,13 @@ insert into public.push_devices (user_id, member_id, household_id, token, enviro
   ('d0000000-0000-0000-0000-00000000000d', '00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-0000000000a0',
    repeat('a3', 32), 'sandbox');
 
+-- Replays the rollout from the dormant state #277 shipped in: PR D (20261119000000_agreements_in_force.sql) put these
+-- in force, so they're taken back out here and each step below puts back what it tests. 89 tests the state PR D leaves.
+select pg_temp.as_admin();
+update public.agreement_versions set effective_at = null
+ where version in ('allergy-data-v2', 'own-allergy-v1', 'parental-invite-v2', 'parental-invite-v3', 'terms-draft-v1',
+                   'privacy-draft-v1');
+
 -- Dormant -------------------------------------------------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann invites Owen while nothing is in force
 select public.create_invite('00000000-0000-0000-0000-0000000000a5');
