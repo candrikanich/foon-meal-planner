@@ -479,6 +479,7 @@ private typealias F = PlannerFixture
                              SentPush(sentAt: F.at(8, 11), type: "urgent_item")]
         #expect(NotificationPlanner.plan(inputs).count == 5, "none of them use up the week's five")
         #expect(!SentPush(sentAt: .now, type: "plan_set").countsTowardBudget)
+        #expect(!SentPush(sentAt: .now, type: "agreement_hold").countsTowardBudget)
         #expect(SentPush(sentAt: .now, type: "heading_to_store").countsTowardBudget)
     }
 

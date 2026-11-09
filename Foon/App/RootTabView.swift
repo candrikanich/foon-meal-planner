@@ -85,6 +85,8 @@ struct RootTabView: View {
             if route.tab != .week { router.clear() }
             // Ideas may already be the tab, so its own load won't run again to show what the push was about.
             if route == .ideas { Task { await ideas.load() } }
+            // Family is often already loaded from before the hold job ran, so its held-kid card wouldn't show yet.
+            if route == .family { Task { await household.reloadAgreements() } }
         }
         .sheet(item: $shared) { item in
             SharedItemSheet(item: item) { outcome in finishShared(item, outcome) }
