@@ -704,9 +704,10 @@ final class HouseholdStore {
             if answer == .alreadyConsented { parentalConsentMemberIDs.insert(member.id) }
             consentRequests.record(answer, for: member, me: userID, now: now)
         } catch {
-            consentRequests.record(error, for: member.id)
-            // A refusal often means the request moved on elsewhere (agreed, or the kid joined): show where it is.
+            // A refusal often means the request moved on elsewhere (agreed, or the kid joined): show where it is. The
+            // reload clears notices about a request that moved on, so this tap's goes in after it.
             await loadConsentRequests()
+            consentRequests.record(error, for: member.id)
         }
     }
 

@@ -243,13 +243,18 @@ struct ParentalConsentBook: Equatable, Sendable {
         return sentAddresses[memberID]
     }
 
-    /// Keeps the newest of each kid's requests, from rows in any order.
+    /// Keeps the newest of each kid's requests, from rows in any order. A notice belongs to the request it was about,
+    /// so it goes once that request moves on (agreed, ended, or replaced by a new one).
     mutating func replace(with requests: [ParentalConsentRequest]) {
-        latest = requests.reduce(into: [:]) { newest, request in
+        let loaded: [UUID: ParentalConsentRequest] = requests.reduce(into: [:]) { newest, request in
             if newest[request.memberID].map({ $0.createdAt < request.createdAt }) ?? true {
                 newest[request.memberID] = request
             }
         }
+        for (memberID, request) in loaded where latest[memberID].map({ ($0.id, $0.status) != (request.id, request.status) }) ?? true {
+            notices[memberID] = nil
+        }
+        latest = loaded
     }
 
     mutating func record(_ answer: ParentalConsentAnswer, for member: Member, me: UUID, now: Date) {
