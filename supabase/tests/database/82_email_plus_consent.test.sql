@@ -113,7 +113,8 @@ select throws_ok($$ select public.request_parental_consent('00000000-0000-0000-0
 
 select set_config('test.nora1', public.request_parental_consent('00000000-0000-0000-0000-0000000000a5')::text, true);
 select is(current_setting('test.nora1')::jsonb - 'request_id' - 'send_id',
-  '{"outcome": "send", "email": "alice@example.com", "email_source": "account", "first_name": "Nora"}'::jsonb,
+  '{"outcome": "send", "email": "alice@example.com", "email_source": "account", "first_name": "Nora",
+    "reason": "invite", "text_version": null}'::jsonb,
   'a parent asks: the email goes to the address on their own sign-in');
 select is(public.request_parental_consent('00000000-0000-0000-0000-0000000000a5') ->> 'outcome', 'rate_limited',
   'a second ask while that email is being sent waits');
@@ -135,7 +136,8 @@ select is(public.request_parental_consent('00000000-0000-0000-0000-0000000000aa'
 select pg_temp.as_user('c0000000-0000-0000-0000-0000000000b3');  -- Bo, Sign in with Apple
 select set_config('test.bo', public.request_parental_consent('00000000-0000-0000-0000-0000000000b2')::text, true);
 select is(current_setting('test.bo')::jsonb - 'request_id' - 'send_id',
-  '{"outcome": "send", "email": "bo@privaterelay.appleid.com", "email_source": "account", "first_name": "Cal"}'::jsonb,
+  '{"outcome": "send", "email": "bo@privaterelay.appleid.com", "email_source": "account", "first_name": "Cal",
+    "reason": "invite", "text_version": null}'::jsonb,
   'an Apple sign-in''s email is verified by Apple');
 select pg_temp.as_service();
 select public.parental_consent_release_send((current_setting('test.bo')::jsonb ->> 'request_id')::uuid,

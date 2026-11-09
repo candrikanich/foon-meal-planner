@@ -410,13 +410,13 @@ alter table public.push_outbox add constraint push_outbox_kind_check check (kind
   'tonight_poll', 'urgent_item', 'new_requests', 'weekly_recap', 'claim', 'request_planned', 'heading_to_store',
   'not_home', 'rating_roundup', 'agreement_hold'));
 
--- As car 4's (20261102200000_push_car4.sql), with a held kid first: a parent has to act for the kid to get back in.
+-- As store_run's (20261102210000_store_run.sql), with a held kid first: a parent has to act for the kid to get back in.
 create or replace function public.push_kind_rank(row_kind text)
 returns int
 language sql immutable set search_path = ''
 as $$
   select case row_kind
-    when 'plan_set' then 0 when 'urgent_item' then 0 when 'agreement_hold' then 0
+    when 'plan_set' then 0 when 'urgent_item' then 0 when 'heading_to_store' then 0 when 'agreement_hold' then 0
     when 'not_home' then 1 when 'claim' then 1
     when 'tonight_poll' then 2
     else 3
