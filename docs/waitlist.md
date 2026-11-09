@@ -12,17 +12,25 @@ How the waitlist behaves is in [spec.md](spec.md) (Marketing presence). This is 
 
 ## Production
 
-The live site uses Foon production (`itnhdikhdsujklaimqqd`), not staging. Merges to main only reach staging; production
-is updated by hand with **Deploy production** (`.github/workflows/deploy-production.yml`): Actions → Deploy production
-→ Run workflow on `main`, type `production`, then approve the `production` environment. It refuses any other branch,
-any other text, and any project but `itnhdikhdsujklaimqqd`, then runs the same steps as staging (migrations, starter
-catalog, all Edge Functions).
+The live site uses Foon production (`itnhdikhdsujklaimqqd`), not staging. Vercel deploys the site to production on every
+merge to main. The database and Edge Functions follow through **Deploy production**
+(`.github/workflows/deploy-production.yml`), which runs on its own once **Deploy staging** has deployed a merge to main
+without errors, with exactly the commit staging got, so a migration that fails on staging stops there. It skips a
+commit when main already has a newer backend change (say someone re-runs an old staging run), so production never
+goes backwards. Staging only deploys when a merge touches `supabase/migrations`, `supabase/functions`, `supabase/seed`,
+`supabase/config.toml` or its own workflow, so the same is true of production. It can also be started by hand:
+Actions → Deploy production → Run workflow on `main`, type `production`; that deploys main as it is, whether or not
+staging got it. Either way it refuses any other branch and any project but `itnhdikhdsujklaimqqd`, then runs the same
+steps as staging (migrations, starter catalog, all Edge Functions). While the `production` environment has a required
+reviewer, every run (automatic ones too) waits for that approval; with none, a merge reaches production a minute or
+two after staging. The plan from 2026-11-09, while only testers use Foon,
+is no reviewer; add one back before launch, because a migration can't be undone.
 
 One-time setup, done by Chris (values never go in the repo or a chat):
 
-1. GitHub → Settings → Environments → `production`, with Chris as required reviewer, deployment branches limited to
-   `main` (a run from another branch, whose copy of the workflow could drop the checks, never gets the secrets), and
-   these secrets: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD` (production's), `SUPABASE_PROJECT_REF`
+1. GitHub → Settings → Environments → `production` (a required reviewer is optional, see above), deployment branches
+   limited to `main` (a run from another branch, whose copy of the workflow could drop the checks, never gets the
+   secrets), and these secrets: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD` (production's), `SUPABASE_PROJECT_REF`
    (`itnhdikhdsujklaimqqd`).
 2. Production Edge Function secrets `RESEND_API_KEY` and `WAITLIST_FROM`, before the first run so the waitlist can
    send as soon as it's deployed.

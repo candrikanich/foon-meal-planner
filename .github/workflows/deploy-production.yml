@@ -1,10 +1,18 @@
 name: Deploy production
 
-# Applies migrations (and the idempotent starter catalog) to Foon production and deploys Edge Functions. Unlike
-# staging it never runs on a merge: someone starts it from main, types "production", and approves the `production`
-# environment. This is the only way schema reaches production: never `supabase db push` from a laptop.
+# Applies migrations (and the idempotent starter catalog) to Foon production and deploys Edge Functions. It runs on its
+# own once "Deploy staging" has deployed a merge to main without errors, with exactly the commit staging got, so a bad
+# migration fails on staging first. It skips a commit when main already has a newer backend change (a re-run of an old
+# staging run, or one that finished late), so production never goes backwards; that change's own staging run deploys
+# it. It can also be started by hand from main by typing "production": that deploys main as it is, whether or not
+# staging got it. Either way the `production` environment's rules apply (a required reviewer there makes every run
+# wait for approval). This is the only way schema reaches production: never `supabase db push` from a laptop.
 
 on:
+  workflow_run:
+    workflows: [Deploy staging]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       confirm:
@@ -21,6 +29,11 @@ permissions:
 jobs:
   deploy:
     name: Migrate and deploy functions (production)
+    # After staging: only a successful deploy of main (staging can be started by hand from any branch).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
@@ -30,16 +43,17 @@ jobs:
       PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       # Passed through env rather than interpolated into the script, so the typed text can't run as shell.
       CONFIRM: ${{ inputs.confirm }}
+      EVENT: ${{ github.event_name }}
       # Foon production. The same account holds other products' databases, so a wrong secret must stop here.
       EXPECTED_REF: itnhdikhdsujklaimqqd
     steps:
-      - name: Refuse anything but main, confirmed, to Foon production
+      - name: Refuse anything but main, confirmed or deployed to staging, to Foon production
         run: |
           if [ "$GITHUB_REF" != "refs/heads/main" ]; then
             echo "::error::Production deploys only from main, not $GITHUB_REF. Nothing was deployed."
             exit 1
           fi
-          if [ "$CONFIRM" != "production" ]; then
+          if [ "$EVENT" = "workflow_dispatch" ] && [ "$CONFIRM" != "production" ]; then
             echo "::error::Type production to confirm. Nothing was deployed."
             exit 1
           fi
@@ -48,17 +62,45 @@ jobs:
             exit 1
           fi
 
+      # After staging, the commit staging deployed, not whatever main is now; by hand, main as it is. Full history, so
+      # the next step can compare it with main.
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: After staging, only main's latest backend change
+        id: latest
+        if: github.event_name == 'workflow_run'
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "$HEAD_SHA" origin/main; then
+            echo "::error::$HEAD_SHA is not on main. Nothing was deployed."
+            exit 1
+          fi
+          # The paths that make staging deploy. A newer change to them on main means this run is stale.
+          if ! git diff --quiet "$HEAD_SHA" origin/main -- supabase/migrations supabase/functions supabase/seed \
+              supabase/config.toml .github/workflows/deploy-staging.yml; then
+            echo "::notice::main has a newer backend change than $HEAD_SHA, which its own staging run deploys." \
+              "Nothing was deployed."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: supabase/setup-cli@v3
+        if: steps.latest.outputs.skip != 'true'
         with:
           version: 2.120.0
 
       - name: Link
+        if: steps.latest.outputs.skip != 'true'
         run: supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
 
       - name: Migrations and starter catalog
+        if: steps.latest.outputs.skip != 'true'
         run: supabase db push --include-seed --password "$SUPABASE_DB_PASSWORD"
 
       - name: Edge Functions
+        if: steps.latest.outputs.skip != 'true'
         run: supabase functions deploy --project-ref "$PROJECT_REF"
