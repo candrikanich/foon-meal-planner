@@ -39,12 +39,12 @@ update public.members set declared_age_band = 'under_13' where first_name = 'Tia
 update public.members set removed_at = now() - interval '13 months' where first_name in ('Rita', 'Val');
 update public.members set removed_at = now() - interval '11 months' where first_name = 'Sam';
 insert into public.consents (household_id, member_id, kind, granted_by, granted_at, revoked_at, text_version) values
-  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', 'parental', 'a0000000-0000-0000-0000-00000000000a', now(), null, 'v1'),
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', 'parental', 'a0000000-0000-0000-0000-00000000000a', now(), null, 'parental-invite-v3'),
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000b3', 'parental', 'a0000000-0000-0000-0000-00000000000a', now() - interval '60 days', now() - interval '31 days', 'v1'),
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000b4', 'parental', 'a0000000-0000-0000-0000-00000000000a', now() - interval '60 days', now() - interval '29 days', 'v1'),
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000b6', 'parental', 'a0000000-0000-0000-0000-00000000000a', now() - interval '90 days', now() - interval '60 days', 'v1'),
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000b6', 'parental', 'a0000000-0000-0000-0000-00000000000a', now() - interval '40 days', now() - interval '1 day', 'v1'),
-  ('00000000-0000-0000-0000-0000000000a0', null, 'allergy_data', 'a0000000-0000-0000-0000-00000000000a', now(), null, 'v1');
+  ('00000000-0000-0000-0000-0000000000a0', null, 'allergy_data', 'a0000000-0000-0000-0000-00000000000a', now(), null, 'allergy-data-v2');
 insert into public.member_allergies (household_id, member_id, category) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000b1', 'milk'),
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000b3', 'peanuts');
@@ -57,7 +57,7 @@ select throws_ok($$ select public.create_invite('00000000-0000-0000-0000-0000000
 select pg_temp.as_admin();
 insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'parental',
-   'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v1');
+   'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v3');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice
 select set_config('test.nora', public.create_invite('00000000-0000-0000-0000-0000000000a2'), true);
 select set_config('test.ben', public.create_invite('00000000-0000-0000-0000-0000000000a4'), true);
@@ -81,7 +81,7 @@ select is(public.redeem_invite(current_setting('test.ben')), 'claimed',
 select pg_temp.as_admin();
 insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'parental',
-   'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v1');
+   'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v3');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice
 select set_config('test.owen', public.create_invite('00000000-0000-0000-0000-0000000000a3'), true);
 update public.consents set revoked_at = now()

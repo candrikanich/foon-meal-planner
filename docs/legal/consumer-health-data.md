@@ -26,17 +26,17 @@ We keep allergies only after a parent agrees in the app. They read this and tap 
 > anytime in Family → Allergy alerts, which erases them all.
 
 The server refuses to store an allergy without that agreement. We record who agreed, when, and which wording they saw.
-We ask once: a household that agreed to an earlier wording isn't asked again, and that agreement still stands.
+When the wording changes, we ask again: until a parent agrees to the new wording, the allergies already recorded keep
+flagging dishes (for safety) and nobody adds a new one; removing one still works. Households that agreed to the first
+wording (`allergy-data-v1`), which named neither who receives allergies nor how to withdraw, are asked again this way
+(#277; Chris reversed the 2026-11-07 decision not to ask them on 2026-11-09).
 
-> **Review:** the earlier wording (`allergy-data-v1`) didn't name who receives allergies or how to withdraw. Chris
-> decided on 2026-11-07 not to ask those households again; confirm that's enough under RCW 19.373.030(2). [CHECK]
+An adult who isn't a parent also agrees for their own allergies before adding one ("Keep your allergies in Foon?",
+`own-allergy-v1`), and we record that agreement too. Only a parent can give or withdraw the household's agreement.
 
-An adult who adds their own allergies does it under that same agreement: they see the same sentence, but only a parent
-can give or withdraw it for the household.
-
-> **Review:** an adult who isn't a parent can now add their own allergies, relying on the household agreement a parent
-> gave. Their own agreement isn't recorded. Is that consent from the consumer under RCW 19.373.030(1)(a), or should
-> Foon ask that adult to agree too (and log it) before keeping theirs? [CHECK]
+> **Review:** until that adult agrees, the allergies they already have keep flagging (Chris, 2026-11-09: safety). Is
+> their own logged agreement consent from the consumer under RCW 19.373.030(1)(a), and is keeping the earlier ones
+> flagging meanwhile acceptable? [CHECK]
 
 > **Review:** a parent can type any text as an "other" allergy. Should this say that it could include something other
 > than a food allergy? [CHECK]

@@ -1940,6 +1940,9 @@
     "Foon changed what it asks you to agree to, and this version can't show it." : {
 
     },
+    "Foon changed what parents agree to for kids. %@ is signed out until a parent agrees. Nothing was deleted." : {
+
+    },
     "Foon changed what parents agree to for kids. %@ needs a parent's OK again before using Foon. Nothing was deleted." : {
 
     },

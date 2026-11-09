@@ -49,6 +49,13 @@ insert into public.consents (household_id, member_id, kind, granted_by, text_ver
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', 'parental',
    'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v1');
 
+-- Replays the rollout from the dormant state #277 shipped in: PR D (20261119000000_agreements_in_force.sql) put these
+-- in force, so they're taken back out here and each step below puts back what it tests. 89 tests the state PR D leaves.
+select pg_temp.as_admin();
+update public.agreement_versions set effective_at = null
+ where version in ('allergy-data-v2', 'own-allergy-v1', 'parental-invite-v2', 'parental-invite-v3', 'terms-draft-v1',
+                   'privacy-draft-v1');
+
 -- Which wording may be sent ------------------------------------------------------------------------------------------------
 select pg_temp.as_service();
 select ok(public.parental_wording_ok('parental-invite-v3') and public.parental_wording_ok('parental-invite-v1'),
@@ -75,8 +82,8 @@ select pg_temp.as_service();
 select set_config('test.c1', public.claim_consent_renewal_emails(10, 'parental-invite-v3')::text, true);
 select is(pg_temp.first('test.c1') ->> 'email', 'ann@example.com', 'a newer wording than the hold''s still claims');
 select is(pg_temp.first('test.c1') ->> 'summary',
-  (select summary from public.agreement_versions where version = 'parental-invite-v3'),
-  'and what changed is the sent wording''s');
+  (select summary from public.agreement_versions where version = 'parental-invite-v2') || ' ' || (select summary from public.agreement_versions where version = 'parental-invite-v3'),
+  'and what changed covers every wording since the one agreed to (v1), up to the one sent (v3), in order');
 select ok((pg_temp.hold()).emailed_at is null, 'reserving doesn''t start the round clock');
 
 -- A send that fails ---------------------------------------------------------------------------------------------------------

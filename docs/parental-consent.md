@@ -42,18 +42,75 @@ the reminder); a reservation doesn't. A send that fails (or Resend not answering
 the run's 40-second budget.
 
 - **Renewal notice** ("Can <name> keep using Foon?"), to every parent whose account has a verified email: email 1's
-  direct notice, plus what changed (the registry's `summary`), when a parent agreed before, that the kid is signed out
-  until a parent agrees, that nothing is deleted, and how to withdraw instead. Its link opens the same /consent page,
-  worded as a renewal; No keeps the kid signed out.
+  direct notice, plus what changed (the registry's `summary` of every version that needs agreeing again since the one
+  a parent agreed to, oldest first: v2's then v3's for a v1 kid), when a parent agreed before, that the kid is signed
+  out until a parent agrees, that nothing is deleted, and how to withdraw instead. For a kid who never signed in on
+  their own device (`was_linked` false) it says they can't use Foon on their own device, never "signed out". Its link
+  opens the same /consent page, worded the same way as a renewal; No keeps things as they are.
 - **Reminder**, once, 7 days after the first: the same email, subject "Reminder: Can <name> keep using Foon?".
-- A parent's Email me the form in the app sends the same notice, without what changed and the date (the app's request
-  doesn't return them).
+- A parent's Email me the form in the app sends the same notice, with the same what changed and date. Since
+  `20261119000000_agreements_in_force.sql`, `request_parental_consent` takes the function's wording and returns
+  `summary`, `agreed_before`, `held` and `was_linked` for a renewal; `claim_consent_renewal_emails` returns the same
+  for the cron's, and `parental_consent_lookup` the summary and `was_linked` for the /consent page. In the hour between
+  a wording change and the job that holds the kid, `held` is false and the email says the kid "will be signed out
+  soon".
 - The function sends its `TEXT_VERSION` while that wording is registered and at or after the one in force
   (`parental_wording_ok`), so one deployed ahead of a new wording keeps sending. Left on outdated wording, it sends
   nothing: the claim reserves nothing and the run answers 503 `wording_outdated` (the app's request answers the same).
 
 Check: Edge Functions → parental-consent → Logs shows a run every 15 minutes while holds owe emails, answering 200
 with `{sent, failed, unrecorded, deferred}`. A 401 means the two secrets differ.
+
+## Before #277's turn-on reaches production
+
+`20261119000000_agreements_in_force.sql` (#277 PR D) puts the new wordings in force and holds every kid whose consent
+is outdated in the same migration, so the renewal emails are owed the moment a database migrates. Merging deploys to
+staging at once (`deploy-staging.yml`); production deploys from the production workflow. Done, in this order, before
+that PR merges:
+
+0. Staging has everything in steps 2 to 4 below too (Edge Function secrets and both Vault secrets), or staging's held
+   kids get no renewal email, silently. Check it with the queries below against staging.
+
+1. The iOS build with the agreement screens (#277 PR C) is on TestFlight and tested. Older builds show a held kid as
+   consented and fail Invite generically.
+2. Production has the parental-consent function from #277 PR B deployed (renewal mode, `?renewals=1`), and
+   send-push with words for `agreement_hold` (#309) deployed. Without it every hold's push to parents is marked
+   `unknown_kind` and never sent.
+3. Edge Function secrets on production: `RESEND_API_KEY` (set for the waitlist; confirm it's listed under Edge
+   Functions → Secrets), `CONSENT_FROM` (`Foon <info@getfoon.com>`) and `CONSENT_CRON_SECRET` (a long random string).
+   Without `RESEND_API_KEY` or `CONSENT_FROM` nothing is sent and every run answers 503 `email_off`; without
+   `CONSENT_CRON_SECRET` every run answers 401.
+4. Vault secrets on production: `consent_function_url` and `consent_cron_secret` (the same value as
+   `CONSENT_CRON_SECRET`), as above.
+5. Testers are told: every kid consented in the app is signed out until a parent agrees again by email.
+
+**Missing Vault secrets fail silently.** `kick_consent_renewals()` returns without calling anything when either is
+missing or empty: no error, no log line, and no renewal email ever goes. Check them (SQL editor, read only; this shows
+names, never values):
+
+```sql
+select name, length(decrypted_secret) > 0 as has_value
+  from vault.decrypted_secrets
+ where name in ('consent_function_url', 'consent_cron_secret');
+```
+
+Both rows must be there with `has_value = true`. Then, after the migration, confirm the job really calls the function:
+
+```sql
+-- The cron job ran (every 15 minutes):
+select status, return_message, start_time from cron.job_run_details
+ where jobid = (select jobid from cron.job where jobname = 'kick-consent-renewals')
+ order by start_time desc limit 5;
+-- And pg_net got an answer from the function (200 with {sent, failed, unrecorded, deferred}; 401 means the two
+-- secrets differ; 503 email_off means CONSENT_FROM or RESEND_API_KEY is missing):
+select status_code, content, created from net._http_response order by created desc limit 5;
+-- And holds got their first email:
+select count(*) filter (where emailed_at is not null) as emailed, count(*) as open
+  from public.agreement_holds where kind = 'parental' and released_at is null;
+```
+
+A cron run that says `succeeded` with no new `net._http_response` row while holds are open means the Vault secrets
+are missing (or no parent of a held kid has a verified email, which `emailed` stays 0 for too).
 
 ## Which address is used
 

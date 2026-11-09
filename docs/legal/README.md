@@ -37,7 +37,8 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 - [ ] Written retention policy: does retention.md's "Kids: purposes and periods" section meet the requirement?
 - [ ] Parental consent method: email plus since #275 (`parental-invite-v3`): a notice to the asking parent's sign-in
       email, agreement on getfoon.com, then a confirming email with a withdraw link; consent counts once that has
-      gone out. Consents given in the app before (v1, v2) stay until #277 asks again. Is the notice (email 1)
+      gone out. Consents given in the app before (v1, v2) no longer count since #277: those kids are signed out (no
+      erase clock) until a parent agrees by email plus. Is the notice (email 1)
       enough under 312.4(c)(1), and is a typed address for an account with no email acceptable?
 - [ ] Kids' self-entered content: erased 30 days after a parent withdraws consent; anonymized 12 months after a kid is
       removed, with ratings kept as anonymous history. Is the hard delete, and is keeping anonymous ratings, acceptable?
@@ -60,14 +61,16 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 - [ ] consumer-health-data.md: does it meet Washington (RCW 19.373.020) and Nevada (NRS 603A.495), and is the opt-in
       (Agree and save, logged as `allergy-data-v2` since #280, which names recipients and how to withdraw) enough
       consent?
-- [ ] Households that agreed to `allergy-data-v1`, which named neither, aren't asked again: Chris decided consent is
-      asked once (2026-11-07, compliance-check.md "Decided by Chris"). Can v1 stand?
+- [ ] Households that agreed to `allergy-data-v1`, which named neither, are asked again since #277 (Chris reversed
+      the 2026-11-07 call on 2026-11-09): existing allergies keep flagging and nobody adds one until a parent agrees
+      to v2. Is keeping the v1 allergies flagging meanwhile acceptable?
 - [ ] Is household members seeing each other's allergies "sharing" with a third party (RCW 19.373.010(27))?
 - [ ] An adult can add and remove their own allergies in the app (#285), and a parent can add them again under the
       household's agreement: Chris decided not to block that (2026-11-07, #294). Is that enough for withdrawal
       (RCW 19.373.040(1)(b))?
-- [ ] An adult can add their own allergies under the household agreement a parent gave, without agreeing themselves
-      (#285). Is that their consent under RCW 19.373.030(1)(a), or should Foon ask and log theirs too?
+- [ ] An adult who isn't a parent agrees for their own allergies (`own-allergy-v1`, #277) before adding one, and
+      the agreement is logged; until they do, the ones they already have keep flagging (Chris, 2026-11-09: safety).
+      Is that their consent under RCW 19.373.030(1)(a)?
 - [ ] Turning allergy alerts off also clears every note on the household's list lines, and someone's allergies all
       going takes the list notes naming them, or that might (#280). Notes are free text, so that's matched by name:
       confirm it's enough. A custom allergy typed with "; " in it can leave a part naming no one ("Check for nuts")
@@ -125,11 +128,14 @@ The drafts describe what the code does today. These are the places where that ma
 
 Found by the compliance self-check ([compliance-check.md](compliance-check.md), "Before launch" (b) has the detail):
 
-- Parental consent is by email plus since #275, but consents given in the app before it stay active until #277.
+- Parental consent is by email plus since #275. Consents given in the app before it (v1, v2) stay active but no longer
+  count since #277 put v3 in force: those kids are signed out until a parent agrees again by email plus.
 - Resend's log retention for the consent emails isn't confirmed (retention.md).
-- There's no way to ask parents for new consent after a material change.
-- Households that agreed to the first allergy consent (`allergy-data-v1`) agreed to wording that named neither who
-  receives allergies nor how to withdraw; they aren't asked again (v2, #280, names both).
+- Since #277 a changed wording is asked again (Wording versions, below). Terms and Privacy are asked by the app only
+  for now; the server enforces them once no supported build lacks the prompt (Chris, 2026-11-09).
+- Households that agreed to the first allergy consent (`allergy-data-v1`), which named neither who receives allergies
+  nor how to withdraw, are asked again since #277 (Chris reversed the 2026-11-07 call on 2026-11-09): their allergies
+  keep flagging, and nobody adds one until a parent agrees to v2.
 - No links yet to the privacy policy or the consumer health data policy on the homepage, the App Store page, onboarding
   or Your data. (The paywall and the kid invite and join screens have their links, #282 and #276.)
 - Age assurance (#88) isn't built: Texas SB 2420 is in force; California, Utah and Louisiana follow in 2027.
@@ -143,15 +149,27 @@ Found by the compliance self-check ([compliance-check.md](compliance-check.md), 
 
 Every agreement names the wording it was given to (#277). The registry is `public.agreement_versions`: one row per
 version, ordered within its kind. The newest row with `effective_at <= now()` is in force; an agreement to an older one
-still counts unless a version after it has `requires_reagreement`. Nothing is in force until PR D sets `effective_at`.
+still counts unless a version after it has `requires_reagreement`.
 
-| Kind | Versions | Where the words live |
-| --- | --- | --- |
-| Household allergy data | `allergy-data-v1`, `allergy-data-v2` | The app's statement and `textVersion` (iOS) |
-| An adult's own allergies | `own-allergy-v1` | The app |
-| A kid's parental consent | `parental-invite-v1` (in app), `-v2` (in app), `-v3` (email plus) | `supabase/functions/parental-consent/email.ts` (`TEXT_VERSION`) and web/app/pages/consent |
-| Terms | `terms-draft-v1` | getfoon.com/terms; label `TERMS_VERSION` in web/app/content.ts |
-| Privacy | `privacy-draft-v1` | getfoon.com/privacy; label `PRIVACY_VERSION` in web/app/content.ts |
+The registry shipped dormant (#277 PRs A to C: nothing in force). `20261119000000_agreements_in_force.sql` (PR D) set
+`effective_at` to the moment it ran for the versions marked in force below, and held everyone whose agreement was
+older in the same migration. So the date each came into force is the day that migration reached each database: staging
+when PR D merged, production when it was deployed. Read the exact dates from the registry (read only):
+
+```sql
+select kind, version, effective_at from public.agreement_versions order by kind, ordinal;
+```
+
+| Kind | Versions | In force | Where the words live |
+| --- | --- | --- | --- |
+| Household allergy data | `allergy-data-v1`, `allergy-data-v2` | `allergy-data-v2` | The app's statement and `textVersion` (iOS) |
+| An adult's own allergies | `own-allergy-v1` | `own-allergy-v1` | The app |
+| A kid's parental consent | `parental-invite-v1` (in app), `-v2` (in app), `-v3` (email plus) | `parental-invite-v3` | `supabase/functions/parental-consent/email.ts` (`TEXT_VERSION`) and web/app/pages/consent |
+| Terms | `terms-draft-v1` | `terms-draft-v1` | getfoon.com/terms; label `TERMS_VERSION` in web/app/content.ts |
+| Privacy | `privacy-draft-v1` | `privacy-draft-v1` | getfoon.com/privacy; label `PRIVACY_VERSION` in web/app/content.ts |
+
+`allergy-data-v1` and `parental-invite-v1` have no `effective_at`: they were in use before the registry existed, and
+an agreement to either is outdated because a later version in force requires agreeing again.
 
 When wording changes, whoever agreed to an older version is asked again: households can't add allergies, adults see
 the Terms prompt, and a kid is signed out (nothing erased) while every parent with a verified email gets a renewal

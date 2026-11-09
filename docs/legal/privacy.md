@@ -243,8 +243,9 @@ To ask about or delete your child's information, a parent can also write to supp
 > to an operator that doesn't disclose a child's information. Confirm that household members seeing a kid's name and
 > comments isn't "disclosure" (compliance-check.md decision 2), and what the fallback would be if it is. [CHECK]
 > Confirm the direct notice (email 1) meets 312.4(c)(1), and that this section and the retention policy
-> (retention.md) meet the rest of the notice requirements. Consents given in the app before #275 stay active until
-> #277 asks those parents again by email.
+> (retention.md) meet the rest of the notice requirements. Consents given in the app before #275 no longer count
+> since #277 put the email-plus wording in force: those kids are signed out (nothing erased) until a parent agrees
+> again by email.
 
 > **Review:** a kid's ratings are kept as anonymous history after they're removed. Erasing a withdrawn kid's own ratings
 > is a hard delete. Confirm both are acceptable.
@@ -281,8 +282,8 @@ Policy](consumer-health-data.md) covers them in full.
 
 > **Review:** confirm the opt-in sentence and its consent record are enough consent under Washington's, Nevada's and
 > Connecticut's laws (see compliance-check.md). Since #280 (`allergy-data-v2`) it names who receives allergies and how
-> to withdraw. Households that agreed to v1, which named neither, aren't asked again (Chris's decision, 2026-11-07):
-> confirm v1 can stand.
+> to withdraw. Households that agreed to v1, which named neither, are asked again since #277 (Chris reversed the
+> 2026-11-07 decision on 2026-11-09): their allergies keep flagging and nobody adds one until a parent agrees to v2.
 
 ## What stays on your device
 
@@ -440,8 +441,14 @@ If we change this policy, we'll update the date at the top and post the new vers
 change is significant, we'll tell you in the app before it takes effect. If a change affects how we use kids'
 information, we'll ask parents to consent again first.
 
-> **Review:** telling people in the app about a significant change isn't built, and neither is asking parents for new
-> consent, which the amended COPPA rule requires for material changes. Confirm the mechanism for both.
+Every agreement records the wording it was given to. When we change wording you agreed to, Foon asks again: adults see
+the new Terms and Privacy Policy in the app before going on; a household can't add allergies until a parent agrees to
+the new allergy wording (the ones already recorded keep flagging dishes); and a kid whose parent agreed to older wording
+is signed out, with nothing deleted, until a parent agrees again from the email we send every parent with a verified
+email (with one reminder a week later).
+
+> **Review:** asking again is built (#277). Confirm the mechanism meets the amended COPPA rule for material changes,
+> and that the app's prompt counts as telling people before a significant change takes effect.
 
 ## Contact
 

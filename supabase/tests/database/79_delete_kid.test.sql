@@ -76,10 +76,10 @@ insert into storage.objects (bucket_id, name, owner) values
   ('household-photos', '00000000-0000-0000-0000-0000000000a0/meals/kits-pizza.jpg', 'e0000000-0000-0000-0000-00000000000e');
 
 insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
-  ('00000000-0000-0000-0000-0000000000a0', null, 'allergy_data', 'a0000000-0000-0000-0000-00000000000a', 'allergy-data-v1'),
+  ('00000000-0000-0000-0000-0000000000a0', null, 'allergy_data', 'a0000000-0000-0000-0000-00000000000a', 'allergy-data-v2'),
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', 'parental',
-   'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v2'),
-  ('00000000-0000-0000-0000-0000000000b0', null, 'allergy_data', 'c0000000-0000-0000-0000-00000000000c', 'allergy-data-v1');
+   'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v3'),
+  ('00000000-0000-0000-0000-0000000000b0', null, 'allergy_data', 'c0000000-0000-0000-0000-00000000000c', 'allergy-data-v2');
 insert into public.member_allergies (household_id, member_id, category) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', 'milk'),
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a1', 'peanuts'),
@@ -339,7 +339,7 @@ insert into public.members (id, household_id, first_name, age_group) values
   ('00000000-0000-0000-0000-0000000000a6', '00000000-0000-0000-0000-0000000000a0', 'Ada', 'kid');
 insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'parental',
-   'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v1');
+   'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v3');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann
 select set_config('test.ada', public.create_invite('00000000-0000-0000-0000-0000000000a6'), true);
 select pg_temp.as_user('f0000000-0000-0000-0000-00000000000f');

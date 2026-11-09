@@ -114,6 +114,11 @@ export interface RenewalMessage extends NoticeMessage {
   summary: string | null;
   // When a parent last agreed for this kid (ISO), or null when unknown.
   agreedBefore: string | null;
+  // Whether the kid is signed out already. False only in the hour between a wording change and the job that holds.
+  held: boolean;
+  // Whether the kid had signed in on their own device. False: there's nothing to sign out of, so the email never says
+  // "signed out". Null when the database didn't say (before 20261119000000): worded by `held`, as before.
+  wasLinked: boolean | null;
   // The one reminder, 7 days after the first email, when no parent has agreed yet.
   reminder: boolean;
 }
@@ -137,13 +142,21 @@ export function renewalNoticeEmail(message: RenewalMessage): Omit<Email, "to"> {
     : `A parent in your family agreed that ${name} could use Foon on their own device. Foon has changed what it asks ` +
       `parents to agree to since then, so we need a parent's consent again.`;
   const whatChanged = message.summary ? `What changed: ${message.summary}` : null;
+  const neverSignedIn = message.wasLinked === false;
+  const until = neverSignedIn
+    ? `Until a parent agrees, ${name} can't use Foon on their own device.`
+    : message.held
+    ? `Until a parent agrees, ${name} is signed out of Foon.`
+    : `Until a parent agrees, ${name} will be signed out of Foon soon.`;
   const signedOut =
-    `Until a parent agrees, ${name} is signed out of Foon. Nothing is deleted: ${name}'s profile and everything your ` +
-    `family added stay as they are. ${whereFrom}`;
-  const ifNot =
-    `If you don't agree, ${name} stays signed out, Foon collects nothing new from ${name}, and nothing is deleted.`;
-  const lapse = `This link works for 7 days. If no parent answers by then, ${name} stays signed out; you can ask for ` +
-    `a new email in Foon (Family, then ${name}).`;
+    `${until} Nothing is deleted: ${name}'s profile and everything your family added stay as they are. ${whereFrom}`;
+  // What a No or no answer leaves: the same as now.
+  const staysOut = neverSignedIn
+    ? `${name} still can't use Foon on their own device`
+    : `${name} ${message.held ? "stays" : "is"} signed out`;
+  const ifNot = `If you don't agree, ${staysOut}, Foon collects nothing new from ${name}, and nothing is deleted.`;
+  const lapse = `This link works for 7 days. If no parent answers by then, ${staysOut}; you can ask for a new email ` +
+    `in Foon (Family, then ${name}).`;
   const withdraw = (who: string) =>
     `To end your consent instead, withdraw it: in Foon, open Family, then ${who}, then Withdraw consent. Then what ` +
     `${who} added is erased after 30 days.`;

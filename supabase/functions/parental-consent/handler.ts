@@ -26,18 +26,47 @@ export type RequestResult =
     firstName: string;
     // renewal: the kid's consent is active but was given to older wording.
     reason: "invite" | "renewal";
+    // A renewal's what changed, when a parent agreed before, and whether the kid is held yet.
+    renewal?: RenewalRequest;
   };
 
 export interface Renewal {
-  // The registry's "what changed" for the wording asked for.
+  // The registry's "what changed" since the wording a parent agreed to, up to the one asked for.
   summary: string | null;
   // When a parent last agreed for this kid (ISO).
   agreedBefore: string | null;
+  // Whether the kid had signed in on their own device; null when the database didn't say.
+  wasLinked: boolean | null;
+}
+
+// What the app's renewal request gets back for its email, as the cron's claim does.
+export interface RenewalRequest extends Renewal {
+  // False when the wording changed but the hourly job hasn't signed the kid out yet.
+  held: boolean;
 }
 
 export type LookupResult =
   | { outcome: "pending"; firstName: string; expiresAt: string; renewal?: Renewal }
   | { outcome: "confirmed" | "withdrawn" | "refused" | "already_consented" | "expired" | "invalid" };
+
+// parental_consent_lookup's answer. A renewal's fields are absent from a database before 20261119000000: null.
+export function lookupFromRow(row: Record<string, unknown>): LookupResult {
+  if (row.outcome !== "pending") return { outcome: row.outcome } as LookupResult;
+  const pending = {
+    outcome: "pending" as const,
+    firstName: row.first_name as string,
+    expiresAt: row.expires_at as string,
+  };
+  if (row.reason !== "renewal") return pending;
+  return {
+    ...pending,
+    renewal: {
+      summary: (row.summary as string | null) ?? null,
+      agreedBefore: (row.agreed_before as string | null) ?? null,
+      wasLinked: typeof row.was_linked === "boolean" ? row.was_linked : null,
+    },
+  };
+}
 
 // One renewal email claim_consent_renewal_emails reserved.
 export interface RenewalClaim {
@@ -46,9 +75,11 @@ export interface RenewalClaim {
   email: string;
   firstName: string;
   reminder: boolean;
-  // What changed in the wording being sent.
+  // What changed since the wording a parent agreed to, up to the wording being sent.
   summary: string | null;
   agreedAt: string | null;
+  // Whether the kid had signed in on their own device; null when the database didn't say.
+  wasLinked: boolean | null;
 }
 
 export type DecideResult =
@@ -81,8 +112,9 @@ export interface ConsentDeps {
   // The Edge Function's own public URL, which the emailed links point at.
   functionUrl: string;
   userFromToken(jwt: string): Promise<string | null>;
-  // request_parental_consent, run as the parent (their JWT), so the database checks who they are.
-  request(jwt: string, input: { memberId: string; email: string | null }): Promise<RequestResult>;
+  // request_parental_consent, run as the parent (their JWT), so the database checks who they are. `wording` is the one
+  // this function emails, so a renewal's "what changed" describes it.
+  request(jwt: string, input: { memberId: string; email: string | null; wording: string }): Promise<RequestResult>;
   // False when the request wasn't pending any more (it was agreed, refused or ended meanwhile): the link is dead.
   markSent(input: { requestId: string; sendId: number; tokenHash: string; textVersion: string }): Promise<boolean>;
   releaseSend(input: { requestId: string; sendId: number }): Promise<void>;
@@ -224,13 +256,15 @@ async function sendNotice(deps: ConsentDeps, send: Extract<RequestResult, { outc
   }
   const delivery = await deliverNotice(deps, reservation, send.email, (consentUrl) =>
     send.reason === "renewal"
-      // The app's request carries neither what changed nor when a parent agreed: the email words itself without them.
+      // An older database's answer has no renewal fields: the email words itself without them, as if held.
       ? renewalNoticeEmail({
         firstName: send.firstName,
         consentUrl,
         emailSource: send.emailSource,
-        summary: null,
-        agreedBefore: null,
+        summary: send.renewal?.summary ?? null,
+        agreedBefore: send.renewal?.agreedBefore ?? null,
+        held: send.renewal?.held ?? true,
+        wasLinked: send.renewal?.wasLinked ?? null,
         reminder: false,
       })
       : noticeEmail({ firstName: send.firstName, consentUrl, emailSource: send.emailSource }));
@@ -288,6 +322,9 @@ async function sendRenewals(req: Request, deps: ConsentDeps): Promise<Response> 
         emailSource: "account",
         summary: claim.summary,
         agreedBefore: claim.agreedAt,
+        // Only a held kid's parents are claimed.
+        held: true,
+        wasLinked: claim.wasLinked,
         reminder: claim.reminder,
       }));
     if (delivery === "sent") totals.sent += 1;
@@ -313,7 +350,11 @@ async function requestConsent(req: Request, deps: ConsentDeps): Promise<Response
 
   let requested: RequestResult;
   try {
-    requested = await deps.request(jwt, { memberId: parsed.data.memberId, email: parsed.data.email ?? null });
+    requested = await deps.request(jwt, {
+      memberId: parsed.data.memberId,
+      email: parsed.data.email ?? null,
+      wording: TEXT_VERSION,
+    });
   } catch (error) {
     if (error instanceof RefusedError) {
       if (error.code === "28000") return json(401, { error: "not_signed_in" });
@@ -386,7 +427,13 @@ async function answerConsent(token: string, req: Request, deps: ConsentDeps, ori
     return json(
       200,
       found.renewal
-        ? { ...pending, reason: "renewal", summary: found.renewal.summary, agreedBefore: found.renewal.agreedBefore }
+        ? {
+          ...pending,
+          reason: "renewal",
+          summary: found.renewal.summary,
+          agreedBefore: found.renewal.agreedBefore,
+          wasLinked: found.renewal.wasLinked,
+        }
         : pending,
       origin,
     );

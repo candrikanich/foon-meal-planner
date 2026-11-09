@@ -49,8 +49,40 @@ struct AgreementStatusTests {
         #expect(kid.requiredVersion == "parental-invite-v3")
         #expect(kid.emailedAt == nil)
         #expect(kid.emailedMeAt != nil)
+        #expect(kid.wasLinked == nil, "a server before the turn-on migration doesn't send was_linked")
         #expect(status.privacy.satisfied == false)
         #expect(status.allergy?.held == true)
+    }
+
+    @Test func aHeldKidSaysWhetherTheyHadSignedIn() throws {
+        let kids = try decode([AgreementStatus.KidHold].self, """
+        [{"member_id":"6B1A2B49-8F7C-4E52-9C1F-3A1D2E4F5A61","first_name":"Kit",
+          "held_at":"2026-11-19T15:00:00+00:00","emailed_at":null,"reminded_at":null,
+          "held_version":"parental-invite-v1","required_version":"parental-invite-v3","was_linked":true,
+          "summary":null,"emailed_me_at":null},
+         {"member_id":"6B1A2B49-8F7C-4E52-9C1F-3A1D2E4F5A62","first_name":"Owen",
+          "held_at":"2026-11-19T15:00:00+00:00","emailed_at":null,"reminded_at":null,
+          "held_version":"parental-invite-v1","required_version":"parental-invite-v3","was_linked":false,
+          "summary":null,"emailed_me_at":null}]
+        """)
+        #expect(kids.map(\.wasLinked) == [true, false])
+    }
+
+    @Test func aKidWhoHadSignedInIsToldTheyreSignedOut() throws {
+        let hold = try #require(AgreementStatus.previewHeld.kidsHeld.first)
+        var linked = hold
+        linked.wasLinked = true
+        #expect(linked.renewalExplanation == """
+        Foon changed what parents agree to for kids. Owen is signed out until a parent agrees. Nothing was deleted.
+        """)
+        for wasLinked in [false, nil] as [Bool?] {
+            var neutral = hold
+            neutral.wasLinked = wasLinked
+            #expect(neutral.renewalExplanation == """
+            Foon changed what parents agree to for kids. Owen needs a parent's OK again before using Foon. Nothing \
+            was deleted.
+            """, "a kid who never signed in, or an older server, gets the neutral line")
+        }
     }
 
     @Test func aHeldKidsOwnDevice() throws {

@@ -38,8 +38,8 @@ insert into public.members (id, household_id, first_name, role, age_group, guard
 
 -- Parents have consented for the kids they invite (#12).
 insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
-  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', 'parental', 'a0000000-0000-0000-0000-00000000000a', 'test-v1'),
-  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'parental', 'a0000000-0000-0000-0000-00000000000a', 'test-v1');
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', 'parental', 'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v3'),
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'parental', 'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v3');
 
 -- Creating invites -------------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Alice

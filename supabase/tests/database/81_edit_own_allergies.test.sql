@@ -56,9 +56,9 @@ insert into public.members (id, household_id, first_name, role, age_group, guard
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000c0', 'Eve', 'planner', 'adult', true, 'active', 'e1000000-0000-0000-0000-0000000000e1'),
   ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000c0', 'Fay', 'member', 'adult', false, 'active', 'f1000000-0000-0000-0000-0000000000f1');
 insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
-  ('00000000-0000-0000-0000-0000000000a0', null, 'allergy_data', 'a0000000-0000-0000-0000-00000000000a', 'allergy-data-v1'),
-  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', 'parental', 'a0000000-0000-0000-0000-00000000000a', 'v1'),
-  ('00000000-0000-0000-0000-0000000000b0', null, 'allergy_data', 'c0000000-0000-0000-0000-00000000000c', 'allergy-data-v1');
+  ('00000000-0000-0000-0000-0000000000a0', null, 'allergy_data', 'a0000000-0000-0000-0000-00000000000a', 'allergy-data-v2'),
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', 'parental', 'a0000000-0000-0000-0000-00000000000a', 'parental-invite-v3'),
+  ('00000000-0000-0000-0000-0000000000b0', null, 'allergy_data', 'c0000000-0000-0000-0000-00000000000c', 'allergy-data-v2');
 insert into public.member_allergies (household_id, member_id, category, custom_text) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'milk', null),
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'peanuts', null),
@@ -75,6 +75,8 @@ insert into public.list_items (id, household_id, item_id, list, note) values
 
 -- An adult who isn't a parent edits their own, one at a time -------------------------------------------------------------
 select pg_temp.as_user('d0000000-0000-0000-0000-00000000000d');  -- Grace
+-- Since #277 PR D an adult who isn't a parent agrees for their own allergies before adding one (84 tests the hold).
+select public.agree_to_own_allergies('00000000-0000-0000-0000-0000000000a2', 'own-allergy-v1');
 -- She can have milk again, but not peanuts or kiwi.
 select lives_ok($$ select public.set_member_allergies('00000000-0000-0000-0000-0000000000a2', '{peanuts}', '{kiwi}') $$,
   'an adult removes one of their own allergies');

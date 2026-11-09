@@ -39,10 +39,10 @@ where id in ('00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-00
 update public.members set removed_at = now() - interval '13 months' where id = '00000000-0000-0000-0000-0000000000a5';
 update public.members set removed_at = now() - interval '11 months' where id = '00000000-0000-0000-0000-0000000000a6';
 insert into public.consents (household_id, kind, granted_by, text_version) values
-  ('00000000-0000-0000-0000-0000000000a0', 'allergy_data', 'a0000000-0000-0000-0000-00000000000a', 'allergy-data-v1'),
-  ('00000000-0000-0000-0000-0000000000b0', 'allergy_data', 'c0000000-0000-0000-0000-00000000000c', 'allergy-data-v1');
+  ('00000000-0000-0000-0000-0000000000a0', 'allergy_data', 'a0000000-0000-0000-0000-00000000000a', 'allergy-data-v2'),
+  ('00000000-0000-0000-0000-0000000000b0', 'allergy_data', 'c0000000-0000-0000-0000-00000000000c', 'allergy-data-v2');
 insert into public.consent_agreements (household_id, agreed_by, text_version) values
-  ('00000000-0000-0000-0000-0000000000a0', 'a0000000-0000-0000-0000-00000000000a', 'allergy-data-v1');
+  ('00000000-0000-0000-0000-0000000000a0', 'a0000000-0000-0000-0000-00000000000a', 'allergy-data-v2');
 insert into public.member_allergies (household_id, member_id, category) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a4', 'milk'),
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', 'peanuts'),
@@ -145,7 +145,7 @@ select throws_ok(
   '42501', null, 'with alerts off, nobody can add an allergy');
 select lives_ok($$ select public.revoke_allergy_consent('00000000-0000-0000-0000-0000000000a0') $$,
   'turning them off again changes nothing');
-select lives_ok($$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v1') $$,
+select lives_ok($$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2') $$,
   'agreeing again turns them back on');
 select lives_ok(
   $$ select public.set_member_allergies('00000000-0000-0000-0000-0000000000a4', array['eggs']::public.allergen[],

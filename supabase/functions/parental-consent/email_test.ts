@@ -9,6 +9,8 @@ const message: RenewalMessage = {
   summary: "Foon now confirms a parent's consent by email, and names the services that store and send your kid's " +
     "information.",
   agreedBefore: "2026-10-01T12:00:00Z",
+  held: true,
+  wasLinked: true,
   reminder: false,
 };
 
@@ -53,6 +55,35 @@ Deno.test("without what changed or a date, the renewal notice still reads whole"
   assertStringIncludes(text, "A parent in your family agreed that Nora could use Foon");
   assertStringIncludes(text, "We used the email you typed in Foon.");
   assertStringIncludes(text, "delete it once that one is sent or this request ends");
+});
+
+Deno.test("a renewal asked for before the hold opens says the kid will be signed out, not that they are", () => {
+  const { text, html } = renewalNoticeEmail({ ...message, held: false });
+  for (const body of [text, html]) {
+    assertStringIncludes(body, "Until a parent agrees, Nora will be signed out of Foon soon. Nothing is deleted");
+    assertStringIncludes(body, "Nora is signed out, Foon collects nothing new from Nora");
+    assert(!body.includes("Nora is signed out of Foon."));
+    assert(!body.includes("stays signed out"));
+    assertStringIncludes(body, "If no parent answers by then, Nora is signed out;");
+  }
+});
+
+Deno.test("for a kid who never signed in, the renewal notice never says signed out", () => {
+  for (const held of [true, false]) {
+    const { text, html } = renewalNoticeEmail({ ...message, held, wasLinked: false });
+    for (const body of [text, html]) assert(!body.includes("signed out"), body);
+    // The HTML escapes the apostrophe, so the words are checked in the text.
+    assertStringIncludes(text, "Until a parent agrees, Nora can't use Foon on their own device. Nothing is deleted");
+    assertStringIncludes(text, "Nora still can't use Foon on their own device, Foon collects nothing new from Nora");
+    assertStringIncludes(text, "If no parent answers by then, Nora still can't use Foon on their own device;");
+    assertStringIncludes(html, "Nora can&#39;t use Foon on their own device");
+  }
+});
+
+Deno.test("without was_linked (an older database), the notice is worded as before", () => {
+  const { text } = renewalNoticeEmail({ ...message, wasLinked: null });
+  assertStringIncludes(text, "Until a parent agrees, Nora is signed out of Foon.");
+  assertStringIncludes(text, "If no parent answers by then, Nora stays signed out;");
 });
 
 Deno.test("the renewal notice escapes the kid's name and the summary in the HTML, and keeps the subject one line", () => {

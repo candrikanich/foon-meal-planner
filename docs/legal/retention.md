@@ -57,8 +57,8 @@ when that parent deletes their account. They're erased with the household. A kid
 agreements and their hold are deleted when a parent deletes everything about that kid (job **K**).
 
 A hold keeps a held kid's account ID only while the hold is open, to link the account back when a parent renews; it's
-cleared when the hold ends (renewed, withdrawn, removed), and set empty if the account is deleted first. Not yet in
-force: no wording is in force, so no hold opens yet (#277).
+cleared when the hold ends (renewed, withdrawn, removed), and set empty if the account is deleted first (#277; holds
+open since the new wordings came into force, `20261119000000_agreements_in_force.sql`).
 
 > **Review:** should consent records be kept for a period after a household is deleted, as proof of consent? Today they
 > are erased with it.
@@ -108,7 +108,7 @@ and help. We never use it for ads, never sell it, and never send it anywhere for
 | Allergies a parent enters | Flagging dishes | Every new dish and list is checked against them | Until removed, alerts off, or anonymized |
 | Parental consent record: who agreed, when, how (email plus, or in the app before #275), when the confirming email went out, the wording | Proof a parent agreed | To show consent was given, while the kid's information exists | While the household exists, or until a parent deletes everything about the kid |
 | Consent requests about the kid (status, times, and whether it was a first consent or a renewal) | Asking a parent by email | Shows the parent where the request stands, and keeps the withdraw link working | 30 days after the request ends; at once if a parent deletes everything about the kid |
-| Agreement hold (#277, not yet in force): wording agreed and needed, when held and released, why; their account ID while held | Asking a parent again when the consent wording changes | Proof the kid was signed out until a parent agreed; the account ID links them back | Hold: while the household exists, or until a parent deletes everything about the kid. Account ID: until the hold ends |
+| Agreement hold (#277): wording agreed and needed, when held and released, why; their account ID while held | Asking a parent again when the consent wording changes | Proof the kid was signed out until a parent agreed; the account ID links them back | Hold: while the household exists, or until a parent deletes everything about the kid. Account ID: until the hold ends |
 | Apple account ID and email (from Sign in with Apple), and first name if Apple shares it | Signing in | Needed for each sign-in | Until the kid deletes their account, or a parent deletes everything about them. The bare account ID in their Terms and Privacy acceptances stays after the kid deletes their account (see Deleting below) |
 | Apple age range (#88, not yet used) | Age checks | See the note on Texas below | Until consent is withdrawn (30 days) or the account is deleted |
 | What they enter (ratings, comments, votes) | Family planning | It's the family's dinner history, which planning draws on | As for all; erased 30 days after withdrawal |
@@ -208,7 +208,7 @@ released, and the reminder log about them is deleted. The parent-entered profile
   the app and the app's version. Kept after the account is deleted, as proof of what was agreed: the record holds the
   account ID with no database link to it, and nothing else about the person. Deleted with the account only when a
   parent deletes everything about a kid (job **K**). Neither `delete_account_data()` nor the `delete-account` Edge
-  Function touches it. Not yet asked: no Terms or Privacy wording is in force.
+  Function touches it. Asked by the app since `terms-draft-v1` and `privacy-draft-v1` came into force (#277).
 - **Any account:** Foon's Sign in with Apple token is revoked first; if Apple refuses, nothing is deleted. Push devices,
   import counts and invite guesses are deleted, then the sign-in account itself (`delete-account` Edge Function, job
   **D**, foreign-key cascades).

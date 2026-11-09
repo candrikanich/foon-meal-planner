@@ -7,6 +7,7 @@ import {
   consentOrigins,
   type DecideResult,
   handleParentalConsent,
+  lookupFromRow,
   RefusedError,
   RENEWAL_BATCH,
   RENEWAL_BUDGET_MS,
@@ -36,6 +37,7 @@ const claim = (overrides: Partial<RenewalClaim> = {}): RenewalClaim => ({
   reminder: false,
   summary: "Foon now confirms a parent's consent by email.",
   agreedAt: "2026-10-01T12:00:00Z",
+  wasLinked: true,
   ...overrides,
 });
 const agreed: DecideResult = {
@@ -534,7 +536,64 @@ Deno.test("the app's request sends only while this function's wording satisfies 
   assertEquals([failed.status, unchecked.calls.at(-1), unchecked.emails], [500, `releaseSend ${requestId} 7`, []]);
 });
 
-Deno.test("the app's renewal request sends the renewal notice", async () => {
+Deno.test("the app's renewal request asks in this function's wording and emails what the cron's does", async () => {
+  const wordings: string[] = [];
+  const { deps, emails } = fakeDeps({
+    request: (_jwt, input) => {
+      wordings.push(input.wording);
+      return Promise.resolve({
+        ...send,
+        reason: "renewal",
+        renewal: {
+          summary: "Foon now confirms a parent's consent by email.",
+          agreedBefore: "2026-10-01T12:00:00Z",
+          held: true,
+          wasLinked: true,
+        },
+      } as RequestResult);
+    },
+  });
+  const response = await handleParentalConsent(fromApp({ memberId }), deps);
+  assertEquals(response.status, 200);
+  assertEquals(wordings, [TEXT_VERSION]);
+  assertEquals(emails[0].subject, "Can Nora keep using Foon?");
+  assertStringIncludes(emails[0].text, "What changed: Foon now confirms a parent's consent by email.");
+  assertStringIncludes(emails[0].text, "agreed on October 1, 2026");
+  assertStringIncludes(emails[0].text, "Until a parent agrees, Nora is signed out of Foon.");
+});
+
+Deno.test("a renewal the app asks for before the hold opens says the kid will be signed out", async () => {
+  const { deps, emails } = fakeDeps({
+    request: () =>
+      Promise.resolve({
+        ...send,
+        reason: "renewal",
+        renewal: { summary: null, agreedBefore: null, held: false, wasLinked: true },
+      } as RequestResult),
+  });
+  assertEquals((await handleParentalConsent(fromApp({ memberId }), deps)).status, 200);
+  assertStringIncludes(emails[0].text, "Until a parent agrees, Nora will be signed out of Foon soon.");
+});
+
+Deno.test("renewal emails for a kid who never signed in never say signed out, from the app or the cron", async () => {
+  const app = fakeDeps({
+    request: () =>
+      Promise.resolve({
+        ...send,
+        reason: "renewal",
+        renewal: { summary: null, agreedBefore: null, held: true, wasLinked: false },
+      } as RequestResult),
+  });
+  assertEquals((await handleParentalConsent(fromApp({ memberId }), app.deps)).status, 200);
+  assert(!app.emails[0].text.includes("signed out"));
+
+  const cron = fakeDeps({ claimRenewals: () => Promise.resolve([claim({ wasLinked: false })]) }, "parental-invite-v3");
+  assertEquals((await handleParentalConsent(fromCron(cronSecret), cron.deps)).status, 200);
+  assert(!cron.emails[0].text.includes("signed out"));
+  assertStringIncludes(cron.emails[0].text, "Until a parent agrees, Nora can't use Foon on their own device.");
+});
+
+Deno.test("an older database's renewal answer, without the renewal fields, still sends a whole notice", async () => {
   const { deps, emails } = fakeDeps({
     request: () => Promise.resolve({ ...send, reason: "renewal" } as RequestResult),
   });
@@ -542,6 +601,7 @@ Deno.test("the app's renewal request sends the renewal notice", async () => {
   assertEquals(response.status, 200);
   assertEquals(emails[0].subject, "Can Nora keep using Foon?");
   assert(!emails[0].text.includes("What changed"));
+  assertStringIncludes(emails[0].text, "Until a parent agrees, Nora is signed out of Foon.");
 });
 
 Deno.test("I agree after a renewal confirms that the kid is back in, not that they can be invited", async () => {
@@ -561,7 +621,7 @@ Deno.test("a renewal link's lookup passes on what changed and when a parent agre
         outcome: "pending",
         firstName: "Nora",
         expiresAt: "2026-11-15T00:00:00Z",
-        renewal: { summary: "What changed.", agreedBefore: "2026-10-01T12:00:00Z" },
+        renewal: { summary: "What changed.", agreedBefore: "2026-10-01T12:00:00Z", wasLinked: false },
       }),
   });
   const response = await handleParentalConsent(fromSite(`?consent=${token}`, { decision: "lookup" }), deps);
@@ -572,7 +632,33 @@ Deno.test("a renewal link's lookup passes on what changed and when a parent agre
     reason: "renewal",
     summary: "What changed.",
     agreedBefore: "2026-10-01T12:00:00Z",
+    wasLinked: false,
   });
+});
+
+Deno.test("the lookup's row maps a renewal's fields, and an older database's or an invite's without them", () => {
+  const base = { outcome: "pending", first_name: "Nora", expires_at: "2026-11-15T00:00:00Z" };
+  assertEquals(
+    lookupFromRow({ ...base, reason: "renewal", summary: "V2. V3.", agreed_before: "2026-10-01", was_linked: true }),
+    {
+      outcome: "pending",
+      firstName: "Nora",
+      expiresAt: "2026-11-15T00:00:00Z",
+      renewal: { summary: "V2. V3.", agreedBefore: "2026-10-01", wasLinked: true },
+    },
+  );
+  assertEquals(lookupFromRow({ ...base, reason: "renewal" }), {
+    outcome: "pending",
+    firstName: "Nora",
+    expiresAt: "2026-11-15T00:00:00Z",
+    renewal: { summary: null, agreedBefore: null, wasLinked: null },
+  });
+  assertEquals(lookupFromRow({ ...base, reason: "invite", was_linked: true }), {
+    outcome: "pending",
+    firstName: "Nora",
+    expiresAt: "2026-11-15T00:00:00Z",
+  });
+  assertEquals(lookupFromRow({ outcome: "expired" }), { outcome: "expired" });
 });
 
 Deno.test("email 1 is the direct notice: every 312.4(c)(1) element", () => {

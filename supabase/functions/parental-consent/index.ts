@@ -12,7 +12,7 @@ import {
   consentOrigins,
   type DecideResult,
   handleParentalConsent,
-  type LookupResult,
+  lookupFromRow,
   RefusedError,
   type RenewalClaim,
   type WithdrawLookupResult,
@@ -44,7 +44,7 @@ Deno.serve((req) =>
     siteUrl: Deno.env.get("CONSENT_SITE_URL") ?? "https://getfoon.com",
     functionUrl: `${supabaseUrl}/functions/v1/parental-consent`,
     userFromToken: async (jwt) => (await admin.auth.getUser(jwt)).data.user?.id ?? null,
-    request: async (jwt, { memberId, email }) => {
+    request: async (jwt, { memberId, email, wording }) => {
       const asParent = createClient(supabaseUrl, anonKey, {
         auth: session,
         global: { headers: { Authorization: `Bearer ${jwt}` } },
@@ -52,6 +52,7 @@ Deno.serve((req) =>
       const { data, error } = await asParent.rpc("request_parental_consent", {
         target_member: memberId,
         email_address: email,
+        wording,
       });
       if (error) {
         if (["28000", "42501", "22023", "22000"].includes(error.code)) throw new RefusedError(error.code);
@@ -67,6 +68,17 @@ Deno.serve((req) =>
           emailSource: row.email_source as "account" | "typed",
           firstName: row.first_name as string,
           reason: row.reason === "renewal" ? "renewal" : "invite",
+          ...(row.reason === "renewal"
+            ? {
+              renewal: {
+                summary: (row.summary as string | null) ?? null,
+                agreedBefore: (row.agreed_before as string | null) ?? null,
+                // Absent from a database before 20261119000000: word it as held, as before.
+                held: row.held !== false,
+                wasLinked: typeof row.was_linked === "boolean" ? row.was_linked : null,
+              },
+            }
+            : {}),
         }
         : { outcome: row.outcome as "already_consented" | "no_email" | "rate_limited" };
     },
@@ -79,14 +91,7 @@ Deno.serve((req) =>
       }),
     releaseSend: ({ requestId, sendId }) =>
       rpc("parental_consent_release_send", { p_request_id: requestId, p_send_id: sendId }),
-    lookup: async (tokenHash) => {
-      const row = await rpc<Row>("parental_consent_lookup", { p_token_hash: tokenHash });
-      if (row.outcome !== "pending") return { outcome: row.outcome } as LookupResult;
-      const pending = { outcome: "pending", firstName: row.first_name, expiresAt: row.expires_at };
-      return (row.reason === "renewal"
-        ? { ...pending, renewal: { summary: row.summary ?? null, agreedBefore: row.agreed_before ?? null } }
-        : pending) as LookupResult;
-    },
+    lookup: async (tokenHash) => lookupFromRow(await rpc<Row>("parental_consent_lookup", { p_token_hash: tokenHash })),
     decide: async (tokenHash, decision) => {
       const row = await rpc<Row>("parental_consent_decide", { p_token_hash: tokenHash, p_decision: decision });
       return (row.outcome === "send_confirmation"
@@ -128,6 +133,7 @@ Deno.serve((req) =>
         reminder: row.reminder === true,
         summary: (row.summary as string | null) ?? null,
         agreedAt: (row.agreed_at as string | null) ?? null,
+        wasLinked: typeof row.was_linked === "boolean" ? row.was_linked : null,
       }));
     },
     wordingOk: (wording) => rpc<boolean>("parental_wording_ok", { wording }),

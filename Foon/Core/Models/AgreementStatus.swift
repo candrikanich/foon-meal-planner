@@ -51,8 +51,27 @@ struct AgreementStatus: Decodable, Equatable, Sendable {
         var summary: String?
         /// When the renewal email last went to the signed-in parent.
         var emailedMeAt: Date?
+        /// Whether the kid had signed in on their own device when the hold began, so the hold signed them out. Nil from
+        /// a server before #277's turn-on migration, which didn't send it.
+        var wasLinked: Bool?
 
         var id: UUID { memberID }
+
+        /// The renewal's first line in the kid's invite section. Says the kid is signed out only when the hold did
+        /// sign them out; a kid who never signed in gets the neutral line.
+        var renewalExplanation: String {
+            if wasLinked == true {
+                String(localized: """
+                Foon changed what parents agree to for kids. \(firstName) is signed out until a parent agrees. \
+                Nothing was deleted.
+                """)
+            } else {
+                String(localized: """
+                Foon changed what parents agree to for kids. \(firstName) needs a parent's OK again before using \
+                Foon. Nothing was deleted.
+                """)
+            }
+        }
 
         enum CodingKeys: String, CodingKey {
             case summary
@@ -62,6 +81,7 @@ struct AgreementStatus: Decodable, Equatable, Sendable {
             case emailedAt = "emailed_at"
             case requiredVersion = "required_version"
             case emailedMeAt = "emailed_me_at"
+            case wasLinked = "was_linked"
         }
     }
 

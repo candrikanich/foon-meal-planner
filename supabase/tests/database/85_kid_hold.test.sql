@@ -89,6 +89,13 @@ insert into public.push_devices (user_id, member_id, household_id, token, enviro
   ('d0000000-0000-0000-0000-00000000000d', '00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-0000000000a0',
    repeat('a3', 32), 'sandbox');
 
+-- Replays the rollout from the dormant state #277 shipped in: PR D (20261119000000_agreements_in_force.sql) put these
+-- in force, so they're taken back out here and each step below puts back what it tests. 89 tests the state PR D leaves.
+select pg_temp.as_admin();
+update public.agreement_versions set effective_at = null
+ where version in ('allergy-data-v2', 'own-allergy-v1', 'parental-invite-v2', 'parental-invite-v3', 'terms-draft-v1',
+                   'privacy-draft-v1');
+
 -- Dormant -------------------------------------------------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann invites Owen while nothing is in force
 select public.create_invite('00000000-0000-0000-0000-0000000000a5');
@@ -159,9 +166,10 @@ select is(pg_temp.error_of(format('select public.parental_consent_mark_sent(%L, 
 select public.parental_consent_mark_sent(pg_temp.request('test.kit'), pg_temp.send('test.kit'), 'hash-k1',
                                          'parental-invite-v3');
 select is(public.parental_consent_lookup('hash-k1') - 'expires_at' - 'agreed_before',
-  jsonb_build_object('outcome', 'pending', 'reason', 'renewal', 'first_name', 'Kit', 'summary',
-    'Foon now confirms a parent''s consent by email, and names the services that store and send your kid''s information.'),
-  'the page says it''s a renewal and what changed');
+  jsonb_build_object('outcome', 'pending', 'reason', 'renewal', 'first_name', 'Kit', 'was_linked', true, 'summary',
+    (select string_agg(summary, ' ' order by ordinal) from public.agreement_versions
+      where version in ('parental-invite-v2', 'parental-invite-v3'))),
+  'the page says it''s a renewal, what changed since v1 (v2, then v3), and that Kit had signed in');
 select ok((public.parental_consent_lookup('hash-k1') ->> 'agreed_before') is not null,
   'and when a parent agreed before');
 select public.parental_consent_decide('hash-k1', 'agree');

@@ -1,5 +1,6 @@
--- Agreement registry (#277): the wordings, which one is in force, and whether an agreement still counts. It ships
--- dormant: nothing is in force, so every agreement counts. Nobody writes the registry or the agreement log directly.
+-- Agreement registry (#277): the wordings, which one is in force, and whether an agreement still counts. It shipped
+-- dormant (nothing in force, so every agreement counted); PR D (20261119000000_agreements_in_force.sql) put the newest
+-- wording of each kind in force. Nobody writes the registry or the agreement log directly.
 begin;
 select plan(25);
 
@@ -22,7 +23,7 @@ insert into public.members (id, household_id, first_name, role, age_group, guard
   ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a0', 'Ann', 'planner', 'adult', true,
    'a0000000-0000-0000-0000-00000000000a');
 
--- Dormant -------------------------------------------------------------------------------------------------------------
+-- In force since PR D --------------------------------------------------------------------------------------------------
 select has_table('public', 'agreement_versions', 'the registry has its own table');
 select ok((select bool_and(relrowsecurity) from pg_class
            where oid in ('public.agreement_versions'::regclass, 'public.agreement_holds'::regclass,
@@ -32,10 +33,15 @@ select is((select array_agg(schedule order by jobname) from cron.job
            where jobname in ('apply-agreement-holds', 'kick-consent-renewals')),
   array['11 * * * *', '*/15 * * * *'], 'holds are applied hourly and renewal emails checked every 15 minutes');
 select is((select count(*)::int from public.agreement_versions), 8, 'eight wordings are registered');
-select is_empty($$ select 1 from public.agreement_versions where effective_at is not null $$,
-  'none is in force: it ships dormant');
-select is(public.current_agreement_version('parental'), null, 'so no wording is current');
-select ok(public.agreement_satisfies('anything-v9', 'parental'), 'and every agreement counts, even an unknown one');
+select results_eq($$ select version from public.agreement_versions where effective_at <= now() order by version $$,
+  $$ values ('allergy-data-v2'), ('own-allergy-v1'), ('parental-invite-v2'), ('parental-invite-v3'),
+            ('privacy-draft-v1'), ('terms-draft-v1') $$,
+  'PR D put the new wordings in force');
+select is(public.current_agreement_version('parental'), 'parental-invite-v3', 'so the newest is current');
+-- A kind with nothing in force (as every kind was before PR D) counts every agreement.
+update public.agreement_versions set effective_at = null where kind = 'parental';
+select ok(public.agreement_satisfies('anything-v9', 'parental'),
+  'while nothing of a kind is in force, every agreement counts, even an unknown one');
 select is((select summary from public.agreement_versions where version = 'parental-invite-v3'),
   'Foon now confirms a parent''s consent by email, and names the services that store and send your kid''s information.',
   'v3 says what changed in plain words');

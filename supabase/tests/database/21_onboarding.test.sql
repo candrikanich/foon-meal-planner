@@ -31,9 +31,9 @@ select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select throws_ok(
   $$ select public.set_member_allergies('00000000-0000-0000-0000-0000000000a3', '{milk}', '{}') $$,
   '42501', null, 'no allergies before the household agrees to keep them');
-select lives_ok($$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v1') $$,
+select lives_ok($$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2') $$,
   'a parent agrees with the one plain sentence');
-select lives_ok($$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v1') $$,
+select lives_ok($$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2') $$,
   'agreeing again is fine');
 select is((select count(*)::int from public.consents where kind = 'allergy_data' and revoked_at is null), 1,
   'one active consent');
@@ -81,7 +81,7 @@ select throws_ok(
   $$ select public.set_member_allergies('00000000-0000-0000-0000-0000000000a3', '{milk}', '{}') $$,
   'P0002', null, 'another household''s member is not found');
 select throws_ok(
-  $$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v1') $$,
+  $$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2') $$,
   '42501', null, 'another household cannot consent');
 
 -- A new household starts with onboarding's flags, in the same transaction ----------------------------

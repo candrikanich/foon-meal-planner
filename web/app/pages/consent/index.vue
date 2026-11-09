@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { consentKept } from "~/content";
-import { agreedDay, answerConsent, nextPage, type ConsentDecision, type PageState } from "~/utils/consent";
+import {
+  agreedDay,
+  answerConsent,
+  nextPage,
+  renewalWords,
+  type ConsentDecision,
+  type PageState,
+} from "~/utils/consent";
 
 // The link in email 1 (or a renewal email, #277) lands here. Opening it only looks the request up (mail scanners open
 // links); the buttons decide.
@@ -12,6 +19,7 @@ const route = useRoute();
 const token = computed(() => (typeof route.query.t === "string" ? route.query.t : ""));
 const name = useConsentName();
 const renewing = useConsentRenewal();
+const wasLinked = useConsentWasLinked();
 const state = ref<PageState>({ view: "loading" });
 const working = ref<ConsentDecision | null>(null);
 
@@ -24,8 +32,15 @@ async function send(decision: ConsentDecision) {
   if (move.state.view === "ask") {
     name.value = move.state.firstName;
     renewing.value = move.state.renewal !== null;
+    wasLinked.value = move.state.renewal?.wasLinked ?? null;
   }
 }
+
+const words = computed(() =>
+  state.value.view === "ask" && state.value.renewal
+    ? renewalWords(state.value.firstName, state.value.renewal.wasLinked)
+    : null,
+);
 
 // Not onMounted: a prerendered page hydrates on its query-less route and gets ?t= only once Nuxt is ready.
 onNuxtReady(() => send("lookup"));
@@ -53,8 +68,8 @@ onNuxtReady(() => send("lookup"));
           <p>{{ state.renewal.summary }}</p>
         </section>
         <p>
-          Until a parent agrees, {{ state.firstName }} is signed out of Foon. Nothing is deleted:
-          {{ state.firstName }}'s profile and everything your family added stay as they are.
+          {{ words?.until }} Nothing is deleted: {{ state.firstName }}'s profile and everything your family added stay
+          as they are.
         </p>
       </template>
       <p v-else>
@@ -71,10 +86,7 @@ onNuxtReady(() => send("lookup"));
         It's never sold or used for ads.
       </p>
       <template v-if="state.renewal">
-        <p>
-          If you say no, {{ state.firstName }} stays signed out and Foon collects nothing new from them. Nothing is
-          deleted.
-        </p>
+        <p>{{ words?.ifNo }} Nothing is deleted.</p>
         <p>
           To end your consent instead, withdraw it: in Foon, open Family, then {{ state.firstName }}, then Withdraw
           consent. Then what {{ state.firstName }} added is erased after 30 days. Read our
@@ -104,8 +116,8 @@ onNuxtReady(() => send("lookup"));
         {{
           working === "refuse"
             ? "Saving..."
-            : state.renewal
-              ? `No, keep ${state.firstName} signed out`
+            : words
+              ? words.refuseButton
               : `No, don't invite ${state.firstName}`
         }}
       </button>
