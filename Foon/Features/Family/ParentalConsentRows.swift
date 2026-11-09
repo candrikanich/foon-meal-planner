@@ -126,7 +126,7 @@ private func consentPreview(
         return answer ?? .noEmail
     }
     let store = HouseholdStore(userID: .previewUser, client: client)
-    return MemberEditorView(member: kid)
+    return NavigationStack { List { MemberInviteSection(member: kid) } }
         .environment(store)
         .task {
             await store.load()

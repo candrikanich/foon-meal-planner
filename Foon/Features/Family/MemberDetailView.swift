@@ -49,6 +49,7 @@ struct MemberDetailView: View {
         List {
             MemberAboutSection(member: member, today: today,
                                invited: store.invitedMemberIDs.contains(member.id), isYou: member.userID == store.userID)
+            MemberInviteSection(member: member)
             MemberScheduleSection(member: member, today: today, canEdit: store.editScope(for: member).schedule)
             MemberNotificationsSection(member: member)
             if library.hasLoaded {

@@ -4,13 +4,10 @@ import SwiftUI
 struct MemberEditorView: View {
     @Environment(HouseholdStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.scenePhase) private var scenePhase
     let member: Member?
     @State private var draft: MemberDraft
     @State private var isSaving = false
     @State private var confirmingRemoval = false
-    @State private var inviteCode: String?
-    @State private var confirmingWithdrawal = false
     @State private var deletingKid = false
     /// The member as this sheet opened on them, which is what the draft started from. `member` follows the store, so a
     /// refresh would make everyone else's changes look like edits here.
@@ -96,23 +93,6 @@ struct MemberEditorView: View {
                     awayPatternSection
                 }
 
-                if let member, store.canInvite(member) {
-                    inviteSection(for: member)
-                }
-
-                if let member, store.canWithdrawConsent(member) {
-                    Section {
-                        Button("Withdraw consent", role: .destructive) {
-                            confirmingWithdrawal = true
-                        }
-                        .disabled(isSaving)
-                    } header: {
-                        Text("Parental consent")
-                    } footer: {
-                        Text("\(member.firstName) signs out right away and can rejoin only with your consent and a new invite.")
-                    }
-                }
-
                 if let member, store.canRemove(member) {
                     Section {
                         Button("Remove from household", role: .destructive) {
@@ -148,11 +128,6 @@ struct MemberEditorView: View {
                 // so nobody else's save carries a status they can't set.
                 if scope.planning { draft = draft.settlingReturn(today: today) }
             }
-            // A parent agrees in the email, outside Foon: look again when the editor opens and when Foon comes back.
-            .task { await reloadConsent() }
-            .onChange(of: scenePhase) { _, phase in
-                if phase == .active { Task { await reloadConsent() } }
-            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -167,20 +142,6 @@ struct MemberEditorView: View {
                     }
                     .disabled(isSaving || draft.validated() == nil)
                 }
-            }
-            .confirmationDialog(
-                "Withdraw consent for \(member?.firstName ?? "")?", isPresented: $confirmingWithdrawal, titleVisibility: .visible
-            ) {
-                Button("Withdraw consent", role: .destructive) {
-                    guard let member else { return }
-                    Task {
-                        isSaving = true
-                        if await store.withdrawConsent(member) { dismiss() }
-                        isSaving = false
-                    }
-                }
-            } message: {
-                Text("They're signed out of the household on their own device now, and stay in the family on yours. If you don't consent again within 30 days, what they added themselves is erased.")
             }
             .sheet(isPresented: $deletingKid) {
                 if let member {
@@ -248,52 +209,9 @@ struct MemberEditorView: View {
         }
     }
 
-    /// Also runs once consent is active: a parent can withdraw it from email 2's link while Foon is in the background.
-    private func reloadConsent() async {
-        guard let member, member.ageGroup == .kid, store.canInvite(member) else { return }
-        await store.loadConsentRequests()
-    }
-
     /// The household's day, which is what the server starts weeks by.
     private var today: CalendarDay {
         (store.household?.planningSettings ?? HouseholdSettings()).today()
-    }
-
-    @ViewBuilder
-    private func inviteSection(for member: Member) -> some View {
-        Section {
-            if let inviteCode {
-                Text(inviteCode)
-                    .font(.title3.monospaced().weight(.semibold))
-                    .textSelection(.enabled)
-                    .accessibilityLabel("Invite code \(inviteCode.map { String($0) }.joined(separator: " "))")
-                ShareLink(
-                    "Send invite",
-                    item: InviteCode.shareMessage(
-                        householdName: store.household?.name ?? String(localized: "our family"), firstName: member.firstName, code: inviteCode
-                    )
-                )
-            } else if store.needsParentalConsent(member) {
-                ParentalConsentRows(member: member)
-            } else {
-                Button(store.invitedMemberIDs.contains(member.id) ? "Invite again" : "Invite \(member.firstName)") {
-                    Task {
-                        isSaving = true
-                        inviteCode = await store.invite(member)
-                        isSaving = false
-                    }
-                }
-                .disabled(isSaving)
-            }
-        } header: {
-            Text("Invite")
-        } footer: {
-            if inviteCode != nil {
-                Text("This code is shown only now. Inviting again replaces it.")
-            } else if !store.needsParentalConsent(member) {
-                Text("Sends a link and a code so \(member.firstName) can join on their own device. Codes work once and expire in 7 days.")
-            }
-        }
     }
 
     private var hasReturnDate: Binding<Bool> {

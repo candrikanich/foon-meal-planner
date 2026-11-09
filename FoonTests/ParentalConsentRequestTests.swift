@@ -203,6 +203,31 @@ struct ParentalConsentBookTests {
         #expect(book.latest[kid.id] == newer)
     }
 
+    @Test func aNoticeGoesOnceItsRequestMovesOn() {
+        var book = ParentalConsentBook()
+        let pending = request(.pending, created: .now)
+        book.replace(with: [pending])
+        book.record(ParentalConsentError.rateLimited, for: kid.id)
+        // The reload after a refusal finds the same request where it was: the notice stays.
+        book.replace(with: [pending])
+        #expect(book.notice(for: kid.id) == ParentalConsentError.rateLimited.message)
+        // The parent agreed in the email: it was about the old state, so it goes.
+        let agreed = ParentalConsentRequest(
+            id: pending.id, householdID: pending.householdID, memberID: kid.id, requestedBy: pending.requestedBy,
+            status: .confirmed, emailSource: .account, expiresAt: pending.expiresAt, createdAt: pending.createdAt
+        )
+        book.replace(with: [agreed])
+        #expect(book.notice(for: kid.id) == nil)
+    }
+
+    @Test func aNoticeGoesWhenANewRequestReplacesTheOld() {
+        var book = ParentalConsentBook()
+        book.replace(with: [request(.refused, created: .now.addingTimeInterval(-600))])
+        book.record(ParentalConsentError.sendFailed, for: kid.id)
+        book.replace(with: [request(.pending, created: .now)])
+        #expect(book.notice(for: kid.id) == nil)
+    }
+
     @Test func forgettingAKidClearsEverything() {
         var book = ParentalConsentBook()
         book.record(.noEmail, for: kid, me: UUID(), now: .now)
