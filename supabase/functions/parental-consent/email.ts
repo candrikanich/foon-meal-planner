@@ -206,7 +206,16 @@ export interface ConfirmationMessage {
   withdrawUrl: string;
   // When the parent tapped I agree.
   agreedAt: string;
+  // A renewal links the kid's account back, so there's no invite to send unless that account is gone.
+  renewal: boolean;
 }
+
+// What to do next, the same words as the site's /consent/done.
+const nextStep = (name: string, renewal: boolean) =>
+  renewal
+    ? `${name} can use Foon again. If Foon asks ${name} to join, invite them again: in Foon, open Family, then ` +
+      `${name}, then Invite.`
+    : `You can invite ${name} now: in Foon, open Family, then ${name}, then Invite.`;
 
 const agreedOn = (iso: string) =>
   new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeStyle: "short", timeZone: "UTC" }).format(new Date(iso)) +
@@ -226,7 +235,7 @@ export function confirmationEmail(message: ConfirmationMessage): Omit<Email, "to
     "",
     `On ${when} you agreed that ${name} can use Foon on their own device. ${summary(name)}`,
     "",
-    `You can invite ${name} now: in Foon, open Family, then ${name}, then Invite.`,
+    nextStep(name, message.renewal),
     "",
     "You can withdraw this consent at any time:",
     `- Withdraw consent: ${message.withdrawUrl} (this link works for 30 days)`,
@@ -242,7 +251,7 @@ export function confirmationEmail(message: ConfirmationMessage): Omit<Email, "to
   const body = html([
     "Hi,",
     `On ${escapeHtml(when)} you agreed that ${n} can use Foon on their own device. ${summary(n)}`,
-    `You can invite ${n} now: in Foon, open Family, then ${n}, then Invite.`,
+    nextStep(n, message.renewal),
     "You can withdraw this consent at any time:",
   ]) + "\n" +
     `<ul><li>${link(message.withdrawUrl, "Withdraw consent")} (this link works for 30 days)</li>` +

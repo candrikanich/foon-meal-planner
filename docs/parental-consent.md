@@ -34,9 +34,12 @@ select vault.create_secret('<the same value as CONSENT_CRON_SECRET>', 'consent_c
 When a parental wording newer than the one a parent agreed to comes into force (`agreement_versions`), the kid is held:
 signed out, profile kept, nothing erased. Every 15 minutes `kick-consent-renewals` (pg_cron) calls
 `kick_consent_renewals()`, which POSTs `?renewals=1` with `x-consent-cron-secret` only when some hold owes an email.
-The function checks the secret (constant-time), claims up to 50 emails (`claim_consent_renewal_emails`), and for each
-sends the renewal notice, then records it with `parental_consent_mark_sent` and its own `TEXT_VERSION`; a send that
-fails is released (`parental_consent_release_send`) and tried on a later run.
+The function checks the secret (constant-time) and claims up to 50 emails in its own `TEXT_VERSION`
+(`claim_consent_renewal_emails`). For each it sends the renewal notice, then records it with
+`parental_consent_mark_sent`. Recording an email is what starts the hold's clock (`emailed_at`, then `reminded_at` for
+the reminder); a reservation doesn't. A send that fails (or Resend not answering in 10 seconds) is released
+(`parental_consent_release_send`) and the parent is claimed again on a later run, as is anything not reached within
+the run's 40-second budget.
 
 - **Renewal notice** ("Can <name> keep using Foon?"), to every parent whose account has a verified email: email 1's
   direct notice, plus what changed (the registry's `summary`), when a parent agreed before, that the kid is signed out
@@ -45,12 +48,12 @@ fails is released (`parental_consent_release_send`) and tried on a later run.
 - **Reminder**, once, 7 days after the first: the same email, subject "Reminder: Can <name> keep using Foon?".
 - A parent's Email me the form in the app sends the same notice, without what changed and the date (the app's request
   doesn't return them).
-- If a hold asks for wording other than the function's `TEXT_VERSION`, nothing is sent: the claim is released and the
-  run answers 503 `wording_outdated` (the app's request answers the same). Deploy the function with the new wording
-  before the registry row comes into force (legal/README.md, Wording versions).
+- The function sends its `TEXT_VERSION` while that wording is registered and at or after the one in force
+  (`parental_wording_ok`), so one deployed ahead of a new wording keeps sending. Left on outdated wording, it sends
+  nothing: the claim reserves nothing and the run answers 503 `wording_outdated` (the app's request answers the same).
 
 Check: Edge Functions → parental-consent → Logs shows a run every 15 minutes while holds owe emails, answering 200
-with `{sent, failed, outdated, unrecorded}`. A 401 means the two secrets differ.
+with `{sent, failed, unrecorded, deferred}`. A 401 means the two secrets differ.
 
 ## Which address is used
 

@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { PRIVACY_URL, renewalNoticeEmail, type RenewalMessage } from "./email.ts";
+import { confirmationEmail, PRIVACY_URL, renewalNoticeEmail, type RenewalMessage } from "./email.ts";
 
 const consentUrl = "https://x.supabase.co/functions/v1/parental-consent?consent=abc";
 const message: RenewalMessage = {
@@ -66,4 +66,19 @@ Deno.test("the renewal notice escapes the kid's name and the summary in the HTML
   assertStringIncludes(html, "&lt;b&gt;Al&lt;/b&gt;");
   assertStringIncludes(html, "&lt;script&gt;x&lt;/script&gt;");
   assert(!subject.includes("\n"));
+});
+
+Deno.test("email 2 after a renewal says the kid can use Foon again, as /consent/done does", () => {
+  const { subject, text, html } = confirmationEmail({
+    firstName: "Nora",
+    withdrawUrl: "https://x/w",
+    agreedAt: "2026-11-08T15:04:00Z",
+    renewal: true,
+  });
+  assertEquals(subject, "You agreed Nora can use Foon");
+  for (const body of [text, html]) {
+    assertStringIncludes(body, "Nora can use Foon again. If Foon asks Nora to join, invite them again");
+    assert(!body.includes("You can invite Nora now"));
+    assertStringIncludes(body, "If this wasn't you, withdraw now.");
+  }
 });

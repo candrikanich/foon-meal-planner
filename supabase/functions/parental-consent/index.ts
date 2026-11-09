@@ -67,7 +67,6 @@ Deno.serve((req) =>
           emailSource: row.email_source as "account" | "typed",
           firstName: row.first_name as string,
           reason: row.reason === "renewal" ? "renewal" : "invite",
-          textVersion: (row.text_version as string | null | undefined) ?? null,
         }
         : { outcome: row.outcome as "already_consented" | "no_email" | "rate_limited" };
     },
@@ -97,6 +96,7 @@ Deno.serve((req) =>
           email: row.email,
           firstName: row.first_name,
           decidedAt: row.decided_at,
+          reason: row.reason === "renewal" ? "renewal" : "invite",
         }
         : { outcome: row.outcome }) as DecideResult;
     },
@@ -111,20 +111,27 @@ Deno.serve((req) =>
     },
     withdraw: (tokenHash) => rpc("withdraw_parental_consent", { p_token_hash: tokenHash }),
     cronSecret: Deno.env.get("CONSENT_CRON_SECRET"),
-    claimRenewals: async (batchSize) => {
-      const rows = await rpc<Row[]>("claim_consent_renewal_emails", { batch_size: batchSize });
-      return rows.map((row): RenewalClaim => ({
+    claimRenewals: async (batchSize, wording) => {
+      const { data, error } = await admin.rpc("claim_consent_renewal_emails", {
+        batch_size: batchSize,
+        wording,
+      });
+      if (error) {
+        if (error.code === "22023") throw new RefusedError(error.code);
+        throw error;
+      }
+      return (data as Row[]).map((row): RenewalClaim => ({
         requestId: row.request_id as string,
         sendId: row.send_id as number,
         email: row.email as string,
         firstName: row.first_name as string,
         reminder: row.reminder === true,
-        heldVersion: row.held_version as string,
-        requiredVersion: row.required_version as string,
         summary: (row.summary as string | null) ?? null,
         agreedAt: (row.agreed_at as string | null) ?? null,
       }));
     },
+    wordingOk: (wording) => rpc<boolean>("parental_wording_ok", { wording }),
+    now: () => Date.now(),
     newToken,
     sha256,
     sendEmail: async (email) => {

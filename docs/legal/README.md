@@ -161,9 +161,9 @@ email, and a reminder after 7 days (parental-consent.md).
 
 1. **Allergy**: change the app's statement and its `textVersion`; add a registry row (next ordinal, a one-sentence
    `summary` of what changed) with a future `effective_at`. Ship the app build before that date.
-2. **Kid consent**: change email.ts (`TEXT_VERSION` and the words) and the /consent page; add the registry row. Deploy
-   the function first, then let the row come into force: the function refuses to email wording that isn't in force
-   (503 `wording_outdated`), so the order matters.
+2. **Kid consent**: add the registry row with a future `effective_at`, deploy the function with the new
+   `TEXT_VERSION` and words (and the /consent page), then let the row take effect. The function sends any registered
+   wording at or after the one in force, so emails keep going throughout.
 3. **Terms or Privacy**: change the page text and its label in content.ts; add the registry row.
 4. **A typo fix** that changes nothing promised: still a new version, with `requires_reagreement = false`, so nobody
    is asked again.

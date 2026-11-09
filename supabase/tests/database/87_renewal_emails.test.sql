@@ -2,7 +2,7 @@
 -- days later if the hold is still open. Every parent's link stays live; a parent without a verified email is told in
 -- the app only. Only the overall 200-an-hour cap applies. Service role only; pg_cron pokes the Edge Function.
 begin;
-select plan(24);
+select plan(25);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -56,7 +56,7 @@ select pg_temp.as_service();
 select public.apply_agreement_holds();
 
 -- The first round ----------------------------------------------------------------------------------------------------------
-select set_config('test.first', public.claim_consent_renewal_emails(10)::text, true);
+select set_config('test.first', public.claim_consent_renewal_emails(10, 'parental-invite-v3')::text, true);
 select is(pg_temp.emails('test.first'), array['ann@example.com', 'ben@example.com'],
   'every parent with a verified email gets one; a parent without is told in the app only');
 select ok((select bool_and(not (e ->> 'reminder')::boolean and e ->> 'first_name' = 'Kit'
@@ -70,11 +70,11 @@ select is((select count(*)::int from public.parental_consent_requests
            where reason = 'renewal' and status = 'pending'
              and hold_id = (select id from public.agreement_holds where member_id = '00000000-0000-0000-0000-0000000000a4')),
   2, 'one renewal request per parent, on the hold');
-select ok((select emailed_at is not null and reminded_at is null from public.agreement_holds
+select ok((select emailed_at is null and reminded_at is null from public.agreement_holds
            where member_id = '00000000-0000-0000-0000-0000000000a4'),
-  'the hold records the first email');
+  'reserving the emails doesn''t start the round clock (20261118000000)');
 select pg_temp.as_service();
-select is(public.claim_consent_renewal_emails(10), '[]'::jsonb, 'nobody gets it twice');
+select is(public.claim_consent_renewal_emails(10, 'parental-invite-v3'), '[]'::jsonb, 'nobody gets it twice');
 select pg_temp.as_admin();
 select is(public.kick_consent_renewals(), false, 'and nothing is owed');
 select pg_temp.as_service();
@@ -82,6 +82,9 @@ select public.parental_consent_mark_sent((e ->> 'request_id')::uuid, (e ->> 'sen
                                          'parental-invite-v3')
 from jsonb_array_elements(current_setting('test.first')::jsonb) e;
 select pg_temp.as_admin();
+select ok((select emailed_at is not null and reminded_at is null from public.agreement_holds
+           where member_id = '00000000-0000-0000-0000-0000000000a4'),
+  'the hold records the first email once it''s sent');
 select is((select count(*)::int from public.parental_consent_requests
            where reason = 'renewal' and status = 'pending' and token_sent_at is not null), 2,
   'one parent''s link doesn''t cancel another''s: every parent can answer');
@@ -97,11 +100,14 @@ update public.parental_consent_requests
 set created_at = created_at - interval '8 days', token_sent_at = token_sent_at - interval '8 days'
 where reason = 'renewal';
 select pg_temp.as_service();
-select set_config('test.second', public.claim_consent_renewal_emails(10)::text, true);
+select set_config('test.second', public.claim_consent_renewal_emails(10, 'parental-invite-v3')::text, true);
 select is(pg_temp.emails('test.second'), array['ann@example.com'],
   'a week on, still held: one reminder, and none to a parent who said No');
 select ok((select bool_and((e ->> 'reminder')::boolean) from jsonb_array_elements(current_setting('test.second')::jsonb) e),
   'marked as the reminder');
+select public.parental_consent_mark_sent((e ->> 'request_id')::uuid, (e ->> 'send_id')::bigint, 'hash-r-' || (e ->> 'email'),
+                                         'parental-invite-v3')
+from jsonb_array_elements(current_setting('test.second')::jsonb) e;
 select pg_temp.as_admin();
 select is((select count(*)::int from public.parental_consent_requests where reason = 'renewal' and status = 'cancelled'), 1,
   'the new link replaces the old one');
@@ -111,7 +117,7 @@ select ok((select reminded_at is not null from public.agreement_holds
 update public.agreement_holds set reminded_at = reminded_at - interval '2 days'
 where member_id = '00000000-0000-0000-0000-0000000000a4';
 select pg_temp.as_service();
-select is(public.claim_consent_renewal_emails(10), '[]'::jsonb, 'and there''s only one reminder');
+select is(public.claim_consent_renewal_emails(10, 'parental-invite-v3'), '[]'::jsonb, 'and there''s only one reminder');
 
 -- The overall cap, and only it ----------------------------------------------------------------------------------------
 select pg_temp.as_admin();
@@ -123,7 +129,7 @@ select '00000000-0000-0000-0000-0000000000b0', 'c0000000-0000-0000-0000-00000000
 from generate_series(1, 200);
 select pg_temp.as_service();
 select public.apply_agreement_holds();
-select is(public.claim_consent_renewal_emails(10), '[]'::jsonb, 'over the overall cap, renewal emails wait');
+select is(public.claim_consent_renewal_emails(10, 'parental-invite-v3'), '[]'::jsonb, 'over the overall cap, renewal emails wait');
 select pg_temp.as_admin();
 select ok((select emailed_at is null from public.agreement_holds where member_id = '00000000-0000-0000-0000-0000000000a5'),
   'and the hold is still owed them');
@@ -137,8 +143,8 @@ insert into public.parental_consent_sends (household_id, requested_by, reserved_
 select '00000000-0000-0000-0000-0000000000a0', 'a0000000-0000-0000-0000-00000000000a', now()
 from generate_series(1, 10);
 select pg_temp.as_service();
-select set_config('test.zoe1', public.claim_consent_renewal_emails(1)::text, true);
-select set_config('test.zoe2', public.claim_consent_renewal_emails(10)::text, true);
+select set_config('test.zoe1', public.claim_consent_renewal_emails(1, 'parental-invite-v3')::text, true);
+select set_config('test.zoe2', public.claim_consent_renewal_emails(10, 'parental-invite-v3')::text, true);
 select is(jsonb_array_length(current_setting('test.zoe1')::jsonb), 1, 'a run takes as many as it''s given');
 select is((select array_agg(e ->> 'email' order by e ->> 'email')
            from jsonb_array_elements(current_setting('test.zoe1')::jsonb || current_setting('test.zoe2')::jsonb) e),
@@ -147,7 +153,7 @@ select is((select array_agg(e ->> 'email' order by e ->> 'email')
 
 -- Who can do this ------------------------------------------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann
-select throws_ok($$ select public.claim_consent_renewal_emails(10) $$, '42501', null, 'a parent can''t claim emails');
+select throws_ok($$ select public.claim_consent_renewal_emails(10, 'parental-invite-v3') $$, '42501', null, 'a parent can''t claim emails');
 select throws_ok($$ select public.apply_agreement_holds() $$, '42501', null, 'or apply holds');
 select throws_ok($$ select public.kick_consent_renewals() $$, '42501', null, 'or poke the function');
 select pg_temp.as_user('20000000-0000-0000-0000-000000000002');  -- Paul

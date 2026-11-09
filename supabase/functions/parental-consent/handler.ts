@@ -6,8 +6,9 @@
 //   POST ?withdraw=<token> {decision}                  from that page: lookup or withdraw
 //   POST ?renewals=1  with x-consent-cron-secret       pg_cron (kick_consent_renewals): email held kids' parents (#277)
 // A GET never changes anything, because link scanners (Safe Links, Mimecast) open every link in an email. Consent is
-// active only once email 2 has gone out: agree, send email 2, then activate. Only the wording in force (TEXT_VERSION)
-// is ever emailed: when the database asks for another, nothing is sent and the answer is 503.
+// active only once email 2 has gone out: agree, send email 2, then activate. This function's wording (TEXT_VERSION) is
+// emailed only while it's registered and satisfies the one in force (parental_wording_ok): a newer registered wording
+// keeps sending through a rollout; an outdated one sends nothing and answers 503.
 // Everything about storage and mail is behind ConsentDeps so the rules here are testable without either.
 import { z } from "zod";
 import type { Email } from "../_shared/resend.ts";
@@ -25,8 +26,6 @@ export type RequestResult =
     firstName: string;
     // renewal: the kid's consent is active but was given to older wording.
     reason: "invite" | "renewal";
-    // The parental wording in force, or null while none is (then any registered wording may be sent).
-    textVersion: string | null;
   };
 
 export interface Renewal {
@@ -47,22 +46,28 @@ export interface RenewalClaim {
   email: string;
   firstName: string;
   reminder: boolean;
-  heldVersion: string;
-  requiredVersion: string;
+  // What changed in the wording being sent.
   summary: string | null;
   agreedAt: string | null;
 }
 
 export type DecideResult =
   | { outcome: "confirmed" | "withdrawn" | "refused" | "already_consented" | "expired" | "invalid" | "busy" }
-  | { outcome: "send_confirmation"; requestId: string; email: string; firstName: string; decidedAt: string };
+  | {
+    outcome: "send_confirmation";
+    requestId: string;
+    email: string;
+    firstName: string;
+    decidedAt: string;
+    reason: "invite" | "renewal";
+  };
 
 export type WithdrawLookupResult =
   | { outcome: "active"; firstName: string }
   | { outcome: "withdrawn" | "expired" | "invalid" };
 
-// A database refusal: 28000 no active session, 42501 not a parent there, 22023 not an unclaimed kid's profile, 22000
-// not an email address.
+// A database refusal: 28000 no active session, 42501 not a parent there, 22023 not an unclaimed kid's profile (or, from
+// claimRenewals, a wording that isn't satisfying), 22000 not an email address.
 export class RefusedError extends Error {
   constructor(readonly code: string) {
     super(`refused (${code})`);
@@ -89,8 +94,13 @@ export interface ConsentDeps {
   withdraw(tokenHash: string): Promise<"withdrawn" | "expired" | "invalid">;
   // CONSENT_CRON_SECRET: what pg_cron sends in x-consent-cron-secret. Unset, renewal mode refuses every call.
   cronSecret: string | undefined;
-  // claim_consent_renewal_emails: reserves up to `batchSize` renewal emails.
-  claimRenewals(batchSize: number): Promise<RenewalClaim[]>;
+  // claim_consent_renewal_emails: reserves up to `batchSize` renewal emails of `wording`. RefusedError("22023"), with
+  // nothing reserved, when that wording isn't registered or doesn't satisfy the one in force.
+  claimRenewals(batchSize: number, wording: string): Promise<RenewalClaim[]>;
+  // parental_wording_ok: whether `wording` is registered and satisfies the one in force.
+  wordingOk(wording: string): Promise<boolean>;
+  // Milliseconds, for the renewal run's time budget.
+  now(): number;
   newToken(): string;
   sha256(value: string): Promise<string>;
   // "off" when email isn't configured (nothing sent); a send that fails throws.
@@ -194,13 +204,21 @@ async function deliverNotice(
   return "sent";
 }
 
-const logOutdatedWording = (deps: ConsentDeps, inForce: string) =>
-  deps.log(`parental-consent: the wording in force is ${inForce}, this function sends ${TEXT_VERSION}; nothing sent`);
+const logOutdatedWording = (deps: ConsentDeps) =>
+  deps.log(`parental-consent: ${TEXT_VERSION} isn't registered or is older than the wording in force; nothing sent`);
 
 async function sendNotice(deps: ConsentDeps, send: Extract<RequestResult, { outcome: "send" }>): Promise<Response> {
   const reservation = { requestId: send.requestId, sendId: send.sendId };
-  if (send.textVersion !== null && send.textVersion !== TEXT_VERSION) {
-    logOutdatedWording(deps, send.textVersion);
+  let wordingOk: boolean;
+  try {
+    wordingOk = await deps.wordingOk(TEXT_VERSION);
+  } catch (error) {
+    deps.log(`parental-consent: wording not checked for request ${send.requestId}`, error);
+    await releaseReservation(deps, reservation);
+    return json(500, { error: "try_again" });
+  }
+  if (!wordingOk) {
+    logOutdatedWording(deps);
     await releaseReservation(deps, reservation);
     return json(503, { error: "wording_outdated" });
   }
@@ -231,28 +249,36 @@ async function sendNotice(deps: ConsentDeps, send: Extract<RequestResult, { outc
 
 // 50 a run, every 15 minutes, stays inside the 200-an-hour overall cap the claim also checks.
 export const RENEWAL_BATCH = 50;
+// pg_net gives up on the poke after 55 s; claims not sent by 40 s are released for the next run, and each send has its
+// own 10 s timeout (_shared/resend.ts), so a run ends well inside that.
+export const RENEWAL_BUDGET_MS = 40_000;
 
-// pg_cron's poke: email the renewal notice to each parent claimed. A claim for wording other than TEXT_VERSION (the
-// function wasn't deployed with the new wording yet) is released unsent and the run answers 503, so it shows in the
-// logs; the next run claims it again.
+// pg_cron's poke: email the renewal notice, in this function's wording, to each parent claimed. The claim refuses a
+// wording that isn't registered or is outdated (the function wasn't deployed with the new wording yet), reserving
+// nothing, and the run answers 503 so it shows in the logs. A send that fails, or isn't reached in time, is released;
+// the hold's round clock starts only when parental_consent_mark_sent records an email as sent.
 async function sendRenewals(req: Request, deps: ConsentDeps): Promise<Response> {
   const given = req.headers.get("x-consent-cron-secret");
   if (!deps.cronSecret || !given || !sameSecret(given, deps.cronSecret)) return json(401, { error: "unauthorized" });
 
-  const claims = await deps.claimRenewals(RENEWAL_BATCH);
-  const totals = { sent: 0, failed: 0, outdated: 0, unrecorded: 0 };
+  const startedAt = deps.now();
+  let claims: RenewalClaim[];
+  try {
+    claims = await deps.claimRenewals(RENEWAL_BATCH, TEXT_VERSION);
+  } catch (error) {
+    if (error instanceof RefusedError && error.code === "22023") {
+      logOutdatedWording(deps);
+      return json(503, { error: "wording_outdated" });
+    }
+    throw error;
+  }
+  const totals = { sent: 0, failed: 0, unrecorded: 0, deferred: 0 };
   let emailOff = false;
   for (const claim of claims) {
     const reservation = { requestId: claim.requestId, sendId: claim.sendId };
-    if (claim.requiredVersion !== TEXT_VERSION) {
-      logOutdatedWording(deps, claim.requiredVersion);
+    if (emailOff || deps.now() - startedAt >= RENEWAL_BUDGET_MS) {
       await releaseReservation(deps, reservation);
-      totals.outdated += 1;
-      continue;
-    }
-    if (emailOff) {
-      await releaseReservation(deps, reservation);
-      totals.failed += 1;
+      totals[emailOff ? "failed" : "deferred"] += 1;
       continue;
     }
     const delivery = await deliverNotice(deps, reservation, claim.email, (consentUrl) =>
@@ -269,7 +295,7 @@ async function sendRenewals(req: Request, deps: ConsentDeps): Promise<Response> 
     else totals.failed += 1;
     if (delivery === "email_off") emailOff = true;
   }
-  if (totals.outdated > 0) return json(503, { error: "wording_outdated", ...totals });
+  if (totals.deferred > 0) deps.log(`parental-consent: ran out of time; ${totals.deferred} renewals left for next run`);
   if (emailOff) return json(503, { error: "email_off", ...totals });
   return json(200, totals);
 }
@@ -322,6 +348,7 @@ async function agree(deps: ConsentDeps, decided: Extract<DecideResult, { outcome
         firstName: decided.firstName,
         withdrawUrl: `${deps.functionUrl}?withdraw=${withdrawToken}`,
         agreedAt: decided.decidedAt,
+        renewal: decided.reason === "renewal",
       }),
     });
     if (result === "off") {

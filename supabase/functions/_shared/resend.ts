@@ -33,26 +33,42 @@ export const POSTAL_ADDRESS = [
   "North Ridgeville, OH 44039",
 ] as const;
 
-// Throws when Resend doesn't accept the email. The error names only the status, never the address.
+// A hung call would hold a cron run (and its claimed renewals) past its budget; giving up is a failed send.
+export const SEND_TIMEOUT_MS = 10_000;
+
+// Throws when Resend doesn't accept the email or doesn't answer in time. The error names only the status, never the
+// address.
 export async function sendEmail(
   config: ResendConfig,
   email: Email,
   post: typeof fetch = fetch,
+  timeoutMs = SEND_TIMEOUT_MS,
 ): Promise<void> {
-  const response = await post("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: config.from,
-      to: [email.to],
-      subject: email.subject,
-      text: email.text,
-      html: email.html,
-      ...(email.headers ? { headers: email.headers } : {}),
-    }),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await post("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: config.from,
+        to: [email.to],
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
+        ...(email.headers ? { headers: email.headers } : {}),
+      }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error(`Resend didn't answer in ${timeoutMs} ms`);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!response.ok) throw new Error(`Resend answered ${response.status}`);
 }
