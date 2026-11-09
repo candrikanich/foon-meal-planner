@@ -1,7 +1,7 @@
 -- People rules and allergy consent (#75, #78): adult/kid, planner/member, guardians (parents),
 -- ownership from households.owner, member removal, and the consent log.
 begin;
-select plan(60);
+select plan(63);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -76,24 +76,35 @@ select throws_ok(
   '42501', null, 'nobody consents for another household');
 
 select pg_temp.as_user('a0000000-0000-0000-0000-0000000000a2');  -- Paul
-select lives_ok(
-  $$ insert into public.consents (household_id, kind, text_version) values
-       ('00000000-0000-0000-0000-0000000000a0', 'allergy_data', 'v1') $$,
-  'a guardian opts the household in');
-select is((select granted_by from public.consents where household_id = '00000000-0000-0000-0000-0000000000a0'),
-  'a0000000-0000-0000-0000-0000000000a2'::uuid, 'consent records who gave it');
 select throws_ok(
   $$ insert into public.consents (household_id, kind, text_version) values
        ('00000000-0000-0000-0000-0000000000a0', 'allergy_data', 'v1') $$,
-  '23505', null, 'one active consent of a kind per household');
+  '42501', null, 'not even a guardian writes consent directly: grant_allergy_consent checks the wording and logs it');
+select throws_ok(
+  $$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'v1') $$,
+  '22023', null, 'and takes only a registered wording');
+select lives_ok(
+  $$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2') $$,
+  'a guardian opts the household in');
+select is((select granted_by from public.consents where household_id = '00000000-0000-0000-0000-0000000000a0'),
+  'a0000000-0000-0000-0000-0000000000a2'::uuid, 'consent records who gave it');
+select lives_ok(
+  $$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2') $$,
+  'agreeing again is harmless');
+select is((select count(*)::int from public.consents
+           where household_id = '00000000-0000-0000-0000-0000000000a0' and kind = 'allergy_data'), 1,
+  'one active consent of a kind per household');
 select throws_ok(
   $$ insert into public.consents (household_id, kind, text_version, granted_by) values
        ('00000000-0000-0000-0000-0000000000a0', 'parental', 'v1', 'a0000000-0000-0000-0000-00000000000a') $$,
   '42501', null, 'consent cannot be recorded in someone else''s name');
+select pg_temp.as_admin();
 select throws_ok(
-  $$ insert into public.consents (household_id, member_id, kind, text_version) values
-       ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'allergy_data', 'v1') $$,
+  $$ insert into public.consents (household_id, member_id, kind, granted_by, text_version) values
+       ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a6', 'allergy_data',
+        'a0000000-0000-0000-0000-0000000000a2', 'v1') $$,
   '23514', null, 'allergy consent is household-wide');
+select pg_temp.as_user('a0000000-0000-0000-0000-0000000000a2');  -- Paul
 select throws_ok(
   $$ insert into public.consents (household_id, member_id, kind, text_version) values
        ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'parental', 'v1') $$,

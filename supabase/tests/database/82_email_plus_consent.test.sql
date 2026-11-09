@@ -78,8 +78,7 @@ select throws_ok(
        ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a5', 'parental', 'parental-invite-v2') $$,
   '42501', null, 'a parent can''t record a kid''s consent from the app');
 select lives_ok(
-  $$ insert into public.consents (household_id, kind, text_version) values
-       ('00000000-0000-0000-0000-0000000000a0', 'allergy_data', 'allergy-data-v2') $$,
+  $$ select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2') $$,
   'allergy consent is still given in the app');
 select is((select method::text from public.consents where kind = 'allergy_data'), 'in_app',
   'and is recorded as in_app');

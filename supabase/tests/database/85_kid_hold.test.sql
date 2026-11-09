@@ -3,7 +3,7 @@
 -- them), and every parent with a device hears about it. A parent renews by email plus, which links the kid's account
 -- back; a No keeps them held. Withdrawing, removing and delete_kid work during a hold; the export shows it.
 begin;
-select plan(43);
+select plan(44);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -217,6 +217,16 @@ select pg_temp.as_admin();
 select is((select (released_reason, relinked)::text from public.agreement_holds
            where member_id = '00000000-0000-0000-0000-0000000000a6'),
   '(account_gone,f)', 'but there''s no account to link back: a parent invites them again');
+
+-- A held kid who turns out to be an adult -------------------------------------------------------------------------------
+savepoint grown_up;
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann corrects the profile
+update public.members set age_group = 'adult' where id = '00000000-0000-0000-0000-0000000000a8';
+select pg_temp.as_admin();
+select is((select (released_reason, held_user_id is null)::text from public.agreement_holds
+           where member_id = '00000000-0000-0000-0000-0000000000a8'),
+  '(not_a_kid,t)', 'parental consent no longer applies, so the hold ends: they''re invited like any adult');
+rollback to savepoint grown_up;
 
 -- Removing a held kid ---------------------------------------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann

@@ -2,7 +2,7 @@
 -- days later if the hold is still open. Every parent's link stays live; a parent without a verified email is told in
 -- the app only. Only the overall 200-an-hour cap applies. Service role only; pg_cron pokes the Edge Function.
 begin;
-select plan(22);
+select plan(24);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -85,6 +85,10 @@ select pg_temp.as_admin();
 select is((select count(*)::int from public.parental_consent_requests
            where reason = 'renewal' and status = 'pending' and token_sent_at is not null), 2,
   'one parent''s link doesn''t cancel another''s: every parent can answer');
+select pg_temp.as_service();
+select is(public.parental_consent_decide('hash-ben@example.com', 'refuse'), '{"outcome": "refused"}'::jsonb,
+  'Ben says No');
+select pg_temp.as_admin();
 
 -- The reminder ---------------------------------------------------------------------------------------------------------
 update public.agreement_holds set emailed_at = emailed_at - interval '8 days'
@@ -94,13 +98,13 @@ set created_at = created_at - interval '8 days', token_sent_at = token_sent_at -
 where reason = 'renewal';
 select pg_temp.as_service();
 select set_config('test.second', public.claim_consent_renewal_emails(10)::text, true);
-select is(pg_temp.emails('test.second'), array['ann@example.com', 'ben@example.com'],
-  'a week on, still held: one reminder each');
+select is(pg_temp.emails('test.second'), array['ann@example.com'],
+  'a week on, still held: one reminder, and none to a parent who said No');
 select ok((select bool_and((e ->> 'reminder')::boolean) from jsonb_array_elements(current_setting('test.second')::jsonb) e),
   'marked as the reminder');
 select pg_temp.as_admin();
-select is((select count(*)::int from public.parental_consent_requests where reason = 'renewal' and status = 'cancelled'), 2,
-  'the new links replace the old ones');
+select is((select count(*)::int from public.parental_consent_requests where reason = 'renewal' and status = 'cancelled'), 1,
+  'the new link replaces the old one');
 select ok((select reminded_at is not null from public.agreement_holds
            where member_id = '00000000-0000-0000-0000-0000000000a4'),
   'the hold records the reminder');
@@ -149,6 +153,12 @@ select throws_ok($$ select public.kick_consent_renewals() $$, '42501', null, 'or
 select pg_temp.as_user('20000000-0000-0000-0000-000000000002');  -- Paul
 select is(jsonb_array_length(public.my_agreements('00000000-0000-0000-0000-0000000000a0') -> 'kids_held'), 2,
   'a parent without a verified email still sees who''s held, in the app');
+
+-- Push order -----------------------------------------------------------------------------------------------------------
+select pg_temp.as_admin();
+select is(array[public.push_kind_rank('agreement_hold'), public.push_kind_rank('heading_to_store'),
+                public.push_kind_rank('urgent_item'), public.push_kind_rank('plan_set')], array[0, 0, 0, 0],
+  'a held kid goes first, with the store run and urgent items');
 
 select * from finish();
 rollback;

@@ -157,6 +157,10 @@ create index consent_agreements_request_idx on public.consent_agreements (reques
 -- No build inserts directly any more: grant_allergy_consent, agree_to_own_allergies and activate_parental_consent log.
 drop policy "guardians record their own agreement" on public.consent_agreements;
 revoke insert on public.consent_agreements from authenticated;
+-- Nor into consents: allergy consent comes only from grant_allergy_consent, which checks the wording and logs the
+-- agreement (parental consent already comes only from activate_parental_consent). The app has called it since 2026-10-27.
+drop policy "guardians give allergy consent" on public.consents;
+revoke insert on public.consents from authenticated;
 
 -- Holds ---------------------------------------------------------------------------------------------------------------------
 
@@ -180,7 +184,7 @@ create table public.agreement_holds (
   emailed_at timestamptz,
   reminded_at timestamptz,
   released_at timestamptz,
-  released_reason text check (released_reason in ('renewed', 'withdrawn', 'removed', 'account_gone')),
+  released_reason text check (released_reason in ('renewed', 'withdrawn', 'removed', 'account_gone', 'not_a_kid')),
   -- For a renewed parental hold: whether the kid's account was linked back.
   relinked boolean,
   foreign key (member_id, household_id) references public.members (id, household_id) on delete cascade,
@@ -378,13 +382,14 @@ create trigger consents_close_agreement_holds after update of revoked_at on publ
   for each row when (old.revoked_at is null and new.revoked_at is not null)
   execute function public.consents_close_agreement_holds();
 
--- Removing a kid ends their hold; nobody renews for someone who left.
+-- Removing a kid ends their hold; nobody renews for someone who left. So does a parent correcting the profile to an
+-- adult: parental consent no longer applies, and the adult is invited like any other.
 create function public.members_close_agreement_holds()
 returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  perform public.release_agreement_hold(h.id, 'removed')
+  perform public.release_agreement_hold(h.id, case when new.status = 'removed' then 'removed' else 'not_a_kid' end)
      from public.agreement_holds h where h.member_id = new.id and h.released_at is null;
   return null;
 end;
@@ -392,8 +397,9 @@ $$;
 
 revoke execute on function public.members_close_agreement_holds() from public, anon, authenticated;
 
-create trigger members_close_agreement_holds after update of status on public.members
-  for each row when (new.status = 'removed' and old.status <> 'removed')
+create trigger members_close_agreement_holds after update of status, age_group on public.members
+  for each row when ((new.status = 'removed' and old.status <> 'removed')
+                     or (old.age_group = 'kid' and new.age_group <> 'kid'))
   execute function public.members_close_agreement_holds();
 
 -- Push: a hold tells every parent -----------------------------------------------------------------------------------------
@@ -1296,7 +1302,8 @@ $$;
 -- starts when the hold opens and stays open a day after its first send, to retry a failed send or reach a parent who
 -- was over the overall cap; the reminder opens 7 days after the first send, for a day. Every parent with a verified
 -- account email; a parent with none is told in the app only. Not a parent whose renewal link was just sent or is being
--- sent, or who already agreed and waits for the confirming email.
+-- sent, who already agreed and waits for the confirming email, or who answered No to this hold (no reminder after a No;
+-- they can still renew from the app).
 create function public.consent_renewal_recipients(target public.agreement_holds)
 returns table (account uuid, address text, reminder boolean)
 language sql stable security definer set search_path = ''
@@ -1322,6 +1329,7 @@ as $$
        select 1 from public.parental_consent_requests r
         where r.member_id = target.member_id and r.requested_by = p.account
           and ((r.hold_id = target.id and r.created_at >= this_round.starts)
+               or (r.hold_id = target.id and r.status = 'refused')
                or r.status = 'consented'
                or r.send_reserved_at > now() - interval '5 minutes'
                or r.token_sent_at > now() - interval '10 minutes'));
@@ -1341,6 +1349,7 @@ returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare
+  candidate record;
   hold public.agreement_holds;
   recipient record;
   kid_name text;
@@ -1353,10 +1362,14 @@ begin
   -- The same lock as request_parental_consent, so the overall cap counts both.
   perform pg_advisory_xact_lock(hashtext('request_parental_consent'));
   <<holds>>
-  for hold in select * from public.agreement_holds h
-               where h.kind = 'parental' and h.released_at is null
-               order by h.held_at
-               for update skip locked loop
+  for candidate in select h.id, h.member_id from public.agreement_holds h
+                    where h.kind = 'parental' and h.released_at is null
+                    order by h.held_at loop
+    -- The kid's lock before the hold's row, in the same order as activate_parental_consent and apply_agreement_holds,
+    -- so a parent agreeing while their renewal email is claimed waits instead of deadlocking.
+    perform pg_advisory_xact_lock(hashtextextended('parental_consent:' || candidate.member_id::text, 0));
+    select * into hold from public.agreement_holds where id = candidate.id and released_at is null for update;
+    continue holds when hold.id is null;
     select first_name into kid_name from public.members where id = hold.member_id;
     agreed := coalesce((select max(a.agreed_at) from public.consent_agreements a
                          where a.consent_id = hold.consent_id and a.kind = 'parental'),
