@@ -28,7 +28,11 @@ describe("answerConsent", () => {
 
   it("maps every result to its page", async () => {
     const pending = { result: "pending", firstName: "Nora", expiresAt: "2026-11-15T00:00:00Z" };
-    expect(await answerConsent(fn, token, "lookup", json(200, pending))).toEqual({ step: "ask", firstName: "Nora" });
+    expect(await answerConsent(fn, token, "lookup", json(200, pending))).toEqual({
+      step: "ask",
+      firstName: "Nora",
+      renewal: null,
+    });
     expect(await answerConsent(fn, token, "agree", json(200, { result: "try_again" }))).toEqual({ step: "again" });
     expect(await answerConsent(fn, token, "agree", json(200, { result: "confirmed" }))).toEqual({
       step: "go",
@@ -117,7 +121,7 @@ describe("answerWithdraw", () => {
 
 describe("page states", () => {
   const loading: PageState = { view: "loading" };
-  const asking: PageState = { view: "ask", firstName: "Nora", notice: "none" };
+  const asking: PageState = { view: "ask", firstName: "Nora", renewal: null, notice: "none" };
 
   it("shows the buttons after a lookup finds the request", () => {
     expect(nextPage(loading, { step: "ask", firstName: "Nora" })).toEqual({ state: asking });

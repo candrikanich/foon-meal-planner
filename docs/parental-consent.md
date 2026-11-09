@@ -13,11 +13,47 @@ How consent by "email plus" behaves is in [spec.md](spec.md) (Email → Consent 
 | Edge Function secret | `CONSENT_SITE_URL` | Optional. Defaults to `https://getfoon.com`; set it to point the emailed links at a preview. Its origin is then also allowed to POST (CORS), so the preview's pages work |
 | Vercel env (build time) | `NUXT_PUBLIC_CONSENT_URL` | `https://<project-ref>.supabase.co/functions/v1/parental-consent`, which the site's /consent pages POST to. Required in every environment the site builds in (Production and Preview): `nuxt build` fails without it, and a new value takes effect only after a redeploy |
 | Edge Function (built in) | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Set by Supabase. The anon key is used only to run the parent's request as the parent (their JWT) |
+| Edge Function secret | `CONSENT_CRON_SECRET` | Renewal emails (#277). A long random string, the same value as Vault's `consent_cron_secret`. Unset, `?renewals=1` answers 401 and no renewal email goes |
+| Vault (database) | `consent_function_url` | `https://<project-ref>.supabase.co/functions/v1/parental-consent`. `kick_consent_renewals()` POSTs to it with `?renewals=1` |
+| Vault (database) | `consent_cron_secret` | Same value as `CONSENT_CRON_SECRET`; sent in the `x-consent-cron-secret` header. Without both Vault secrets the cron does nothing, silently |
 
 Set the secrets on staging and production (Supabase → Edge Functions → Secrets, or
 `supabase secrets set CONSENT_FROM='Foon <info@getfoon.com>' --project-ref <ref>`). Deploys need nothing new: both
 deploy workflows deploy every function, and `config.toml` turns the gateway's JWT check off for this one (the links
 carry none; the function checks the app's JWT itself).
+
+Vault secrets (SQL editor, once per project; never commit the values):
+
+```sql
+select vault.create_secret('https://<project-ref>.supabase.co/functions/v1/parental-consent', 'consent_function_url');
+select vault.create_secret('<the same value as CONSENT_CRON_SECRET>', 'consent_cron_secret');
+```
+
+## Renewal emails (#277)
+
+When a parental wording newer than the one a parent agreed to comes into force (`agreement_versions`), the kid is held:
+signed out, profile kept, nothing erased. Every 15 minutes `kick-consent-renewals` (pg_cron) calls
+`kick_consent_renewals()`, which POSTs `?renewals=1` with `x-consent-cron-secret` only when some hold owes an email.
+The function checks the secret (constant-time) and claims up to 50 emails in its own `TEXT_VERSION`
+(`claim_consent_renewal_emails`). For each it sends the renewal notice, then records it with
+`parental_consent_mark_sent`. Recording an email is what starts the hold's clock (`emailed_at`, then `reminded_at` for
+the reminder); a reservation doesn't. A send that fails (or Resend not answering in 10 seconds) is released
+(`parental_consent_release_send`) and the parent is claimed again on a later run, as is anything not reached within
+the run's 40-second budget.
+
+- **Renewal notice** ("Can <name> keep using Foon?"), to every parent whose account has a verified email: email 1's
+  direct notice, plus what changed (the registry's `summary`), when a parent agreed before, that the kid is signed out
+  until a parent agrees, that nothing is deleted, and how to withdraw instead. Its link opens the same /consent page,
+  worded as a renewal; No keeps the kid signed out.
+- **Reminder**, once, 7 days after the first: the same email, subject "Reminder: Can <name> keep using Foon?".
+- A parent's Email me the form in the app sends the same notice, without what changed and the date (the app's request
+  doesn't return them).
+- The function sends its `TEXT_VERSION` while that wording is registered and at or after the one in force
+  (`parental_wording_ok`), so one deployed ahead of a new wording keeps sending. Left on outdated wording, it sends
+  nothing: the claim reserves nothing and the run answers 503 `wording_outdated` (the app's request answers the same).
+
+Check: Edge Functions → parental-consent → Logs shows a run every 15 minutes while holds owe emails, answering 200
+with `{sent, failed, unrecorded, deferred}`. A 401 means the two secrets differ.
 
 ## Which address is used
 

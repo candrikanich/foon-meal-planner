@@ -18,8 +18,16 @@ export type ConsentRoute = (typeof CONSENT_ROUTES)[keyof typeof CONSENT_ROUTES];
 export type ConsentDecision = "lookup" | "agree" | "refuse";
 export type WithdrawDecision = "lookup" | "withdraw";
 
+// A renewal (#277): the kid's consent was given to older wording, and the kid is signed out until a parent agrees.
+export interface Renewal {
+  // What changed, one plain sentence from the wording registry.
+  summary: string | null;
+  // When a parent last agreed for this kid (ISO).
+  agreedBefore: string | null;
+}
+
 export type ConsentStep =
-  | { step: "ask"; firstName: string }
+  | { step: "ask"; firstName: string; renewal: Renewal | null }
   // I agree was kept but email 2 didn't go out yet: tapping again resends.
   | { step: "again" }
   // No arrived while an I agree (another tab) is sending email 2: try again in a moment.
@@ -29,8 +37,15 @@ export type ConsentStep =
 
 export type WithdrawStep = { step: "ask"; firstName: string } | { step: "go"; to: ConsentRoute } | { step: "error" };
 
-const consentReply = z.union([
-  z.object({ result: z.literal("pending"), firstName: z.string().min(1) }),
+export const consentReply = z.union([
+  z.object({
+    result: z.literal("pending"),
+    firstName: z.string().min(1),
+    reason: z.literal("renewal").optional(),
+    summary: z.string().min(1).nullish(),
+    // Postgres's timestamptz text; agreedDay words it, or leaves it out if it doesn't parse.
+    agreedBefore: z.string().nullish(),
+  }),
   z.object({
     result: z.enum(["try_again", "confirmed", "refused", "already_consented", "withdrawn", "expired", "invalid"]),
   }),
@@ -44,7 +59,13 @@ const withdrawReply = z.union([
 export function consentStep(reply: z.infer<typeof consentReply>): ConsentStep {
   switch (reply.result) {
     case "pending":
-      return { step: "ask", firstName: reply.firstName };
+      return {
+        step: "ask",
+        firstName: reply.firstName,
+        renewal: reply.reason === "renewal"
+          ? { summary: reply.summary ?? null, agreedBefore: reply.agreedBefore ?? null }
+          : null,
+      };
     case "try_again":
       return { step: "again" };
     case "confirmed":
@@ -60,6 +81,14 @@ export function consentStep(reply: z.infer<typeof consentReply>): ConsentStep {
     case "invalid":
       return { step: "go", to: CONSENT_ROUTES.expired };
   }
+}
+
+// "October 1, 2026", in UTC like the renewal email; null when there's no date to show.
+export function agreedDay(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" }).format(date);
 }
 
 export function withdrawStep(reply: z.infer<typeof withdrawReply>): WithdrawStep {
@@ -127,14 +156,17 @@ export async function answerWithdraw(
 export type PageState =
   | { view: "loading" }
   | { view: "unreachable" }
-  | { view: "ask"; firstName: string; notice: "none" | "again" | "wait" | "problem" };
+  | { view: "ask"; firstName: string; renewal: Renewal | null; notice: "none" | "again" | "wait" | "problem" };
 
 export type PageMove = { state: PageState } | { navigate: ConsentRoute };
 
 // The next page state after a lookup (from "loading" or "unreachable") or a button (from "ask").
 export function nextPage(current: PageState, step: ConsentStep | WithdrawStep): PageMove {
   if (step.step === "go") return { navigate: step.to };
-  if (step.step === "ask") return { state: { view: "ask", firstName: step.firstName, notice: "none" } };
+  if (step.step === "ask") {
+    const renewal = "renewal" in step ? step.renewal : null;
+    return { state: { view: "ask", firstName: step.firstName, renewal, notice: "none" } };
+  }
   if (current.view !== "ask") return { state: { view: "unreachable" } };
   return { state: { ...current, notice: step.step === "error" ? "problem" : step.step } };
 }

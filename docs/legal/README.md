@@ -139,6 +139,37 @@ Found by the compliance self-check ([compliance-check.md](compliance-check.md), 
   change anyone's allergies. An adult can add and remove their own in the app (#285), adding only under that
   agreement, and a parent can add them again after the adult removes them.
 
+## Wording versions
+
+Every agreement names the wording it was given to (#277). The registry is `public.agreement_versions`: one row per
+version, ordered within its kind. The newest row with `effective_at <= now()` is in force; an agreement to an older one
+still counts unless a version after it has `requires_reagreement`. Nothing is in force until PR D sets `effective_at`.
+
+| Kind | Versions | Where the words live |
+| --- | --- | --- |
+| Household allergy data | `allergy-data-v1`, `allergy-data-v2` | The app's statement and `textVersion` (iOS) |
+| An adult's own allergies | `own-allergy-v1` | The app |
+| A kid's parental consent | `parental-invite-v1` (in app), `-v2` (in app), `-v3` (email plus) | `supabase/functions/parental-consent/email.ts` (`TEXT_VERSION`) and web/app/pages/consent |
+| Terms | `terms-draft-v1` | getfoon.com/terms; label `TERMS_VERSION` in web/app/content.ts |
+| Privacy | `privacy-draft-v1` | getfoon.com/privacy; label `PRIVACY_VERSION` in web/app/content.ts |
+
+When wording changes, whoever agreed to an older version is asked again: households can't add allergies, adults see
+the Terms prompt, and a kid is signed out (nothing erased) while every parent with a verified email gets a renewal
+email, and a reminder after 7 days (parental-consent.md).
+
+### Changing wording later
+
+1. **Allergy**: change the app's statement and its `textVersion`; add a registry row (next ordinal, a one-sentence
+   `summary` of what changed) with a future `effective_at`. Ship the app build before that date.
+2. **Kid consent**: add the registry row with a future `effective_at`, deploy the function with the new
+   `TEXT_VERSION` and words (and the /consent page), then let the row take effect. The function sends any registered
+   wording at or after the one in force, so emails keep going throughout.
+3. **Terms or Privacy**: change the page text and its label in content.ts; add the registry row.
+4. **A typo fix** that changes nothing promised: still a new version, with `requires_reagreement = false`, so nobody
+   is asked again.
+
+Registry rows come in a new migration; never edit an applied one.
+
 ## After review
 
 1. Fold the lawyer's changes into these files and remove the DRAFT headers, `Review` notes and `[CHECK]` marks.

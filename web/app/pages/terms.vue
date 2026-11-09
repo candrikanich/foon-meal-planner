@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SUPPORT_EMAIL } from "~/content";
+import { SUPPORT_EMAIL, TERMS_VERSION } from "~/content";
 
 useSeoMeta({ title: "Terms: Foon", description: "Foon's terms of use are being finalised and will be published before launch." });
 </script>
@@ -7,6 +7,7 @@ useSeoMeta({ title: "Terms: Foon", description: "Foon's terms of use are being f
 <template>
   <article class="narrow prose section">
     <h1>Terms</h1>
+    <p class="fineprint">Version {{ TERMS_VERSION }}</p>
     <p class="draft">
       Foon's full terms of use are being finalised. They will be published here, and shown in the app, before Foon opens
       to everyone.
