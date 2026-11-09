@@ -28,7 +28,9 @@ export type Route =
   | { route: "night"; night: string; date: string }
   | { route: "list" }
   | { route: "dinner" }
-  | { route: "ideas" };
+  | { route: "ideas" }
+  // A held kid (#277): the kid's card is at the top of Family.
+  | { route: "family" };
 
 export type ApnsPayload = { aps: { alert: Alert; sound: "default" } } & Partial<Route>;
 
@@ -123,6 +125,14 @@ const words: Record<string, (args: Record<string, unknown>, nightDate: string | 
       return { title: count === 1 ? `${name} has a new dinner idea.` : `${name} has ${count} new dinner ideas.`, body };
     }
     return { title: count === 1 ? "1 new dinner idea." : `${count} new dinner ideas.`, body };
+  },
+  // To every parent when a kid's consent wording is outdated and the kid is signed out (#277). Only with the kid's name:
+  // the push is about that kid, and a parent can't act on "Someone".
+  agreement_hold: (args) => {
+    const name = firstName(args);
+    return name
+      ? { title: `${name} needs a parent's OK to keep using Foon.`, body: "Open Family to see what changed." }
+      : null;
   },
   // To whoever asked, so no name, and never the dish.
   request_planned: (_args, nightDate) => {

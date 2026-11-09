@@ -18,6 +18,8 @@ enum ReminderRoute: Equatable, Sendable {
     case lists
     /// The Ideas tab: the server's digest of new dinner ideas.
     case ideas
+    /// The Family tab: a server push that a kid needs a parent's OK again (#277); the kid's card is at the top.
+    case family
     /// This Week's roundup of the week's dinners still to rate, for the week that starts that day.
     case roundup(CalendarDay)
 }
@@ -56,6 +58,8 @@ struct ReminderPayload: Equatable, Sendable {
             info["route"] = "list"
         case .ideas:
             info["route"] = "ideas"
+        case .family:
+            info["route"] = "family"
         case .roundup(let week):
             info["route"] = "roundup"
             info["date"] = week.isoString
@@ -83,6 +87,8 @@ struct ReminderPayload: Equatable, Sendable {
             route = .lists
         case "ideas":
             route = .ideas
+        case "family":
+            route = .family
         case "roundup":
             guard let day else { return nil }
             route = .roundup(day)

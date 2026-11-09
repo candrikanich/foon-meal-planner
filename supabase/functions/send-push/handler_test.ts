@@ -190,6 +190,26 @@ Deno.test("the ideas digest opens Ideas", async () => {
   }]);
 });
 
+Deno.test("a held kid's push opens Family", async () => {
+  const payloads: ApnsPayload[] = [];
+  const hold: OutboxRow = { ...row([sandbox], "agreement_hold"), week_start: null, args: { name: "Ava" } };
+  const { deps, steps } = fakeDeps([hold], {}, {
+    deliver: (_device, payload) => {
+      payloads.push(payload);
+      return Promise.resolve("delivered");
+    },
+  });
+  await handleSendPush(request(), deps);
+  assertEquals(payloads, [{
+    aps: {
+      alert: { title: "Ava needs a parent's OK to keep using Foon.", body: "Open Family to see what changed." },
+      sound: "default",
+    },
+    route: "family",
+  }]);
+  assertEquals(steps, ["complete row-1 sent"], "sent, not unknown_kind");
+});
+
 Deno.test("a store run opens the list", async () => {
   const payloads: ApnsPayload[] = [];
   const run: OutboxRow = { ...row([sandbox], "heading_to_store"), week_start: null, args: { name: "Ben" } };
