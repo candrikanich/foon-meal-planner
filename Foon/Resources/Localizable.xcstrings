@@ -154,6 +154,9 @@
     "%@ left" : {
 
     },
+    "%@ needs a parent's OK" : {
+
+    },
     "%@ offered to cook, but is out this night now. Someone else can take it." : {
 
     },
@@ -729,10 +732,25 @@
     "A note (optional)" : {
 
     },
+    "A parent agreed for the family. Foon now asks you too, for your own." : {
+
+    },
     "A parent can turn allergy alerts off in Family. That erases every allergy recorded for your household." : {
 
     },
     "A parent keeps these up to date. Foon flags dishes, and you still check labels." : {
+
+    },
+    "A parent needs to agree to Foon's new allergy wording" : {
+
+    },
+    "A parent needs to agree to Foon's new allergy wording before anyone adds allergies." : {
+
+    },
+    "A parent needs to agree to Foon's new allergy wording before you add any. Taking one away still works." : {
+
+    },
+    "A parent said no in the email, so %@ stays signed out. Nothing was deleted." : {
 
     },
     "A parent said no in the email. %@ can't be invited." : {
@@ -897,7 +915,25 @@
     "Age" : {
 
     },
+    "Agree" : {
+
+    },
     "Agree and save" : {
+
+    },
+    "Agree to Foon's new allergy wording on Family first. Taking one away still works." : {
+
+    },
+    "Agree to keep your allergies in Foon first. Taking one away still works." : {
+
+    },
+    "Agrees to keep your own allergies in Foon" : {
+
+    },
+    "Agrees to the Terms of Use and Privacy Policy" : {
+
+    },
+    "Agrees, for your household, to keep allergies with this wording" : {
 
     },
     "Air fryer" : {
@@ -934,6 +970,9 @@
 
     },
     "Allergy flags" : {
+
+    },
+    "Allergy wording" : {
 
     },
     "Almost done. Open the email and tap I agree again to finish." : {
@@ -1159,6 +1198,9 @@
 
     },
     "Changing your mind" : {
+
+    },
+    "Check again" : {
 
     },
     "Check for %@ (%@)" : {
@@ -1695,6 +1737,9 @@
     "Email me instead" : {
 
     },
+    "Email me the form" : {
+
+    },
     "End the poll" : {
 
     },
@@ -1839,6 +1884,9 @@
     "Foon Founding Family" : {
 
     },
+    "Foon asks you to agree before it keeps new allergies on your profile." : {
+
+    },
     "Foon can draft it in a tap, and you can change any night." : {
       "comment" : "Reminder body: time to plan"
     },
@@ -1846,6 +1894,9 @@
 
     },
     "Foon can't open that link. Try the recipe's web page." : {
+
+    },
+    "Foon can't record this for you now. Pull to refresh, then try again." : {
 
     },
     "Foon can't remove these from your profile now. Sign in again, or ask a parent." : {
@@ -1861,6 +1912,15 @@
 
     },
     "Foon can't send email right now. Try again later." : {
+
+    },
+    "Foon changed its Terms of Use or Privacy Policy. Here's what changed:" : {
+
+    },
+    "Foon changed what it asks you to agree to, and this version can't show it." : {
+
+    },
+    "Foon changed what parents agree to for kids, so %@ is signed out until a parent agrees again. Nothing was deleted." : {
 
     },
     "Foon cleared %@" : {
@@ -1955,6 +2015,9 @@
     "Foon keeps these so it can flag dishes. Only your household and our hosting provider, which stores them for us, receive them. They're never sold, never used for ads, and never leave your devices for AI. A parent can withdraw anytime in Family → Allergy alerts, which erases them all." : {
       "comment" : "Allergy consent parents agree to. Must say exactly what the English says; see AllergyConsent.textVersion."
     },
+    "Foon keeps your allergies so it can flag dishes for you. Only your household and our hosting provider, which stores them for us, receive them. They're never sold, never used for ads, and never leave your devices for AI. You can remove them anytime on your profile, which deletes them." : {
+      "comment" : "Own-allergy consent an adult who isn't a parent agrees to. Must say exactly what the English says; see OwnAllergyConsent.textVersion."
+    },
     "Foon put %@ back to %@" : {
       "localizations" : {
         "en" : {
@@ -1988,7 +2051,16 @@
     "Foon takes turns among whoever's home each night, and whoever's cooking gets the night off. Nobody checks anything off, and Foon doesn't keep score." : {
 
     },
+    "Foon updated what parents agree to for allergies" : {
+
+    },
     "Foon won't plan dinners for those nights, add them to the list, or send reminders about them. Everyone shows as out, and you'll see Away on This Week." : {
+
+    },
+    "Foon's Terms of Use and Privacy Policy say how Foon works and what it keeps about your family. Read them, then agree to keep going." : {
+
+    },
+    "Foon's allergy wording changed. Update Foon to save allergies." : {
 
     },
     "For %@" : {
@@ -2187,6 +2259,16 @@
     "Here's how it'll look once it's tidied." : {
 
     },
+    "Hi %@. Foon changed what parents agree to for kids, so a parent in %@ needs to agree again before you can use Foon. Nothing was deleted: your profile and everything you added are still there." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Hi %1$@. Foon changed what parents agree to for kids, so a parent in %2$@ needs to agree again before you can use Foon. Nothing was deleted: your profile and everything you added are still there."
+          }
+        }
+      }
+    },
     "Hidden from the family" : {
 
     },
@@ -2263,6 +2345,9 @@
 
     },
     "If a planner turns on Spot busy evenings, Foon reads the times of this device's calendar events to suggest rushed nights. It never saves or sends them." : {
+
+    },
+    "If you don't, the allergies on your profile still flag dishes, and you can remove them. You can't add new ones until you agree." : {
 
     },
     "If you turn on Dinner memories, Foon shows photos from this device's library taken around dinner on nights your family logged. It never saves or uploads them." : {
@@ -2386,6 +2471,9 @@
 
     },
     "Keep on hand is saved. The note needs a connection; try again." : {
+
+    },
+    "Keep your allergies in Foon?" : {
 
     },
     "Kid" : {
@@ -2666,6 +2754,9 @@
 
     },
     "Names can be up to %lld characters." : {
+
+    },
+    "Needs a parent's OK again" : {
 
     },
     "Needs a subscription" : {
@@ -2957,6 +3048,9 @@
 
     },
     "One subscription covers the whole family. Until then you can still see everything and export or delete your data. %@" : {
+
+    },
+    "Only a parent agrees for the household. Until one does, nobody can add allergies, and the ones already here still flag dishes." : {
 
     },
     "Only a parent in the family can ask for this." : {
@@ -3270,6 +3364,9 @@
     "Read from the post, so check it over." : {
 
     },
+    "Read it" : {
+
+    },
     "Read on this device, so check it over. Foon deletes the file when you're done here." : {
 
     },
@@ -3376,6 +3473,9 @@
 
     },
     "Return date" : {
+
+    },
+    "Review" : {
 
     },
     "Rhythm" : {
@@ -3580,10 +3680,16 @@
     "Shows the item's note, aisle, and keep on hand" : {
 
     },
+    "Shows the new allergy wording to agree to" : {
+
+    },
     "Shows the photo larger" : {
 
     },
     "Shows the recipe as it was read. Foon keeps tidying what you don't change." : {
+
+    },
+    "Shows what you agree to for your own allergies" : {
 
     },
     "Shows what you can make tonight in the time there is" : {
@@ -3593,6 +3699,9 @@
 
     },
     "Sides" : {
+
+    },
+    "Sign in again, then agree." : {
 
     },
     "Sign in didn't work. Check your connection and try again." : {
@@ -3896,6 +4005,9 @@
     },
     "Tap to see what's for dinner." : {
       "comment" : "Reminder body: the day-of check-in"
+    },
+    "Tapping Agree means you agree to the Terms of Use and Privacy Policy." : {
+
     },
     "Taste" : {
 
@@ -4439,10 +4551,19 @@
     "Unlock night" : {
 
     },
+    "Until a parent agrees, nobody can add allergies. The ones already here still flag dishes." : {
+
+    },
+    "Until one does, nobody can add allergies. The ones already here still flag dishes." : {
+
+    },
     "Until then you can still see everything and export or delete your data." : {
 
     },
     "Up to %lld characters." : {
+
+    },
+    "Update Foon to review the new wording." : {
 
     },
     "Update the list on This Week after undoing, to go back to the regular amounts." : {
@@ -4519,6 +4640,9 @@
     "Waiting" : {
 
     },
+    "Waiting for a parent" : {
+
+    },
     "Waiting for approval. Foon unlocks as soon as the App Store says yes." : {
 
     },
@@ -4540,10 +4664,16 @@
     "Wasn't home" : {
       "comment" : "After-dinner action"
     },
+    "We emailed you on %@." : {
+
+    },
     "We had something else" : {
       "comment" : "After-dinner action"
     },
     "We keep meat frozen" : {
+
+    },
+    "We updated our terms" : {
 
     },
     "Week" : {
@@ -4567,10 +4697,16 @@
     "What Foon keeps" : {
 
     },
+    "What a parent agrees to" : {
+
+    },
     "What can we make tonight?" : {
 
     },
     "What can we make?" : {
+
+    },
+    "What changed" : {
 
     },
     "What did you have?" : {
@@ -4741,6 +4877,9 @@
     "You" : {
 
     },
+    "You agree for your household. A parent can withdraw anytime in Family → Allergy alerts." : {
+
+    },
     "You can change yours anytime, and a parent can too. Foon flags dishes, and you still check labels." : {
 
     },
@@ -4748,6 +4887,9 @@
 
     },
     "You can offer for yourself, or for someone without their own account." : {
+
+    },
+    "You can still take allergies away, and the ones here still flag dishes." : {
 
     },
     "You can't change this meal. Only planners can." : {

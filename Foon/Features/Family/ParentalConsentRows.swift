@@ -1,16 +1,22 @@
 import SwiftUI
 
 /// A kid's invite section until a parent's consent is active (COPPA email plus, #275): Foon emails the parent, who
-/// agrees on getfoon.com. The invite itself is made here once consent is active.
+/// agrees on getfoon.com. The invite itself is made here once consent is active. With `renewal`, the kid is signed out
+/// until a parent agrees to changed wording (#277), and the same email renews it.
 struct ParentalConsentRows: View {
     @Environment(HouseholdStore.self) private var store
     let member: Member
+    var renewal: AgreementStatus.KidHold?
     @State private var typedEmail = ""
     @State private var isSending = false
 
     var body: some View {
         let step = store.consentStep(for: member)
-        explanation(for: step)
+        if let renewal {
+            renewalExplanation(renewal, step: step)
+        } else {
+            explanation(for: step)
+        }
         if step.offersPolicyLinks {
             PolicyLinks()
         }
@@ -25,7 +31,7 @@ struct ParentalConsentRows: View {
                 .textInputAutocapitalization(.never)
                 #endif
         }
-        if let title = step.button {
+        if let title = step.button(renewing: renewal != nil) {
             Button(title) {
                 Task { await send() }
             }
@@ -43,6 +49,32 @@ struct ParentalConsentRows: View {
         let email = store.consentRequests.needsTypedEmail(member.id) ? typedEmail : nil
         await store.askForConsent(member, email: email)
         isSending = false
+    }
+
+    /// Asking again: what changed and that nothing was deleted, then the same steps as a first ask.
+    @ViewBuilder
+    private func renewalExplanation(_ hold: AgreementStatus.KidHold, step: ParentalConsentStep) -> some View {
+        switch step {
+        case .refused:
+            Text("A parent said no in the email, so \(member.firstName) stays signed out. Nothing was deleted.")
+                .font(.callout)
+        case .emailMe, .sendNewEmail, .invite:
+            Text("""
+            Foon changed what parents agree to for kids, so \(member.firstName) is signed out until a parent agrees \
+            again. Nothing was deleted.
+            """)
+            .font(.callout)
+            if let summary = hold.summary {
+                Text(summary).font(.callout).foregroundStyle(.secondary)
+            }
+            if let emailed = hold.emailedMeAt {
+                Text("We emailed you on \(emailed, format: .dateTime.month(.wide).day()).")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        case .checkEmail, .almostDone:
+            explanation(for: step)
+        }
     }
 
     @ViewBuilder
@@ -80,9 +112,12 @@ struct ParentalConsentRows: View {
 
 extension ParentalConsentStep {
     /// What the one button says, if the step has one; every one sends email 1.
-    var button: LocalizedStringKey? {
+    var button: LocalizedStringKey? { button(renewing: false) }
+
+    /// Asking again after the kids' wording changed (#277), the first button sends "the form".
+    func button(renewing: Bool) -> LocalizedStringKey? {
         switch self {
-        case .emailMe: "Email me"
+        case .emailMe: renewing ? "Email me the form" : "Email me"
         case .checkEmail(_, .me): "Send again"
         case .checkEmail(_, .otherParent): "Email me instead"
         case .refused: "Ask again"
@@ -169,3 +204,17 @@ private func previewRequest(_ status: ParentalConsentRequest.Status, by parent: 
 #Preview("Email is off") { consentPreview(error: .emailOff) }
 
 #Preview("Invite") { consentPreview(consented: true) }
+
+#Preview("Signed out until a parent agrees again") {
+    let owen = Member.sampleFamily[3]
+    var client = HouseholdClient.preview()
+    client.parentalConsentMemberIDs = { _ in [owen.id] }
+    client.agreements = { _ in .previewHeld }
+    let store = HouseholdStore(userID: .previewUser, client: client)
+    return NavigationStack { List { MemberInviteSection(member: owen) } }
+        .environment(store)
+        .task {
+            await store.load()
+            await store.loadConsentRequests()
+        }
+}

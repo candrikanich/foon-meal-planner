@@ -12,11 +12,44 @@ struct CreateHouseholdView: View {
     @State private var inviteCode = ""
     @State private var confirmingSample = false
     @State private var deletingAccount = false
+    /// What waits on the Terms gate (#277): creating needs the Terms and Privacy in force agreed first.
+    @State private var waitingOnTerms: WaitingOnTerms?
+
+    private enum Creation {
+        case household, sample
+    }
+
+    /// The gate as it was when asked, so the sheet keeps it while Agree updates the store.
+    private struct WaitingOnTerms: Identifiable {
+        let creation: Creation
+        let gate: TermsGate
+        let id = UUID()
+    }
 
     private var canCreate: Bool {
         var owner = MemberDraft()
         owner.firstName = firstName
         return Household.validatedName(name) != nil && owner.validated() != nil
+    }
+
+    /// Runs `creation` now, or once the Terms gate is agreed to when one is in force.
+    private func start(_ creation: Creation) {
+        if let gate = store.termsGate(creating: true) {
+            waitingOnTerms = WaitingOnTerms(creation: creation, gate: gate)
+            return
+        }
+        switch creation {
+        case .household: createHousehold()
+        case .sample: loadSample()
+        }
+    }
+
+    private func createHousehold() {
+        Task {
+            isSaving = true
+            await store.createHousehold(name: name, emoji: emoji, firstName: firstName)
+            isSaving = false
+        }
     }
 
     private func loadSample() {
@@ -43,7 +76,7 @@ struct CreateHouseholdView: View {
                     // keep: say so before it's made.
                     .confirmationDialog("Use the sample family as your household?", isPresented: $confirmingSample,
                                         titleVisibility: .visible) {
-                        Button("Load the sample family") { loadSample() }
+                        Button("Load the sample family") { start(.sample) }
                         Button("Cancel", role: .cancel) {}
                     } message: {
                         Text("It becomes your household. You can rename it and change the family, but you can't start a new one later.")
@@ -108,11 +141,7 @@ struct CreateHouseholdView: View {
 
                 Section {
                     Button {
-                        Task {
-                            isSaving = true
-                            await store.createHousehold(name: name, emoji: emoji, firstName: firstName)
-                            isSaving = false
-                        }
+                        start(.household)
                     } label: {
                         Text("Create household").frame(maxWidth: .infinity)
                     }
@@ -128,6 +157,12 @@ struct CreateHouseholdView: View {
                 }
             }
             .sheet(isPresented: $deletingAccount) { DeleteAccountView() }
+            .sheet(item: $waitingOnTerms) { waiting in
+                AgreementsGateView(gate: waiting.gate) {
+                    waitingOnTerms = nil
+                    start(waiting.creation)
+                }
+            }
             .navigationTitle("Welcome to Foon")
             .onChange(of: session.pendingInviteCode) { _, code in
                 if let code { inviteCode = code }
@@ -156,4 +191,14 @@ struct CreateHouseholdView: View {
     CreateHouseholdView()
         .environment(HouseholdStore.preview(household: nil))
         .environment(SessionStore(auth: .preview()))
+}
+
+#Preview("Terms to agree to first") {
+    var client = HouseholdClient.preview(household: nil)
+    client.agreements = { _ in .previewTermsNew }
+    let store = HouseholdStore(userID: .previewUser, client: client)
+    return CreateHouseholdView()
+        .environment(store)
+        .environment(SessionStore(auth: .preview()))
+        .task { await store.load() }
 }

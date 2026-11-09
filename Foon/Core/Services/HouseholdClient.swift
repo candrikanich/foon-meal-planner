@@ -96,6 +96,15 @@ struct HouseholdClient: Sendable {
         -> [MemoryLog] = { _, _, _ in [] }
     /// The household's oldest night with a dinner logged, nil if none: where the timeline's paging can stop.
     var oldestDinnerLog: @Sendable (_ householdID: UUID) async throws -> CalendarDay? = { _ in nil }
+    /// What the caller has agreed to and what's waiting (`my_agreements`, #277); nil before they have a household.
+    var agreements: @Sendable (_ householdID: UUID?) async throws -> AgreementStatus = { _ in .dormant }
+    /// Logs this account's agreement to these Terms and Privacy versions (`accept_agreements`).
+    var acceptAgreements: @Sendable (_ terms: String, _ privacy: String, _ context: AgreementContext,
+                                     _ client: String) async throws -> Void = { _, _, _, _ in }
+    /// An adult who isn't a parent agrees to keep their own allergies (`agree_to_own_allergies`).
+    var agreeToOwnAllergies: @Sendable (_ memberID: UUID, _ wording: String) async throws -> Void = { _, _ in }
+    /// A kid's account a hold signed out, or nil (`my_access_hold`).
+    var accessHold: @Sendable () async throws -> AccessHold? = { nil }
 }
 
 /// Why Delete household didn't go through.
@@ -104,25 +113,6 @@ enum HouseholdDeletionError: Error, Equatable {
     case notOwner
     /// It may have stopped part-way (or we couldn't hear back); trying again finishes it.
     case unfinished
-}
-
-/// The wording version logged with allergy consent; a change in what it promises means a new version. Consent is asked
-/// once: a household that agreed to an earlier version isn't asked again, and its record stays valid.
-enum AllergyConsent {
-    /// v2 (#280): names who receives allergies and how to withdraw (Washington MHMDA .030(2)).
-    static let textVersion = "allergy-data-v2"
-    /// Logged by "Load a sample family", where nobody read the sentence: the record says so.
-    static let sampleVersion = "sample-family-v1"
-
-    static var statement: String {
-        String(localized: """
-        Foon keeps these so it can flag dishes. Only your household and our hosting provider, which stores them for \
-        us, receive them. They're never sold, never used for ads, and never leave your devices for AI. A parent can \
-        withdraw anytime in Family → Allergy alerts, which erases them all.
-        """, comment: """
-            Allergy consent parents agree to. Must say exactly what the English says; see AllergyConsent.textVersion.
-            """)
-    }
 }
 
 extension HouseholdClient {
@@ -399,8 +389,39 @@ extension HouseholdClient {
                     .execute()
                     .value
                 return rows.first?.date
+            },
+            agreements: { householdID in
+                try await client.rpc("my_agreements", params: AgreementsParams(targetHousehold: householdID))
+                    .execute().value
+            },
+            acceptAgreements: { terms, privacy, context, version in
+                try await client.rpc("accept_agreements", params: [
+                    "terms": terms, "privacy": privacy, "context": context.rawValue, "client": version
+                ]).execute()
+            },
+            agreeToOwnAllergies: { memberID, wording in
+                try await client.rpc("agree_to_own_allergies", params: [
+                    "target_member": memberID.uuidString, "wording": wording
+                ]).execute()
+            },
+            accessHold: {
+                try await client.rpc("my_access_hold").execute().value
             }
         )
+    }
+}
+
+/// Sends `target_household` even when it's nil (before a household): PostgREST finds the function by argument names.
+private struct AgreementsParams: Encodable, Sendable {
+    let targetHousehold: UUID?
+
+    enum CodingKeys: String, CodingKey {
+        case targetHousehold = "target_household"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(targetHousehold, forKey: .targetHousehold)
     }
 }
 

@@ -99,7 +99,10 @@ final class OnboardingModel {
             errorMessage = nil
             return true
         } catch {
-            errorMessage = String(localized: "Couldn't save the allergies. Check your connection and try again.")
+            // Wording newer than this build is in force (#277): retrying won't help, updating will.
+            errorMessage = AgreementRefusal(error) == .agreementOutdated
+                ? String(localized: "Foon's allergy wording changed. Update Foon to save allergies.")
+                : String(localized: "Couldn't save the allergies. Check your connection and try again.")
             return false
         }
     }

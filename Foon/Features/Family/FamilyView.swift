@@ -44,6 +44,8 @@ struct FamilyView: View {
                     }
                 }
 
+                AgreementCardsSection()
+
                 FamilyStatsSection(stats: store.stats)
 
                 if let household = store.household {

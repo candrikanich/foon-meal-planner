@@ -9,6 +9,7 @@ struct MemberAllergiesView: View {
     let member: Member
     let ownProfile: Bool
     @State private var model: AllergyEditorModel
+    @State private var agreeingOwn = false
 
     init(member: Member, ownProfile: Bool = false, household: HouseholdClient, library: LibraryClient) {
         self.member = member
@@ -34,8 +35,14 @@ struct MemberAllergiesView: View {
                         Button("Try again") { Task { await model.load() } }
                     }
                 case .ready:
-                    if model.canAdd {
-                        if model.showsStatement {
+                    if model.waitsForHouseholdConsent {
+                        Section {
+                            Text("Foon keeps allergies once a parent agrees. Ask a parent to add yours first.")
+                        }
+                    } else {
+                        if let block = model.addBlock {
+                            addBlockSection(block)
+                        } else if model.showsStatement {
                             Section { Text(AllergyConsent.statement).font(.callout) }
                         }
                         Section {
@@ -43,10 +50,6 @@ struct MemberAllergiesView: View {
                             TextField("Other (like kiwi)", text: $model.answer.otherText)
                         } footer: {
                             Text("Foon flags dishes with these. It's a helper, not a guarantee: still check labels.")
-                        }
-                    } else {
-                        Section {
-                            Text("Foon keeps allergies once a parent agrees. Ask a parent to add yours first.")
                         }
                     }
                     if let message = model.errorMessage {
@@ -71,6 +74,29 @@ struct MemberAllergiesView: View {
                     .disabled(!model.canSave)
                 }
             }
+            .sheet(isPresented: $agreeingOwn) {
+                OwnAllergiesAgreementView(memberID: member.id, summary: store.agreements.allergy?.ownSummary) {
+                    await model.refreshAgreements()
+                }
+            }
+        }
+    }
+
+    /// Adding waits on an agreement (#277); taking one away still saves.
+    private func addBlockSection(_ block: AllergyAddBlock) -> some View {
+        Section {
+            switch block {
+            case .waitingOnParent:
+                Text("A parent needs to agree to Foon's new allergy wording before anyone adds allergies.")
+            case .ownAgreementNeeded:
+                Text("Foon asks you to agree before it keeps new allergies on your profile.")
+                Button("Review") { agreeingOwn = true }
+                    .accessibilityHint("Shows what you agree to for your own allergies")
+            case .updateFoon:
+                Text("Update Foon to review the new wording.")
+            }
+        } footer: {
+            Text("You can still take allergies away, and the ones here still flag dishes.")
         }
     }
 }
@@ -103,6 +129,20 @@ struct MemberAllergiesView: View {
     let library = LibraryStore(householdID: Household.sample.id, client: .preview())
     return MemberAllergiesView(member: Member.sampleFamily[2], ownProfile: true, household: household,
                                library: .preview())
+        .environment(store)
+        .environment(library)
+        .task { await store.load() }
+}
+
+#Preview("Grace, before she agrees for her own") {
+    let grace = Member.sampleFamilySignedInAsGrace[2]
+    let store = HouseholdStore.preview()
+    var household = HouseholdClient.preview()
+    household.agreements = { _ in .previewOwnNeeded }
+    var allergies = LibraryClient.preview()
+    allergies.allergies = { _ in [AllergyRow(memberID: grace.id, allergen: .peanuts, customText: nil)] }
+    let library = LibraryStore(householdID: Household.sample.id, client: allergies)
+    return MemberAllergiesView(member: grace, ownProfile: true, household: household, library: allergies)
         .environment(store)
         .environment(library)
         .task { await store.load() }
