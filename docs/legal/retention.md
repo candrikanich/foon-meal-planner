@@ -24,9 +24,9 @@ Scheduled jobs run in the database (pg_cron), every day unless noted. Times are 
 | W | `prune_waitlist()` | `20261108000000_waitlist.sql` | Daily, 04:17 |
 | C | `purge_parental_consent_requests()` | `20261116000000_email_plus_consent.sql` | Daily, 04:23 |
 | J | `expire_ai_jobs()` | `20261103210000_ai_jobs.sql` | Hourly, :41 |
-| E | `erase_household()` | `20261107000000_entitlement.sql` | On Delete household or the owner's account delete |
+| E | `erase_household()` | `20261117000000_agreements.sql` | On Delete household or the owner's account delete |
 | D | `delete_account_data()` | `20261103040000_kid_delete_own_words.sql` | On Delete my account |
-| K | `delete_kid()` | `20261113000000_delete_kid.sql` | On a parent's Delete everything about a kid |
+| K | `delete_kid()` | `20261117000000_agreements.sql` | On a parent's Delete everything about a kid |
 
 Because a daily job runs once a day, a period can run up to a day longer than stated (for example, "1 day" can be up to
 2 days).
@@ -41,7 +41,8 @@ The household's own dinner history. All of it is erased at once when the househo
 | Household name, emoji, time zone, owner, settings, founding flag | Running the household |
 | Profiles: first name, avatar, adult or kid, parent, role, status, away dates, schedule | Who's in the family |
 | Allergies (`member_allergies`) | Flagging dishes; see below for earlier deletion |
-| Allergy and parental consent records (`consents`, `consent_agreements`) | Proof of consent |
+| Allergy and parental consent records (`consents`, `consent_agreements`: who agreed to which wording, when, how) | Proof of consent |
+| Agreement holds (`agreement_holds`): what was agreed, what was needed, when access was held and released, and why (#277) | Proof Foon asked again when a wording changed |
 | Meals, ingredients, sides, traditions | The family's library |
 | Meal photos (private Storage bucket `household-photos`) | Showing the dish; a replaced photo is deleted once the dish shows the new one (`set_meal_photo()`, then the app) |
 | Plans, nights, attendance, saved schedules | The week's plan |
@@ -52,8 +53,12 @@ The household's own dinner history. All of it is erased at once when the househo
 | Subscription status (`household_subscriptions` and the household's columns) | Entitlement |
 
 Consent records keep the ID of the account that agreed, without a database link to it, so they stay with the household
-when that parent deletes their account. They're erased with the household. A kid's parental consent record is deleted
-when a parent deletes everything about that kid (job **K**).
+when that parent deletes their account. They're erased with the household. A kid's parental consent record, their
+agreements and their hold are deleted when a parent deletes everything about that kid (job **K**).
+
+A hold keeps a held kid's account ID only while the hold is open, to link the account back when a parent renews; it's
+cleared when the hold ends (renewed, withdrawn, removed), and set empty if the account is deleted first. Not yet in
+force: no wording is in force, so no hold opens yet (#277).
 
 > **Review:** should consent records be kept for a period after a household is deleted, as proof of consent? Today they
 > are erased with it.
@@ -76,6 +81,7 @@ when a parent deletes everything about that kid (job **K**).
 | Parental consent requests (`parental_consent_requests`): kid, parent who asked, status, times | 30 days | Request ends: confirmed, refused, cancelled, or its 7-day link lapses | C |
 | An email address a parent typed for a consent request (their account had none) | Until the confirming email is sent or the request ends: at most 7 days, and up to a day more | Typed | `activate_parental_consent()`, the request's end, C |
 | Consent email bookkeeping (`parental_consent_sends`: who asked, when) | 1 day | Send | C |
+| Renewal requests for a held kid (#277): one per parent with a verified email, and one reminder 7 days on | 30 days, as other consent requests | Request ends | C |
 
 ## People who leave
 
@@ -101,7 +107,8 @@ and help. We never use it for ads, never sell it, and never send it anywhere for
 | Profile a parent enters: name, avatar, schedule | Who's home | The plan is built around who's home each night | In the household; anonymized 12 months after removal |
 | Allergies a parent enters | Flagging dishes | Every new dish and list is checked against them | Until removed, alerts off, or anonymized |
 | Parental consent record: who agreed, when, how (email plus, or in the app before #275), when the confirming email went out, the wording | Proof a parent agreed | To show consent was given, while the kid's information exists | While the household exists, or until a parent deletes everything about the kid |
-| Consent requests about the kid (status and times) | Asking a parent by email | Shows the parent where the request stands, and keeps the withdraw link working | 30 days after the request ends; at once if a parent deletes everything about the kid |
+| Consent requests about the kid (status, times, and whether it was a first consent or a renewal) | Asking a parent by email | Shows the parent where the request stands, and keeps the withdraw link working | 30 days after the request ends; at once if a parent deletes everything about the kid |
+| Agreement hold (#277, not yet in force): wording agreed and needed, when held and released, why; their account ID while held | Asking a parent again when the consent wording changes | Proof the kid was signed out until a parent agreed; the account ID links them back | Hold: while the household exists, or until a parent deletes everything about the kid. Account ID: until the hold ends |
 | Apple account ID and email (from Sign in with Apple), and first name if Apple shares it | Signing in | Needed for each sign-in | Until the kid deletes their account, or a parent deletes everything about them |
 | Apple age range (#88, not yet used) | Age checks | See the note on Texas below | Until consent is withdrawn (30 days) or the account is deleted |
 | What they enter (ratings, comments, votes) | Family planning | It's the family's dinner history, which planning draws on | As for all; erased 30 days after withdrawal |
@@ -197,6 +204,11 @@ released, and the reminder log about them is deleted. The parent-entered profile
 - **A kid deletes their account:** see Kids above (job **D**).
 - **A parent deletes everything about a kid:** the kid's information and sign-in account go at once; see Kids above
   (job **K**).
+- **Terms and Privacy acceptances** (`account_agreements`, #277): which wording each account accepted, when, where in
+  the app and the app's version. Kept after the account is deleted, as proof of what was agreed: the record holds the
+  account ID with no database link to it, and nothing else about the person. Deleted with the account only when a
+  parent deletes everything about a kid (job **K**). Neither `delete_account_data()` nor the `delete-account` Edge
+  Function touches it. Not yet asked: no Terms or Privacy wording is in force.
 - **Any account:** Foon's Sign in with Apple token is revoked first; if Apple refuses, nothing is deleted. Push devices,
   import counts and invite guesses are deleted, then the sign-in account itself (`delete-account` Edge Function, job
   **D**, foreign-key cascades).
