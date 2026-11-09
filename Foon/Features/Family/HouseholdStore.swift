@@ -8,40 +8,17 @@ final class HouseholdStore {
         case loading
         case needsHousehold
         case ready(Household)
+        /// A kid's own device, signed out until a parent agrees to the kids' wording again (#277).
+        case held(AccessHold)
         case failed
     }
 
-    /// What the signed-in person may change on a member's profile. Mirrors the database rules
-    /// (`members_guard_write`) so the UI never offers a change the server will refuse.
-    enum EditScope: Equatable {
-        /// A parent editing someone else: everything, including removal.
-        case everything
-        /// The owner editing themselves: not age or parent, which must stay adult and parent.
-        case ownProfileAsOwner
-        /// Another parent editing the owner's profile: name and avatar only.
-        case nameAndAvatar
-        /// Anyone else editing themselves.
-        case avatarOnly
-        case none
-
-        var name: Bool { [.everything, .ownProfileAsOwner, .nameAndAvatar].contains(self) }
-        var identity: Bool { self == .everything }
-        var planning: Bool { [.everything, .ownProfileAsOwner].contains(self) }
-        /// Everyone edits their own usual schedule; parents can change anyone's.
-        var schedule: Bool { self != .none }
-    }
-
-    /// Whose allergies the signed-in person may change. Mirrors `set_member_allergies` and member_allergies' policies.
-    enum AllergyScope: Equatable {
-        /// A parent: anyone's, and they agree for the household to keep them.
-        case asParent
-        /// An adult who isn't a parent, on their own profile: they add and remove their own one at a time, under the
-        /// household's agreement (#285). Kids' stay with their parents.
-        case own
-        case none
-    }
-
     private(set) var phase: Phase = .loading
+    /// What this person has agreed to and what's waiting (#277). Stays dormant when it can't be read: the server
+    /// enforces the holds either way.
+    private(set) var agreements = AgreementStatus.dormant
+    /// Joined by invite in this session, so a first Terms agreement is logged as made on joining.
+    private(set) var joinedJustNow = false
     private(set) var members: [Member] = []
     private(set) var errorMessage: String?
     private(set) var isLoading = false
@@ -261,22 +238,29 @@ final class HouseholdStore {
         let generation = loadGeneration
         do {
             guard let loaded = try await client.myHousehold() else {
+                // A held kid's account has no household either. Not knowing is a failure, never "not held": a held
+                // kid who started a household of their own couldn't be linked back.
+                let hold = try await readAccessHold()
+                let status = hold == nil ? try? await client.agreements(nil) : nil
                 guard generation == loadGeneration else { return }
-                phase = .needsHousehold
+                agreements = status ?? agreements
+                phase = hold.map(Phase.held) ?? .needsHousehold
                 return
             }
             let loadedMembers = try await client.members(loaded.id)
             let invited = (try? await client.invitedMemberIDs(loaded.id)) ?? []
             let consents = (try? await client.parentalConsentMemberIDs(loaded.id)) ?? []
+            let status = try? await client.agreements(loaded.id)
             guard generation == loadGeneration else { return }
             members = loadedMembers
             invitedMemberIDs = invited
             parentalConsentMemberIDs = consents
+            agreements = status ?? agreements
             phase = .ready(loaded)
         } catch {
             // A view going away cancels its load; that isn't a failure to show.
             guard generation == loadGeneration, !Task.isCancelled, !quietly else { return }
-            if household == nil { phase = .failed }
+            if household == nil, !phase.isHeld { phase = .failed }
             errorMessage = String(localized: "Couldn't load your household. Check your connection and try again.")
             return
         }
@@ -571,6 +555,21 @@ final class HouseholdStore {
         } catch {
             errorMessage = String(localized: "Your household is ready. Pull to refresh to see your family.")
         }
+        await reloadAgreements()
+    }
+
+    /// Reads what's waiting again, after an agreement or when a card opens. Keeps what it knew if it can't.
+    func reloadAgreements() async {
+        guard let status = try? await client.agreements(household?.id) else { return }
+        agreements = status
+    }
+
+    /// Agree went through: the gate goes now, whether or not the reload after it gets through. A later gate (changed
+    /// wording) wasn't agreed on joining.
+    func recordTermsAccepted() async {
+        agreements = agreements.acceptingTerms()
+        joinedJustNow = false
+        await reloadAgreements()
     }
 
     /// Adds a member (`editing` nil) or saves changes to one, given as it was when the draft started from it. Only what the
@@ -644,11 +643,6 @@ final class HouseholdStore {
         }
     }
 
-    /// Parents invite profiles nobody has claimed yet.
-    func canInvite(_ member: Member) -> Bool {
-        canManagePeople && member.userID == nil && member.status != .removed
-    }
-
     /// Creates an invite and returns the code to share, or nil with a message.
     func invite(_ member: Member) async -> String? {
         errorMessage = nil
@@ -662,14 +656,15 @@ final class HouseholdStore {
         }
     }
 
-    /// A kid's invite needs a parent's verified consent first (COPPA, #12, #275).
+    /// A kid's invite needs a parent's verified consent first (COPPA, #12, #275), to the kids' wording in force (#277).
     func needsParentalConsent(_ member: Member) -> Bool {
-        member.ageGroup == .kid && !parentalConsentMemberIDs.contains(member.id)
+        member.ageGroup == .kid && (!parentalConsentMemberIDs.contains(member.id) || kidHold(for: member) != nil)
     }
 
     /// What a kid's invite section offers: Email me, Check your email, and so on, up to Invite.
     func consentStep(for member: Member, now: Date = .now) -> ParentalConsentStep {
-        consentRequests.step(for: member.id, hasConsent: !needsParentalConsent(member), me: userID, now: now) { userID in
+        consentRequests.step(for: member.id, hasConsent: !needsParentalConsent(member), me: userID, now: now,
+                             renewing: kidHold(for: member) != nil) { userID in
             members.first { $0.userID == userID }?.firstName
         }
     }
@@ -682,11 +677,16 @@ final class HouseholdStore {
         let client = client
         async let consents = client.parentalConsentMemberIDs(household.id)
         async let requests = client.parentalConsentRequests(household.id)
+        async let status = client.agreements(household.id)
         if let loaded = try? await consents, self.household?.id == household.id {
             parentalConsentMemberIDs = loaded
         }
+        // A renewal agreed in the email ends the kid's hold.
+        if let loaded = try? await status, self.household?.id == household.id {
+            agreements = loaded
+        }
         if let loaded = try? await requests, self.household?.id == household.id, generation == consentGeneration {
-            consentRequests.replace(with: loaded)
+            consentRequests.replace(with: loaded, me: userID)
         }
     }
 
@@ -701,7 +701,11 @@ final class HouseholdStore {
         }
         do {
             let answer = try await client.requestParentalConsent(member.id, email)
-            if answer == .alreadyConsented { parentalConsentMemberIDs.insert(member.id) }
+            if answer == .alreadyConsented {
+                parentalConsentMemberIDs.insert(member.id)
+                // A renewal agreed in the email: the hold has ended, so the section moves on to Invite.
+                await reloadAgreements()
+            }
             consentRequests.record(answer, for: member, me: userID, now: now)
         } catch {
             // A refusal often means the request moved on elsewhere (agreed, or the kid joined): show where it is. The
@@ -709,10 +713,6 @@ final class HouseholdStore {
             await loadConsentRequests()
             consentRequests.record(error, for: member.id)
         }
-    }
-
-    func canWithdrawConsent(_ member: Member) -> Bool {
-        canManagePeople && member.ageGroup == .kid && parentalConsentMemberIDs.contains(member.id)
     }
 
     /// Withdraws a kid's parental consent: their account is unlinked at once and open invites end;
@@ -734,11 +734,6 @@ final class HouseholdStore {
             errorMessage = String(localized: "Couldn't withdraw consent. Check your connection and try again.")
             return false
         }
-    }
-
-    /// Any parent, for any kid (COPPA 312.6, #278). The server checks both.
-    func canDeleteKid(_ member: Member) -> Bool {
-        canManagePeople && member.ageGroup == .kid
     }
 
     /// Deletes the kid's profile, everything about them, and their sign-in account, at once. Returns whether they're
@@ -780,6 +775,7 @@ final class HouseholdStore {
                 errorMessage = result.message
                 return
             }
+            joinedJustNow = true
             await load()
         } catch {
             errorMessage = String(localized: "Couldn't check that code. Check your connection and try again.")

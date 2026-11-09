@@ -22,6 +22,11 @@ struct AllergyChoice: Equatable, Sendable {
 
     private var customKeys: Set<String> { Set(custom.map(Self.key)) }
 
+    /// Only takes away from `old`: what an agreement hold still allows (#277).
+    func onlyRemoves(from old: AllergyChoice) -> Bool {
+        allergens.isSubset(of: old.allergens) && customKeys.isSubset(of: old.customKeys)
+    }
+
     static func == (lhs: AllergyChoice, rhs: AllergyChoice) -> Bool {
         lhs.allergens == rhs.allergens && lhs.customKeys == rhs.customKeys
     }
@@ -66,6 +71,9 @@ final class AllergyEditorModel {
     var answer = OnboardingModel.Answer()
     /// Whether a parent has agreed to keep allergy data. Only read for an adult's own profile: a parent agrees on save.
     private(set) var householdAgreed = true
+    /// Why adding waits on an agreement (#277); nil while nothing new is in force, or when it couldn't be read, since
+    /// the server refuses an add past a hold anyway.
+    private(set) var addBlock: AllergyAddBlock?
 
     /// Bumped per load, so Try again finishing first can't be overwritten by the load it replaced.
     private var loadGeneration = 0
@@ -89,15 +97,19 @@ final class AllergyEditorModel {
     /// The sentence saying what Foon does with allergies, shown whenever the answer keeps any.
     var showsStatement: Bool { !answer.isEmpty }
 
-    /// A parent agrees to it on save; an adult on their own profile is under the agreement a parent already gave.
-    var needsConsent: Bool { !ownProfile && showsStatement }
+    /// A parent agrees to it on save; an adult on their own profile is under the agreement a parent already gave. Not
+    /// while adding is blocked: this build's sentence isn't the wording in force then.
+    var needsConsent: Bool { !ownProfile && showsStatement && addBlock == nil }
 
-    /// Adding needs the household's agreement; taking away never does.
-    var canAdd: Bool { !ownProfile || householdAgreed }
+    /// An adult on their own profile in a family where no parent has agreed to keep allergies.
+    var waitsForHouseholdConsent: Bool { ownProfile && !householdAgreed }
+
+    /// Adding needs the household's agreement (and the adult's own, on their profile); taking away never does.
+    var canAdd: Bool { !waitsForHouseholdConsent && addBlock == nil }
 
     var canSave: Bool {
         let edit = AllergyChoice(answer)
-        return phase == .ready && !isSaving && edit != loaded && (canAdd || edit.isEmpty)
+        return phase == .ready && !isSaving && edit != loaded && (canAdd || edit.onlyRemoves(from: loaded))
     }
 
     func load() async {
@@ -107,8 +119,10 @@ final class AllergyEditorModel {
         do {
             let rows = try await library.allergies(householdID)
             let agreed = try await ownProfile ? household.allergyAlerts(householdID) == .on : true
+            let block = await readAddBlock()
             guard generation == loadGeneration else { return }
             householdAgreed = agreed
+            addBlock = block
             loaded = AllergyChoice(rows: rows, memberID: memberID)
             answer = OnboardingModel.Answer(allergens: loaded.allergens,
                                             otherText: loaded.custom.sorted().joined(separator: ", "))
@@ -136,6 +150,11 @@ final class AllergyEditorModel {
             errorMessage = nil
             return merged
         } catch {
+            if let refusal = AgreementRefusal(error) {
+                errorMessage = refusal.message(ownProfile: ownProfile)
+                await refreshAgreements()
+                return nil
+            }
             let refused = (error as? PostgrestError)?.code == "42501"
             errorMessage = switch (refused, ownProfile) {
             // Signed out elsewhere, removed, or a parent turned allergy alerts off while this was open.
@@ -155,6 +174,42 @@ final class AllergyEditorModel {
         guard let alerts = try? await household.allergyAlerts(householdID), alerts != .on else { return }
         householdAgreed = false
         errorMessage = nil
+    }
+
+    /// Reads the agreements again without touching the answer: after a refusal, or after agreeing in a sheet.
+    func refreshAgreements() async {
+        addBlock = await readAddBlock()
+    }
+
+    private func readAddBlock() async -> AllergyAddBlock? {
+        guard let status = try? await household.agreements(householdID) else { return nil }
+        return AgreementPrompts.addBlock(status, ownProfile: ownProfile)
+    }
+}
+
+/// A save the database refused because an agreement is outdated (#277): `set_member_allergies` and the allergy lock
+/// raise 42501 with one of these hints.
+enum AgreementRefusal: String, Equatable {
+    case agreementOutdated = "agreement_outdated"
+    case ownAgreementNeeded = "own_agreement_needed"
+
+    init?(_ error: any Error) {
+        guard let error = error as? PostgrestError, error.code == "42501",
+              let refusal = error.hint.flatMap(AgreementRefusal.init(rawValue:)) else { return nil }
+        self = refusal
+    }
+
+    func message(ownProfile: Bool) -> String {
+        switch (self, ownProfile) {
+        case (.agreementOutdated, true):
+            String(localized: """
+            A parent needs to agree to Foon's new allergy wording before you add any. Taking one away still works.
+            """)
+        case (.agreementOutdated, false):
+            String(localized: "Agree to Foon's new allergy wording on Family first. Taking one away still works.")
+        case (.ownAgreementNeeded, _):
+            String(localized: "Agree to keep your allergies in Foon first. Taking one away still works.")
+        }
     }
 }
 

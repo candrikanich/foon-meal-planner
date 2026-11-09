@@ -64,7 +64,7 @@ struct MemberInviteSection: View {
                     )
                 )
             } else if store.needsParentalConsent(member) {
-                ParentalConsentRows(member: member)
+                ParentalConsentRows(member: member, renewal: store.kidHold(for: member))
             } else {
                 Button(store.invitedMemberIDs.contains(member.id) ? "Invite again" : "Invite \(member.firstName)") {
                     Task {
@@ -80,7 +80,11 @@ struct MemberInviteSection: View {
                 Text(inviteFailure).font(.callout).foregroundStyle(.red)
             }
         } header: {
-            Text("Invite")
+            if store.kidHold(for: member) != nil {
+                Text("Needs a parent's OK again")
+            } else {
+                Text("Invite")
+            }
         } footer: {
             if inviteCode != nil {
                 Text("This code is shown only now. Inviting again replaces it.")

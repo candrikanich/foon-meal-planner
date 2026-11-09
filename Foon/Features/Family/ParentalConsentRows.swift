@@ -1,16 +1,22 @@
 import SwiftUI
 
 /// A kid's invite section until a parent's consent is active (COPPA email plus, #275): Foon emails the parent, who
-/// agrees on getfoon.com. The invite itself is made here once consent is active.
+/// agrees on getfoon.com. The invite itself is made here once consent is active. With `renewal`, the kid is signed out
+/// until a parent agrees to changed wording (#277), and the same email renews it.
 struct ParentalConsentRows: View {
     @Environment(HouseholdStore.self) private var store
     let member: Member
+    var renewal: AgreementStatus.KidHold?
     @State private var typedEmail = ""
     @State private var isSending = false
 
     var body: some View {
         let step = store.consentStep(for: member)
-        explanation(for: step)
+        if let renewal {
+            renewalExplanation(renewal, step: step)
+        } else {
+            explanation(for: step)
+        }
         if step.offersPolicyLinks {
             PolicyLinks()
         }
@@ -25,7 +31,7 @@ struct ParentalConsentRows: View {
                 .textInputAutocapitalization(.never)
                 #endif
         }
-        if let title = step.button {
+        if let title = step.button(renewing: renewal != nil) {
             Button(title) {
                 Task { await send() }
             }
@@ -43,6 +49,29 @@ struct ParentalConsentRows: View {
         let email = store.consentRequests.needsTypedEmail(member.id) ? typedEmail : nil
         await store.askForConsent(member, email: email)
         isSending = false
+    }
+
+    /// Asking again: what changed and that nothing was deleted, whatever the step, since the renewal email usually
+    /// means a request is already waiting; then the step, worded for asking again. The kid may never have signed in, so it
+    /// doesn't say they were signed out.
+    @ViewBuilder
+    private func renewalExplanation(_ hold: AgreementStatus.KidHold, step: ParentalConsentStep) -> some View {
+        Text("""
+        Foon changed what parents agree to for kids. \(member.firstName) needs a parent's OK again before using \
+        Foon. Nothing was deleted.
+        """)
+        .font(.callout)
+        if let summary = hold.summary {
+            Text(summary).font(.callout).foregroundStyle(.secondary)
+        }
+        if let emailed = hold.emailedMeAt {
+            Text("We emailed you on \(emailed, format: .dateTime.month(.wide).day()).")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        if let line = step.renewalLine(firstName: member.firstName) {
+            Text(line).font(.callout)
+        }
     }
 
     @ViewBuilder
@@ -80,14 +109,42 @@ struct ParentalConsentRows: View {
 
 extension ParentalConsentStep {
     /// What the one button says, if the step has one; every one sends email 1.
-    var button: LocalizedStringKey? {
+    var button: LocalizedStringKey? { button(renewing: false) }
+
+    /// Asking again after the kids' wording changed (#277), the first button sends "the form".
+    func button(renewing: Bool) -> LocalizedStringKey? {
         switch self {
-        case .emailMe: "Email me"
+        case .emailMe: renewing ? "Email me the form" : "Email me"
         case .checkEmail(_, .me): "Send again"
         case .checkEmail(_, .otherParent): "Email me instead"
         case .refused: "Ask again"
         case .sendNewEmail: "Send a new email"
         case .almostDone, .invite: nil
+        }
+    }
+
+    /// Asking again after the kids' wording changed (#277): what this step adds under the hold's lines, never about
+    /// inviting. Nil when the hold's lines say it all.
+    func renewalLine(firstName name: String) -> String? {
+        let another = String(localized: "another parent", comment: "Stands in for a parent whose name isn't known")
+        return switch self {
+        case .emailMe, .sendNewEmail, .invite: nil
+        case .checkEmail(let sentTo, .me):
+            String(localized: """
+            Check your email. We sent the form to \(sentTo.description). Once you agree there, \(name) can use Foon.
+            """)
+        case .checkEmail(_, .otherParent(let parent)):
+            String(localized: "Foon emailed \(parent ?? another) the form. Once a parent agrees, \(name) can use Foon.")
+        case .almostDone(.me):
+            String(localized: "Almost done. Open the email and tap I agree again to finish.")
+        case .almostDone(.otherParent(let parent)):
+            String(localized: "Almost done: \(parent ?? another) agreed in the email, and it's finishing up.")
+        case .refused(.me):
+            String(localized: "You said no in the email. \(name) can't use Foon until a parent agrees.")
+        case .refused(.otherParent(let parent?)):
+            String(localized: "\(parent) said no in the email. \(name) can't use Foon until a parent agrees.")
+        case .refused(.otherParent(nil)):
+            String(localized: "A parent said no in the email. \(name) can't use Foon until a parent agrees.")
         }
     }
 
@@ -169,3 +226,17 @@ private func previewRequest(_ status: ParentalConsentRequest.Status, by parent: 
 #Preview("Email is off") { consentPreview(error: .emailOff) }
 
 #Preview("Invite") { consentPreview(consented: true) }
+
+#Preview("Signed out until a parent agrees again") {
+    let owen = Member.sampleFamily[3]
+    var client = HouseholdClient.preview()
+    client.parentalConsentMemberIDs = { _ in [owen.id] }
+    client.agreements = { _ in .previewHeld }
+    let store = HouseholdStore(userID: .previewUser, client: client)
+    return NavigationStack { List { MemberInviteSection(member: owen) } }
+        .environment(store)
+        .task {
+            await store.load()
+            await store.loadConsentRequests()
+        }
+}

@@ -100,23 +100,21 @@ struct HouseholdGate: View {
                 ProgressView()
             case .needsHousehold:
                 CreateHouseholdView()
-                    .task {
-                        // No household for this account (the owner deleted it, or this person was removed): nothing
-                        // of the old one may stay on the device. Their sync service stops first, so no late
-                        // pull can refill the cache.
-                        SyncServices.shared.stopCurrent()
-                        try? SyncService.clearCache(in: context)
-                        ReminderStore.clearDevice()
-                        CalendarBusyStore.clearDevice()
-                        DinnerMemoriesStore.clearDevice()
-                        TonightFile.shared?.clear()
-                    }
+                    .task { clearHouseholdFromDevice() }
+            case .held(let hold):
+                // Signed out of the household like a withdrawal, so nothing of it stays here meanwhile.
+                HeldAccessView(hold: hold)
+                    .task { clearHouseholdFromDevice() }
             case .ready(let household):
-                SyncGate(householdID: household.id, client: syncClient) {
-                    RootTabView(householdID: household.id, libraryClient: libraryClient, weekClient: weekClient,
-                                dinnerClient: dinnerClient, ideasClient: ideasClient, freezerClient: freezerClient,
-                                notificationClient: notificationClient, pollClient: pollClient,
-                                subscriptionClient: subscriptionClient, storeKit: storeKit)
+                if let gate = store.termsGate() {
+                    AgreementsGateView(gate: gate)
+                } else {
+                    SyncGate(householdID: household.id, client: syncClient) {
+                        RootTabView(householdID: household.id, libraryClient: libraryClient, weekClient: weekClient,
+                                    dinnerClient: dinnerClient, ideasClient: ideasClient, freezerClient: freezerClient,
+                                    notificationClient: notificationClient, pollClient: pollClient,
+                                    subscriptionClient: subscriptionClient, storeKit: storeKit)
+                    }
                 }
             case .failed:
                 ContentUnavailableView {
@@ -131,6 +129,18 @@ struct HouseholdGate: View {
         }
         .environment(store)
         .task { await store.load() }
+    }
+
+    /// No household for this account (the owner deleted it, this person was removed, or a hold signed them out):
+    /// nothing of the old one may stay on the device. Their sync service stops first, so no late pull can refill the
+    /// cache.
+    private func clearHouseholdFromDevice() {
+        SyncServices.shared.stopCurrent()
+        try? SyncService.clearCache(in: context)
+        ReminderStore.clearDevice()
+        CalendarBusyStore.clearDevice()
+        DinnerMemoriesStore.clearDevice()
+        TonightFile.shared?.clear()
     }
 }
 
@@ -172,4 +182,26 @@ struct ConfigurationMissingView: View {
 
 #Preview("Not configured") {
     ConfigurationMissingView()
+}
+
+#Preview("Signed in, Terms to agree to") {
+    let session = SessionStore(auth: .preview(signedIn: .previewUser))
+    var client = HouseholdClient.preview()
+    client.agreements = { _ in .previewTermsNew }
+    return RootView(householdClient: client, syncClient: .preview, libraryClient: .preview(), weekClient: .preview(),
+                    dinnerClient: .preview, ideasClient: .preview(), freezerClient: .preview)
+        .environment(session)
+        .modelContainer(try! SyncService.inMemoryContainer())
+        .task { await session.start() }
+}
+
+#Preview("A kid signed out until a parent agrees") {
+    let session = SessionStore(auth: .preview(signedIn: UUID()))
+    var client = HouseholdClient.preview(household: nil)
+    client.accessHold = { .preview }
+    return RootView(householdClient: client, syncClient: .preview, libraryClient: .preview(), weekClient: .preview(),
+                    dinnerClient: .preview, ideasClient: .preview(), freezerClient: .preview)
+        .environment(session)
+        .modelContainer(try! SyncService.inMemoryContainer())
+        .task { await session.start() }
 }
