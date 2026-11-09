@@ -15,13 +15,15 @@ How the waitlist behaves is in [spec.md](spec.md) (Marketing presence). This is 
 The live site uses Foon production (`itnhdikhdsujklaimqqd`), not staging. Vercel deploys the site to production on every
 merge to main. The database and Edge Functions follow through **Deploy production**
 (`.github/workflows/deploy-production.yml`), which runs on its own once **Deploy staging** has deployed a merge to main
-without errors, with exactly the commit staging got: a migration that fails on staging never reaches production.
-Staging only deploys when a merge touches `supabase/migrations`, `supabase/functions`, `supabase/seed` or
-`supabase/config.toml`, so the same is true of production. It can also be started by hand: Actions → Deploy production
-→ Run workflow on `main`, type `production`. Either way it refuses any other branch and any project but
-`itnhdikhdsujklaimqqd`, then runs the same steps as staging (migrations, starter catalog, all Edge Functions). While
-the `production` environment has a required reviewer, every run (automatic ones too) waits for that approval; with
-none, a merge reaches production a minute or two after staging. The plan from 2026-11-09, while only testers use Foon,
+without errors, with exactly the commit staging got, so a migration that fails on staging stops there. It skips a
+commit when main already has a newer backend change (say someone re-runs an old staging run), so production never
+goes backwards. Staging only deploys when a merge touches `supabase/migrations`, `supabase/functions`, `supabase/seed`,
+`supabase/config.toml` or its own workflow, so the same is true of production. It can also be started by hand:
+Actions → Deploy production → Run workflow on `main`, type `production`; that deploys main as it is, whether or not
+staging got it. Either way it refuses any other branch and any project but `itnhdikhdsujklaimqqd`, then runs the same
+steps as staging (migrations, starter catalog, all Edge Functions). While the `production` environment has a required
+reviewer, every run (automatic ones too) waits for that approval; with none, a merge reaches production a minute or
+two after staging. The plan from 2026-11-09, while only testers use Foon,
 is no reviewer; add one back before launch, because a migration can't be undone.
 
 One-time setup, done by Chris (values never go in the repo or a chat):
