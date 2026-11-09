@@ -4,13 +4,15 @@
 //   POST ?consent=<token>  {decision}                  from that page: lookup, agree or refuse
 //   GET  ?withdraw=<token>                             email 2's link: only a redirect to /consent/withdraw
 //   POST ?withdraw=<token> {decision}                  from that page: lookup or withdraw
+//   POST ?renewals=1  with x-consent-cron-secret       pg_cron (kick_consent_renewals): email held kids' parents (#277)
 // A GET never changes anything, because link scanners (Safe Links, Mimecast) open every link in an email. Consent is
-// active only once email 2 has gone out: agree, send email 2, then activate.
+// active only once email 2 has gone out: agree, send email 2, then activate. Only the wording in force (TEXT_VERSION)
+// is ever emailed: when the database asks for another, nothing is sent and the answer is 503.
 // Everything about storage and mail is behind ConsentDeps so the rules here are testable without either.
 import { z } from "zod";
 import type { Email } from "../_shared/resend.ts";
-import { tokenPattern } from "../_shared/token.ts";
-import { confirmationEmail, noticeEmail, TEXT_VERSION } from "./email.ts";
+import { sameSecret, tokenPattern } from "../_shared/token.ts";
+import { confirmationEmail, noticeEmail, renewalNoticeEmail, TEXT_VERSION } from "./email.ts";
 
 export type RequestResult =
   | { outcome: "already_consented" | "no_email" | "rate_limited" }
@@ -21,11 +23,35 @@ export type RequestResult =
     email: string;
     emailSource: "account" | "typed";
     firstName: string;
+    // renewal: the kid's consent is active but was given to older wording.
+    reason: "invite" | "renewal";
+    // The parental wording in force, or null while none is (then any registered wording may be sent).
+    textVersion: string | null;
   };
 
+export interface Renewal {
+  // The registry's "what changed" for the wording asked for.
+  summary: string | null;
+  // When a parent last agreed for this kid (ISO).
+  agreedBefore: string | null;
+}
+
 export type LookupResult =
-  | { outcome: "pending"; firstName: string; expiresAt: string }
+  | { outcome: "pending"; firstName: string; expiresAt: string; renewal?: Renewal }
   | { outcome: "confirmed" | "withdrawn" | "refused" | "already_consented" | "expired" | "invalid" };
+
+// One renewal email claim_consent_renewal_emails reserved.
+export interface RenewalClaim {
+  requestId: string;
+  sendId: number;
+  email: string;
+  firstName: string;
+  reminder: boolean;
+  heldVersion: string;
+  requiredVersion: string;
+  summary: string | null;
+  agreedAt: string | null;
+}
 
 export type DecideResult =
   | { outcome: "confirmed" | "withdrawn" | "refused" | "already_consented" | "expired" | "invalid" | "busy" }
@@ -61,6 +87,10 @@ export interface ConsentDeps {
   activate(requestId: string, withdrawTokenHash: string): Promise<"confirmed" | "already_consented" | "expired">;
   withdrawLookup(tokenHash: string): Promise<WithdrawLookupResult>;
   withdraw(tokenHash: string): Promise<"withdrawn" | "expired" | "invalid">;
+  // CONSENT_CRON_SECRET: what pg_cron sends in x-consent-cron-secret. Unset, renewal mode refuses every call.
+  cronSecret: string | undefined;
+  // claim_consent_renewal_emails: reserves up to `batchSize` renewal emails.
+  claimRenewals(batchSize: number): Promise<RenewalClaim[]>;
   newToken(): string;
   sha256(value: string): Promise<string>;
   // "off" when email isn't configured (nothing sent); a send that fails throws.
@@ -115,52 +145,133 @@ function json(status: number, body: Record<string, unknown>, origin: string | nu
 
 const redirect = (url: string) => new Response(null, { status: 303, headers: { Location: url } });
 
-// Mails the notice and, only if that worked, records its token. If it didn't go out the reservation is released, so
-// Send again works and failures never fill the limits.
-async function sendNotice(deps: ConsentDeps, send: Extract<RequestResult, { outcome: "send" }>): Promise<Response> {
-  const release = () =>
-    deps.releaseSend({ requestId: send.requestId, sendId: send.sendId })
-      .catch((error) => deps.log(`parental-consent: could not release send ${send.sendId}`, error));
+type Reservation = { requestId: string; sendId: number };
+type Delivery = "sent" | "send_failed" | "email_off" | "not_pending" | "not_recorded";
+
+const releaseReservation = (deps: ConsentDeps, reservation: Reservation) =>
+  deps.releaseSend(reservation)
+    .catch((error) => deps.log(`parental-consent: could not release send ${reservation.sendId}`, error));
+
+// Mails a notice and, only if that worked, records its token and wording. If it didn't go out the reservation is
+// released, so Send again (or the next renewal run) works and failures never fill the limits.
+async function deliverNotice(
+  deps: ConsentDeps,
+  reservation: Reservation,
+  to: string,
+  compose: (consentUrl: string) => Omit<Email, "to">,
+): Promise<Delivery> {
   const token = deps.newToken();
   let result: "sent" | "off";
   try {
-    result = await deps.sendEmail({
-      to: send.email,
-      ...noticeEmail({
-        firstName: send.firstName,
-        consentUrl: `${deps.functionUrl}?consent=${token}`,
-        emailSource: send.emailSource,
-      }),
-    });
+    result = await deps.sendEmail({ to, ...compose(`${deps.functionUrl}?consent=${token}`) });
   } catch (error) {
-    deps.log(`parental-consent: notice not sent for request ${send.requestId}`, error);
-    await release();
-    return json(502, { error: "send_failed" });
+    deps.log(`parental-consent: notice not sent for request ${reservation.requestId}`, error);
+    await releaseReservation(deps, reservation);
+    return "send_failed";
   }
   if (result === "off") {
     deps.log("parental-consent: email is off (RESEND_API_KEY or CONSENT_FROM unset); nothing sent");
-    await release();
-    return json(503, { error: "email_off" });
+    await releaseReservation(deps, reservation);
+    return "email_off";
   }
   try {
     const recorded = await deps.markSent({
-      requestId: send.requestId,
-      sendId: send.sendId,
+      ...reservation,
       tokenHash: await deps.sha256(token),
       textVersion: TEXT_VERSION,
     });
     if (!recorded) {
       // The request changed while the email was going out, so its link won't work. The app reloads the real state.
-      deps.log(`parental-consent: notice sent for request ${send.requestId}, which was no longer pending`);
-      return json(500, { error: "try_again" });
+      deps.log(`parental-consent: notice sent for request ${reservation.requestId}, which was no longer pending`);
+      return "not_pending";
     }
   } catch (error) {
     // The email is out but its token wasn't saved, so its link won't work. The send still counts toward the daily and
     // hourly limits.
-    deps.log(`parental-consent: notice sent but not recorded for request ${send.requestId}`, error);
-    return json(500, { error: "try_again" });
+    deps.log(`parental-consent: notice sent but not recorded for request ${reservation.requestId}`, error);
+    return "not_recorded";
   }
-  return json(200, { result: "sent", requestId: send.requestId, email: send.email, emailSource: send.emailSource });
+  return "sent";
+}
+
+const logOutdatedWording = (deps: ConsentDeps, inForce: string) =>
+  deps.log(`parental-consent: the wording in force is ${inForce}, this function sends ${TEXT_VERSION}; nothing sent`);
+
+async function sendNotice(deps: ConsentDeps, send: Extract<RequestResult, { outcome: "send" }>): Promise<Response> {
+  const reservation = { requestId: send.requestId, sendId: send.sendId };
+  if (send.textVersion !== null && send.textVersion !== TEXT_VERSION) {
+    logOutdatedWording(deps, send.textVersion);
+    await releaseReservation(deps, reservation);
+    return json(503, { error: "wording_outdated" });
+  }
+  const delivery = await deliverNotice(deps, reservation, send.email, (consentUrl) =>
+    send.reason === "renewal"
+      // The app's request carries neither what changed nor when a parent agreed: the email words itself without them.
+      ? renewalNoticeEmail({
+        firstName: send.firstName,
+        consentUrl,
+        emailSource: send.emailSource,
+        summary: null,
+        agreedBefore: null,
+        reminder: false,
+      })
+      : noticeEmail({ firstName: send.firstName, consentUrl, emailSource: send.emailSource }));
+  switch (delivery) {
+    case "send_failed":
+      return json(502, { error: "send_failed" });
+    case "email_off":
+      return json(503, { error: "email_off" });
+    case "not_pending":
+    case "not_recorded":
+      return json(500, { error: "try_again" });
+    case "sent":
+      return json(200, { result: "sent", requestId: send.requestId, email: send.email, emailSource: send.emailSource });
+  }
+}
+
+// 50 a run, every 15 minutes, stays inside the 200-an-hour overall cap the claim also checks.
+export const RENEWAL_BATCH = 50;
+
+// pg_cron's poke: email the renewal notice to each parent claimed. A claim for wording other than TEXT_VERSION (the
+// function wasn't deployed with the new wording yet) is released unsent and the run answers 503, so it shows in the
+// logs; the next run claims it again.
+async function sendRenewals(req: Request, deps: ConsentDeps): Promise<Response> {
+  const given = req.headers.get("x-consent-cron-secret");
+  if (!deps.cronSecret || !given || !sameSecret(given, deps.cronSecret)) return json(401, { error: "unauthorized" });
+
+  const claims = await deps.claimRenewals(RENEWAL_BATCH);
+  const totals = { sent: 0, failed: 0, outdated: 0, unrecorded: 0 };
+  let emailOff = false;
+  for (const claim of claims) {
+    const reservation = { requestId: claim.requestId, sendId: claim.sendId };
+    if (claim.requiredVersion !== TEXT_VERSION) {
+      logOutdatedWording(deps, claim.requiredVersion);
+      await releaseReservation(deps, reservation);
+      totals.outdated += 1;
+      continue;
+    }
+    if (emailOff) {
+      await releaseReservation(deps, reservation);
+      totals.failed += 1;
+      continue;
+    }
+    const delivery = await deliverNotice(deps, reservation, claim.email, (consentUrl) =>
+      renewalNoticeEmail({
+        firstName: claim.firstName,
+        consentUrl,
+        emailSource: "account",
+        summary: claim.summary,
+        agreedBefore: claim.agreedAt,
+        reminder: claim.reminder,
+      }));
+    if (delivery === "sent") totals.sent += 1;
+    else if (delivery === "not_pending" || delivery === "not_recorded") totals.unrecorded += 1;
+    else totals.failed += 1;
+    if (delivery === "email_off") emailOff = true;
+  }
+  if (totals.outdated > 0) return json(503, { error: "wording_outdated", ...totals });
+  if (emailOff) return json(503, { error: "email_off", ...totals });
+  return json(200, totals);
 }
 
 async function requestConsent(req: Request, deps: ConsentDeps): Promise<Response> {
@@ -243,11 +354,13 @@ async function answerConsent(token: string, req: Request, deps: ConsentDeps, ori
 
   if (decision === "lookup") {
     const found = await deps.lookup(hash);
+    if (found.outcome !== "pending") return json(200, { result: found.outcome }, origin);
+    const pending = { result: "pending", firstName: found.firstName, expiresAt: found.expiresAt };
     return json(
       200,
-      found.outcome === "pending"
-        ? { result: "pending", firstName: found.firstName, expiresAt: found.expiresAt }
-        : { result: found.outcome },
+      found.renewal
+        ? { ...pending, reason: "renewal", summary: found.renewal.summary, agreedBefore: found.renewal.agreedBefore }
+        : pending,
       origin,
     );
   }
@@ -302,6 +415,7 @@ export async function handleParentalConsent(req: Request, deps: ConsentDeps): Pr
     }
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" }, origin);
 
+    if (url.searchParams.has("renewals")) return await sendRenewals(req, deps);
     if (consent !== null) return await answerConsent(consent, req, deps, origin);
     if (withdraw !== null) return await answerWithdraw(withdraw, req, deps, origin);
     return await requestConsent(req, deps);

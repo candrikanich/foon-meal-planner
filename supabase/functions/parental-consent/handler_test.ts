@@ -8,6 +8,8 @@ import {
   type DecideResult,
   handleParentalConsent,
   RefusedError,
+  RENEWAL_BATCH,
+  type RenewalClaim,
   type RequestResult,
 } from "./handler.ts";
 
@@ -22,7 +24,22 @@ const send: RequestResult = {
   email: "parent@example.com",
   emailSource: "account",
   firstName: "Nora",
+  reason: "invite",
+  textVersion: null,
 };
+const cronSecret = "s".repeat(40);
+const claim = (overrides: Partial<RenewalClaim> = {}): RenewalClaim => ({
+  requestId,
+  sendId: 8,
+  email: "parent@example.com",
+  firstName: "Nora",
+  reminder: false,
+  heldVersion: "parental-invite-v1",
+  requiredVersion: TEXT_VERSION,
+  summary: "Foon now confirms a parent's consent by email.",
+  agreedAt: "2026-10-01T12:00:00Z",
+  ...overrides,
+});
 const agreed: DecideResult = {
   outcome: "send_confirmation",
   requestId,
@@ -69,6 +86,11 @@ function fakeDeps(overrides: Partial<ConsentDeps> = {}) {
     withdraw: () => {
       calls.push("withdraw");
       return Promise.resolve("withdrawn");
+    },
+    cronSecret,
+    claimRenewals: (batchSize) => {
+      calls.push(`claimRenewals ${batchSize}`);
+      return Promise.resolve([]);
     },
     newToken: () => token,
     sha256,
@@ -312,6 +334,170 @@ Deno.test("logs never hold an email address, a name or a token", async () => {
     assert(!line.includes("Nora"), line);
     assert(!line.includes(token), line);
   }
+});
+
+const fromCron = (secret: string | null, method = "POST") =>
+  new Request(`${fn}?renewals=1`, {
+    method,
+    headers: { "Content-Type": "application/json", ...(secret === null ? {} : { "x-consent-cron-secret": secret }) },
+    body: method === "POST" ? "{}" : undefined,
+  });
+
+Deno.test("renewal mode refuses a missing or wrong secret, and refuses everyone while none is set", async () => {
+  const { deps, calls } = fakeDeps();
+  for (const secret of [null, "", "wrong", cronSecret.slice(1), `${cronSecret}x`]) {
+    const response = await handleParentalConsent(fromCron(secret), deps);
+    assertEquals([response.status, await response.json()], [401, { error: "unauthorized" }]);
+  }
+  const unset = fakeDeps({ cronSecret: undefined });
+  assertEquals((await handleParentalConsent(fromCron(cronSecret), unset.deps)).status, 401);
+  const blank = fakeDeps({ cronSecret: "" });
+  assertEquals((await handleParentalConsent(fromCron(""), blank.deps)).status, 401);
+  assertEquals((await handleParentalConsent(fromCron(cronSecret, "GET"), deps)).status, 404);
+  assertEquals([...calls, ...unset.calls, ...blank.calls], []);
+});
+
+Deno.test("renewal mode with the secret claims a batch, emails each parent, then records the wording", async () => {
+  const { deps, calls, emails } = fakeDeps({
+    claimRenewals: (batchSize) => {
+      calls.push(`claimRenewals ${batchSize}`);
+      return Promise.resolve([claim(), claim({ requestId: "r2", sendId: 9, email: "other@example.com" })]);
+    },
+  });
+  const response = await handleParentalConsent(fromCron(cronSecret), deps);
+  assertEquals([response.status, await response.json()], [200, { sent: 2, failed: 0, outdated: 0, unrecorded: 0 }]);
+  assertEquals(calls, [
+    `claimRenewals ${RENEWAL_BATCH}`,
+    `markSent ${requestId} 8 ${TEXT_VERSION}`,
+    `markSent r2 9 ${TEXT_VERSION}`,
+  ]);
+  assertEquals(emails.map((email) => [email.to, email.subject]), [
+    ["parent@example.com", "Can Nora keep using Foon?"],
+    ["other@example.com", "Can Nora keep using Foon?"],
+  ]);
+  assertStringIncludes(emails[0].text, `Review and agree: ${fn}?consent=${token}`);
+  assertStringIncludes(emails[0].text, "What changed: Foon now confirms a parent's consent by email.");
+  assertStringIncludes(emails[0].text, "agreed on October 1, 2026");
+});
+
+Deno.test("renewal mode with nothing owed sends nothing", async () => {
+  const { deps, calls, emails } = fakeDeps();
+  const response = await handleParentalConsent(fromCron(cronSecret), deps);
+  assertEquals([response.status, await response.json()], [200, { sent: 0, failed: 0, outdated: 0, unrecorded: 0 }]);
+  assertEquals(calls, [`claimRenewals ${RENEWAL_BATCH}`]);
+  assertEquals(emails, []);
+});
+
+Deno.test("the reminder is the same email, saying it's a reminder", async () => {
+  const { deps, emails } = fakeDeps({ claimRenewals: () => Promise.resolve([claim({ reminder: true })]) });
+  await handleParentalConsent(fromCron(cronSecret), deps);
+  assertEquals(emails[0].subject, "Reminder: Can Nora keep using Foon?");
+  assertStringIncludes(emails[0].text, "A reminder: we emailed your family about this a week ago");
+});
+
+Deno.test("a hold asking for wording this function doesn't send is released unsent, with a 503", async () => {
+  const { deps, calls, emails, logs } = fakeDeps({
+    claimRenewals: () =>
+      Promise.resolve([claim({ requiredVersion: "parental-invite-v4" }), claim({ requestId: "r2", sendId: 9 })]),
+  });
+  const response = await handleParentalConsent(fromCron(cronSecret), deps);
+  assertEquals([response.status, await response.json()], [503, {
+    error: "wording_outdated",
+    sent: 1,
+    failed: 0,
+    outdated: 1,
+    unrecorded: 0,
+  }]);
+  assertEquals(calls, [`releaseSend ${requestId} 8`, `markSent r2 9 ${TEXT_VERSION}`]);
+  assertEquals(emails.length, 1);
+  assert(logs.some((line) => line.includes("parental-invite-v4") && line.includes(TEXT_VERSION)));
+});
+
+Deno.test("a renewal email that fails is released, and the rest still go", async () => {
+  let first = true;
+  const { deps, calls } = fakeDeps({
+    claimRenewals: () => Promise.resolve([claim(), claim({ requestId: "r2", sendId: 9 })]),
+    sendEmail: () => {
+      if (!first) return Promise.resolve("sent");
+      first = false;
+      return Promise.reject(new Error("Resend answered 500"));
+    },
+  });
+  const response = await handleParentalConsent(fromCron(cronSecret), deps);
+  assertEquals([response.status, await response.json()], [200, { sent: 1, failed: 1, outdated: 0, unrecorded: 0 }]);
+  assertEquals(calls, [`releaseSend ${requestId} 8`, `markSent r2 9 ${TEXT_VERSION}`]);
+});
+
+Deno.test("with email off, every claimed renewal is released and the run answers 503", async () => {
+  const { deps, calls } = fakeDeps({
+    claimRenewals: () => Promise.resolve([claim(), claim({ requestId: "r2", sendId: 9 })]),
+    sendEmail: () => Promise.resolve("off"),
+  });
+  const response = await handleParentalConsent(fromCron(cronSecret), deps);
+  assertEquals([response.status, await response.json()], [503, {
+    error: "email_off",
+    sent: 0,
+    failed: 2,
+    outdated: 0,
+    unrecorded: 0,
+  }]);
+  assertEquals(calls, [`releaseSend ${requestId} 8`, "releaseSend r2 9"]);
+});
+
+Deno.test("a renewal sent but not recorded is counted, and a failed claim is a 500", async () => {
+  const unrecorded = fakeDeps({
+    claimRenewals: () => Promise.resolve([claim()]),
+    markSent: () => Promise.resolve(false),
+  });
+  const response = await handleParentalConsent(fromCron(cronSecret), unrecorded.deps);
+  assertEquals(await response.json(), { sent: 0, failed: 0, outdated: 0, unrecorded: 1 });
+  const broken = fakeDeps({ claimRenewals: () => Promise.reject(new Error("db down")) });
+  assertEquals((await handleParentalConsent(fromCron(cronSecret), broken.deps)).status, 500);
+});
+
+Deno.test("the app's request is refused unsent when the wording in force isn't this function's", async () => {
+  const { deps, calls, emails } = fakeDeps({
+    request: () => Promise.resolve({ ...send, textVersion: "parental-invite-v4" } as RequestResult),
+  });
+  const response = await handleParentalConsent(fromApp({ memberId }), deps);
+  assertEquals([response.status, await response.json()], [503, { error: "wording_outdated" }]);
+  assertEquals(calls, [`releaseSend ${requestId} 7`]);
+  assertEquals(emails, []);
+  const current = fakeDeps({
+    request: () => Promise.resolve({ ...send, textVersion: TEXT_VERSION } as RequestResult),
+  });
+  assertEquals((await handleParentalConsent(fromApp({ memberId }), current.deps)).status, 200);
+});
+
+Deno.test("the app's renewal request sends the renewal notice", async () => {
+  const { deps, emails } = fakeDeps({
+    request: () => Promise.resolve({ ...send, reason: "renewal", textVersion: TEXT_VERSION } as RequestResult),
+  });
+  const response = await handleParentalConsent(fromApp({ memberId }), deps);
+  assertEquals(response.status, 200);
+  assertEquals(emails[0].subject, "Can Nora keep using Foon?");
+  assert(!emails[0].text.includes("What changed"));
+});
+
+Deno.test("a renewal link's lookup passes on what changed and when a parent agreed", async () => {
+  const { deps } = fakeDeps({
+    lookup: () =>
+      Promise.resolve({
+        outcome: "pending",
+        firstName: "Nora",
+        expiresAt: "2026-11-15T00:00:00Z",
+        renewal: { summary: "What changed.", agreedBefore: "2026-10-01T12:00:00Z" },
+      }),
+  });
+  const response = await handleParentalConsent(fromSite(`?consent=${token}`, { decision: "lookup" }), deps);
+  assertEquals(await response.json(), {
+    result: "pending",
+    firstName: "Nora",
+    expiresAt: "2026-11-15T00:00:00Z",
+    reason: "renewal",
+    summary: "What changed.",
+    agreedBefore: "2026-10-01T12:00:00Z",
+  });
 });
 
 Deno.test("email 1 is the direct notice: every 312.4(c)(1) element", () => {

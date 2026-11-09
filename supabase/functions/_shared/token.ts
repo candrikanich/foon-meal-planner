@@ -20,3 +20,12 @@ export function newToken(): string {
 
 // What a token in a link looks like; anything else is refused before it reaches the database.
 export const tokenPattern = /^[A-Za-z0-9_-]{20,100}$/;
+
+// Compares a presented secret with the expected one in time that doesn't depend on where they differ.
+export function sameSecret(given: string, expected: string): boolean {
+  const a = new TextEncoder().encode(given);
+  const b = new TextEncoder().encode(expected);
+  let difference = a.length ^ b.length;
+  for (let i = 0; i < b.length; i++) difference |= (a[i] ?? 0) ^ b[i];
+  return difference === 0;
+}

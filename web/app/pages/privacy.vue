@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { POSTAL_ADDRESS, PRIVACY_UPDATED, SUPPORT_EMAIL } from "~/content";
+import { POSTAL_ADDRESS, PRIVACY_UPDATED, PRIVACY_VERSION, SUPPORT_EMAIL } from "~/content";
 
 useSeoMeta({ title: "Privacy: Foon", description: "What Foon keeps, and what this website keeps when you join the waitlist." });
 </script>
@@ -7,7 +7,7 @@ useSeoMeta({ title: "Privacy: Foon", description: "What Foon keeps, and what thi
 <template>
   <article class="narrow prose section">
     <h1>Privacy</h1>
-    <p class="fineprint">Last updated {{ PRIVACY_UPDATED }}</p>
+    <p class="fineprint">Last updated {{ PRIVACY_UPDATED }} · Version {{ PRIVACY_VERSION }}</p>
     <p class="draft">
       This is a plain-English summary. Our full privacy policy is being finalised and will be published here before Foon
       opens to everyone.

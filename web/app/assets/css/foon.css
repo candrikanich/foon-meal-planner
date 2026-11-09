@@ -119,6 +119,9 @@ input:focus-visible { outline-offset: 1px; border-color: var(--herb); }
 .message { padding: 0.9rem 1rem; border-radius: 14px; border: 1px solid var(--line); }
 .message.ok { border-color: var(--herb); color: var(--herb); font-weight: 700; }
 .message.problem { border-color: var(--caution); color: var(--caution); font-weight: 700; }
+.message.changed { border-color: var(--herb); margin-block: 1em; }
+.message.changed h2 { font-size: 1rem; margin: 0 0 0.3em; }
+.message.changed p { margin: 0; }
 
 .prose h2 { margin-top: 1.75em; }
 .prose ul { padding-left: 1.2em; }
