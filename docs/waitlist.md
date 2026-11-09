@@ -39,6 +39,14 @@ function's `GET ?confirm=` and `GET ?unsubscribe=` only redirect to the site's `
 `/waitlist/unsubscribe` pages, which have a button that POSTs to the function. The mail client's one-click unsubscribe
 (`List-Unsubscribe-Post`, RFC 8058) POSTs straight to the function.
 
+**Checked on production, 2026-11-09,** with a real iCloud address on getfoon.com:
+
+- Signup showed "Almost done", and the confirmation email arrived.
+- The email's Confirm my email link opened Confirm your email, and its button led to "You're on the list".
+- The email's Unsubscribe link opened Unsubscribe, and Delete my address led to "You're unsubscribed".
+- The email had no postal address: production's functions were last deployed 2026-11-05, before #284 added it, so the
+  footer arrives with the next production deploy.
+
 ## Client address: what is and isn't guaranteed
 
 The 5-an-hour limit is per client address, kept as a keyed hash (IPv6 by its /64). Supabase doesn't document which
@@ -54,12 +62,6 @@ the per-address limit: the 200-emails-an-hour cap counts reserved and sent email
   then 429. The forged values were ignored and all six counted as one address.
 - A signup from a phone on cellular got its own hash in `waitlist_attempts`, apart from the first network's: two
   networks were counted separately. (That doesn't rule out visitors behind one shared proxy hop sharing a key.)
-
-**Checked on production, 2026-11-09:** the whole loop on getfoon.com with a real iCloud address. Signup showed
-"Almost done", the confirmation email arrived, its link opened Confirm your email, and the button showed "You're on the
-list". The email's Unsubscribe link opened Unsubscribe, and Delete my address showed "You're unsubscribed". That email
-had no postal address: production's functions were last deployed 2026-11-05, before #284 added it, so the footer
-arrives with the next production deploy.
 
 ## Re-run the address check (after a platform or function change)
 
