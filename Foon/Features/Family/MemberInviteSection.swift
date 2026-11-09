@@ -15,32 +15,32 @@ struct MemberInviteSection: View {
     @State private var withdrawFailure: String?
 
     var body: some View {
-        Group {
-            if store.canInvite(member) {
-                inviteSection
-            }
-            if store.canWithdrawConsent(member) {
-                withdrawSection
-            }
-        }
-        // A parent agrees, or withdraws with email 2's link, outside Foon: look again on opening and on coming back.
-        .task(id: member.id) { await reloadConsent() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await reloadConsent() } }
-        }
-        .confirmationDialog(
-            "Withdraw consent for \(member.firstName)?", isPresented: $confirmingWithdrawal, titleVisibility: .visible
-        ) {
-            Button("Withdraw consent", role: .destructive) {
-                Task {
-                    isWorking = true
-                    inviteCode = nil
-                    withdrawFailure = await store.withdrawConsent(member) ? nil : store.errorMessage
-                    isWorking = false
+        // Group would copy its modifiers onto each child, so each section carries only its own: one reload, one dialog.
+        if store.canInvite(member) {
+            inviteSection
+                // A parent agrees, or withdraws with email 2's link, outside Foon: look again on opening and on return.
+                .task(id: member.id) { await reloadConsent() }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active { Task { await reloadConsent() } }
                 }
-            }
-        } message: {
-            Text("They're signed out of the household on their own device now, and stay in the family on yours. If you don't consent again within 30 days, what they added themselves is erased.")
+        }
+        if store.canWithdrawConsent(member) {
+            withdrawSection
+                .confirmationDialog(
+                    "Withdraw consent for \(member.firstName)?", isPresented: $confirmingWithdrawal,
+                    titleVisibility: .visible
+                ) {
+                    Button("Withdraw consent", role: .destructive) {
+                        Task {
+                            isWorking = true
+                            inviteCode = nil
+                            withdrawFailure = await store.withdrawConsent(member) ? nil : store.errorMessage
+                            isWorking = false
+                        }
+                    }
+                } message: {
+                    Text("They're signed out of the household on their own device now, and stay in the family on yours. If you don't consent again within 30 days, what they added themselves is erased.")
+                }
         }
     }
 
