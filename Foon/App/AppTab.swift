@@ -27,11 +27,12 @@ enum AppTab: String, CaseIterable, Identifiable, Sendable {
 }
 
 extension ReminderRoute {
-    /// Where a tapped notification lands. Everything but Lists and Ideas is on This Week.
+    /// Where a tapped notification lands. Everything but Lists, Ideas and Family is on This Week.
     var tab: AppTab {
         switch self {
         case .lists: .lists
         case .ideas: .ideas
+        case .family: .family
         case .week, .night, .swap, .dinnerCard, .rate, .checkIn, .roundup: .week
         }
     }

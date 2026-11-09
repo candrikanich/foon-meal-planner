@@ -46,8 +46,9 @@ struct SentPush: Equatable, Sendable {
     /// `notification_log.type`.
     let type: String
 
-    /// Plan's set and urgent items go whatever else this week held, on the server too (`push_outside_budget`).
-    static let outsideBudget: Set<String> = ["plan_set", "urgent_item"]
+    /// Plan's set, urgent items and a kid needing a parent's OK go whatever else this week held, on the server too
+    /// (`push_outside_budget`).
+    static let outsideBudget: Set<String> = ["plan_set", "urgent_item", "agreement_hold"]
 
     var countsTowardBudget: Bool { !Self.outsideBudget.contains(type) }
 }

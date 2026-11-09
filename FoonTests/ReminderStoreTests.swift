@@ -1079,6 +1079,15 @@ struct ReminderPresetWordingTests {
         #expect(ReminderRoute.lists.tab == .lists)
         #expect(ReminderRoute.dinnerCard.tab == .week)
     }
+
+    @Test func aHeldKidsPushOpensFamily() {
+        let payload = ReminderPayload(userInfo: ["route": "family"])
+        #expect(payload?.route == .family)
+        #expect(payload?.userInfo["route"] == "family")
+        #expect(ReminderRoute.family.tab == .family)
+        #expect(ReminderResponse.pushRoute(action: "com.apple.UNNotificationDefaultActionIdentifier", payload: payload)
+            == .family)
+    }
 }
 
 @MainActor
