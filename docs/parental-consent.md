@@ -65,8 +65,8 @@ with `{sent, failed, unrecorded, deferred}`. A 401 means the two secrets differ.
 
 `20261119000000_agreements_in_force.sql` (#277 PR D) puts the new wordings in force and holds every kid whose consent
 is outdated in the same migration, so the renewal emails are owed the moment a database migrates. Merging deploys to
-staging at once (`deploy-staging.yml`); production deploys from the production workflow. Done, in this order, before
-that PR merges:
+staging at once (`deploy-staging.yml`); production deploys from the production workflow (by hand until 2026-11-09, now
+right after staging). Done, in this order, before that PR merges:
 
 0. Staging has everything in steps 2 to 4 below too (Edge Function secrets and both Vault secrets), or staging's held
    kids get no renewal email, silently. Check it with the queries below against staging.
