@@ -167,10 +167,11 @@ select is((select count(*)::int from public.consent_agreements), 3, 'everyone in
 select throws_ok($$ insert into public.consent_agreements (household_id, text_version)
                     values ('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v1') $$,
   '42501', null, 'a kid can''t add an agreement');
+-- Since #277 only the functions write the log (grant_allergy_consent here): not even a parent's own row goes in.
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');
-select throws_ok($$ insert into public.consent_agreements (household_id, agreed_by, text_version)
-                    values ('00000000-0000-0000-0000-0000000000a0', 'a0000000-0000-0000-0000-00000000000a', 'other') $$,
-  '42501', null, 'a parent can''t agree in someone else''s name');
+select throws_ok($$ insert into public.consent_agreements (household_id, text_version)
+                    values ('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2') $$,
+  '42501', null, 'a parent can''t write their own agreement directly either: grant_allergy_consent logs it');
 select throws_ok($$ delete from public.consent_agreements $$, '42501', null, 'and the record can''t be deleted');
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
 select is((select count(*)::int from public.consent_agreements where household_id = '00000000-0000-0000-0000-0000000000a0'), 0,

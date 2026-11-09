@@ -47,7 +47,7 @@ select lives_ok(
        ('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000a0', 'Bob', 'member'),
        ('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-0000000000a0', 'Nora', 'member') $$,
   'the owner adds unclaimed profiles');
-insert into public.consents (household_id, kind, text_version) values ('00000000-0000-0000-0000-0000000000a0', 'allergy_data', 'test-v1');
+select public.grant_allergy_consent('00000000-0000-0000-0000-0000000000a0', 'allergy-data-v2');
 select lives_ok(
   $$ insert into public.member_allergies (household_id, member_id, category) values
        ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3', 'milk') $$,

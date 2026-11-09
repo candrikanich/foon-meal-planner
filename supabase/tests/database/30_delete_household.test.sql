@@ -81,6 +81,9 @@ insert into public.consents (household_id, kind, granted_by, text_version) value
   ('00000000-0000-0000-0000-0000000000a0', 'allergy_data', 'a0000000-0000-0000-0000-00000000000a', 'test-v1');
 insert into public.consent_agreements (household_id, agreed_by, text_version) values
   ('00000000-0000-0000-0000-0000000000a0', 'a0000000-0000-0000-0000-00000000000a', 'test-v1');
+insert into public.agreement_holds (household_id, kind, consent_id, held_version, required_version)
+select household_id, 'allergy_data', id, 'test-v1', 'allergy-data-v2' from public.consents
+where household_id = '00000000-0000-0000-0000-0000000000a0' and kind = 'allergy_data';
 insert into public.parental_consent_requests (household_id, member_id, requested_by, email_source) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3',
    'a0000000-0000-0000-0000-00000000000a', 'account');
