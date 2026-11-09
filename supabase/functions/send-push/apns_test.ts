@@ -129,6 +129,7 @@ Deno.test("a claim says the night's weekday from its date, never tonight or tomo
 
 Deno.test("the known kinds are exactly the ones with words", () => {
   assertEquals([...knownKinds].sort(), [
+    "agreement_hold",
     "claim",
     "heading_to_store",
     "new_requests",
@@ -143,6 +144,14 @@ Deno.test("the known kinds are exactly the ones with words", () => {
     assert(!knownKinds.has(kind));
     assertEquals(alertFor(kind, { name: "Ben" }, "2026-11-05"), null);
   }
+});
+
+Deno.test("a held kid's push names the kid and asks a parent to look, without saying why in detail", () => {
+  assertEquals(alertFor("agreement_hold", { name: "Ava" }), {
+    title: "Ava needs a parent's OK to keep using Foon.",
+    body: "Open Family to see what changed.",
+  });
+  assertEquals(alertFor("agreement_hold", {}), null, "never a held kid's push without their name");
 });
 
 Deno.test("an urgent item names who added it, never the item, and opens the list", () => {

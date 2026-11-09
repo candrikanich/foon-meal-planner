@@ -169,7 +169,7 @@ struct WeekView: View {
         case .roundup(let start):
             week.showingNextWeek = false
             roundupWeek = start
-        case .lists, .ideas:
+        case .lists, .ideas, .family:
             break
         }
     }

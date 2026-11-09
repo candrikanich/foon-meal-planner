@@ -77,7 +77,8 @@ struct RootTabView: View {
         .modifier(ReminderRunner(store: reminders, week: week.week, logs: dinner.logs))
         .modifier(PivotRunner(week: week, library: library, dinner: dinner))
         .modifier(TonightWidgetRunner(week: week.week))
-        // This Week opens the night or the card once it's on screen, and takes the route. Lists and Ideas need nothing more.
+        // This Week opens the night or the card once it's on screen, and takes the route. Lists, Ideas and Family need
+        // nothing more.
         .onChange(of: router.route, initial: true) { _, route in
             guard let route else { return }
             selection = route.tab
