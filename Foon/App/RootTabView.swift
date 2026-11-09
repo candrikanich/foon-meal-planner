@@ -73,7 +73,7 @@ struct RootTabView: View {
         .environment(calendarBusy)
         .environment(subscription)
         .environment(router)
-        .environment(\.showTab) { selection = $0 }
+        .environment(\.showTab, ShowTabAction { selection = $0 })
         .modifier(ReminderRunner(store: reminders, week: week.week, logs: dinner.logs))
         .modifier(PivotRunner(week: week, library: library, dinner: dinner))
         .modifier(TonightWidgetRunner(week: week.week))

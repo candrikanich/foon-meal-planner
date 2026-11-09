@@ -80,6 +80,7 @@ struct TidyProgressCard: View {
 
 // MARK: - Previews
 
+@MainActor
 private func previewCard(after seconds: TimeInterval, canSkip: Bool = true) -> some View {
     List {
         Section {
