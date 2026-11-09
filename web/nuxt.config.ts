@@ -1,5 +1,9 @@
 // A static marketing site: every page is prerendered. The waitlist form talks to the Supabase `waitlist` Edge Function,
 // and the parental consent pages to `parental-consent`.
+
+// The site's types leave out Node's, and the config only needs to read the build's environment.
+const buildEnv = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
+
 export default defineNuxtConfig({
   compatibilityDate: "2026-11-01",
   devtools: { enabled: false },
@@ -7,6 +11,17 @@ export default defineNuxtConfig({
   typescript: { strict: true },
   css: ["~/assets/css/foon.css"],
   routeRules: { "/**": { prerender: true } },
+  modules: [
+    // The function URLs are baked into the prerendered pages. Built without one, the site ships and its forms fail only
+    // when someone uses them (the consent link, 2026-11-08), so a build without both stops here instead.
+    (_options, nuxt) => {
+      if (nuxt.options.dev || nuxt.options._prepare) return;
+      const missing = ["NUXT_PUBLIC_WAITLIST_URL", "NUXT_PUBLIC_CONSENT_URL"].filter((name) => !buildEnv[name]);
+      if (missing.length > 0) {
+        throw new Error(`Set ${missing.join(" and ")} before building (see .env.example).`);
+      }
+    },
+  ],
   runtimeConfig: {
     public: {
       // NUXT_PUBLIC_WAITLIST_URL: https://<project-ref>.supabase.co/functions/v1/waitlist (read at build time).

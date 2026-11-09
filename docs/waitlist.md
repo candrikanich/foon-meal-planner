@@ -8,7 +8,7 @@ How the waitlist behaves is in [spec.md](spec.md) (Marketing presence). This is 
 | --- | --- | --- |
 | Edge Function secret | `RESEND_API_KEY`, `WAITLIST_FROM` | Both needed to send. Without them signups are stored and the log says email is off. `WAITLIST_FROM` is like `Foon <hello@getfoon.com>`, on a domain verified in Resend |
 | Edge Function secret | `WAITLIST_SITE_URL` | Optional. Defaults to `https://getfoon.com`; set it to point the emailed links at a preview |
-| Vercel env (build time) | `NUXT_PUBLIC_WAITLIST_URL` | `https://<project-ref>.supabase.co/functions/v1/waitlist` |
+| Vercel env (build time) | `NUXT_PUBLIC_WAITLIST_URL` | `https://<project-ref>.supabase.co/functions/v1/waitlist`. Required in every environment the site builds in: `nuxt build` fails without it |
 
 ## Production
 
