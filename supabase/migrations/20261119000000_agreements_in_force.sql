@@ -8,23 +8,52 @@
 -- * apply_agreement_holds() runs once here, so holds open the moment the wording changes rather than at the next hourly
 --   cron run: every kid whose parental consent was given to v1 or v2 is signed out (profile kept, no erase clock), and
 --   every household whose allergy agreement was v1 can't add allergies until a parent agrees again.
--- * The app's own renewal request (request_parental_consent) now hands the Edge Function what the cron renewal claim
---   does: what changed in the wording being emailed, when a parent last agreed, and whether the kid is held yet.
+-- * Both renewal emails (the app's request_parental_consent and the cron's claim_consent_renewal_emails) get the same
+--   fields: what changed since the wording a parent agreed to (every version that needs agreeing again, in order, up
+--   to the one being emailed: v2 then v3 for a v1 kid), when a parent last agreed, whether the kid is held yet, and
+--   whether they had signed in on their own device (was_linked), so the email never says a kid who never signed in
+--   is "signed out".
 -- * my_agreements' kids_held adds was_linked, so the app can say a kid who had their own account is signed out.
 --
 -- Run as the migration role (postgres, which owns these security definer functions): nobody is signed in, so
 -- auth.uid() is null and household_allergy_agreement_current answers for every household, as it does for the cron job.
 -- Every hold's push goes through push_outbox like any other server push ("<kid> needs a parent's OK to keep using
--- Foon." to every parent with a device, Chris's answer 7); the push sender's own cron delivers it. The renewal emails
--- go by kick_consent_renewals, which does nothing until Vault has consent_function_url and consent_cron_secret: this
--- must not reach production before those, CONSENT_FROM and CONSENT_CRON_SECRET are set (docs/parental-consent.md).
+-- Foon." to every parent with a device, Chris's answer 7); the push sender's own cron delivers it. That needs send-push
+-- with words for agreement_hold (#309) deployed first: an older send-push marks every one of these unknown_kind. The
+-- renewal emails go by kick_consent_renewals, which does nothing until Vault has consent_function_url and
+-- consent_cron_secret: this must not reach production before those, CONSENT_FROM and CONSENT_CRON_SECRET are set
+-- (docs/parental-consent.md).
+
+-- What changed, for a renewal email ------------------------------------------------------------------------------------
+
+-- The "what changed" of every parental version after `agreed` up to `sent` that needs agreeing again, oldest first, as
+-- one paragraph: v2's then v3's for a kid agreed to v1. An unregistered `agreed` counts from the start. With nothing
+-- that needs agreeing again in between (only typo fixes), `sent`'s own summary.
+create function public.parental_changes_since(agreed text, sent text)
+returns text
+language sql stable security definer set search_path = ''
+as $$
+  select coalesce(
+    (select string_agg(v.summary, ' ' order by v.ordinal)
+       from public.agreement_versions v
+      where v.kind = 'parental' and v.requires_reagreement
+        and v.ordinal > coalesce((select a.ordinal from public.agreement_versions a
+                                   where a.version = agreed and a.kind = 'parental'), 0)
+        and v.ordinal <= (select t.ordinal from public.agreement_versions t
+                           where t.version = sent and t.kind = 'parental')),
+    (select v.summary from public.agreement_versions v where v.version = sent and v.kind = 'parental'));
+$$;
+
+revoke execute on function public.parental_changes_since(text, text) from public, anon, authenticated;
 
 -- The app's renewal request ----------------------------------------------------------------------------------------------
 
 -- As 20261117000000_agreements.sql's, plus `wording`: the parental wording the Edge Function will email (its
--- TEXT_VERSION). A renewal's send outcome adds that wording's "what changed" (the version in force's when the wording
--- isn't a registered parental one, or isn't given by an older function), when a parent last agreed for this kid, and
--- whether the kid is held yet. The two-argument version goes: a caller that doesn't pass `wording` gets the default.
+-- TEXT_VERSION). A renewal's send outcome adds what changed since the wording a parent agreed to, up to that wording
+-- (or up to the version in force when it isn't a registered parental one, or an older function gives none); when a
+-- parent last agreed for this kid; whether the kid is held yet; and was_linked: the hold's, or before a hold opens,
+-- whether the kid is signed in now (and so will be signed out). The two-argument version goes: a caller that doesn't
+-- pass `wording` gets the default.
 drop function public.request_parental_consent(uuid, text);
 
 create function public.request_parental_consent(target_member uuid, email_address text default null,
@@ -42,7 +71,8 @@ declare
   send_id bigint;
   request_reason text;
   active uuid;
-  open_hold uuid;
+  open_hold public.agreement_holds;
+  sent text;
   renewal jsonb := '{}'::jsonb;
 begin
   if caller is null or not public.session_is_active() then
@@ -100,14 +130,14 @@ begin
     return jsonb_build_object('outcome', 'rate_limited');
   end if;
 
-  select h.id into open_hold from public.agreement_holds h
+  select * into open_hold from public.agreement_holds h
    where h.member_id = kid.id and h.kind = 'parental' and h.released_at is null;
   if open_request.id is null then
     insert into public.parental_consent_requests (household_id, member_id, requested_by, email_source, typed_email,
                                                   pending_email_hash, send_reserved_at, reason, hold_id)
     values (kid.household_id, kid.id, caller, source,
             case when source = 'typed' then address end, public.consent_email_hash(address), now(), request_reason,
-            open_hold)
+            open_hold.id)
     returning * into open_request;
   else
     update public.parental_consent_requests
@@ -124,15 +154,16 @@ begin
   if request_reason = 'renewal' then
     select id into active from public.consents
      where member_id = kid.id and kind = 'parental' and revoked_at is null;
+    sent := coalesce((select v.version from public.agreement_versions v
+                       where v.version = wording and v.kind = 'parental'),
+                     public.current_agreement_version('parental'));
     renewal := jsonb_build_object(
-      'summary', coalesce(
-        (select v.summary from public.agreement_versions v where v.version = wording and v.kind = 'parental'),
-        (select v.summary from public.agreement_versions v
-          where v.version = public.current_agreement_version('parental'))),
+      'summary', public.parental_changes_since(public.latest_agreed_version(active, 'parental'), sent),
       'agreed_before', coalesce((select max(a.agreed_at) from public.consent_agreements a
                                   where a.consent_id = active and a.kind = 'parental'),
                                 (select c.granted_at from public.consents c where c.id = active)),
-      'held', open_hold is not null);
+      'held', open_hold.id is not null,
+      'was_linked', coalesce(open_hold.was_linked, kid.user_id is not null));
   end if;
 
   return jsonb_build_object('outcome', 'send', 'request_id', open_request.id, 'send_id', send_id,
@@ -144,6 +175,75 @@ $$;
 
 revoke execute on function public.request_parental_consent(uuid, text, text) from public, anon;
 grant execute on function public.request_parental_consent(uuid, text, text) to authenticated;
+
+-- The cron's renewal emails --------------------------------------------------------------------------------------------
+
+-- As 20261118000000_agreement_renewal_sends.sql's, with the same renewal fields as the app's request: "summary" is what
+-- changed from the hold's held_version up to `wording` (every version that needs agreeing again, in order), and
+-- "was_linked" is the hold's. Returns, oldest hold first:
+--   [{"request_id", "send_id", "email", "first_name", "reminder", "held_version", "required_version", "summary",
+--     "agreed_at", "was_linked"}]
+create or replace function public.claim_consent_renewal_emails(batch_size int, wording text)
+returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  candidate record;
+  hold public.agreement_holds;
+  recipient record;
+  kid_name text;
+  agreed timestamptz;
+  new_request uuid;
+  new_send bigint;
+  stale uuid;
+  claimed jsonb := '[]'::jsonb;
+begin
+  if not public.parental_wording_ok(wording) then
+    raise exception 'wording % isn''t the one in force', wording using errcode = '22023';
+  end if;
+  -- The same lock as request_parental_consent, so the overall cap counts both.
+  perform pg_advisory_xact_lock(hashtext('request_parental_consent'));
+  <<holds>>
+  for candidate in select h.id, h.member_id from public.agreement_holds h
+                    where h.kind = 'parental' and h.released_at is null
+                    order by h.held_at loop
+    -- The kid's lock before the hold's row, in the same order as activate_parental_consent and apply_agreement_holds,
+    -- so a parent agreeing while their renewal email is claimed waits instead of deadlocking.
+    perform pg_advisory_xact_lock(hashtextextended('parental_consent:' || candidate.member_id::text, 0));
+    select * into hold from public.agreement_holds where id = candidate.id and released_at is null for update;
+    continue holds when hold.id is null;
+    select first_name into kid_name from public.members where id = hold.member_id;
+    agreed := coalesce((select max(a.agreed_at) from public.consent_agreements a
+                         where a.consent_id = hold.consent_id and a.kind = 'parental'),
+                       (select c.granted_at from public.consents c where c.id = hold.consent_id));
+    for recipient in select * from public.consent_renewal_recipients(hold) loop
+      exit holds when jsonb_array_length(claimed) >= greatest(batch_size, 0)
+                   or (select count(*) from public.parental_consent_sends
+                        where reserved_at > now() - interval '1 hour') >= 200;
+      for stale in select id from public.parental_consent_requests
+                    where member_id = hold.member_id and requested_by = recipient.account and status = 'pending'
+                    for update loop
+        perform public.end_parental_consent_request(stale, 'cancelled');
+      end loop;
+      insert into public.parental_consent_requests (household_id, member_id, requested_by, email_source,
+                                                    pending_email_hash, send_reserved_at, reason, hold_id)
+      values (hold.household_id, hold.member_id, recipient.account, 'account',
+              public.consent_email_hash(recipient.address), now(), 'renewal', hold.id)
+      returning id into new_request;
+      insert into public.parental_consent_sends (request_id, household_id, requested_by, reserved_at)
+      values (new_request, hold.household_id, recipient.account, now())
+      returning id into new_send;
+      claimed := claimed || jsonb_build_array(jsonb_build_object(
+        'request_id', new_request, 'send_id', new_send, 'email', recipient.address, 'first_name', kid_name,
+        'reminder', recipient.reminder, 'held_version', hold.held_version,
+        'required_version', hold.required_version,
+        'summary', public.parental_changes_since(hold.held_version, wording), 'agreed_at', agreed,
+        'was_linked', hold.was_linked));
+    end loop;
+  end loop;
+  return claimed;
+end;
+$$;
 
 -- What the app needs to know ---------------------------------------------------------------------------------------------
 

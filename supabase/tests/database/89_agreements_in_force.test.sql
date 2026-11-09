@@ -4,7 +4,7 @@
 -- agreed to allergy-data-v1 can't add allergies until a parent agrees to v2, families already on the current wording are
 -- untouched, and the app's renewal request carries what the cron's renewal email does, held or not yet held.
 begin;
-select plan(25);
+select plan(32);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -32,18 +32,23 @@ $$;
 
 -- Household A (agreed to allergy-data-v1 in the app): Ann (owner, parent, Apple email, a device); Kit (a kid with an
 -- account) and Owen (a kid without one), both consented in the app to parental-invite-v1. Household B, already on the
--- current wording: Carol (parent), Dan (a kid consented to v3 by email plus), allergy agreement to v2.
+-- current wording: Carol (parent), Dan (a kid consented to v3 by email plus), allergy agreement to v2. Household C:
+-- Cleo (parent, Apple email) and Pia (a kid without an account), consented in the app to parental-invite-v2.
 insert into auth.users (id, email, aud, role) values
   ('a0000000-0000-0000-0000-00000000000a', 'ann@example.com', 'authenticated', 'authenticated'),
   ('e0000000-0000-0000-0000-00000000000e', 'kit@example.com', 'authenticated', 'authenticated'),
   ('c0000000-0000-0000-0000-00000000000c', 'carol@example.com', 'authenticated', 'authenticated'),
-  ('d0000000-0000-0000-0000-00000000000d', 'dan@example.com', 'authenticated', 'authenticated');
+  ('d0000000-0000-0000-0000-00000000000d', 'dan@example.com', 'authenticated', 'authenticated'),
+  ('f0000000-0000-0000-0000-00000000000f', 'cleo@example.com', 'authenticated', 'authenticated');
 insert into auth.identities (provider_id, user_id, identity_data, provider) values
   ('apple-ann', 'a0000000-0000-0000-0000-00000000000a',
-   '{"sub": "apple-ann", "email": "ann@example.com", "email_verified": true}', 'apple');
+   '{"sub": "apple-ann", "email": "ann@example.com", "email_verified": true}', 'apple'),
+  ('apple-cleo', 'f0000000-0000-0000-0000-00000000000f',
+   '{"sub": "apple-cleo", "email": "cleo@example.com", "email_verified": true}', 'apple');
 insert into public.households (id, name, owner) values
   ('00000000-0000-0000-0000-0000000000a0', 'Andersons', 'a0000000-0000-0000-0000-00000000000a'),
-  ('00000000-0000-0000-0000-0000000000b0', 'Carters', 'c0000000-0000-0000-0000-00000000000c');
+  ('00000000-0000-0000-0000-0000000000b0', 'Carters', 'c0000000-0000-0000-0000-00000000000c'),
+  ('00000000-0000-0000-0000-0000000000c0', 'Cruzes', 'f0000000-0000-0000-0000-00000000000f');
 insert into public.members (id, household_id, first_name, role, age_group, guardian, user_id) values
   ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a0', 'Ann', 'planner', 'adult', true,
    'a0000000-0000-0000-0000-00000000000a'),
@@ -53,7 +58,10 @@ insert into public.members (id, household_id, first_name, role, age_group, guard
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000b0', 'Carol', 'planner', 'adult', true,
    'c0000000-0000-0000-0000-00000000000c'),
   ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000b0', 'Dan', 'member', 'kid', false,
-   'd0000000-0000-0000-0000-00000000000d');
+   'd0000000-0000-0000-0000-00000000000d'),
+  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000c0', 'Cleo', 'planner', 'adult', true,
+   'f0000000-0000-0000-0000-00000000000f'),
+  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000c0', 'Pia', 'member', 'kid', false, null);
 insert into public.consents (household_id, member_id, kind, granted_by, granted_at, text_version, method) values
   ('00000000-0000-0000-0000-0000000000a0', null, 'allergy_data', 'a0000000-0000-0000-0000-00000000000a',
    '2026-10-20 12:00+00', 'allergy-data-v1', 'in_app'),
@@ -64,7 +72,9 @@ insert into public.consents (household_id, member_id, kind, granted_by, granted_
   ('00000000-0000-0000-0000-0000000000b0', null, 'allergy_data', 'c0000000-0000-0000-0000-00000000000c',
    now(), 'allergy-data-v2', 'in_app'),
   ('00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000000b2', 'parental',
-   'c0000000-0000-0000-0000-00000000000c', now(), 'parental-invite-v3', 'email_plus');
+   'c0000000-0000-0000-0000-00000000000c', now(), 'parental-invite-v3', 'email_plus'),
+  ('00000000-0000-0000-0000-0000000000c0', '00000000-0000-0000-0000-0000000000c2', 'parental',
+   'f0000000-0000-0000-0000-00000000000f', '2026-10-23 12:00+00', 'parental-invite-v2', 'in_app');
 insert into public.member_allergies (household_id, member_id, category) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'milk'),
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', 'peanuts');
@@ -87,7 +97,8 @@ select is((select count(*)::int from cron.job where jobname = 'apply-agreement-h
 
 -- Holds: what the migration's run (and every hourly run after it) does ---------------------------------------------------
 select pg_temp.as_service();
-select is(public.apply_agreement_holds(), 3, 'two kids on v1 and one household on allergy-data-v1 are held');
+select is(public.apply_agreement_holds(), 4,
+  'two kids on v1, one on v2 and one household on allergy-data-v1 are held');
 select is(public.apply_agreement_holds(), 0, 'once');
 select pg_temp.as_admin();
 select is((select user_id from public.members where id = '00000000-0000-0000-0000-0000000000a2'), null,
@@ -136,9 +147,10 @@ select set_config('test.kit', public.request_parental_consent('00000000-0000-000
 select is(current_setting('test.kit')::jsonb - 'request_id' - 'send_id',
   jsonb_build_object('outcome', 'send', 'email', 'ann@example.com', 'email_source', 'account', 'first_name', 'Kit',
                      'reason', 'renewal', 'text_version', 'parental-invite-v3',
-                     'summary', (select summary from public.agreement_versions where version = 'parental-invite-v3'),
-                     'agreed_before', '2026-10-21T12:00:00+00:00', 'held', true),
-  'a renewal asked for in the app carries what changed in the wording sent, when a parent agreed, and that Kit is held');
+                     'summary', (select summary from public.agreement_versions where version = 'parental-invite-v2') || ' ' || (select summary from public.agreement_versions where version = 'parental-invite-v3'),
+                     'agreed_before', '2026-10-21T12:00:00+00:00', 'held', true, 'was_linked', true),
+  'a renewal asked for in the app carries what changed since v1 (v2, then v3), when a parent agreed, and that Kit '
+  || 'is held and had signed in');
 select pg_temp.as_admin();
 select is((select hold_id is not null from public.parental_consent_requests
            where id = (current_setting('test.kit')::jsonb ->> 'request_id')::uuid),
@@ -148,18 +160,45 @@ values ('parental-invite-v4', 'parental', 4, 'A later wording, for this test.');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann
 select is(public.request_parental_consent('00000000-0000-0000-0000-0000000000a3', null, 'parental-invite-v4')
             ->> 'summary',
-  'A later wording, for this test.', 'a function deployed ahead gets its own wording''s summary');
+  (select summary from public.agreement_versions where version = 'parental-invite-v2') || ' ' || (select summary from public.agreement_versions where version = 'parental-invite-v3') || ' A later wording, for this test.',
+  'a function deployed ahead gets what changed up to its own wording');
 select throws_ok($$ select public.request_parental_consent('00000000-0000-0000-0000-0000000000b2') $$, '42501', null,
   'another household''s kid can''t be asked about');
 select pg_temp.as_admin();
 delete from public.parental_consent_sends;
 delete from public.parental_consent_requests;
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann
-select is(public.request_parental_consent('00000000-0000-0000-0000-0000000000a3', null, 'not-a-wording') ->> 'summary',
-  (select summary from public.agreement_versions where version = 'parental-invite-v3'),
-  'an unknown wording (or an older function that sends none) gets the summary of the one in force');
+select set_config('test.owen', public.request_parental_consent('00000000-0000-0000-0000-0000000000a3', null,
+                                                               'not-a-wording')::text, true);
+select is(current_setting('test.owen')::jsonb ->> 'summary', (select summary from public.agreement_versions where version = 'parental-invite-v2') || ' ' || (select summary from public.agreement_versions where version = 'parental-invite-v3'),
+  'an unknown wording (or an older function that sends none) gets what changed up to the one in force');
+select is((current_setting('test.owen')::jsonb -> 'was_linked')::boolean, false,
+  'and Owen, who never signed in, isn''t said to be signed out');
 select is(public.request_parental_consent('00000000-0000-0000-0000-0000000000a3') ->> 'outcome', 'rate_limited',
   'the two-argument call still works');
+select pg_temp.as_user('f0000000-0000-0000-0000-00000000000f');  -- Cleo
+select is(public.request_parental_consent('00000000-0000-0000-0000-0000000000c2', null, 'parental-invite-v3')
+            ->> 'summary', (select summary from public.agreement_versions where version = 'parental-invite-v3'),
+  'a kid agreed to v2 gets only v3''s what changed');
+
+-- The cron's renewal emails carry the same ----------------------------------------------------------------------------------
+select pg_temp.as_service();
+select set_config('test.claims', public.claim_consent_renewal_emails(10, 'parental-invite-v3')::text, true);
+select is((select c ->> 'summary' from jsonb_array_elements(current_setting('test.claims')::jsonb) c
+            where c ->> 'first_name' = 'Kit'),
+  (select summary from public.agreement_versions where version = 'parental-invite-v2') || ' ' || (select summary from public.agreement_versions where version = 'parental-invite-v3'), 'the cron''s email for a v1 kid says what changed in v2, then v3');
+select is((select (c -> 'was_linked')::boolean from jsonb_array_elements(current_setting('test.claims')::jsonb) c
+            where c ->> 'first_name' = 'Kit'),
+  true, 'and that Kit had signed in');
+select pg_temp.as_admin();
+select is(public.parental_changes_since('parental-invite-v2', 'parental-invite-v3'), (select summary from public.agreement_versions where version = 'parental-invite-v3'),
+  'from v2 to v3, only v3''s what changed');
+select is(public.parental_changes_since('parental-invite-v1', 'parental-invite-v3'), (select summary from public.agreement_versions where version = 'parental-invite-v2') || ' ' || (select summary from public.agreement_versions where version = 'parental-invite-v3'),
+  'from v1 to v3, both, in order');
+update public.agreement_versions set requires_reagreement = false where version = 'parental-invite-v3';
+select is(public.parental_changes_since('parental-invite-v2', 'parental-invite-v3'), (select summary from public.agreement_versions where version = 'parental-invite-v3'),
+  'a typo fix alone still says what the sent wording is');
+update public.agreement_versions set requires_reagreement = true where version = 'parental-invite-v3';
 
 -- A newer wording comes into force and the hourly job hasn't run yet: Dan's family renews before he's held.
 select pg_temp.as_admin();

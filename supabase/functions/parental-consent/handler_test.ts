@@ -36,6 +36,7 @@ const claim = (overrides: Partial<RenewalClaim> = {}): RenewalClaim => ({
   reminder: false,
   summary: "Foon now confirms a parent's consent by email.",
   agreedAt: "2026-10-01T12:00:00Z",
+  wasLinked: true,
   ...overrides,
 });
 const agreed: DecideResult = {
@@ -546,6 +547,7 @@ Deno.test("the app's renewal request asks in this function's wording and emails 
           summary: "Foon now confirms a parent's consent by email.",
           agreedBefore: "2026-10-01T12:00:00Z",
           held: true,
+          wasLinked: true,
         },
       } as RequestResult);
     },
@@ -565,11 +567,29 @@ Deno.test("a renewal the app asks for before the hold opens says the kid will be
       Promise.resolve({
         ...send,
         reason: "renewal",
-        renewal: { summary: null, agreedBefore: null, held: false },
+        renewal: { summary: null, agreedBefore: null, held: false, wasLinked: true },
       } as RequestResult),
   });
   assertEquals((await handleParentalConsent(fromApp({ memberId }), deps)).status, 200);
   assertStringIncludes(emails[0].text, "Until a parent agrees, Nora will be signed out of Foon soon.");
+});
+
+Deno.test("renewal emails for a kid who never signed in never say signed out, from the app or the cron", async () => {
+  const app = fakeDeps({
+    request: () =>
+      Promise.resolve({
+        ...send,
+        reason: "renewal",
+        renewal: { summary: null, agreedBefore: null, held: true, wasLinked: false },
+      } as RequestResult),
+  });
+  assertEquals((await handleParentalConsent(fromApp({ memberId }), app.deps)).status, 200);
+  assert(!app.emails[0].text.includes("signed out"));
+
+  const cron = fakeDeps({ claimRenewals: () => Promise.resolve([claim({ wasLinked: false })]) }, "parental-invite-v3");
+  assertEquals((await handleParentalConsent(fromCron(cronSecret), cron.deps)).status, 200);
+  assert(!cron.emails[0].text.includes("signed out"));
+  assertStringIncludes(cron.emails[0].text, "Until a parent agrees, Nora can't use Foon on their own device.");
 });
 
 Deno.test("an older database's renewal answer, without the renewal fields, still sends a whole notice", async () => {

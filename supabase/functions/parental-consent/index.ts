@@ -75,6 +75,7 @@ Deno.serve((req) =>
                 agreedBefore: (row.agreed_before as string | null) ?? null,
                 // Absent from a database before 20261119000000: word it as held, as before.
                 held: row.held !== false,
+                wasLinked: typeof row.was_linked === "boolean" ? row.was_linked : null,
               },
             }
             : {}),
@@ -139,6 +140,7 @@ Deno.serve((req) =>
         reminder: row.reminder === true,
         summary: (row.summary as string | null) ?? null,
         agreedAt: (row.agreed_at as string | null) ?? null,
+        wasLinked: typeof row.was_linked === "boolean" ? row.was_linked : null,
       }));
     },
     wordingOk: (wording) => rpc<boolean>("parental_wording_ok", { wording }),

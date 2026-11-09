@@ -42,13 +42,15 @@ the reminder); a reservation doesn't. A send that fails (or Resend not answering
 the run's 40-second budget.
 
 - **Renewal notice** ("Can <name> keep using Foon?"), to every parent whose account has a verified email: email 1's
-  direct notice, plus what changed (the registry's `summary`), when a parent agreed before, that the kid is signed out
-  until a parent agrees, that nothing is deleted, and how to withdraw instead. Its link opens the same /consent page,
+  direct notice, plus what changed (the registry's `summary` of every version that needs agreeing again since the one
+  a parent agreed to, oldest first: v2's then v3's for a v1 kid), when a parent agreed before, that the kid is signed
+  out until a parent agrees (or, for a kid who never signed in on their own device, `was_linked` false, that they
+  can't use Foon on their own device: never "signed out"), that nothing is deleted, and how to withdraw instead. Its link opens the same /consent page,
   worded as a renewal; No keeps the kid signed out.
 - **Reminder**, once, 7 days after the first: the same email, subject "Reminder: Can <name> keep using Foon?".
 - A parent's Email me the form in the app sends the same notice, with the same what changed and date:
-  `request_parental_consent` takes the function's wording and returns `summary`, `agreed_before` and `held` for a
-  renewal (since `20261119000000_agreements_in_force.sql`). In the hour between a wording change and the job that holds
+  `request_parental_consent` takes the function's wording and returns `summary`, `agreed_before`, `held` and
+  `was_linked` for a renewal (`claim_consent_renewal_emails` returns the same for the cron's) (since `20261119000000_agreements_in_force.sql`). In the hour between a wording change and the job that holds
   the kid, `held` is false and the email says the kid "will be signed out soon".
 - The function sends its `TEXT_VERSION` while that wording is registered and at or after the one in force
   (`parental_wording_ok`), so one deployed ahead of a new wording keeps sending. Left on outdated wording, it sends
@@ -69,7 +71,9 @@ that PR merges:
 
 1. The iOS build with the agreement screens (#277 PR C) is on TestFlight and tested. Older builds show a held kid as
    consented and fail Invite generically.
-2. Production has the parental-consent function from #277 PR B deployed (renewal mode, `?renewals=1`).
+2. Production has the parental-consent function from #277 PR B deployed (renewal mode, `?renewals=1`), and
+   send-push with words for `agreement_hold` (#309) deployed. Without it every hold's push to parents is marked
+   `unknown_kind` and never sent.
 3. Edge Function secrets on production: `RESEND_API_KEY` (set for the waitlist; confirm it's listed under Edge
    Functions → Secrets), `CONSENT_FROM` (`Foon <info@getfoon.com>`) and `CONSENT_CRON_SECRET` (a long random string).
    Without `RESEND_API_KEY` or `CONSENT_FROM` nothing is sent and every run answers 503 `email_off`; without

@@ -41,6 +41,8 @@ export interface Renewal {
 export interface RenewalRequest extends Renewal {
   // False when the wording changed but the hourly job hasn't signed the kid out yet.
   held: boolean;
+  // Whether the kid had signed in on their own device; null when the database didn't say.
+  wasLinked: boolean | null;
 }
 
 export type LookupResult =
@@ -54,9 +56,11 @@ export interface RenewalClaim {
   email: string;
   firstName: string;
   reminder: boolean;
-  // What changed in the wording being sent.
+  // What changed since the wording a parent agreed to, up to the wording being sent.
   summary: string | null;
   agreedAt: string | null;
+  // Whether the kid had signed in on their own device; null when the database didn't say.
+  wasLinked: boolean | null;
 }
 
 export type DecideResult =
@@ -241,6 +245,7 @@ async function sendNotice(deps: ConsentDeps, send: Extract<RequestResult, { outc
         summary: send.renewal?.summary ?? null,
         agreedBefore: send.renewal?.agreedBefore ?? null,
         held: send.renewal?.held ?? true,
+        wasLinked: send.renewal?.wasLinked ?? null,
         reminder: false,
       })
       : noticeEmail({ firstName: send.firstName, consentUrl, emailSource: send.emailSource }));
@@ -300,6 +305,7 @@ async function sendRenewals(req: Request, deps: ConsentDeps): Promise<Response> 
         agreedBefore: claim.agreedAt,
         // Only a held kid's parents are claimed.
         held: true,
+        wasLinked: claim.wasLinked,
         reminder: claim.reminder,
       }));
     if (delivery === "sent") totals.sent += 1;
