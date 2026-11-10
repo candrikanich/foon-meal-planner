@@ -40,6 +40,25 @@ One-time setup, done by Chris (values never go in the repo or a chat):
 Push (Apple key, vault secrets) and App Store notification secrets aren't needed for the waitlist; they're set when the
 app itself moves to production. Until then those functions are deployed but idle.
 
+### Before the first production build (`beta/*`)
+
+The family beta and the App Store get the `Foon Prod` build, which talks to production. Before its first tag:
+
+1. Authentication → Sign In / Providers → Apple on: Client IDs `com.andrikanich.foon`, no secret (native sign-in).
+2. Edge Function secrets `APPLE_TEAM_ID` (`G374A783RH`), `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` (the "Foon" `.p8`, which
+   covers Sign in with Apple and APNs), `APPLE_CLIENT_ID` (`com.andrikanich.foon`, for delete-account's token revoke),
+   `PUSH_CRON_SECRET` (a new long random string) and `APPLE_APP_ID` (App Store Connect → App Information).
+3. Vault on production: `push_function_url` = `https://itnhdikhdsujklaimqqd.supabase.co/functions/v1/send-push` and
+   `push_cron_secret` = the same `PUSH_CRON_SECRET`. Without them no push is ever sent.
+4. Xcode Cloud: a second workflow, "Production beta": scheme `Foon Prod`, start condition tags `beta/*`, environment
+   `PROD_SUPABASE_URL` (`https://itnhdikhdsujklaimqqd.supabase.co`) and `PROD_SUPABASE_ANON_KEY` (production's
+   publishable key), post-action TestFlight External testing → Family. The QA workflow stays on `testflight/*` →
+   Internal. Both builds are the same app in App Store Connect, so a tester's phone installs whichever group's newest
+   build it's offered: keep the family out of Internal, and expect Internal testers to land on production when they
+   pick a `beta/*` build (a fresh sign-in, since each backend keeps its own session).
+5. From the family's first sign-in on, production has real users: their allergies, consents and agreement holds are
+   real data.
+
 ## What the emailed links do
 
 Mail scanners (Safe Links, Mimecast and the like) open every link in a message, so a GET never changes anything. The

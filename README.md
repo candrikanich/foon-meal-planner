@@ -42,13 +42,15 @@ supabase stop
 
 ### Environments
 
-| Build configuration | Supabase | Settings file (gitignored) |
-| --- | --- | --- |
-| Debug | local stack | `Config/Local.local.xcconfig` |
-| Staging | hosted staging | `Config/Staging.local.xcconfig` |
-| Release | production | `Config/Prod.local.xcconfig` |
+| Build configuration | Supabase | Settings file (gitignored) | Who gets it |
+| --- | --- | --- | --- |
+| Debug | local stack | `Config/Local.local.xcconfig` | Run from Xcode |
+| Staging | hosted staging | `Config/Staging.local.xcconfig` | QA build: scheme `Foon`, tag `testflight/*`, Internal TestFlight |
+| Release | production | `Config/Prod.local.xcconfig` | Production build: scheme `Foon Prod`, tag `beta/*`, External TestFlight (Family), then the App Store |
 
-Copy the matching `*.local.xcconfig.example` to create each file. Staging and Release builds fail if their file is missing, so a hosted build can't ship unconfigured (CI or Xcode Cloud must write it from secrets). Only the URL and anon key live in the app; service-role keys belong in Edge Functions only.
+Copy the matching `*.local.xcconfig.example` to create each file. Staging and Release builds fail if their file is missing, so a hosted build can't ship unconfigured. Xcode Cloud writes it in `ci_scripts/ci_post_clone.sh`: the `Foon Prod` scheme from `PROD_SUPABASE_URL`/`PROD_SUPABASE_ANON_KEY`, and only production's URL; any other scheme from `SUPABASE_URL`/`SUPABASE_ANON_KEY`, and never production's URL. Test builds (anything but production) show "Test build: Staging · iOS 0.1.0 (n)" at the bottom of Family. Only the URL and anon key live in the app; service-role keys belong in Edge Functions only.
+
+To ship: `git tag testflight/<yyyy-mm-dd>[-n] origin/main` (QA) or `git tag beta/<yyyy-mm-dd>[-n] origin/main` (production), then push the tag. Production's database and functions deploy right after staging's on each backend merge (`deploy-production.yml`), so keep migrations backward compatible with the last `beta/*` build too. What production needs before its first build is in `docs/waitlist.md` (Production).
 
 ### Starter catalog
 
