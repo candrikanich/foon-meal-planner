@@ -9,18 +9,19 @@ set -eu
 
 cd "${CI_PRIMARY_REPOSITORY_PATH:?}"
 
-PROD_URL="https://itnhdikhdsujklaimqqd.supabase.co"
+PROD_REF="itnhdikhdsujklaimqqd"
+PROD_URL="https://$PROD_REF.supabase.co"
 
 # `//` starts an xcconfig comment, so the URL's slashes are escaped the way the example file shows.
 write_config() {
   # shellcheck disable=SC2016 # $() is literal: the xcconfig escape, not a command.
-  escaped_url=$(printf '%s' "$2" | sed 's#//#/$()/#')
+  escaped_url=$(printf '%s' "$2" | tr -d '[:space:]' | sed 's#//#/$()/#')
   printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\n' "$escaped_url" "$3" > "Config/$1.local.xcconfig"
 }
 
-# Trailing slashes and case don't change the host, so compare without them.
+# Whitespace, trailing slashes and case don't change the host (the app trims the URL), so compare without them.
 normalized() {
-  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's#/*$##'
+  printf '%s' "$1" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]' | sed 's#/*$##'
 }
 
 if [ "${CI_XCODE_SCHEME:-}" = "Foon Prod" ]; then
@@ -34,11 +35,12 @@ if [ "${CI_XCODE_SCHEME:-}" = "Foon Prod" ]; then
 else
   : "${SUPABASE_URL:?Set SUPABASE_URL in the Xcode Cloud workflow environment}"
   : "${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY in the Xcode Cloud workflow environment}"
-  if [ "$(normalized "$SUPABASE_URL")" = "$PROD_URL" ]; then
+  # Any URL naming production's project is refused, not only the exact one: a QA build fails closed too.
+  case "$(normalized "$SUPABASE_URL")" in *"$PROD_REF"*)
     echo "error: a QA build (scheme ${CI_XCODE_SCHEME:-unknown}) can't point at Foon production." \
       "Nothing was configured." >&2
-    exit 1
-  fi
+    exit 1 ;;
+  esac
   write_config Staging "$SUPABASE_URL" "$SUPABASE_ANON_KEY"
 fi
 
