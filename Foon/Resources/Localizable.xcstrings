@@ -2586,6 +2586,9 @@
     "Loading your profile..." : {
 
     },
+    "Local" : {
+
+    },
     "Lock night" : {
 
     },
@@ -3845,6 +3848,9 @@
     "Spot busy evenings" : {
 
     },
+    "Staging" : {
+
+    },
     "Staples like milk or paper towels stay on the keep-on-hand list, marked in, low, or out." : {
 
     },
@@ -4058,6 +4064,19 @@
 
     },
     "Terms of Use" : {
+
+    },
+    "Test build: %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Test build: %1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "Test server" : {
 
     },
     "Tex-Mex" : {

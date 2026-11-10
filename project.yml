@@ -243,6 +243,16 @@ schemes:
     # Runs from Xcode buy from the local StoreKit config (#66), not the sandbox; archives and TestFlight don't use it.
     run:
       storeKitConfiguration: Foon/Foon.storekit
-    # TestFlight builds (Xcode Cloud) point at hosted staging. Prod gets its own scheme before launch.
+    # QA builds (Xcode Cloud, tags testflight/*) point at hosted staging and go to the Internal TestFlight group.
     archive:
       config: Staging
+  # The production build (Xcode Cloud, tags beta/*): the Family beta in External TestFlight, and the binary that's
+  # submitted to the App Store. It archives Release, which reads Prod.local.xcconfig (ci_scripts/ci_post_clone.sh).
+  Foon Prod:
+    build:
+      targets:
+        Foon: all
+    run:
+      config: Release
+    archive:
+      config: Release

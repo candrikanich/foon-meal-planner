@@ -221,6 +221,12 @@ struct FamilyView: View {
                         Text("Use this if a phone is lost or shared. Every device, this one included, signs out right away.")
                     }
                 }
+
+                if let backend = BackendLabel.current {
+                    Section {} footer: {
+                        Text("Test build: \(backend) · \(AppVersion.client)")
+                    }
+                }
             }
             .refreshable {
                 await store.load()
