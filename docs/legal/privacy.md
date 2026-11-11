@@ -48,8 +48,8 @@ your consent (see Kids and parental consent).
 We also email adults a few messages about their own account:
 
 - a welcome when you create a household (not for a sample family), with how to invite your family;
-- if you own the household: when a subscription or free trial starts, when you turn off its renewal, and when it
-  ends (Apple sends its own receipts for each payment);
+- if you own the household: when a subscription or free trial starts, renews, changes plan, is refunded, can't be
+  charged, has its renewal turned off or back on, and when it ends (Apple sends its own receipts for each payment);
 - a receipt when you delete your account or your household, sent once the deletion is done.
 
 They go to the email Apple gave us for your Sign in with Apple account, read when each email is sent; we don't copy it
@@ -126,6 +126,7 @@ example, "under 13"), never a birthdate. [CHECK: this is planned for #88; the fi
 | Comments a planner hid | Planners can hide a comment | Planners, and a kid's parents | Until shown again or erased |
 | Receipt lines someone corrected | So the next receipt reads right | Your household | While the household exists |
 | A shopping trip in progress | To tell the family | Your household | 1 day after it ends |
+| That a shopping trip finished with something bought, and when (never what, where or who) | Counting trips across families, to see how Foon is used | Your household | 13 months |
 
 Meal photos have their location and camera details removed on your device before they're uploaded. Recipe photos from
 websites aren't saved.

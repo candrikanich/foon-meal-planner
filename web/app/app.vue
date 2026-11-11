@@ -24,6 +24,7 @@ import { SUPPORT_EMAIL } from "~/content";
       <span>&copy; 2026 The Recruiting Compass LLC</span>
       <nav aria-label="Footer">
         <NuxtLink to="/privacy">Privacy</NuxtLink> &middot;
+        <NuxtLink to="/consumer-health-data">Consumer Health Data</NuxtLink> &middot;
         <NuxtLink to="/terms">Terms</NuxtLink> &middot;
         <NuxtLink to="/support">Support</NuxtLink> &middot;
         <a :href="`mailto:${SUPPORT_EMAIL}`">{{ SUPPORT_EMAIL }}</a>

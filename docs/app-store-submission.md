@@ -15,7 +15,7 @@ Draft App Store Connect data for Foon, ready to paste. Verify field limits and t
 | Copyright | 2026 The Recruiting Compass LLC | |
 | Support URL | https://getfoon.com/support | Mailbox support@getfoon.com must exist |
 | Marketing URL | https://getfoon.com | |
-| Privacy policy URL | https://getfoon.com/privacy | Required. Today a plain-English summary; #67 replaces it with the full policy. Terms are at https://getfoon.com/terms (placeholder until #67) |
+| Privacy policy URL | https://getfoon.com/privacy | Required. Today a plain-English summary; #67 replaces it with the full policy. Terms are at https://getfoon.com/terms (placeholder until #67). The Consumer Health Data Policy is at https://getfoon.com/consumer-health-data (a summary until review) and is linked from the description below (RCW 19.373.020(1)(b), #281) |
 
 ## Description (draft)
 
@@ -41,6 +41,9 @@ No ads. No tracking. AI runs on your family's own devices, and allergies are nev
 One subscription covers your whole household. Try it free for 30 days.
 
 Allergy flags are a helpful second set of eyes, not a guarantee. Always check labels.
+
+Privacy Policy: https://getfoon.com/privacy
+Consumer Health Data Policy: https://getfoon.com/consumer-health-data
 
 ## Subscriptions
 
@@ -69,9 +72,9 @@ Data used to track you: **None.**
 | Other user content (meals, comments, requests, receipt lines the family corrected, a dish's recipe lines queued for an AI tidy-up) | Yes | App functionality | Yes |
 | User ID | Yes | App functionality | Yes |
 | Purchase history | Yes | App functionality | Yes |
-| Product interaction (which reminders went out and were answered: kind, night, time) | Yes | App functionality | Yes |
+| Product interaction (which reminders went out and were answered: kind, night, time; that a shopping trip finished with something bought, and when) | Yes | App functionality (reminders), Analytics (finished trips, #260) | Yes |
 
-Analytics (product interaction) and crash and performance data aren't collected: the app has neither yet. They come back to this table with #28.
+Finished shopping trips (#260, only those where something was bought) are the one product interaction kept for Analytics: the household and the time, counted only across at least 5 households (docs/metrics.md), never used for tracking. An analytics SDK and crash and performance data aren't in the app yet: they come back to this table with #28.
 
 Not collected: precise or coarse location, contacts, browsing history, search history, financial info, sensitive info beyond allergies, calendar data (read on device only, never collected), library photos shown in Dinner memories (read on device only, never uploaded or kept), receipt photos (read on device only, never uploaded or kept; what's kept is "Other user content": receipt lines the family corrected and the item each is).
 
@@ -128,7 +131,8 @@ Key flows: This Week tab, Fill my week, approve, then the cart icon for the shop
 - [x] AI queue (#58): background fetch (`UIBackgroundModes: fetch`, already on for #122) with a second refresh identifier, `com.andrikanich.foon.ai`, in `BGTaskSchedulerPermittedIdentifiers` (via project.yml). Only a device that can run Apple's on-device model asks for it; the Mac claims jobs when Foon opens. No new permission prompt. #59's recipe kind is in the label's "Other user content" row and in What Foon keeps
 - [x] Dinner memories (#65, part 3): `NSPhotoLibraryUsageDescription` in Info.plist (via project.yml), the Mac's photos entitlement, and no new App Privacy type (library photos never leave the device)
 - [x] Receipt scanning (#61): `NSCameraUsageDescription` in Info.plist (via project.yml), iPhone and iPad only (the Mac picks a photo, so no camera entitlement), and no App Privacy type for the photo (never leaves the device)
-- [ ] Privacy policy and terms live at the URLs above
+- [ ] Privacy policy, terms and consumer health data policy live at the URLs above (the reviewed versions, #67)
+- [x] Policy links in the app (#281): Terms and Privacy on the agreement screen, join a family, the paywall and the kid invite; Privacy and the Consumer Health Data Policy in Family → Your data; the Consumer Health Data Policy in Allergy alerts and beside every allergy agreement
 - [ ] Sign in with Apple private email relay: sending domain registered
 - [ ] Content rights: imported recipes are user-provided and private to the household
 - [ ] Paywall shows required subscription terms
