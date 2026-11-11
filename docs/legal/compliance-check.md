@@ -269,7 +269,7 @@ processing needs a separate authorization or a "strictly necessary" purpose, and
 | Outside the Kids Category, don't suggest kids are the main audience | 2.3.8 | Keyword "kids" | partly | Wording (this PR): dropped |
 | Subscription screen: name, duration, renewal price, trial, restore, Terms and Privacy links | 3.1.2; Apple's Subscriptions page | Offer row (name, price, trial and the price after it), renewal terms, restore purchases, and Terms and Privacy links (`SubscriptionSection.swift`, #282) | met | Decision 13 (trial wording) |
 | EULA | 3.1.2 (wording UNVERIFIED) | terms.md layers Apple's EULA | partly | Decision 12 |
-| Privacy label accurate | App Privacy Details | Label rows in app-store-submission.md | partly | Check whether the push token is "Device ID" and whether kept request logs (IPs) count (both UNVERIFIED); add the age range with #88 |
+| Privacy label accurate | App Privacy Details | Label rows in app-store-submission.md | partly | Check whether the push token is "Device ID" and whether kept request logs (IPs) count (both UNVERIFIED); the age range row is in (#88) |
 
 ## Apple age ratings and Declared Age Range (2026)
 
@@ -277,9 +277,9 @@ processing needs a separate authorization or a "strictly necessary" purpose, and
 | --- | --- | --- | --- | --- |
 | Answer the new age-rating questions (4+/9+/13+/16+/18+); updates were blocked after 2026-01-31 | Apple news 2025-07-24 | Not re-answered against the new questions | partly | Decision 11 |
 | Answer honestly | 2.3.6 | — | partly | Same |
-| Declared Age Range API, iOS/macOS 26+; `confirmed` from iOS 26.5 | Apple Age Assurance page | Not built | gap | Code (#88) |
-| Developers handle their own age limits | Apple Age Assurance page | Terms say 18+, nothing checks | gap | Code (#88) and decision |
-| Significant Change and `RESCIND_CONSENT` notifications where required | Apple Age Assurance page | Not built | gap | Code, where `requiredRegulatoryFeatures` says so |
+| Declared Age Range API, iOS/macOS 26+; `confirmed` from iOS 26.5 | Apple Age Assurance page | Join family asks once and sends only the band to `redeem_invite` (#88); `confirmed` is a declaration type, and Foon reads only the range | partly | Sandbox device test (docs/parental-consent.md) |
+| Developers handle their own age limits | Apple Age Assurance page | Terms say 18+; the band is checked only when someone claims a profile (`age_mismatch`, #88), not at sign-up | partly | Decision |
+| Significant Change and `RESCIND_CONSENT` notifications where required | Apple Age Assurance page | Significant-change hook built (#88, iOS 26.4+, where `requiredRegulatoryFeatures` says so); no change qualifies yet. `RESCIND_CONSENT` waits for the App Store Server Notifications endpoint | partly | Code (Phase 4) |
 
 ## App-store age laws
 
@@ -293,8 +293,8 @@ Status as of 2026-11-06:
 | Requirement on a developer | Citation | Where we meet it | Verdict | Fix |
 | --- | --- | --- | --- | --- |
 | Texas: rate the app and each purchase, and tell the store | SB 2420 §121.052 | Questionnaire not re-answered | partly | Decision 11 |
-| Texas: tell the store before a significant change to terms or privacy policy | §121.053 | Not planned | gap | Code or process |
-| Texas: verify each user's age category and a minor's consent | §121.054 | Not built | gap | Code (#88); good-faith reliance on the store's data is a safe harbor (§121.056(c)) |
+| Texas: tell the store before a significant change to terms or privacy policy | §121.053 | Significant-change hook (#88): add the change to `SignificantChange.all` and a minor's parent approves through PermissionKit, an adult acknowledges | partly | Process: decide which changes qualify |
+| Texas: verify each user's age category and a minor's consent | §121.054 | Age band asked at claim (#88), parental consent by email plus (#275); not at sign-up | partly | Decision; good-faith reliance on the store's data is a safe harbor (§121.056(c)) |
 | Texas: use store data only for listed purposes, and delete it after verification | §121.055(a)-(b) | retention.md planned to keep the age range | gap | Code or design (decision 6); note in retention.md (this PR) |
 | Utah (HB 498): developer duties from 2027-05-06 | UNVERIFIED | Not built | gap (later) | Code (#88) |
 | Louisiana (HB 977): use store age signals from 2027-07-01 | UNVERIFIED | Not built | gap (later) | Code (#88) |

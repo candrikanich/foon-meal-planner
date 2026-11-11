@@ -114,6 +114,25 @@ struct HouseholdStoreTests {
         #expect(store.phase == .needsHousehold, "the gate then shows Create household, which wipes the cache")
     }
 
+    /// #88: a parent withdrew the kid's consent on another device. The server unlinks the account, so RLS shows no
+    /// household; the next launch, or coming back to the foreground, lands them on join, as with removal.
+    @Test func aKidWhoseConsentWasRevokedElsewhereLosesAccess() async {
+        let household = household
+        let revoked = Mutex(false)
+        let client = HouseholdClient.fake(myHousehold: { revoked.withLock { $0 } ? nil : household })
+        let running = HouseholdStore(userID: me, client: client)
+        await running.load()
+        #expect(running.household?.id == household.id)
+
+        revoked.withLock { $0 = true }
+        await running.refreshQuietly()
+        #expect(running.phase == .needsHousehold, "back in the foreground: the gate wipes the cache")
+
+        let coldLaunch = HouseholdStore(userID: me, client: client)
+        await coldLaunch.load()
+        #expect(coldLaunch.phase == .needsHousehold)
+    }
+
     @Test func anOfflineReloadKeepsTheHousehold() async {
         let household = household
         let offline = Mutex(false)
@@ -426,7 +445,7 @@ extension HouseholdClient {
             addMember: addMember,
             updateMember: updateMember,
             createInvite: { _ in throw URLError(.unknown) },
-            redeemInvite: { _ in .invalid },
+            redeemInvite: { _, _ in .invalid },
             invitedMemberIDs: { _ in [] },
             parentalConsentMemberIDs: { _ in [] },
             requestParentalConsent: { _, _ in throw URLError(.unknown) },

@@ -325,9 +325,9 @@ struct HouseholdStoreAgreementTests {
         var client = HouseholdClient.preview()
         client.agreements = { _ in .previewTermsNew }
         client.myHousehold = { .sample }
-        client.redeemInvite = { _ in .claimed }
+        client.redeemInvite = { _, _ in .claimed }
         let store = HouseholdStore(userID: .previewUser, client: client)
-        await store.redeem("THESM-7KQ4-M9XP")
+        await store.redeem("THESM-7KQ4-M9XP", ageBand: .adult)
         #expect(store.termsGate()?.context == .join)
     }
 

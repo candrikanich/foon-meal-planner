@@ -72,6 +72,7 @@ Data used to track you: **None.**
 | Other user content (meals, comments, requests, receipt lines the family corrected, a dish's recipe lines queued for an AI tidy-up) | Yes | App functionality | Yes |
 | User ID | Yes | App functionality | Yes |
 | Purchase history | Yes | App functionality | Yes |
+| Other data (the age range Apple's Declared Age Range API gives when someone joins with an invite, #88: a band such as "13 to 15", never a birthdate) | Yes | App functionality | Yes |
 | Product interaction (which reminders went out and were answered: kind, night, time; that a shopping trip finished with something bought, and when) | Yes | App functionality (reminders), Analytics (finished trips, #260) | Yes |
 
 An address a parent types to email an adult's invite (#48 PR B) changes nothing here: it goes to Resend for that one email, in real time, and Foon never stores it, and Email address is already declared.
@@ -93,7 +94,7 @@ Dinner memories (#65, part 3): in App Privacy, the existing Photos row stays as 
 Target: the lowest available rating. Answer the questionnaire honestly: no mature content, no gambling, no web browsing, no public user-generated content. Family comments are private to a household with no public sharing or messaging strangers. Confirm the resulting rating in App Store Connect.
 
 - Not in the Kids category.
-- Texas age-assurance support (Declared Age Range API, PermissionKit) implemented before submission.
+- Texas age-assurance support (Declared Age Range API, PermissionKit): built in #88. Joining with an invite asks for the age range once; a significant change asks a minor's parent through PermissionKit, or shows an adult Apple's acknowledgment, where Apple says the region requires it (no change qualifies yet). The Declared Age Range capability is on for the App ID (Chris, 2026-11-11). Before submission: test in Apple's age assurance sandbox (steps in docs/parental-consent.md). Consent revoked through Apple waits for the App Store Server Notifications endpoint (Phase 4).
 
 ## Screenshots
 

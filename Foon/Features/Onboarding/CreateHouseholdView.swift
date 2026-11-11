@@ -1,3 +1,6 @@
+#if canImport(DeclaredAgeRange)
+@preconcurrency import DeclaredAgeRange
+#endif
 import SwiftUI
 
 struct CreateHouseholdView: View {
@@ -10,6 +13,11 @@ struct CreateHouseholdView: View {
     @State private var firstName = ""
     @State private var isSaving = false
     @State private var inviteCode = ""
+    #if canImport(DeclaredAgeRange)
+    @Environment(\.requestAgeRange) private var requestAgeRange
+    #endif
+    /// Apple's age range for this account, asked for once (#88): a wrong code tried again doesn't ask again.
+    @State private var ageBand: AgeBand?
     @State private var confirmingSample = false
     @State private var deletingAccount = false
     /// What waits on the Terms gate (#277): creating needs the Terms and Privacy in force agreed first.
@@ -52,6 +60,19 @@ struct CreateHouseholdView: View {
         }
     }
 
+    /// The band for `redeem_invite`, which refuses a minor's account claiming an adult's profile and an adult's account
+    /// claiming a kid's. Apple shows its own prompt; Foon keeps only the band, never a birthdate.
+    private func askAgeBand() async -> AgeBand {
+        if let ageBand { return ageBand }
+        #if canImport(DeclaredAgeRange)
+        let band = await AgeBand.ask(requestAgeRange)
+        #else
+        let band = AgeBand.unknown
+        #endif
+        ageBand = band
+        return band
+    }
+
     private func loadSample() {
         Task {
             isSaving = true
@@ -92,7 +113,7 @@ struct CreateHouseholdView: View {
                     Button {
                         Task {
                             isSaving = true
-                            await store.redeem(inviteCode)
+                            await store.redeem(inviteCode, ageBand: await askAgeBand())
                             if store.household != nil { session.clearPendingInvite() }
                             isSaving = false
                         }

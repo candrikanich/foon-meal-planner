@@ -146,6 +146,34 @@ registered senders; anything else bounces.
    a name or a token.
 4. Repeat once with an account whose email is a normal address, and once with No on the site page.
 
+## Age range at claim: sandbox device check (#88)
+
+Join family asks Apple's Declared Age Range once per visit to that screen (gates 13, 16, 18) and sends only the band to
+`redeem_invite`. `age_mismatch` refuses a minor band on an adult profile and `adult` on a kid's, without using the
+invite; `unknown` (declined, or a device that can't answer) passes either way. Apple's sandbox needs iOS 26.2 or later.
+
+1. App Store Connect → Users and Access → Sandbox → Test Accounts: make a sandbox Apple Account. On the test iPhone
+   (Developer Mode on), sign it in only under Settings → Developer → Sandbox Apple Account, not as the device's Apple
+   Account. Pick a scenario under that account → Manage → Age Assurance (older builds: Settings → Developer → Sandbox
+   Testing → Age Assurance). Install a Staging build signed with the Declared Age Range capability.
+2. From a parent's device in a staging household: add an adult profile and a kid profile, get the kid's consent
+   (email plus), and make an invite for each.
+3. Scenario: a 13 to 15 year old. On the test iPhone, sign in to Foon with an account that has no household, type the
+   adult's code, tap Join family. Apple's age-range prompt may show; share it. Expect "This invite is for someone else's
+   profile. Ask your family for the right invite." The adult's invite still shows as open on the parent's device.
+4. Same screen, type the kid's code, Join family: no second prompt, and they join. `members.declared_age_band` for the
+   kid reads `13_15`.
+5. Parent: withdraw the kid's consent on their member detail. Kid's iPhone: force-quit and open Foon (or return to
+   This Week from the background): the join screen, or "Waiting for a parent" if a hold applies, and nothing of the
+   household is left on the device. The parent still sees the kid's profile and history.
+6. Scenario: 18 or over. Relaunch Foon on the same (now unlinked) account. Parent gives the kid's consent again and
+   sends a new kid invite: Join family with it says it's for someone else's profile. The adult's code joins, band
+   `adult`.
+7. Optional: decline the prompt (or a scenario that doesn't share): any profile's code joins, band `unknown`.
+
+Significant changes: `SignificantChange.all` is empty, so no build asks a parent or shows Apple's acknowledgment yet;
+check only that launch shows nothing new.
+
 ## Before production
 
 Consents given in the app before #275 aren't verifiable consent; they're tagged `method = 'in_app'` and stay active
