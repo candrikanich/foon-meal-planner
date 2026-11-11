@@ -60,8 +60,8 @@ select lives_ok($$ select public.accept_agreements('terms-draft-v1', 'privacy-dr
 select pg_temp.as_admin();
 select results_eq(
   $$ select kind::text, context from public.account_agreements
-      where user_id = 'a0000000-0000-0000-0000-00000000000a' and kind in ('terms', 'privacy') order by kind $$,
-  $$ values ('terms', 'create_household'), ('privacy', 'create_household') $$,
+      where user_id = 'a0000000-0000-0000-0000-00000000000a' and kind in ('terms', 'privacy') order by kind::text $$,
+  $$ values ('privacy', 'create_household'), ('terms', 'create_household') $$,
   'which still logs each once, as first given');
 
 select * from finish();
