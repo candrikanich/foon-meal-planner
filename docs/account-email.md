@@ -53,7 +53,7 @@ off again, set it to `false`; rows keep queueing and nothing goes.
 
 - Triggers queue rows in `email_outbox`: `households_queue_welcome_email` (a new household that isn't a sample) and
   `household_subscriptions_queue_email` (SUBSCRIBED, DID_RENEW, DID_FAIL_TO_RENEW, renewal turned off or back on,
-  DID_CHANGE_RENEWAL_PREF, REFUND and REVOKE, EXPIRED and GRACE_PERIOD_EXPIRED; kinds `subscription_started`,
+  DID_CHANGE_RENEWAL_PREF, REFUND and REVOKE, GRACE_PERIOD_EXPIRED (a billing problem again, not the end) and EXPIRED; kinds `subscription_started`,
   `_renewed`, `_billing_problem`, `_ending`, `_renewal_on`, `_plan_changed`, `_refunded`, `_ended`, added in
   `20261123000000_account_email_subscription_events.sql`). Each event queues once
   (`unique (kind, dedupe_key)`). A subscription row's payload has the product id, trial flag, end date, the household's

@@ -5,7 +5,8 @@
 --   DID_CHANGE_RENEWAL_STATUS / AUTO_RENEW_ENABLED   subscription_renewal_on: it will renew again
 --   DID_CHANGE_RENEWAL_PREF                          subscription_plan_changed: the plan it renews as
 --   REFUND / REVOKE                                  subscription_refunded: access ended by a refund or Family Sharing
---   GRACE_PERIOD_EXPIRED                             subscription_ended (as EXPIRED)
+--   GRACE_PERIOD_EXPIRED                             subscription_billing_problem (no grace now; Apple retries up to 60
+--                                                    days, and EXPIRED, not this, ends it)
 -- Ending, ended, refunded and billing_problem aren't sent while another of the household's subscriptions still grants
 -- access (an ownership transfer: the old owner's lapsing or failing to bill isn't the family's loss). Started, renewed,
 -- renewal_on and plan_changed are good news or the owner's own doing, and always go.
@@ -163,7 +164,8 @@ begin
       then 'subscription_renewal_on'
     when notice.notification_type = 'DID_CHANGE_RENEWAL_PREF' then 'subscription_plan_changed'
     when notice.notification_type in ('REFUND', 'REVOKE') then 'subscription_refunded'
-    when notice.notification_type in ('EXPIRED', 'GRACE_PERIOD_EXPIRED') then 'subscription_ended'
+    when notice.notification_type = 'GRACE_PERIOD_EXPIRED' then 'subscription_billing_problem'
+    when notice.notification_type = 'EXPIRED' then 'subscription_ended'
   end;
   if email_kind is null then
     return null;

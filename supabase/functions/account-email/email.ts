@@ -178,7 +178,8 @@ export function subscriptionBillingProblemEmail(details: SubscriptionDetails): M
     `Apple couldn't charge the payment method for your family's ${details.plan}.`,
     details.grace
       ? `Your family keeps everything Foon offers until ${details.date} while Apple tries again.`
-      : "Apple will try again over the next few days. If it still can't charge, the subscription ends.",
+      : "Apple keeps trying for up to 60 days.",
+    ...(details.grace ? [] : afterAccessEnds(details)),
     "To fix it, open Settings on your iPhone or iPad, tap your name, then Subscriptions, and update your payment " +
     "method there.",
     questions,

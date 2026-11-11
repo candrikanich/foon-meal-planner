@@ -819,10 +819,10 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
 - **Subscription notices**, to the household's owner, for every important event in Apple's notifications (decided 2026-11-11: the owner hears about all of them):
   - started (SUBSCRIBED: the plan, monthly or yearly, whether it's the free trial, when the trial or period ends, and the exact time to turn off renewal by to avoid being charged, 24 hours before);
   - renewed (DID_RENEW: the plan and the next renewal date; Apple still sends the receipt);
-  - billing problem (DID_FAIL_TO_RENEW: Apple couldn't charge; update the payment method in Settings → your name → Subscriptions; in a grace period, the date access continues until, otherwise that Apple will try again and the subscription ends if it still can't charge);
+  - billing problem (DID_FAIL_TO_RENEW: Apple couldn't charge; update the payment method in Settings → your name → Subscriptions; in a grace period, the date access continues until; otherwise, and when a grace period runs out (GRACE_PERIOD_EXPIRED), that Apple keeps trying for up to 60 days and what changes now: nothing while billing isn't enforced, view-only once it is, nothing deleted);
   - ending (renewal turned off: when access ends) and renewal back on (AUTO_RENEW_ENABLED: when it renews);
   - plan changed (DID_CHANGE_RENEWAL_PREF: the plan it renews as, at the next renewal for a downgrade or crossgrade, or at once for an upgrade; nothing for a downgrade taken back);
-  - ended (EXPIRED or GRACE_PERIOD_EXPIRED: when, and what changes: nothing while billing isn't enforced; once it is, the household is view-only as in Lapsed means read-only, and nothing is deleted);
+  - ended (EXPIRED only, once Apple gives up: when, and what changes: nothing while billing isn't enforced; once it is, the household is view-only as in Lapsed means read-only, and nothing is deleted);
   - refunded (REFUND, or REVOKE when Family Sharing ended: that access ended and when, with the same what-changes line; a refund of an earlier period than the current one sends nothing, as it changes nothing).
 
   Dates and times are in the household's time zone (America/New_York without one). Plain facts and how to manage it (Settings → your name → Subscriptions), no upsell. Ending, ended, refunded and billing problem aren't sent while another of the household's subscriptions still grants access (an ownership transfer: the old owner's lapsing or failing to bill isn't the family's loss); started, renewed, renewal on and plan changed always go.

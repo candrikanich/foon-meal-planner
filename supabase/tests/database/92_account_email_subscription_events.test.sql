@@ -70,9 +70,9 @@ select results_eq(
             ('00000000-0000-0000-0000-000000000105', 'subscription_renewal_on'),
             ('00000000-0000-0000-0000-000000000106', 'subscription_plan_changed'),
             ('00000000-0000-0000-0000-000000000107', 'subscription_plan_changed'),
-            ('00000000-0000-0000-0000-000000000110', 'subscription_ended'),
+            ('00000000-0000-0000-0000-000000000110', 'subscription_billing_problem'),
             ('00000000-0000-0000-0000-000000000111', 'subscription_refunded') $$,
-  'each event queues its own kind, once per notification, keyed by Apple''s id (a plan change with no new plan to name queues none)');
+  'each event queues its own kind, once per notification, keyed by Apple''s id (a grace period running out is still a billing problem, not the end; a plan change with no new plan to name queues none)');
 
 select results_eq(
   $$ select payload ->> 'product_id', payload ->> 'time_zone', (payload ->> 'ends_at')::timestamptz > now() + interval '59 days'
@@ -83,7 +83,8 @@ select results_eq(
 select results_eq(
   $$ select dedupe_key, (payload ->> 'grace')::boolean from public.email_outbox
       where kind = 'subscription_billing_problem' order by dedupe_key $$,
-  $$ values ('00000000-0000-0000-0000-000000000103', true), ('00000000-0000-0000-0000-000000000104', false) $$,
+  $$ values ('00000000-0000-0000-0000-000000000103', true), ('00000000-0000-0000-0000-000000000104', false),
+            ('00000000-0000-0000-0000-000000000110', false) $$,
   'a billing problem says whether Apple has given a grace period');
 select ok((select (payload ->> 'ends_at')::timestamptz between now() + interval '4 days' and now() + interval '6 days'
              from public.email_outbox where dedupe_key = '00000000-0000-0000-0000-000000000103'),

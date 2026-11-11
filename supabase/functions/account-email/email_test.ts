@@ -96,7 +96,10 @@ Deno.test("a billing problem says what to do, and in a grace period when access 
   assertStringIncludes(grace.text, "keeps everything Foon offers until December 11, 2026");
   assertStringIncludes(grace.text, "tap your name, then Subscriptions, and update your payment method");
   const plain = subscriptionBillingProblemEmail(details());
-  assertStringIncludes(plain.text, "Apple will try again");
+  assertStringIncludes(plain.text, "Apple keeps trying for up to 60 days");
+  assertStringIncludes(plain.text, "free for every family during the beta");
+  assertStringIncludes(subscriptionBillingProblemEmail(details({ billingEnforced: true })).text, "Foon is now view-only");
+  assert(!grace.text.includes("view-only"));
   assert(!plain.text.includes("December 11, 2026"));
   assertStringIncludes(plain.text, "update your payment method");
 });
