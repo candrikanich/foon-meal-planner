@@ -10,7 +10,11 @@ export default defineNuxtConfig({
   telemetry: false,
   typescript: { strict: true },
   css: ["~/assets/css/foon.css"],
-  routeRules: { "/**": { prerender: true } },
+  routeRules: {
+    "/**": { prerender: true },
+    // Apple's CDN reads this for universal links (#85). It has no extension, so say what it is.
+    "/.well-known/apple-app-site-association": { headers: { "content-type": "application/json" } },
+  },
   modules: [
     // The function URLs are baked into the prerendered pages. Built without one, the site ships and its forms fail only
     // when someone uses them (the consent link, 2026-11-08), so a build without both stops here instead.

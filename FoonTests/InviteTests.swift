@@ -14,13 +14,23 @@ struct InviteCodeTests {
         #expect(InviteCode.isComplete("7KQ4M9XP"))
     }
 
-    @Test func roundTripsThroughTheAppLink() throws {
+    @Test func roundTripsThroughTheUniversalLink() throws {
         let url = InviteCode.link(for: "ANDRI-7KQ4-M9XP")
-        #expect(url.absoluteString == "foon://invite/ANDRI-7KQ4-M9XP")
+        #expect(url.absoluteString == "https://www.getfoon.com/invite?code=ANDRI-7KQ4-M9XP")
         #expect(InviteCode.code(from: url) == "ANDRI-7KQ4-M9XP")
     }
 
-    @Test(arguments: ["foon://recipe/123", "https://example.com/invite/ABC", "foon://invite/"])
+    @Test(arguments: ["foon://invite/ANDRI-7KQ4-M9XP", "https://getfoon.com/invite?code=ANDRI-7KQ4-M9XP"])
+    func stillAcceptsOlderAndApexLinks(link: String) throws {
+        #expect(InviteCode.code(from: try #require(URL(string: link))) == "ANDRI-7KQ4-M9XP")
+    }
+
+    @Test(arguments: [
+        "foon://recipe/123", "https://example.com/invite?code=ABC", "foon://invite/",
+        "https://www.getfoon.com/invite", "https://www.getfoon.com/invite?code=",
+        "https://www.getfoon.com/privacy?code=ABC",
+        "http://www.getfoon.com/invite?code=ABC",
+    ])
     func ignoresOtherLinks(link: String) throws {
         #expect(InviteCode.code(from: try #require(URL(string: link))) == nil)
     }
@@ -28,7 +38,7 @@ struct InviteCodeTests {
     @Test func shareMessageCarriesTheLinkAndTheCode() {
         let message = InviteCode.shareMessage(householdName: "The Andrikanichs", firstName: "Owen", code: "ANDRI-7KQ4-M9XP")
         #expect(message.contains("The Andrikanichs"))
-        #expect(message.contains("foon://invite/ANDRI-7KQ4-M9XP"))
+        #expect(message.contains("https://www.getfoon.com/invite?code=ANDRI-7KQ4-M9XP"))
         #expect(message.contains("ANDRI-7KQ4-M9XP"))
     }
 }

@@ -59,6 +59,9 @@ targets:
         aps-environment: development
         com.apple.developer.applesignin: [Default]
         com.apple.security.application-groups: [group.com.andrikanich.foon]
+        # Invite links (#85; the Mac's are in FoonMac.entitlements). www: getfoon.com redirects there, and Apple won't
+        # follow a redirect to the association file.
+        com.apple.developer.associated-domains: ["applinks:www.getfoon.com"]
     info:
       path: Foon/App/Info.plist
       properties:

@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["G374A783RH.com.andrikanich.foon"],
+        "components": [
+          { "/": "/invite", "?": { "code": "?*" }, "comment": "Household invites (#85)" }
+        ]
+      }
+    ]
+  }
+}
