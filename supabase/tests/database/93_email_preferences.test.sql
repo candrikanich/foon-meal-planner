@@ -87,11 +87,11 @@ select results_eq(
   $$ values (true, 'weekly-plan-email-v1', true, false) $$,
   'and the preference keeps which wording and when');
 select results_eq(
-  $$ select version, kind::text, effective_at from public.agreement_versions
+  $$ select version, kind::text, effective_at <= now() from public.agreement_versions
       where kind in ('weekly_plan_email', 'founding_updates') order by version $$,
-  $$ values ('founding-updates-v1', 'founding_updates', null::timestamptz),
-            ('weekly-plan-email-v1', 'weekly_plan_email', null::timestamptz) $$,
-  'both wordings are registered, not yet in force');
+  $$ values ('founding-updates-v1', 'founding_updates', true),
+            ('weekly-plan-email-v1', 'weekly_plan_email', true) $$,
+  'both wordings are registered, and in force with privacy v2 (#48 PR D)');
 
 -- Adults only ------------------------------------------------------------------------------------------------------------
 

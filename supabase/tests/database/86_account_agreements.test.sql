@@ -62,8 +62,10 @@ select throws_ok($$ select public.my_agreements('00000000-0000-0000-0000-0000000
   'and the app asks only about its own household');
 select is(public.my_access_hold(), null, 'an account that isn''t held has no hold');
 
+-- privacy-draft-v2 has been in force since #48 PR D; taken out here so v1 is the one Ann agreed to and the one in force.
 select pg_temp.as_admin();
 update public.agreement_versions set effective_at = now() where version in ('terms-draft-v1', 'privacy-draft-v1');
+update public.agreement_versions set effective_at = null where version = 'privacy-draft-v2';
 select pg_temp.as_user('b0000000-0000-0000-0000-00000000000b');  -- Ben
 select is(public.my_agreements() -> 'terms' ->> 'satisfied', 'false',
   'once the Terms are in force, someone who hasn''t agreed is asked');

@@ -94,8 +94,8 @@ insert into public.push_devices (user_id, member_id, household_id, token, enviro
 select is(array[public.current_agreement_version('allergy_data'), public.current_agreement_version('own_allergy_data'),
                 public.current_agreement_version('parental'), public.current_agreement_version('terms'),
                 public.current_agreement_version('privacy')],
-  array['allergy-data-v2', 'own-allergy-v1', 'parental-invite-v3', 'terms-draft-v1', 'privacy-draft-v1'],
-  'the migration put the newest wording of every kind in force');
+  array['allergy-data-v2', 'own-allergy-v1', 'parental-invite-v3', 'terms-draft-v1', 'privacy-draft-v2'],
+  'the migrations put the newest wording of every kind in force (privacy v2 since #48)');
 select ok(not public.agreement_satisfies('allergy-data-v1', 'allergy_data')
           and not public.agreement_satisfies('parental-invite-v1', 'parental')
           and not public.agreement_satisfies('parental-invite-v2', 'parental'),

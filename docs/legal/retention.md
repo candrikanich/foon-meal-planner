@@ -212,9 +212,9 @@ released, and the reminder log about them is deleted. The parent-entered profile
   the app and the app's version. Kept after the account is deleted, as proof of what was agreed: the record holds the
   account ID with no database link to it, and nothing else about the person. Deleted with the account only when a
   parent deletes everything about a kid (job **K**). Neither `delete_account_data()` nor the `delete-account` Edge
-  Function touches it. Asked by the app since `terms-draft-v1` and `privacy-draft-v1` came into force (#277). An
-  adult turning on an opt-in email (#48) logs their agreement to its wording here too (`weekly-plan-email-v1`,
-  `founding-updates-v1`, context `opt_in`), kept the same way.
+  Function touches it. Asked by the app since `terms-draft-v1` and `privacy-draft-v1` came into force (#277), and again
+  for `privacy-draft-v2` (#48). An adult turning on an opt-in email (#48) logs their agreement to its wording here too
+  (`weekly-plan-email-v1`, `founding-updates-v1`, context `opt_in`), kept the same way.
 - **Any account:** Foon's Sign in with Apple token is revoked first; if Apple refuses, nothing is deleted. Push devices,
   import counts and invite guesses are deleted, then the sign-in account itself (`delete-account` Edge Function, job
   **D**, foreign-key cascades).
@@ -250,6 +250,12 @@ from its profile (Delete my account does this first), removed from the household
 household is erased (trigger `members_forget_email_preferences`, cascade from the account). Turning one off drops
 that email's waiting rows at once (`opted_out`). The text of each founding-family update (`founding_updates`: subject
 and body, no personal data) is kept as the record of what was sent.
+
+An invite an adult emails to another adult (#48 PR B, approved, not built yet) is to be sent directly and never queued:
+the typed address is used for that one email and not stored anywhere in Foon.
+
+The confirmed waitlist gets only a launch email, never founding-family updates (decided 2026-11-11); see Website and
+waitlist.
 
 | Data | Kept for | From | How it goes |
 | --- | --- | --- | --- |
