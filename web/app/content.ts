@@ -57,3 +57,6 @@ export const consentKept = (name: string) => [
   "an age range from Apple (never a birthdate)",
   `${name}'s Apple sign-in (account ID and email) and a notification token`,
 ];
+
+// Null until Foon is in the App Store; the invite page (#85) then links it instead of explaining TestFlight.
+export const APP_STORE_URL: string | null = null;

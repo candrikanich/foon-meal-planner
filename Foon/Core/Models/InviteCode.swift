@@ -11,15 +11,33 @@ enum InviteCode {
         normalized(typed).count >= 8
     }
 
-    /// Opens Foon when it's installed. A fresh install loses the link, so the message carries the code too.
+    /// A universal link (#85): it opens Foon when it's installed, and getfoon.com's invite page when it isn't. A fresh
+    /// install loses the link, so the message carries the code too. getfoon.com redirects to www, and Apple doesn't
+    /// follow redirects to the association file, so the link uses www.
     static func link(for code: String) -> URL {
-        URL(string: "foon://invite/\(code)")!
+        var link = URLComponents()
+        link.scheme = "https"
+        link.host = "www.getfoon.com"
+        link.path = "/invite"
+        link.queryItems = [URLQueryItem(name: "code", value: code)]
+        return link.url!
     }
 
+    /// Also takes `foon://invite/<code>`, which invites sent before #85 carry.
     static func code(from url: URL) -> String? {
-        guard url.scheme == "foon", url.host() == "invite" else { return nil }
-        let code = url.lastPathComponent
-        return code.isEmpty || code == "/" ? nil : code
+        let code: String?
+        switch (url.scheme, url.host()) {
+        case ("foon", "invite"):
+            code = url.lastPathComponent
+        case ("https", "www.getfoon.com"), ("https", "getfoon.com"):
+            guard url.path() == "/invite" else { return nil }
+            code = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first { $0.name == "code" }?.value
+        default:
+            return nil
+        }
+        guard let code, !code.isEmpty, code != "/" else { return nil }
+        return code
     }
 
     static func shareMessage(householdName: String, firstName: String, code: String) -> String {
