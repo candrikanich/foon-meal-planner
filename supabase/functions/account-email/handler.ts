@@ -5,9 +5,14 @@
 import { sameSecret } from "../_shared/token.ts";
 import type { Email } from "../_shared/resend.ts";
 import {
+  subscriptionBillingProblemEmail,
   subscriptionDetails,
   subscriptionEndedEmail,
   subscriptionEndingEmail,
+  subscriptionPlanChangedEmail,
+  subscriptionRefundedEmail,
+  subscriptionRenewalOnEmail,
+  subscriptionRenewedEmail,
   subscriptionStartedEmail,
   welcomeEmail,
 } from "./email.ts";
@@ -52,6 +57,16 @@ export function messageFor(row: ClaimedEmail, siteUrl: string): Omit<Email, "to"
       return subscriptionEndingEmail(details);
     case "subscription_ended":
       return subscriptionEndedEmail(details);
+    case "subscription_renewed":
+      return subscriptionRenewedEmail(details);
+    case "subscription_billing_problem":
+      return subscriptionBillingProblemEmail(details);
+    case "subscription_renewal_on":
+      return subscriptionRenewalOnEmail(details);
+    case "subscription_plan_changed":
+      return subscriptionPlanChangedEmail(details);
+    case "subscription_refunded":
+      return subscriptionRefundedEmail(details);
     default:
       return null;
   }

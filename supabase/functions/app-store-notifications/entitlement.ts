@@ -19,6 +19,8 @@ export interface Transaction {
 // The fields Foon reads from Apple's JWSRenewalInfoDecodedPayload.
 export interface RenewalInfo {
   autoRenewStatus?: number;
+  // The product that renews next: after a downgrade, the one the family switches to when this period ends.
+  autoRenewProductId?: string;
   gracePeriodExpiresDate?: number;
 }
 
@@ -53,9 +55,11 @@ export function entitlementChange(
     case "REFUND_REVERSED":
       return { status: "active", expiresAt: expires, autoRenew };
     // An upgrade (monthly to annual) takes effect at once with the new product and expiry; a downgrade or crossgrade
-    // waits for the renewal, which says so itself.
+    // waits for the renewal, so entitlement stays as it is (the notification is still recorded, for the owner's email).
     case "DID_CHANGE_RENEWAL_PREF":
-      return subtype === "UPGRADE" ? { status: "active", expiresAt: expires, autoRenew } : null;
+      return subtype === "UPGRADE"
+        ? { status: "active", expiresAt: expires, autoRenew }
+        : { status: null, expiresAt: expires, autoRenew };
     // Apple extended the period (a service outage, say): only the expiry moves.
     case "RENEWAL_EXTENDED":
       return { status: null, expiresAt: expires, autoRenew };

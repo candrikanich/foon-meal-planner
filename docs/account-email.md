@@ -52,10 +52,19 @@ off again, set it to `false`; rows keep queueing and nothing goes.
 ## How it runs
 
 - Triggers queue rows in `email_outbox`: `households_queue_welcome_email` (a new household that isn't a sample) and
-  `household_subscriptions_queue_email` (SUBSCRIBED, renewal turned off, EXPIRED). Each event queues once
+  `household_subscriptions_queue_email` (SUBSCRIBED, DID_RENEW, DID_FAIL_TO_RENEW, renewal turned off or back on,
+  DID_CHANGE_RENEWAL_PREF, REFUND and REVOKE, GRACE_PERIOD_EXPIRED (a billing problem again, not the end) and EXPIRED; kinds `subscription_started`,
+  `_renewed`, `_billing_problem`, `_ending`, `_renewal_on`, `_plan_changed`, `_refunded`, `_ended`, added in
+  `20261123000000_account_email_subscription_events.sql`). Each event queues once
   (`unique (kind, dedupe_key)`). A subscription row's payload has the product id, trial flag, end date, the household's
   time zone (America/New_York without a valid one; the email's dates use it) and `billing_enforced` at that moment
-  (the ended email says nothing changes during the beta, or that Foon is view-only once billing is on).
+  (the ended and refunded emails say nothing changes during the beta, or that Foon is view-only once billing is on). By
+  kind the payload adds `grace` (billing problem in a grace period; `ends_at` is when access continues until),
+  `revoked` (refunded because Family Sharing ended) and, for a plan change, the new plan in `product_id` and
+  `immediate` (an upgrade). Ending, ended, refunded and billing problem are skipped while another of the household's
+  subscriptions still grants access. A plan change needs the plan Apple says the subscription renews as, which
+  `app-store-notifications` passes to `apply_subscription_notification` as `next_product_id` and
+  `subscription_events` keeps.
 - pg_cron `kick-account-email` (every 5 minutes) calls `kick_account_email()`, which POSTs to the function only when
   the flag is on, something is due, and both Vault secrets are set.
 - The function claims up to 50 rows at a time for at most 40 seconds (`claim_account_emails`). The claim drops rows
@@ -117,6 +126,9 @@ can be the hourly cap.
    welcome arrives at the real inbox from `info@getfoon.com`.
 2. Load a sample family instead: no welcome. Start your real family: the welcome arrives.
 3. Buy the sandbox subscription: "Your Foon free trial has started" arrives with the trial's end date. Turn off
-   renewal in Settings: "Your Foon subscription won't renew".
+   renewal in Settings: "Your Foon subscription won't renew"; turn it back on: "Your Foon subscription will renew".
+   Sandbox renewals are fast, so "Your Foon subscription renewed" follows within minutes; switching plan in
+   Subscriptions gives "Your Foon plan is changing" (or "has changed" for an upgrade). A failed payment, a refund
+   and a grace period ending have their own; they're easiest to trigger from Xcode's StoreKit transaction manager.
 4. Delete household, then Delete my account: one receipt each, to the person who did it.
 5. Edge Functions → account-email and delete-account → Logs: ids and codes only, never an address.

@@ -47,8 +47,8 @@ invite your kid to their own account, we use your email to ask for your consent 
 We also email adults a few messages about their own account:
 
 - a welcome when you create a household (not for a sample family), with how to invite your family;
-- if you own the household: when a subscription or free trial starts, when you turn off its renewal, and when it
-  ends (Apple sends its own receipts for each payment);
+- if you own the household: when a subscription or free trial starts, renews, changes plan, is refunded, can't be
+  charged, has its renewal turned off or back on, and when it ends (Apple sends its own receipts for each payment);
 - a receipt when you delete your account or your household, sent once the deletion is done.
 
 They go to the email Apple gave us for your Sign in with Apple account, read when each email is sent; we don't copy it
