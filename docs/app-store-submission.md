@@ -72,7 +72,7 @@ Data used to track you: **None.**
 | Other user content (meals, comments, requests, receipt lines the family corrected, a dish's recipe lines queued for an AI tidy-up) | Yes | App functionality | Yes |
 | User ID | Yes | App functionality | Yes |
 | Purchase history | Yes | App functionality | Yes |
-| Other data (the age range Apple's Declared Age Range API gives when someone joins with an invite, #88: a band such as "13 to 15", never a birthdate) | Yes | App functionality | Yes |
+| Other data (the age range Apple's Declared Age Range API gives when someone joins with an invite, #88: a band such as "13 to 15", never a birthdate; once the claim is checked only kid or adult is kept) | Yes | App functionality | Yes |
 | Product interaction (which reminders went out and were answered: kind, night, time; that a shopping trip finished with something bought, and when) | Yes | App functionality (reminders), Analytics (finished trips, #260) | Yes |
 
 An address a parent types to email an adult's invite (#48 PR B) changes nothing here: it goes to Resend for that one email, in real time, and Foon never stores it, and Email address is already declared.

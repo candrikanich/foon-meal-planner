@@ -161,15 +161,16 @@ invite; `unknown` (declined, or a device that can't answer) passes either way. A
 3. Scenario: a 13 to 15 year old. On the test iPhone, sign in to Foon with an account that has no household, type the
    adult's code, tap Join family. Apple's age-range prompt may show; share it. Expect "This invite is for someone else's
    profile. Ask your family for the right invite." The adult's invite still shows as open on the parent's device.
-4. Same screen, type the kid's code, Join family: no second prompt, and they join. `members.declared_age_band` for the
-   kid reads `13_15`.
+4. Same screen, type the kid's code, Join family: no second prompt, and they join. `members.declared_adult` for the
+   kid reads `false`: only kid or adult is kept, never the band (Texas §121.055(b), decided 2026-11-11).
 5. Parent: withdraw the kid's consent on their member detail. Kid's iPhone: force-quit and open Foon (or return to
    This Week from the background): the join screen, or "Waiting for a parent" if a hold applies, and nothing of the
    household is left on the device. The parent still sees the kid's profile and history.
 6. Scenario: 18 or over. Relaunch Foon on the same (now unlinked) account. Parent gives the kid's consent again and
-   sends a new kid invite: Join family with it says it's for someone else's profile. The adult's code joins, band
-   `adult`.
-7. Optional: decline the prompt (or a scenario that doesn't share): any profile's code joins, band `unknown`.
+   sends a new kid invite: Join family with it says it's for someone else's profile. The adult's code joins, and
+   `declared_adult` reads `true`.
+7. Optional: decline the prompt (or a scenario that doesn't share): any profile's code joins, and `declared_adult` is
+   null.
 
 Significant changes: `SignificantChange.all` is empty, so no build asks a parent or shows Apple's acknowledgment yet;
 check only that launch shows nothing new.

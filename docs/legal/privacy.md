@@ -115,10 +115,10 @@ keep it.
 Foon doesn't ask for birthdays, phone numbers, addresses or your location (apart from the household time zone). It
 doesn't ask for photos of people.
 
-When someone joins a family with an invite, Foon asks Apple for their age range once and keeps only the range Apple
-gives (for example, "13 to 15"), never a birthdate. It uses it to check that the account matches the profile: a
-minor's account can't take an adult's profile, and an adult's can't take a kid's. [CHECK: Texas §121.055(b) and
-keeping the range; see retention.md.]
+When someone joins a family with an invite, Foon asks Apple for their age range once (for example, "13 to 15"), never
+a birthdate. It uses it to check that the account matches the profile: a minor's account can't take an adult's
+profile, and an adult's can't take a kid's. After that check Foon doesn't keep the range, only whether it said adult or
+a minor (nothing, if Apple didn't say).
 
 ### Dinner, food and lists
 
@@ -264,7 +264,7 @@ account as a child's account under the Children's Online Privacy Protection Act 
 - **Withdrawing consent.** A parent can withdraw consent on the kid's profile at any time. The kid's account is unlinked
   at once and loses access to the household. If consent isn't given again within 30 days, what the kid entered
   themselves is deleted: their own ratings, comments, thank-yous, serving notes, requests and "me too"s, offers to
-  cook, poll votes, plan changes, and their age range. Shopping list lines stay on the family's list, but no longer
+  cook, poll votes, plan changes, and whether they said they were an adult. Shopping list lines stay on the family's list, but no longer
   show the kid marked or ticked them. What a parent entered for them stays while they're in the family.
 
 > **Review:** a list line records no author and is shared by everyone who added that item, so a withdrawn kid's lines
