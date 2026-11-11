@@ -146,6 +146,8 @@ insert into public.push_outbox (household_id, member_id, kind, plan_id, not_befo
    (select id from public.plans where household_id = '00000000-0000-0000-0000-0000000000a0' limit 1), now());
 insert into public.store_runs (household_id, started_by, ends_at) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', now() + interval '10 minutes');
+insert into public.shopping_trips (id, household_id, finished_at) values
+  (gen_random_uuid(), '00000000-0000-0000-0000-0000000000a0', now());
 select set_config('request.jwt.claims', '', true);
 select public.apply_subscription_notification(gen_random_uuid(), '00000000-0000-0000-0000-0000000000a0', 'SUBSCRIBED',
   'INITIAL_BUY', 'foon.family.monthly', 'tx-1', 'Sandbox', now(), 'trial', now() + interval '30 days',
