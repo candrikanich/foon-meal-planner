@@ -46,8 +46,9 @@ begin
   if caller is null then
     raise exception 'sign in first' using errcode = '28000';
   end if;
-  -- One at a time per parent, so a burst of parallel sends can't outrun the count.
-  perform pg_advisory_xact_lock(hashtextextended('invite_email:' || caller::text, 0));
+  -- One reservation at a time across Foon, so parallel sends (from one parent, two parents in a household, or many
+  -- households) can't outrun any of the counts below. Cheap at a cap of 200 an hour.
+  perform pg_advisory_xact_lock(hashtextextended('invite_email', 0));
 
   select * into member from public.members where id = target_member;
   if not found or not public.is_household_manager(member.household_id) then

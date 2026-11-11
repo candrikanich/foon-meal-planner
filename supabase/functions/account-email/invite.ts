@@ -79,8 +79,10 @@ export const inviteSchema = z.object({
   email: z.string().trim().max(254).pipe(z.email()),
 });
 
-// Anything that reads as a link or an address: a scheme (https://), www., an @, or a dotted domain (foo.com).
-const LINK_LIKE = /[a-z][a-z0-9+.-]*:\/\/|www\.|@|[\p{L}\p{N}-]+\.[\p{L}]{2,}/iu;
+// Anything that reads as a link, an address or a number to call: a scheme (https://), www., an @, a dotted domain
+// (foo.com), a spelled-out one ("paypal dot com"), or seven or more digits (a phone number).
+const LINK_LIKE =
+  /[a-z][a-z0-9+.-]*:\/\/|www\.|@|[\p{L}\p{N}-]+\.[\p{L}]{2,}|\bdot\s+(?:com|net|org|co|io|app)\b|\d(?:[\s().+-]*\d){6,}/iu;
 
 // Fixed, so nothing the family typed reaches the subject line.
 export const INVITE_SUBJECT = "You're invited to join a family on Foon";

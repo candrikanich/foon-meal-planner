@@ -225,10 +225,14 @@ Deno.test("names that look like a link or an address are never shown", () => {
     "bob@evil.co",
     "Claim at paypal.com-secure.ru",
     "Ünïcode.Domäin",
+    "Call 1 800 555 0100 re your refund",
+    "Text (216) 555-0100",
+    "+44 20 7946 0958",
+    "Go to paypal dot com",
   ]) {
     assertEquals(plainName(name), "(not shown)", name);
   }
-  for (const name of ["The Andersons", "St. Clair", "Mary-Jo", "O'Brien family", "Mr. Smith"]) {
+  for (const name of ["The Andersons", "St. Clair", "Mary-Jo", "O'Brien family", "Mr. Smith", "The 3 Smiths", "Apt 1012 crew", "Dot Cotton"]) {
     assertEquals(plainName(name), name, name);
   }
 });
