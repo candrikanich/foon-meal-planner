@@ -10,6 +10,9 @@ export interface Email {
   text: string;
   html: string;
   headers?: Record<string, string>;
+  // Sent as Resend's Idempotency-Key request header (not an email header): a retry with the same key within 24 hours
+  // isn't sent twice.
+  idempotencyKey?: string;
 }
 
 // Each function has its own sender secret (WAITLIST_FROM, CONSENT_FROM); the API key is shared.
@@ -53,6 +56,7 @@ export async function sendEmail(
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
+        ...(email.idempotencyKey ? { "Idempotency-Key": email.idempotencyKey } : {}),
       },
       body: JSON.stringify({
         from: config.from,

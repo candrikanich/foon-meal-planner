@@ -70,6 +70,8 @@ Deno.test("claims, sends each to its address, and marks it sent", async () => {
   assertEquals(await response.json(), { sent: 2, failed: 0, unwritable: 0 });
   assertEquals(sent.map((email) => email.to), ["a@example.com", "b@example.com"]);
   assertEquals(sent[0].subject, "Welcome to Foon");
+  assertEquals(sent.map((email) => email.idempotencyKey), ["account-email/a", "account-email/b"],
+    "keyed by the row, so a retry after a failed mark-sent isn't sent twice");
   assertEquals(steps, [`claim ${BATCH_SIZE}`, "sent a", "sent b"]);
 });
 
@@ -109,7 +111,12 @@ Deno.test("subscription notices carry their date", async () => {
       id: "s",
       kind: "subscription_started",
       email: "s@example.com",
-      payload: { trial: true, ends_at: "2026-12-11T15:00:00+00:00", product_id: "foon.family.monthly" },
+      payload: {
+        trial: true,
+        ends_at: "2026-12-12T01:00:00+00:00",
+        product_id: "foon.family.monthly",
+        time_zone: "America/New_York",
+      },
       attempts: 1,
     },
     {
@@ -123,7 +130,9 @@ Deno.test("subscription notices carry their date", async () => {
   const { deps, sent } = fakeDeps([rows]);
   await handleAccountEmail(post(), deps);
   assertEquals(sent[0].subject, "Your Foon free trial has started");
-  assertStringIncludes(sent[0].text, "December 11, 2026");
+  assertStringIncludes(sent[0].text, "until December 11, 2026");
+  assertStringIncludes(sent[0].text, "Foon Family monthly plan");
+  assertStringIncludes(sent[0].text, "before 8:00 PM EST on December 10, 2026");
   assertEquals(sent[1].subject, "Your Foon subscription has ended");
   assertStringIncludes(sent[1].text, "January 2, 2027");
 });

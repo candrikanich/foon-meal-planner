@@ -2,7 +2,7 @@
 -- family's); subscription notices queue once per notification; the claim sends only while email is on, only to adults
 -- with a verified Apple email, under 200 an hour; and deleting a household or an account takes its rows.
 begin;
-select plan(51);
+select plan(52);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -48,7 +48,8 @@ insert into auth.identities (provider_id, user_id, identity_data, provider) valu
   ('apple-frank', 'f0000000-0000-0000-0000-00000000000f', '{"sub": "apple-frank", "email": "frank@example.com"}', 'apple');
 insert into public.households (id, name, owner, settings) values
   ('00000000-0000-0000-0000-0000000000a0', 'Andersons', 'a0000000-0000-0000-0000-00000000000a', '{}'),
-  ('00000000-0000-0000-0000-0000000000c0', 'Carters', 'c0000000-0000-0000-0000-00000000000c', '{}'),
+  ('00000000-0000-0000-0000-0000000000c0', 'Carters', 'c0000000-0000-0000-0000-00000000000c',
+   '{"time_zone": "America/Chicago"}'),
   ('00000000-0000-0000-0000-000000000050', 'Sample Family', '50000000-0000-0000-0000-000000000005',
    '{"sample": true, "sample_pending": true}');
 insert into public.members (household_id, first_name, role, guardian, age_group, user_id) values
@@ -113,10 +114,11 @@ select throws_ok($$ select public.enqueue_account_email('00000000-0000-0000-0000
 select pg_temp.notify('101', '00000000-0000-0000-0000-0000000000a0', 'SUBSCRIBED', 'INITIAL_BUY', 'tx-a', 'trial', 10, 30);
 select pg_temp.as_admin();
 select results_eq(
-  $$ select user_id, payload ->> 'product_id', (payload ->> 'trial')::boolean, (payload ->> 'ends_at')::timestamptz > now()
+  $$ select user_id, payload ->> 'product_id', (payload ->> 'trial')::boolean, (payload ->> 'ends_at')::timestamptz > now(),
+            payload ->> 'time_zone', (payload ->> 'billing_enforced')::boolean
        from public.email_outbox where kind = 'subscription_started' $$,
-  $$ values ('a0000000-0000-0000-0000-00000000000a'::uuid, 'foon.family.monthly', true, true) $$,
-  'a trial starting queues subscription_started to the owner, with the trial''s end');
+  $$ values ('a0000000-0000-0000-0000-00000000000a'::uuid, 'foon.family.monthly', true, true, 'America/New_York', false) $$,
+  'a trial starting queues subscription_started to the owner, with the trial''s end, the household''s time zone (the default without one) and whether billing is on');
 select is((select dedupe_key from public.email_outbox where kind = 'subscription_started'),
   '00000000-0000-0000-0000-000000000101', 'keyed by Apple''s notification id');
 
@@ -147,6 +149,9 @@ select pg_temp.as_admin();
 select is_empty($$ select 1 from public.email_outbox where household_id = '00000000-0000-0000-0000-0000000000c0'
                      and kind = 'subscription_ended' $$,
   'an ended subscription isn''t announced while another still covers the household');
+select is((select array_agg(distinct payload ->> 'time_zone') from public.email_outbox
+            where household_id = '00000000-0000-0000-0000-0000000000c0' and kind = 'subscription_started'),
+  array['America/Chicago'], 'a household''s own time zone goes in the payload');
 
 -- Claiming --------------------------------------------------------------------------------------------------------------
 

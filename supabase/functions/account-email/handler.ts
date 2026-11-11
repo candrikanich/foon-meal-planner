@@ -5,7 +5,7 @@
 import { sameSecret } from "../_shared/token.ts";
 import type { Email } from "../_shared/resend.ts";
 import {
-  formatDate,
+  subscriptionDetails,
   subscriptionEndedEmail,
   subscriptionEndingEmail,
   subscriptionStartedEmail,
@@ -43,10 +43,8 @@ const json = (status: number, body: Record<string, unknown>) =>
 // The words for a row, or null when its kind or payload isn't one this function can write.
 export function messageFor(row: ClaimedEmail, siteUrl: string): Omit<Email, "to"> | null {
   if (row.kind === "welcome") return welcomeEmail(siteUrl);
-  const endsAt = row.payload?.ends_at;
-  const date = typeof endsAt === "string" ? formatDate(endsAt) : null;
-  if (!date) return null;
-  const details = { trial: row.payload?.trial === true, date };
+  const details = subscriptionDetails(row.payload);
+  if (!details) return null;
   switch (row.kind) {
     case "subscription_started":
       return subscriptionStartedEmail(details);
@@ -91,7 +89,7 @@ export async function handleAccountEmail(req: Request, deps: AccountEmailDeps): 
           continue;
         }
         try {
-          await deps.send({ to: row.email, ...message });
+          await deps.send({ to: row.email, ...message, idempotencyKey: `account-email/${row.id}` });
         } catch (error) {
           const code = errorCode(error);
           deps.log(`account-email: ${row.id} not sent (${code})`);

@@ -12,7 +12,8 @@ export type DeletionScope = "account" | "account_and_household" | "household";
 export function deletionReceipt(scope: DeletionScope, siteUrl = DEFAULT_SITE_URL): Omit<Email, "to"> {
   const privacy = `${siteUrl.replace(/\/+$/, "")}/privacy`;
   const questions = `Questions? Write to ${SUPPORT_EMAIL}.`;
-  const nothingKept = "We don't keep a copy of what was deleted, and we won't email this address again. The only " +
+  const nothingKept = "We don't keep a copy of what was deleted, and we won't send account email to this address " +
+    "again. The only " +
     `records we keep are the ones our privacy policy lists: ${privacy}`;
   switch (scope) {
     case "household":

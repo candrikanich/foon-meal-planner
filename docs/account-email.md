@@ -53,13 +53,16 @@ off again, set it to `false`; rows keep queueing and nothing goes.
 
 - Triggers queue rows in `email_outbox`: `households_queue_welcome_email` (a new household that isn't a sample) and
   `household_subscriptions_queue_email` (SUBSCRIBED, renewal turned off, EXPIRED). Each event queues once
-  (`unique (kind, dedupe_key)`).
+  (`unique (kind, dedupe_key)`). A subscription row's payload has the product id, trial flag, end date, the household's
+  time zone (America/New_York without a valid one; the email's dates use it) and `billing_enforced` at that moment
+  (the ended email says nothing changes during the beta, or that Foon is view-only once billing is on).
 - pg_cron `kick-account-email` (every 5 minutes) calls `kick_account_email()`, which POSTs to the function only when
   the flag is on, something is due, and both Vault secrets are set.
 - The function claims up to 50 rows at a time for at most 40 seconds (`claim_account_emails`). The claim drops rows
   that mustn't go (`stale`, `gave_up`, `not_adult`: the recipient isn't an adult in that household any more,
   `no_address`: no verified Apple email), holds the rest for 10 minutes, and stops at 200 sent or in flight in the
-  last hour. Each is sent through Resend, then `account_email_mark_sent`, or `account_email_release` with an error code
+  last hour. Each is sent through Resend with `Idempotency-Key: account-email/<row id>` (so a send that went out but
+  wasn't recorded isn't sent again when the row is retried within Resend's 24-hour window), then `account_email_mark_sent`, or `account_email_release` with an error code
   (`resend_<status>`, `timeout`, `send_failed`) to retry after 10, 20, 30, 40 minutes; after 5 tries it's given up.
   A row it can't write (`no_words`) is given up at once.
 - `prune-email-outbox` (daily, 03:47 UTC) deletes rows 30 days after they were queued. A household's rows go with it,

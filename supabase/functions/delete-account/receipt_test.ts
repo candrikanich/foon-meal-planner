@@ -21,6 +21,7 @@ Deno.test("each receipt says what was deleted and points at the privacy policy",
   assertStringIncludes(account.subject, "account was deleted");
   assertStringIncludes(account.text, "Your sign-in and your profile are gone");
   assertStringIncludes(account.text, "https://preview.example/privacy");
+  assertStringIncludes(account.text, "we won't send account email to this address again");
 
   const owner = deletionReceipt("account_and_household");
   assertStringIncludes(owner.text, "so is the household you owned");

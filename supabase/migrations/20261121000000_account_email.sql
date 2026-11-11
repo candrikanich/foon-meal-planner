@@ -96,7 +96,8 @@ create trigger households_queue_welcome_email
 --   DID_CHANGE_RENEWAL_STATUS / AUTO_RENEW_DISABLED  subscription_ending: when access ends
 --   EXPIRED                                          subscription_ended: when it ended
 -- Ending and ended aren't sent while another of the household's subscriptions still grants access (after an ownership
--- transfer, the old owner's lapsing doesn't end the family's).
+-- transfer, the old owner's lapsing doesn't end the family's). The payload carries the household's time zone, so the
+-- email's dates are the family's own, and whether billing is enforced, so "ended" says what really changes.
 create function public.queue_subscription_email()
 returns trigger
 language plpgsql security definer set search_path = ''
@@ -104,12 +105,15 @@ as $$
 declare
   notice record;
   recipient uuid;
+  zone text;
   email_kind text;
 begin
   select e.notification_uuid, e.notification_type, e.subtype into notice
     from public.subscription_events e
    where e.household_id = new.household_id and e.original_transaction_id = new.original_transaction_id
      and e.signed_at = new.notified_at and e.outcome = 'applied'
+     -- Recorded in this transaction: the notification being applied now, never an earlier one signed the same instant.
+     and e.created_at = now()
    order by e.created_at desc
    limit 1;
   if not found then
@@ -134,13 +138,17 @@ begin
     return null;
   end if;
 
-  select h.owner into recipient from public.households h where h.id = new.household_id;
+  select h.owner, coalesce(public.valid_time_zone(h.settings ->> 'time_zone'), 'America/New_York')
+    into recipient, zone
+    from public.households h where h.id = new.household_id;
   if recipient is null then
     return null;
   end if;
 
   perform public.enqueue_account_email(new.household_id, recipient, email_kind, notice.notification_uuid::text,
-    jsonb_build_object('product_id', new.product_id, 'trial', new.status = 'trial', 'ends_at', new.expires_at));
+    jsonb_build_object('product_id', new.product_id, 'trial', new.status = 'trial', 'ends_at', new.expires_at,
+                       'time_zone', zone,
+                       'billing_enforced', coalesce((select c.billing_enforced from public.app_config c), false)));
   return null;
 end;
 $$;
