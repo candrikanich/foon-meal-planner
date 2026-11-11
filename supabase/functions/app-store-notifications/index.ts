@@ -40,6 +40,7 @@ Deno.serve((req) =>
         expires_at: update.expiresAt?.toISOString() ?? null,
         period_ends_at: update.periodEndsAt?.toISOString() ?? null,
         auto_renew: update.autoRenew,
+        next_product_id: update.nextProductId,
       });
       if (error) throw error;
       return data;

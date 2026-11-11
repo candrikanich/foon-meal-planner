@@ -137,6 +137,37 @@ Deno.test("subscription notices carry their date", async () => {
   assertStringIncludes(sent[1].text, "January 2, 2027");
 });
 
+Deno.test("every subscription kind is written from its payload", async () => {
+  const payload = {
+    trial: false,
+    ends_at: "2027-01-02T00:00:00Z",
+    product_id: "foon.family.annual",
+    time_zone: "America/New_York",
+  };
+  const cases: [string, Record<string, unknown>, string][] = [
+    ["subscription_renewed", {}, "Your Foon subscription renewed"],
+    ["subscription_billing_problem", { grace: true }, "Apple couldn't charge for your Foon subscription"],
+    ["subscription_renewal_on", {}, "Your Foon subscription will renew"],
+    ["subscription_plan_changed", { immediate: false }, "Your Foon plan is changing"],
+    ["subscription_plan_changed", { immediate: true }, "Your Foon plan has changed"],
+    ["subscription_refunded", { revoked: false }, "Your Foon subscription was refunded"],
+    ["subscription_refunded", { revoked: true }, "Your Foon subscription access has ended"],
+  ];
+  const rows: ClaimedEmail[] = cases.map(([kind, extra], i) => ({
+    id: `k${i}`,
+    kind,
+    email: "o@example.com",
+    payload: { ...payload, ...extra },
+    attempts: 1,
+  }));
+  const { deps, sent } = fakeDeps([rows]);
+  const response = await handleAccountEmail(post(), deps);
+  assertEquals((await response.json()).unwritable, 0);
+  assertEquals(sent.map((email) => email.subject), cases.map(([, , subject]) => subject));
+  assertStringIncludes(sent[0].text, "Foon Family yearly plan");
+  assertStringIncludes(sent[0].text, "January 1, 2027");
+});
+
 Deno.test("keeps claiming full batches, and stops at a short one", async () => {
   const full = Array.from({ length: BATCH_SIZE }, (_, i) => welcome(`r${i}`));
   const { deps, steps } = fakeDeps([full, [welcome("last")]]);

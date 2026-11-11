@@ -6,8 +6,13 @@ import {
   renewalDeadline,
   type SubscriptionDetails,
   subscriptionDetails,
+  subscriptionBillingProblemEmail,
   subscriptionEndedEmail,
   subscriptionEndingEmail,
+  subscriptionPlanChangedEmail,
+  subscriptionRefundedEmail,
+  subscriptionRenewalOnEmail,
+  subscriptionRenewedEmail,
   subscriptionStartedEmail,
   welcomeEmail,
 } from "./email.ts";
@@ -18,6 +23,9 @@ const details = (overrides: Partial<SubscriptionDetails> = {}): SubscriptionDeta
   date: "December 11, 2026",
   deadline: "8:00 PM EST on December 10, 2026",
   billingEnforced: false,
+  grace: false,
+  revoked: false,
+  immediate: false,
   ...overrides,
 });
 
@@ -28,6 +36,14 @@ const all = () => [
   subscriptionEndingEmail(details()),
   subscriptionEndedEmail(details()),
   subscriptionEndedEmail(details({ billingEnforced: true })),
+  subscriptionRenewedEmail(details()),
+  subscriptionBillingProblemEmail(details({ grace: true })),
+  subscriptionBillingProblemEmail(details()),
+  subscriptionRenewalOnEmail(details()),
+  subscriptionPlanChangedEmail(details()),
+  subscriptionPlanChangedEmail(details({ immediate: true })),
+  subscriptionRefundedEmail(details()),
+  subscriptionRefundedEmail(details({ revoked: true })),
 ];
 
 Deno.test("every email ends with the sender, postal address and support address, and has no unsubscribe link", () => {
@@ -56,11 +72,65 @@ Deno.test("the welcome says what Foon does, how to invite, and where to write", 
 
 Deno.test("subscription notices give the plan, the date and how to manage it, and don't sell", () => {
   for (const email of all().slice(1)) {
-    assertStringIncludes(email.text, "December 11, 2026");
     assertStringIncludes(email.text, "tap your name, then Subscriptions");
+    // Apple's retry without a grace period has no date to give.
+    if (email.subject.startsWith("Apple couldn't") && !email.text.includes("keeps everything")) continue;
+    assertStringIncludes(email.text, "December 11, 2026");
     assert(!/upgrade|annual plan|save \d/i.test(email.text), email.subject);
   }
   for (const email of [all()[1], all()[2], all()[4]]) assertStringIncludes(email.text, "Foon Family monthly plan");
+});
+
+Deno.test("the renewal says when the next one is, and that Apple sends the receipt", () => {
+  const email = subscriptionRenewedEmail(details());
+  assertEquals(email.subject, "Your Foon subscription renewed");
+  assertStringIncludes(email.text, "Your family's Foon Family monthly plan renewed");
+  assertStringIncludes(email.text, "runs until December 11, 2026");
+  assertStringIncludes(email.text, "Apple emails the receipt");
+});
+
+Deno.test("a billing problem says what to do, and in a grace period when access continues until", () => {
+  const grace = subscriptionBillingProblemEmail(details({ grace: true }));
+  assertEquals(grace.subject, "Apple couldn't charge for your Foon subscription");
+  assertStringIncludes(grace.text, "couldn't charge the payment method for your family's Foon Family monthly plan");
+  assertStringIncludes(grace.text, "keeps everything Foon offers until December 11, 2026");
+  assertStringIncludes(grace.text, "tap your name, then Subscriptions, and update your payment method");
+  const plain = subscriptionBillingProblemEmail(details());
+  assertStringIncludes(plain.text, "Apple will try again");
+  assert(!plain.text.includes("December 11, 2026"));
+  assertStringIncludes(plain.text, "update your payment method");
+});
+
+Deno.test("turning renewal back on says when it renews", () => {
+  const email = subscriptionRenewalOnEmail(details());
+  assertEquals(email.subject, "Your Foon subscription will renew");
+  assertStringIncludes(email.text, "Apple will renew it on December 11, 2026");
+});
+
+Deno.test("a plan change names the new plan: at the next renewal, or at once for an upgrade", () => {
+  const plan = "Foon Family yearly plan";
+  const later = subscriptionPlanChangedEmail(details({ plan }));
+  assertEquals(later.subject, "Your Foon plan is changing");
+  assertStringIncludes(later.text, `will change to the ${plan} when the current period ends on December 11, 2026`);
+  assertStringIncludes(later.text, "Until then nothing changes");
+  const now = subscriptionPlanChangedEmail(details({ plan, immediate: true }));
+  assertEquals(now.subject, "Your Foon plan has changed");
+  assertStringIncludes(now.text, `is now the ${plan}`);
+});
+
+Deno.test("a refund and a Family Sharing removal say why access ended, and what changes", () => {
+  const refund = subscriptionRefundedEmail(details());
+  assertEquals(refund.subject, "Your Foon subscription was refunded");
+  assertStringIncludes(
+    refund.text,
+    "Apple refunded your family's Foon Family monthly plan, so access ended on December 11, 2026",
+  );
+  assertStringIncludes(refund.text, "free for every family during the beta");
+  const revoked = subscriptionRefundedEmail(details({ revoked: true, billingEnforced: true }));
+  assertEquals(revoked.subject, "Your Foon subscription access has ended");
+  assertStringIncludes(revoked.text, "because Family Sharing for it was ended");
+  assertStringIncludes(revoked.text, "Foon is now view-only for your family");
+  assertStringIncludes(revoked.text, "Nothing in your household was deleted");
 });
 
 Deno.test("the trial email says the plain deadline to avoid being charged", () => {
@@ -106,6 +176,22 @@ Deno.test("a payload becomes the email's details", () => {
       date: "December 11, 2026",
       deadline: "8:00 PM EST on December 10, 2026",
       billingEnforced: false,
+      grace: false,
+      revoked: false,
+      immediate: false,
+    },
+  );
+  assertEquals(
+    subscriptionDetails({ ends_at: "2026-12-12T01:00:00Z", grace: true, revoked: true, immediate: true }),
+    {
+      trial: false,
+      plan: "Foon subscription",
+      date: "December 12, 2026",
+      deadline: "1:00 AM UTC on December 11, 2026",
+      billingEnforced: false,
+      grace: true,
+      revoked: true,
+      immediate: true,
     },
   );
   assertEquals(subscriptionDetails({ trial: true }), null);
