@@ -169,3 +169,31 @@ describe("Terms and Privacy version labels", () => {
     expect(privacy).toContain("{{ PRIVACY_VERSION }}");
   });
 });
+
+describe("Privacy v2 (#48)", () => {
+  const privacy = readFileSync(new URL("../app/pages/privacy.vue", import.meta.url), "utf8").replace(/\s+/g, " ");
+
+  it("is the version adults agree to", () => {
+    expect(PRIVACY_VERSION).toBe("privacy-draft-v2");
+  });
+
+  it("lists the emails Foon sends, to adults only, and how to stop the opt-in ones", () => {
+    expect(privacy).toContain("<h2>Email from Foon</h2>");
+    expect(privacy).toContain("Foon emails adults only, never kids");
+    expect(privacy).toContain("Our email provider, Resend, sends them.");
+    expect(privacy).toContain("never allergies or who's home");
+    expect(privacy).toContain("Both start off.");
+    expect(privacy).toContain("with the unsubscribe link in each email");
+    expect(privacy).toContain("If you email an invite to another adult, Foon uses the address you type only to send that one invite. Foon doesn't keep it; Resend keeps its own record of the send, as for every email.");
+    expect(privacy).toContain("is deleted after 30 days");
+  });
+
+  it("says the waitlist gets no founding-family updates", () => {
+    expect(privacy).toContain("the waitlist doesn't get founding-family updates or other news");
+  });
+
+  it("says finished shopping trips are counted, never what was bought, and deleted after 13 months", () => {
+    expect(privacy).toContain("never what was bought, where, or by whom");
+    expect(privacy).toContain("deletes each record after 13 months");
+  });
+});

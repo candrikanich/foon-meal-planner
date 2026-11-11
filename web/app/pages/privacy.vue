@@ -20,7 +20,10 @@ useSeoMeta({ title: "Privacy: Foon", description: "What Foon keeps, and what thi
         If you join the waitlist, we keep your email address and, if you give it, your first name. The waitlist is for
         adults.
       </li>
-      <li>We use them to email you a link to confirm your spot, and to tell you about Foon's founding-family offer and when Foon opens.</li>
+      <li>
+        We use them to email you a link to confirm your spot (that email also tells you about the founding-family offer),
+        and to tell you when Foon opens. That's all: the waitlist doesn't get founding-family updates or other news.
+      </li>
       <li>
         Until you confirm, your signup is pending, and we delete a pending signup 30 days after the last email we sent
         for it. After you confirm, we keep your email, and your name if you gave one, until you unsubscribe. Every email
@@ -52,7 +55,36 @@ useSeoMeta({ title: "Privacy: Foon", description: "What Foon keeps, and what thi
         If your household subscribes, Apple's subscription status for it. Apple holds your payment details; Foon never
         sees them.
       </li>
+      <li>
+        When someone finishes a shopping trip with something bought, that your household finished one and when, never
+        what was bought, where, or by whom. Foon counts trips across many families to see how it's used, and deletes
+        each record after 13 months.
+      </li>
       <li>Foon doesn't ask for birthdays, phone numbers, or your location.</li>
+    </ul>
+
+    <h2>Email from Foon</h2>
+    <ul>
+      <li>
+        Foon emails adults only, never kids. Emails about your account go to the email Apple gives for your account (which can be Apple's private relay
+        address). Our email provider, Resend, sends them.
+      </li>
+      <li>
+        About your account: a welcome when you create a household; if you own it, notices when its subscription starts,
+        renews, changes plan, can't be charged, has renewal turned off or on, is refunded, or ends; and a receipt when you
+        delete your account or household.
+      </li>
+      <li>
+        Only if you turn them on, in the app under Family, then Email: the weekly plan email (the week's dinners when
+        it's approved, never allergies or who's home) and founding-family updates (news and offers about Foon, now and
+        then). Both start off. Foon records that you agreed, when, and to which wording, and only you see your choice. Your setting goes with your account; the record that you agreed is kept as proof.
+        Turn either off in the app, or with the unsubscribe link in each email.
+      </li>
+      <li>If you email an invite to another adult, Foon uses the address you type only to send that one invite. Foon doesn't keep it; Resend keeps its own record of the send, as for every email.</li>
+      <li>
+        Foon keeps no copy of these emails. A record that one was queued or sent (its kind and date, never your address)
+        is deleted after 30 days. Resend keeps its own record of each email it sends.
+      </li>
     </ul>
 
     <h2>What stays on your device</h2>
@@ -80,6 +112,7 @@ useSeoMeta({ title: "Privacy: Foon", description: "What Foon keeps, and what thi
       <li>Parents can delete everything about a kid on the kid's profile, sign-in account included, right away.</li>
       <li>Deleting a household in the app removes it from Foon for everyone, right away.</li>
       <li>Plan activity, votes on dinner, and the reminder log are deleted after eight weeks.</li>
+      <li>Turn the weekly plan email or founding-family updates off in the app, under Family, then Email, or with the link in any of them.</li>
       <li>
         To leave the waitlist, use the link in any waitlist email, or write to
         <a :href="`mailto:${SUPPORT_EMAIL}`">{{ SUPPORT_EMAIL }}</a>.

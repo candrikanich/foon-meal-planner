@@ -4,6 +4,8 @@
 
 Last updated: [date of publication]
 
+Version: `privacy-draft-v2` (what changed since v1 is under Changes to this policy)
+
 Foon is a family dinner planner. Its job is to take the weight of dinner off one person and share it with the whole
 family. To do that, it has to keep some things about your family. This policy says what we keep, why, who sees it, and
 how long we keep it. We've tried to keep it short and plain.
@@ -16,6 +18,8 @@ The short version:
 - Kids can only join with a parent's invite and consent. Parents can see, change and delete what's kept about them.
 - Planners and parents can export your household's data, and you can delete your account or your household from
   inside the app.
+- Foon emails adults only, never kids: a few notices about your account, and two emails you can turn on (off until
+  you do).
 
 ## Who we are
 
@@ -41,23 +45,43 @@ When you sign in with Apple, Apple gives us:
 - an email address, which can be Apple's private relay address if you chose "Hide My Email",
 - your first name, if you chose to share it.
 
-We use these to sign you in and to tell your account apart from others. We don't use your email for marketing. If you
-invite your kid to their own account, we use your email to ask for your consent (see Kids and parental consent).
+We use these to sign you in and to tell your account apart from others. We don't use your email for marketing unless
+you turn on founding-family updates (below). If you invite your kid to their own account, we use your email to ask for
+your consent (see Kids and parental consent).
 
 We also email adults a few messages about their own account:
 
 - a welcome when you create a household (not for a sample family), with how to invite your family;
-- if you own the household: when a subscription or free trial starts, when you turn off its renewal, and when it
-  ends (Apple sends its own receipts for each payment);
+- if you own the household: when a subscription or free trial starts, renews, changes plan, is refunded, can't be
+  charged, has its renewal turned off or back on, and when it ends (Apple sends its own receipts for each payment);
 - a receipt when you delete your account or your household, sent once the deletion is done.
 
-They go to the email Apple gave us for your Sign in with Apple account, read when each email is sent; we don't copy it
-anywhere else. Kids never get email from Foon. These emails are about your account, so they have no unsubscribe link;
-we keep no copy of them, and a record that one was queued or sent (its kind and date, never your address) is deleted
-after 30 days (see the Data Retention Policy).
+They go to the email Apple gave us for your Sign in with Apple account (which can be Apple's private relay address),
+read when each email is sent; we don't copy it anywhere else. Our email provider, Resend, sends them. Kids never get
+email from Foon. These emails are about your account, so they have no unsubscribe link; we keep no copy of them, and a
+record that one was queued or sent (its kind and date, never your address) is deleted after 30 days (see the Data
+Retention Policy).
 
-> **Review:** account emails (#48) are built but switched off (`account_email_enabled`) until a privacy policy version
-> that lists them is in force; the public /privacy page doesn't list them yet.
+Two more emails are yours to turn on, in Foon under Family, then Email (adults only, both off until you do):
+
+- **The weekly plan email:** when your family's week is approved, the week's dinners (each night's dish or plan, using
+  your family's own names for its dishes), and a link to Foon. Never allergies, and nothing about who's home or
+  who's cooking.
+- **Founding-family updates:** now and then, news about Foon for founding families, including offers. This is
+  marketing, and only sent if you turn it on. Each one ends with our postal address (see Contact).
+
+Each time you turn one on, Foon records that you agreed, when, and to which wording. These are just yours: nobody else
+in your household sees whether you turned them on. Each one has an unsubscribe link (and your mail app's own unsubscribe
+button), or turn it off in Foon; either way it stops at once. The switch is deleted with your account, or when you
+leave or are removed from your household. The record that you agreed is kept, as proof (see Other records).
+Founding-family updates go only to adults who turned them on in Foon, not to the waitlist.
+
+If you email an invite to another adult, Foon uses the address you type only to send that one invite. Foon doesn't keep it; Resend keeps its own record of the send, as for every email.
+
+> **Review:** account emails (#48) are built and listed here since `privacy-draft-v2` (#48 PR D), which also put the
+> two opt-in wordings (`weekly-plan-email-v1`, `founding-updates-v1`) in force. Nothing is sent until
+> `account_email_enabled` is turned on. Emailing an adult's invite is approved but not built yet (#48 PR B, after
+> #314); the sentence above is conditional ("If you email an invite") so the policy needn't change again when it ships.
 
 > **Review:** our hosting provider (Supabase) keeps sign-in records for the accounts it manages, which can include
 > device and network details. Confirm what Supabase Auth logs and for how long, and whether to say so here. [CHECK]
@@ -153,6 +177,10 @@ household can see its subscription status.
   request for a kid's consent (its status and times) is kept until 30 days after it ends. These stay with the household even if the parent who agreed later deletes their account, so we can
   show the consent was given. They're deleted when the household is, and a kid's parental consent record is deleted
   when a parent deletes everything about that kid.
+- **Agreement records.** Which version of the Terms, this policy, or an email's wording you agreed to, when, and where
+  in the app (an email's, each time you turn it on). Kept after your account is deleted, as proof of what you agreed
+  to, with nothing else about you. Deleted with the rest of a kid's information when a parent deletes everything about
+  them.
 - **Invites.** An invite records who it's for, who made it, and when it was used. Only a scrambled form of the code is
   stored. Invites are deleted 30 days after they expire, are used or are cancelled.
 - **Safety counters.** To stop someone guessing invite codes, we record each attempt to use a code, wrong or right,
@@ -277,7 +305,7 @@ Allergies can be health information. We treat them carefully.
   > anytime in Family → Allergy alerts, which erases them all.
 
   We record who agreed, when, and which wording they saw. The server refuses to store an allergy without that consent.
-  We ask once: a household that agreed to an earlier wording isn't asked again.
+  When this wording changes in a way that matters, a parent is asked again (see Changes to this policy).
 - **What's kept.** For each person: which of the 9 major US allergens apply, plus any others a parent types in, or an adult types
   in for themselves.
 - **Who sees them.** Everyone in your household, so the whole family can see why a dish is flagged. Parents can add
@@ -326,7 +354,7 @@ policy does. [CHECK: data processing agreements on file.]
 | --- | --- | --- |
 | Supabase | Database, sign-in, photo storage, server functions | Everything Foon keeps on its servers |
 | Apple | Sign in with Apple, push notifications, App Store payments | Sign-in, push tokens and text, subscriptions |
-| Resend | Sends waitlist emails, parental consent emails, and account emails to adults | Waitlist email addresses and names; a parent's email address and their kid's first name, in consent emails; an adult's email address in account emails (no names). Resend keeps its own logs of each email sent [CHECK: period] |
+| Resend | Sends waitlist emails, parental consent emails, account emails to adults, and an invite an adult chooses to email | Waitlist email addresses and names; a parent's email address and their kid's first name, in consent emails; an adult's email address in account emails (no names; the weekly plan email carries the family's dish names); the address typed for an emailed invite, used only for that email. Resend keeps its own logs of each email sent [CHECK: period] |
 | Vercel | Hosts the getfoon.com website | Website requests |
 
 Our servers are in the United States (Supabase's us-east-1 region, AWS, N. Virginia).
@@ -359,7 +387,10 @@ deleted sooner:
 - a shopping trip's "heading to the store": 1 day after it ends;
 - recipe lines waiting for a family device: 3 days at most; the tidied result: 30 days;
 - invites: 30 days after they expire, are used or are cancelled;
+- a record of an account email (its kind and dates, never your address): 30 days;
+- that a shopping trip finished, and when: 13 months;
 - subscription notices from Apple: 2 years;
+- which wording of the Terms, this policy or an email you agreed to: kept after your account is deleted, as proof;
 - a removed person's profile: anonymized 12 months after they're removed;
 - what a kid entered themselves: 30 days after a parent withdraws consent;
 - a request for a parent's consent: 30 days after it ends; an email address a parent typed for it, once our
@@ -438,8 +469,8 @@ We won't treat you differently for using these rights.
 
 - The website has no ads and no tracking scripts, and sets no cookies.
 - The waitlist is for adults. If you join, we keep your email address and, if you give it, your first name.
-- We use them to email you a link to confirm your spot, and to tell you about Foon's founding-family offer and when Foon
-  opens.
+- We use them to email you a link to confirm your spot (that email also tells you about the founding-family offer),
+  and to tell you when Foon opens. That's all: the waitlist doesn't get founding-family updates or other news.
 - The confirmation link works for 7 days. Until you confirm, your signup is pending, and we delete it 30 days after the
   last email we sent for it.
 - After you confirm, we keep your email and name until you unsubscribe. Every email has an unsubscribe link, and
@@ -465,6 +496,16 @@ email (with one reminder a week later).
 
 > **Review:** asking again is built (#277). Confirm the mechanism meets the amended COPPA rule for material changes,
 > and that the app's prompt counts as telling people before a significant change takes effect.
+
+### What changed
+
+- **v2** (`privacy-draft-v2`, #48): lists the emails Foon sends adults (welcome, subscription notices, deletion
+  receipts), the two emails you can turn on (the weekly plan email and founding-family updates), what an emailed
+  invite keeps (Foon keeps nothing), that the waitlist gets only its confirmation and a launch email, that Foon counts finished
+  shopping trips (never what, where or who) for 13 months, that a record of each account email goes after 30 days,
+  and that the record of what you agreed to is kept after your account is deleted.
+  Every adult is asked to agree again in the app. Nothing about kids' information changed.
+- **v1** (`privacy-draft-v1`, #277): the first version adults agree to in the app.
 
 ## Contact
 

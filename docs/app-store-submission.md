@@ -66,7 +66,7 @@ Data used to track you: **None.**
 | Data type | Collected | Purpose | Linked to user |
 | --- | --- | --- | --- |
 | Name (first names) | Yes | App functionality | Yes |
-| Email address (Sign in with Apple, may be relay) | Yes | App functionality, account | Yes |
+| Email address (Sign in with Apple, may be relay) | Yes | App functionality, account; Developer's advertising or marketing (founding-family updates, opt-in only, #48) | Yes |
 | Health (allergies) | Yes | App functionality | Yes |
 | Photos | Yes (meal photos) | App functionality | Yes |
 | Other user content (meals, comments, requests, receipt lines the family corrected, a dish's recipe lines queued for an AI tidy-up) | Yes | App functionality | Yes |

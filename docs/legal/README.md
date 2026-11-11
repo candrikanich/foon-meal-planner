@@ -170,7 +170,12 @@ select kind, version, effective_at from public.agreement_versions order by kind,
 | An adult's own allergies | `own-allergy-v1` | `own-allergy-v1` | The app |
 | A kid's parental consent | `parental-invite-v1` (in app), `-v2` (in app), `-v3` (email plus) | `parental-invite-v3` | `supabase/functions/parental-consent/email.ts` (`TEXT_VERSION`) and web/app/pages/consent |
 | Terms | `terms-draft-v1` | `terms-draft-v1` | getfoon.com/terms; label `TERMS_VERSION` in web/app/content.ts |
-| Privacy | `privacy-draft-v1` | `privacy-draft-v1` | getfoon.com/privacy; label `PRIVACY_VERSION` in web/app/content.ts |
+| Privacy | `privacy-draft-v1`, `privacy-draft-v2` (#48: the emails) | `privacy-draft-v2` | getfoon.com/privacy; label `PRIVACY_VERSION` in web/app/content.ts |
+| Weekly plan email (opt-in) | `weekly-plan-email-v1` | `weekly-plan-email-v1` | The app's switch (`EmailOptIn.textVersion`, iOS) |
+| Founding-family updates (opt-in) | `founding-updates-v1` | `founding-updates-v1` | The app's switch (`EmailOptIn.textVersion`, iOS) |
+
+`20261126000000_privacy_v2_in_force.sql` (#48 PR D) did the same for `privacy-draft-v2` and the two opt-in wordings.
+Every adult who agreed to `privacy-draft-v1` sees the app's "We updated our terms" gate once; nothing is held.
 
 `allergy-data-v1` and `parental-invite-v1` have no `effective_at`: they were in use before the registry existed, and
 an agreement to either is outdated because a later version in force requires agreeing again.

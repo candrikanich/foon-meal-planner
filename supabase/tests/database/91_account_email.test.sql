@@ -126,8 +126,8 @@ select is(pg_temp.notify('101', '00000000-0000-0000-0000-0000000000a0', 'SUBSCRI
   'duplicate', 'Apple retrying the same notification');
 select pg_temp.notify('102', '00000000-0000-0000-0000-0000000000a0', 'DID_RENEW', null, 'tx-a', 'active', 9, 60);
 select pg_temp.as_admin();
-select is((select count(*)::int from public.email_outbox where kind like 'subscription%'), 1,
-  'queues nothing more, and a renewal sends nothing (Apple sends receipts)');
+select is((select count(*)::int from public.email_outbox where kind = 'subscription_started'), 1,
+  'queues no second start (a renewal has its own kind, 92_account_email_subscription_events)');
 
 select pg_temp.notify('103', '00000000-0000-0000-0000-0000000000a0', 'DID_CHANGE_RENEWAL_STATUS', 'AUTO_RENEW_DISABLED',
   'tx-a', null, 8, 60);
@@ -185,6 +185,7 @@ select results_eq(
   $$ select kind, email, attempts from claimed order by kind, email $$,
   $$ values ('subscription_ended', 'alice@example.com', 1),
             ('subscription_ending', 'alice@example.com', 1),
+            ('subscription_renewed', 'alice@example.com', 1),
             ('subscription_started', 'alice@example.com', 1),
             ('subscription_started', 'carol@example.com', 1),
             ('subscription_started', 'carol@example.com', 1),

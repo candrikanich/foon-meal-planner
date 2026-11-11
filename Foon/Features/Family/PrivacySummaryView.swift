@@ -17,7 +17,16 @@ struct PrivacySummaryView: View {
                 Text("Receipt lines someone in the family corrected, and the item each one is, so the next receipt reads right.")
                 Text("When someone finishes a shopping trip with something bought, that your household finished one and when, never what was bought, where, or by whom. Foon counts trips across many families to see how it's used.")
                 Text("When a planner adds a dish from a photo, PDF, or post on a device that can't run Apple's on-device AI, its recipe lines, held briefly so a planner's device in your family that can will tidy them up. They go once that's done, or after 3 days at most; the tidied recipe is kept for 30 days.")
+                Text("Whether you turned on the weekly plan email or founding-family updates, and when you agreed. Only you see it. The setting goes with your account; the record that you agreed, like your agreement to the Terms and Privacy Policy, is kept as proof.")
                 Text("Foon doesn't ask for birthdays, phone numbers, or your location.")
+            }
+
+            Section("Email from Foon") {
+                Text("Foon emails adults only, never kids. Emails about your account go to the email Apple gives for your account (which can be Apple's private relay address). Our email provider, Resend, sends them.")
+                Text("About your account: a welcome when you create a household; if you own it, notices when its subscription starts, renews, changes plan, can't be charged, has renewal turned off or on, is refunded, or ends; and a receipt when you delete your account or household.")
+                Text("Only if you turn them on, in Family under Email: the weekly plan email (the week's dinners when it's approved, never allergies or who's home) and founding-family updates (news and offers about Foon, now and then). Both start off.")
+                Text("If you email an invite to another adult, Foon uses the address you type only to send that one invite. Foon doesn't keep it; Resend keeps its own record of the send, as for every email.")
+                Text("Foon keeps no copy of these emails. A record that one was queued or sent, its kind and date and never your address, is deleted after 30 days. Resend keeps its own record of each email it sends.")
             }
 
             Section("What stays on this device") {
@@ -49,6 +58,7 @@ struct PrivacySummaryView: View {
                 Text("Anyone removed from the family becomes \"Former member\" after 12 months, and their ratings stay as anonymous history.")
                 Text("Invites are deleted 30 days after they're used, cancelled, or expire.")
                 Text("Finished shopping trips are deleted after 13 months.")
+                Text("Turn the weekly plan email or founding-family updates off in Family under Email, or with the link in any of them.")
             } header: {
                 Text("Changing your mind")
             } footer: {
