@@ -35,7 +35,7 @@ insert into public.members (id, household_id, first_name, role, age_group, guard
   ('00000000-0000-0000-0000-0000000000b4', '00000000-0000-0000-0000-0000000000a0', 'Uma', 'member', 'kid', false, 'active', null),
   ('00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-0000000000a0', 'Val', 'member', 'adult', false, 'removed', null),
   ('00000000-0000-0000-0000-0000000000b6', '00000000-0000-0000-0000-0000000000a0', 'Wes', 'member', 'kid', false, 'active', null);
-update public.members set declared_age_band = 'under_13' where first_name = 'Tia';
+update public.members set declared_adult = false where first_name = 'Tia';
 update public.members set removed_at = now() - interval '13 months' where first_name in ('Rita', 'Val');
 update public.members set removed_at = now() - interval '11 months' where first_name = 'Sam';
 insert into public.consents (household_id, member_id, kind, granted_by, granted_at, revoked_at, text_version) values
@@ -66,8 +66,8 @@ select ok(current_setting('test.ben') <> '', 'an adult''s profile needs no paren
 select pg_temp.as_user('d0000000-0000-0000-0000-00000000000d');  -- Dave
 select is(public.redeem_invite(current_setting('test.nora'), 'under_13'), 'claimed',
   'a kid with a parent''s consent joins');
-select is((select declared_age_band::text from public.members where id = '00000000-0000-0000-0000-0000000000a2'),
-  'under_13', 'only the age band is kept');
+select is((select declared_adult from public.members where id = '00000000-0000-0000-0000-0000000000a2'),
+  false, 'only kid or adult is kept, not the age band (#88)');
 
 select pg_temp.as_user('e0000000-0000-0000-0000-00000000000e');  -- Erin
 select is(public.redeem_invite(current_setting('test.ben'), '13_15'), 'age_mismatch',
@@ -127,10 +127,10 @@ select results_eq(
 select is_empty($$ select 1 from public.member_allergies where member_id = '00000000-0000-0000-0000-0000000000b1' $$,
   'an anonymized profile''s allergies are deleted');
 select results_eq(
-  $$ select first_name, declared_age_band, own_data_erased_at is not null, anonymized_at is null
+  $$ select first_name, declared_adult, own_data_erased_at is not null, anonymized_at is null
      from public.members where id = '00000000-0000-0000-0000-0000000000b3' $$,
-  $$ values ('Tia', null::public.age_band, true, true) $$,
-  '30 days after consent is withdrawn, the kid''s own data and age band are erased, and the profile stays');
+  $$ values ('Tia', null::boolean, true, true) $$,
+  '30 days after consent is withdrawn, the kid''s own data and declared age are erased, and the profile stays');
 select is((select count(*)::int from public.member_allergies where member_id = '00000000-0000-0000-0000-0000000000b3'), 1,
   'a kid still in the family keeps their allergies');
 select is((select string_agg(first_name, ',' order by first_name) from public.members

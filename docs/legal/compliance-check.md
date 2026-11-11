@@ -83,7 +83,7 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
   - California AB 1043 (2027-01-01), Louisiana (2027-07-01) and Utah (2027-05-06) follow.
   - Apple's Declared Age Range API: build against the 26.2 SDK or later and handle `confirmed`.
 - **Texas store-data deletion.** If #88 stores Apple's age range, delete it once verification is done, keeping at most
-  what the law allows. 121.055(b).
+  what the law allows. 121.055(b). Done: only kid or adult is kept (decision 6).
 - **Texas significant-change notice.** Tell the App Store before a significant change to the terms or privacy policy,
   for example through PermissionKit's Significant Change API. 121.053.
 - **CAN-SPAM footer.** Done in #284: every waitlist email ends with the sender, the postal address and the unsubscribe
@@ -111,7 +111,7 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
    recommends complying to Washington's standard.
 5. **Connecticut SB 1295.** Does it reach Foon with no volume floor (sensitive data)? This rests on secondary sources
    only.
-6. **Texas age range.** Keep Apple's age range after verification, or store only a derived kid/adult flag?
+6. **Texas age range.** Decided (Chris, 2026-11-11; below), built in #88: only a derived kid/adult flag is kept.
 7. **Contact details.** The postal address is decided (#284): 34125 Center Ridge Road #1012, North Ridgeville, OH
    44039, in the privacy policy, the consumer health data policy, the terms, the website's privacy page and the
    waitlist email footer. Still open: a phone number? 312.4(d)(1) lists one.
@@ -128,6 +128,13 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 14. **Allergy "Other" free text.** Could someone type a medication or diagnosis? If so, say so in the categories.
 15. **New York.** Recheck S9269 (NY Health Information Privacy Act) before launch.
 16. **Research not done:** Vermont's and Nebraska's age-appropriate design codes, and the Texas SCOPE Act.
+
+**Decided by Chris (2026-11-11), for counsel to confirm in their review (#88):**
+- **Texas age range (decision 6, §121.055(b)).** After a claim Foon keeps only whether Apple's age range said adult or
+  a minor (`members.declared_adult`: true, false, or null when Apple didn't say), never the band itself. `redeem_invite`
+  uses the band to refuse a mismatch (`age_mismatch`) and then drops it; bands kept before this were turned into the
+  flag and deleted. The flag's one use: Delete everything about a kid only unlinks, never deletes, an account whose
+  claim said adult.
 
 **Decided by Chris (2026-11-08), for counsel to confirm in their review (#275):**
 - **Consent method: email plus** (312.5(b)(2)(viii)). Email 1 is the direct notice, to the address on the asking
@@ -295,7 +302,7 @@ Status as of 2026-11-06:
 | Texas: rate the app and each purchase, and tell the store | SB 2420 §121.052 | Questionnaire not re-answered | partly | Decision 11 |
 | Texas: tell the store before a significant change to terms or privacy policy | §121.053 | Significant-change hook (#88): add the change to `SignificantChange.all` and a minor's parent approves through PermissionKit, an adult acknowledges | partly | Process: decide which changes qualify |
 | Texas: verify each user's age category and a minor's consent | §121.054 | Age band asked at claim (#88), parental consent by email plus (#275); not at sign-up | partly | Decision; good-faith reliance on the store's data is a safe harbor (§121.056(c)) |
-| Texas: use store data only for listed purposes, and delete it after verification | §121.055(a)-(b) | retention.md planned to keep the age range | gap | Code or design (decision 6); note in retention.md (this PR) |
+| Texas: use store data only for listed purposes, and delete it after verification | §121.055(a)-(b) | The band is used only to refuse a mismatched claim, then dropped; only kid or adult is kept (#88, decision 6) | partly | The parental consent wording (`parental-invite-v3`: both consent emails and the /consent page) still lists "an age range from Apple" as kept; fix with the next wording change. Counsel to confirm a derived kid/adult flag may be kept |
 | Utah (HB 498): developer duties from 2027-05-06 | UNVERIFIED | Not built | gap (later) | Code (#88) |
 | Louisiana (HB 977): use store age signals from 2027-07-01 | UNVERIFIED | Not built | gap (later) | Code (#88) |
 | California AB 1043: ask for an age signal at download and launch, from 2027-01-01; it counts as actual knowledge | UNVERIFIED | Not built | gap (later) | Code (#88) |

@@ -72,7 +72,7 @@ Data used to track you: **None.**
 | Other user content (meals, comments, requests, receipt lines the family corrected, a dish's recipe lines queued for an AI tidy-up) | Yes | App functionality | Yes |
 | User ID | Yes | App functionality | Yes |
 | Purchase history | Yes | App functionality | Yes |
-| Other data (the age range Apple's Declared Age Range API gives when someone joins with an invite, #88: a band such as "13 to 15", never a birthdate) | Yes | App functionality | Yes |
+| Other data (the age range Apple's Declared Age Range API gives when someone joins with an invite, #88: a band such as "13 to 15", never a birthdate; once the claim is checked only kid or adult is kept) | Yes | App functionality | Yes |
 | Product interaction (which reminders went out and were answered: kind, night, time; that a shopping trip finished with something bought, and when) | Yes | App functionality (reminders), Analytics (finished trips, #260) | Yes |
 
 Finished shopping trips (#260, only those where something was bought) are the one product interaction kept for Analytics: the household and the time, counted only across at least 5 households (docs/metrics.md), never used for tracking. An analytics SDK and crash and performance data aren't in the app yet: they come back to this table with #28.

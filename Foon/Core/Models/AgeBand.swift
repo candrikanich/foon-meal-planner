@@ -1,8 +1,8 @@
 import Foundation
 
 /// The age range Apple's Declared Age Range API gives when someone claims a profile (#88). Mirrors the database's
-/// `age_band`. Only the band is kept, never a birthdate; `redeem_invite` uses it to refuse a minor's account claiming
-/// an adult's profile, and an adult's account claiming a kid's.
+/// `age_band`. Never a birthdate; `redeem_invite` uses it to refuse a minor's account claiming an adult's profile, and an
+/// adult's account claiming a kid's, then keeps only kid or adult (Texas §121.055(b)).
 enum AgeBand: String, Codable, Sendable, CaseIterable {
     case under13 = "under_13"
     case from13To15 = "13_15"
