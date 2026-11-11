@@ -114,6 +114,11 @@ extension SyncClient {
                         targetHousehold: householdID, aliasText: rawText, targetItem: itemID
                     )).execute()
                     return nil
+                case .finishTrip(let householdID, let tripID, let finishedAt):
+                    try await client.rpc("record_shopping_trip", params: RecordShoppingTripParams(
+                        tripID: tripID, targetHousehold: householdID, tripFinishedAt: finishedAt
+                    )).execute()
+                    return nil
                 }
             },
             listChanges: { householdID in
@@ -161,6 +166,18 @@ extension SyncClient {
 }
 
 private struct LineID: Decodable { let id: UUID }
+
+struct RecordShoppingTripParams: Encodable, Sendable {
+    let tripID: UUID
+    let targetHousehold: UUID
+    let tripFinishedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case tripID = "trip_id"
+        case targetHousehold = "target_household"
+        case tripFinishedAt = "trip_finished_at"
+    }
+}
 
 struct TeachReceiptAliasParams: Encodable, Sendable {
     let targetHousehold: UUID

@@ -191,6 +191,13 @@ enum ListBoard {
         return (aisles, cart, nextTime)
     }
 
+    /// What Finish trip sends the server (#260): only that a trip finished, and when. A trip where nothing was bought
+    /// isn't a trip for the metrics, so it sends nothing.
+    static func finishTrip(householdID: UUID, summary: Summary, at finishedAt: Date) -> OfflineChange? {
+        guard summary.got > 0 else { return nil }
+        return .finishTrip(householdID: householdID, tripID: UUID(), finishedAt: finishedAt)
+    }
+
     static func summary(_ entries: [ListEntry], tripStart: Date, skipped: Set<UUID> = []) -> Summary {
         let board = store(entries, tripStart: tripStart, skipped: skipped)
         return Summary(got: board.cart.count, left: board.aisles.reduce(0) { $0 + $1.entries.count })
