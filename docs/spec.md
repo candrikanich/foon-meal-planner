@@ -1043,6 +1043,7 @@ One subscription per household: $5.99 a month or $49.99 a year after a 30-day fr
   - *Anonymous and pooled:* one object per ISO week, pooled over all households. No ids, names, dishes, or per-household rows, and any number built from fewer than 5 households is null. Sample families aren't counted. Only the dashboard and `service_role` can run it: the `internal` schema isn't exposed through the API, and app users can't execute it.
   - *North star:* the share of logged dinners at the table in approved weeks where someone other than a planner (role planner, or the owner) asked for that night's dish, said me too to it, voted in that night's poll, claimed the night, or cooked it.
   - *The rest:* weekly active households (anyone in it did something stored that week), plans approved, median contributors per household, after-dinner response rate (reactions by people marked home for a logged dish, over those people), and per sign-up week: onboarding completion, share with a first plan and median hours to it, and week-1 and week-4 retention.
-  - *Waiting:* shopping trips completed is null until a finished trip is stored on the server (it lives on the shopper's device today). Trial-to-paid is null until StoreKit and the entitlement (#66).
+  - *Shopping trips (#260):* finished trips per week, counting only trips where something was checked off. Finish trip stores the household and the time on the server (`shopping_trips`, kept 13 months), never what was bought, where, or by whom.
+  - *Waiting:* trial-to-paid is null until StoreKit and the entitlement (#66).
 
 **Before building much:** run a two-week shared-note trial (assigned nights, requests) and show your wife the Phase 1 prototype for feedback.
