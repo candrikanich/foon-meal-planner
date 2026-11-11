@@ -79,10 +79,17 @@ export const inviteSchema = z.object({
   email: z.string().trim().max(254).pipe(z.email()),
 });
 
-// Anything that reads as a link, an address or a number to call: a scheme (https://), www., an @, a dotted domain
-// (foo.com), a spelled-out one ("paypal dot com"), or seven or more digits (a phone number).
-const LINK_LIKE =
-  /[a-z][a-z0-9+.-]*:\/\/|www\.|@|[\p{L}\p{N}-]+\.[\p{L}]{2,}|\bdot\s+(?:com|net|org|co|io|app)\b|\d(?:[\s().+-]*\d){6,}/iu;
+// A name is shown only if it's made of what names are made of: letters, spaces, apostrophes, hyphens, periods, commas
+// and ampersands, plus a few digits ("The 3 Smiths"). Anything else, seven or more digits (a phone number), a dotted
+// domain (foo.com) or a spelled-out one ("paypal dot com") isn't shown. Checked after NFKC, so full-width lookalikes
+// fold to the plain characters first.
+const NAME_CHARACTERS = /^[\p{L}\p{M}\p{Nd} '’.,&-]+$/u;
+const COMMON_TLD = "(?:com|net|org|co|io|info|biz|app|xyz|ru|us|uk|me|site|online)";
+const DOMAIN_LIKE = new RegExp(
+  `[\\p{L}\\p{N}-]+\\s*\\.\\p{L}{2,}|\\.\\s+${COMMON_TLD}\\b|\\p{L}\\s+dot\\s+\\p{L}{2,}`,
+  "iu",
+);
+const MAX_DIGITS = 6;
 
 // Fixed, so nothing the family typed reaches the subject line.
 export const INVITE_SUBJECT = "You're invited to join a family on Foon";
@@ -91,8 +98,9 @@ const NOT_SHOWN = "(not shown)";
 // A name the family typed, safe to show as plain text: no control characters or line breaks, at most 60 characters,
 // and never something that looks like a link or an address (an email to any address mustn't carry someone's URL).
 export function plainName(value: string | null | undefined): string {
-  const cleaned = (value ?? "").replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, " ").replace(/\s+/g, " ").trim();
-  if (!cleaned || LINK_LIKE.test(cleaned)) return NOT_SHOWN;
+  const cleaned = (value ?? "").normalize("NFKC").replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, " ").replace(/\s+/g, " ").trim();
+  const digits = cleaned.match(/\p{Nd}/gu)?.length ?? 0;
+  if (!cleaned || !NAME_CHARACTERS.test(cleaned) || DOMAIN_LIKE.test(cleaned) || digits > MAX_DIGITS) return NOT_SHOWN;
   return cleaned.length > 60 ? `${cleaned.slice(0, 59).trimEnd()}…` : cleaned;
 }
 

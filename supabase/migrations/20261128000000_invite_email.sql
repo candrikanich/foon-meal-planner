@@ -46,9 +46,6 @@ begin
   if caller is null then
     raise exception 'sign in first' using errcode = '28000';
   end if;
-  -- One reservation at a time across Foon, so parallel sends (from one parent, two parents in a household, or many
-  -- households) can't outrun any of the counts below. Cheap at a cap of 200 an hour.
-  perform pg_advisory_xact_lock(hashtextextended('invite_email', 0));
 
   select * into member from public.members where id = target_member;
   if not found or not public.is_household_manager(member.household_id) then
@@ -75,6 +72,11 @@ begin
   if invite.id is null then
     return jsonb_build_object('outcome', 'wrong_code');
   end if;
+  -- One reservation at a time across Foon, so parallel sends (from one parent, two parents in a household, or many
+  -- households) can't outrun any of the counts below. Taken only once the caller is a parent holding this profile's open
+  -- invite, so nobody else ever waits on it; after the invite row lock, and nothing holding it locks another invite, so
+  -- the two can't deadlock. Cheap at a cap of 200 an hour.
+  perform pg_advisory_xact_lock(hashtextextended('invite_email', 0));
 
   select * into home from public.households where id = member.household_id;
   -- 3 emails per invite code ever; none from a household under 10 minutes old (a throwaway one can't start sending at

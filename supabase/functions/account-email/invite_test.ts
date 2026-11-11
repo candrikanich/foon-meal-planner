@@ -229,10 +229,18 @@ Deno.test("names that look like a link or an address are never shown", () => {
     "Text (216) 555-0100",
     "+44 20 7946 0958",
     "Go to paypal dot com",
+    "Call １８００５５５０１００",
+    "paypal．com",
+    "evil。com",
+    "paypal [dot] com",
+    "paypal . com",
+    "paypal. com",
+    "Call 1-800-FLOWERS 555",
+    "Smiths 🎉 click here: evil",
   ]) {
     assertEquals(plainName(name), "(not shown)", name);
   }
-  for (const name of ["The Andersons", "St. Clair", "Mary-Jo", "O'Brien family", "Mr. Smith", "The 3 Smiths", "Apt 1012 crew", "Dot Cotton"]) {
+  for (const name of ["The Andersons", "St. Clair", "Mary-Jo", "O'Brien family", "Mr. Smith", "The 3 Smiths", "Apt 1012 crew", "Dot Cotton", "José & Zoë", "Nguyễn", "Smith, Jr."]) {
     assertEquals(plainName(name), name, name);
   }
 });
@@ -246,8 +254,11 @@ Deno.test("the only link is our own invite link", () => {
 });
 
 Deno.test("names the family typed can't break the HTML, and are trimmed", () => {
-  const email = inviteEmail({ ...reserved, inviter: "Al\r\nice", household: "<b>Smiths</b>" });
-  assertStringIncludes(email.html, "&lt;b&gt;Smiths&lt;/b&gt;");
+  const email = inviteEmail({ ...reserved, inviter: "Al\r\nice", household: "Smith & O'Neil" });
+  assertStringIncludes(email.html, "Smith &amp; O&#39;Neil");
+  const tagged = inviteEmail({ ...reserved, household: "<b>Smiths</b>" });
+  assertEquals(tagged.html.includes("<b>"), false);
+  assertStringIncludes(tagged.text, "Family: (not shown)");
   assertStringIncludes(email.text, "Invited by: Al ice");
   assertEquals(plainName("  "), "(not shown)");
   assertEquals(plainName(null), "(not shown)");
