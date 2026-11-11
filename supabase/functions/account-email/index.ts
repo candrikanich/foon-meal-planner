@@ -12,7 +12,7 @@ import { DEFAULT_SITE_URL } from "./email.ts";
 import { handleFoundingUpdate } from "./founding.ts";
 import { type ClaimedEmail, handleAccountEmail } from "./handler.ts";
 import { type FoundingUpdate, parsePostalAddress } from "./opt_in_email.ts";
-import { handleUnsubscribe, unsubscribeLinks } from "./unsubscribe.ts";
+import { handleUnsubscribe, unsubscribeLinks, unsubscribeOrigins } from "./unsubscribe.ts";
 
 function required(key: string): string {
   const value = Deno.env.get(key);
@@ -44,13 +44,7 @@ Deno.serve((req) => {
   const unsubscribe = url.searchParams.get("unsubscribe");
   if (unsubscribe !== null) {
     return handleUnsubscribe(req, unsubscribe, {
-      allowedOrigins: [
-        "https://getfoon.com",
-        "https://www.getfoon.com",
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3000",
-      ],
+      allowedOrigins: unsubscribeOrigins(siteUrl),
       siteUrl,
       sign: links.sign,
       unsubscribe: (userId, kind) => rpc("email_unsubscribe", { account: userId, email_kind: kind }),

@@ -4,6 +4,7 @@ import {
   readUnsubscribeToken,
   unsubscribeLinks,
   type UnsubscribeDeps,
+  unsubscribeOrigins,
 } from "./unsubscribe.ts";
 
 const user = "a0000000-0000-0000-0000-00000000000a";
@@ -105,6 +106,14 @@ Deno.test("the site's preflight is answered", async () => {
   const response = await handleUnsubscribe(request(token, "OPTIONS", { Origin: "https://getfoon.com" }), token, deps);
   assertEquals(response.status, 204);
   assertEquals(response.headers.get("Access-Control-Allow-Methods"), "POST, OPTIONS");
+});
+
+Deno.test("the configured site's origin may POST too, so a staging site's button works", () => {
+  const fixed = unsubscribeOrigins(undefined);
+  assertEquals(fixed.includes("https://getfoon.com"), true);
+  assertEquals(unsubscribeOrigins("https://getfoon.com"), fixed, "the default adds nothing");
+  assertEquals(unsubscribeOrigins("https://staging.getfoon.com/"), [...fixed, "https://staging.getfoon.com"]);
+  assertEquals(unsubscribeOrigins("not a url"), fixed);
 });
 
 Deno.test("a database failure says try again, and logs no address or id", async () => {

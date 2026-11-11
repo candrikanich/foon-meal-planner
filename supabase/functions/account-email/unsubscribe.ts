@@ -33,6 +33,28 @@ export async function readUnsubscribeToken(
   return { kind: kind as OptInKind, userId };
 }
 
+const FIXED_ORIGINS = [
+  "https://getfoon.com",
+  "https://www.getfoon.com",
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
+] as const;
+
+// Who may POST from a browser: getfoon.com, local dev, and the site ACCOUNT_EMAIL_SITE_URL points the links at (a
+// staging or preview site), as parental-consent does with CONSENT_SITE_URL.
+export function unsubscribeOrigins(siteUrl: string | undefined): string[] {
+  let origin: string;
+  try {
+    origin = new URL(siteUrl ?? "").origin;
+  } catch {
+    return [...FIXED_ORIGINS];
+  }
+  return origin === "null" || (FIXED_ORIGINS as readonly string[]).includes(origin)
+    ? [...FIXED_ORIGINS]
+    : [...FIXED_ORIGINS, origin];
+}
+
 export interface UnsubscribeDeps {
   // Origins allowed to POST from a browser; a request with no Origin (a mail app's one-click) passes.
   allowedOrigins: readonly string[];
