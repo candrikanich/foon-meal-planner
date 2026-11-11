@@ -106,6 +106,8 @@ private struct SignificantChangeFlow: ViewModifier {
 
 @available(iOS 26.4, *)
 private struct ParentApprovalView: View {
+    @Environment(SessionStore.self) private var session
+    @State private var deletingAccount = false
     let summary: String
 
     var body: some View {
@@ -122,13 +124,20 @@ private struct ParentApprovalView: View {
                 Text("Ask a parent")
             }
             .accessibilityHint(Text("Sends the question to your parent's device"))
+            .buttonStyle(.borderedProminent)
+            // Waiting must never trap them: like the held screen, they can always leave, and delete their account.
+            Button("Sign out") { Task { await session.signOut() } }
+            Button("Delete my account", role: .destructive) { deletingAccount = true }
         }
+        .sheet(isPresented: $deletingAccount) { DeleteAccountView() }
     }
 }
 
 #Preview("Waiting for a parent") {
     if #available(iOS 26.4, *) {
         ParentApprovalView(summary: "Foon now lets families share photos of dinner.")
+            .environment(SessionStore(auth: .preview()))
+            .environment(HouseholdStore(userID: .previewUser, client: .preview(household: nil)))
     }
 }
 #endif

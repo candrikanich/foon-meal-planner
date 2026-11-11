@@ -27,9 +27,9 @@ conflict with these terms, these terms apply, except where Apple's terms say oth
   terms on their behalf.
 - Foon is for families and households in the United States.
 
-> **Review:** today the app doesn't verify age at sign-up; Apple's age range check is planned (#88). Confirm 18+ is
-> the right age for account holders, how teens (13-17) invited by a parent should be treated, and whether the US-only
-> line is needed.
+> **Review:** the app doesn't verify age at sign-up; it asks Apple's age range only when someone claims a profile
+> (#88). Confirm 18+ is the right age for account holders, how teens (13-17) invited by a parent should be treated,
+> and whether the US-only line is needed.
 
 ## 3. Your household and its roles
 

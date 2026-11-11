@@ -92,7 +92,7 @@ Dinner memories (#65, part 3): in App Privacy, the existing Photos row stays as 
 Target: the lowest available rating. Answer the questionnaire honestly: no mature content, no gambling, no web browsing, no public user-generated content. Family comments are private to a household with no public sharing or messaging strangers. Confirm the resulting rating in App Store Connect.
 
 - Not in the Kids category.
-- Texas age-assurance support (Declared Age Range API, PermissionKit): built in #88. Joining with an invite asks for the age range once; a significant change asks a minor's parent through PermissionKit, or shows an adult Apple's acknowledgment, where Apple says the region requires it (no change qualifies yet). Before submission: turn on the Declared Age Range capability for the App ID, and test in Apple's age assurance sandbox. Consent revoked through Apple waits for the App Store Server Notifications endpoint (Phase 4).
+- Texas age-assurance support (Declared Age Range API, PermissionKit): built in #88. Joining with an invite asks for the age range once; a significant change asks a minor's parent through PermissionKit, or shows an adult Apple's acknowledgment, where Apple says the region requires it (no change qualifies yet). The Declared Age Range capability is on for the App ID (Chris, 2026-11-11). Before submission: test in Apple's age assurance sandbox (steps in docs/parental-consent.md). Consent revoked through Apple waits for the App Store Server Notifications endpoint (Phase 4).
 
 ## Screenshots
 
