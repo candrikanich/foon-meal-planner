@@ -213,10 +213,10 @@ declare
   dropped text[] := array[]::text[];
 begin
   if old.weekly_plan and not new.weekly_plan then
-    dropped := dropped || 'weekly_plan';
+    dropped := array_append(dropped, 'weekly_plan');
   end if;
   if old.founding_updates and not new.founding_updates then
-    dropped := dropped || 'founding_update';
+    dropped := array_append(dropped, 'founding_update');
   end if;
   if cardinality(dropped) > 0 then
     update public.email_outbox o set failed_at = now(), reserved_at = null, last_error_code = 'opted_out'
