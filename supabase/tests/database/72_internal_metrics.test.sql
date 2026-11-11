@@ -238,7 +238,7 @@ select is((select jsonb_build_object('dinners', w -> 'dinners', 'plans_approved'
 select is((select pg_temp.week(m, '2026-08-03') -> 'dinners' from result), 'null'::jsonb,
   'no dinners that week is no number, not zero');
 select is((select pg_temp.week(m, '2026-08-10') -> 'shopping_trips' from result), 'null'::jsonb,
-  'shopping trips wait on trips being stored');
+  'no finished trips that week is no number (91 covers trips)');
 select is((select pg_temp.week(m, '2026-08-10') -> 'trial_to_paid' from result), 'null'::jsonb,
   'trial-to-paid waits on #66');
 
