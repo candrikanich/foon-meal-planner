@@ -1,5 +1,6 @@
 #if os(iOS) && canImport(DeclaredAgeRange) && canImport(PermissionKit)
-import DeclaredAgeRange
+// AgeRangeService and its RegulatoryFeature aren't marked Sendable yet.
+@preconcurrency import DeclaredAgeRange
 import PermissionKit
 import StoreKit
 #endif
@@ -58,10 +59,7 @@ private struct SignificantChangeFlow: ViewModifier {
 
     private func check() async {
         let changes = await pending()
-        guard !changes.isEmpty,
-              let features = try? await AgeRangeService.shared.requiredRegulatoryFeatures else { return }
-        let parentsMustApprove = features.contains(.significantAppChangeRequiresParentalConsent)
-        let adultsAcknowledge = features.contains(.significantAppChangeRequiresAdultNotification)
+        guard !changes.isEmpty, let (parentsMustApprove, adultsAcknowledge) = await Self.whatTheLawAsks() else { return }
         guard parentsMustApprove || adultsAcknowledge else {
             // Nothing the law asks for where they are.
             SignificantChangeLedger().markHandled(changes)
@@ -83,6 +81,14 @@ private struct SignificantChangeFlow: ViewModifier {
                 // Not acknowledged this time; the next launch shows it again.
             }
         }
+    }
+
+    /// Whether a parent must approve and whether an adult must acknowledge, where this person is. Read off the main
+    /// actor and returned as plain Bools, since Apple's types aren't Sendable.
+    private nonisolated static func whatTheLawAsks() async -> (parents: Bool, adults: Bool)? {
+        guard let features = try? await AgeRangeService.shared.requiredRegulatoryFeatures else { return nil }
+        return (features.contains(.significantAppChangeRequiresParentalConsent),
+                features.contains(.significantAppChangeRequiresAdultNotification))
     }
 
     /// A parent's yes lets them back in; a no keeps Foon waiting, as the law asks.

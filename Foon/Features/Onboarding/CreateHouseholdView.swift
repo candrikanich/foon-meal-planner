@@ -1,5 +1,5 @@
 #if canImport(DeclaredAgeRange)
-import DeclaredAgeRange
+@preconcurrency import DeclaredAgeRange
 #endif
 import SwiftUI
 
