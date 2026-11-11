@@ -65,10 +65,11 @@ Two more emails are yours to turn on, in Foon under Family, then Email (adults o
 - **Founding-family updates:** now and then, news about Foon for founding families, including offers. This is
   marketing, and only sent if you turn it on.
 
-Turning one on records that you agreed, when, and to which wording. These are just yours: nobody else in your household
-sees whether you turned them on. Each one has an unsubscribe link (and your mail app's own unsubscribe button), or turn
-it off in Foon; either way it stops at once. Your choice is deleted with your account, or when you leave or are removed
-from your household. Founding-family updates go only to adults who turned them on in Foon, not to the waitlist.
+Each time you turn one on, Foon records that you agreed, when, and to which wording. These are just yours: nobody else
+in your household sees whether you turned them on. Each one has an unsubscribe link (and your mail app's own unsubscribe
+button), or turn it off in Foon; either way it stops at once. The switch is deleted with your account, or when you
+leave or are removed from your household. The record that you agreed is kept, as proof. Founding-family updates go only
+to adults who turned them on in Foon, not to the waitlist.
 
 > **Review:** account emails (#48) are built but switched off (`account_email_enabled`) until a privacy policy version
 > that lists them is in force; the public /privacy page doesn't list them yet. The opt-in emails above join that
