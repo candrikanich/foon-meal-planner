@@ -21,7 +21,8 @@ Scheduled jobs run in the database (pg_cron), every day unless noted. Times are 
 | A | `anonymize_expired_profiles()` | `20261110000000_retention_cleanup.sql` | Daily, 03:17 |
 | P | `prune_push_outbox()` | `20261102210000_store_run.sql` | Daily, 03:29 |
 | S | `prune_subscription_events()` | `20261107000000_entitlement.sql` | Daily, 03:41 |
-| T | `prune_shopping_trips()` | `20261120000000_shopping_trips.sql` | Daily, 03:53 |
+| T | `prune_shopping_trips()` | `20261122000000_shopping_trips.sql` | Daily, 03:53 |
+| M | `prune_email_outbox()` | `20261121000000_account_email.sql` | Daily, 03:47 |
 | W | `prune_waitlist()` | `20261108000000_waitlist.sql` | Daily, 04:17 |
 | C | `purge_parental_consent_requests()` | `20261116000000_email_plus_consent.sql` | Daily, 04:23 |
 | J | `expire_ai_jobs()` | `20261103210000_ai_jobs.sql` | Hourly, :41 |
@@ -72,6 +73,7 @@ open since the new wordings came into force, `20261119000000_agreements_in_force
 | Plan activity (`plan_changes`) | 8 weeks | Change made | A |
 | Reminder log (`notification_log`): kind, night, times | 8 weeks | Row created | A |
 | Push notifications queued or sent (`push_outbox`) | 8 weeks | Row created | P |
+| Account emails queued, sent or dropped (`email_outbox`: kind, dates and ids, never an address) | 30 days | Row created | M |
 | "Heading to the store" runs (`store_runs`) | 1 day | Run ends | P |
 | Finished shopping trips (`shopping_trips`): household and time only, for the internal metrics (#260) | 13 months | Trip finished | T |
 | AI job recipe lines (`ai_jobs.payload`) | Until the job ends; 3 days max | Job queued | J (hourly), trigger |
@@ -228,6 +230,16 @@ hashes of the emailed links' tokens are stored. We keep no copy of either email.
 
 Resend, which sends them, keeps its own logs of each email (such as the recipient, subject and delivery status) for
 its own period. [CHECK: Resend's log retention, and whether it can be shortened.]
+
+## Account emails (#48)
+
+Foon emails adults about their own account: the owner's welcome, subscription notices, and a receipt after deleting an
+account or a household. Each queued email is a row in `email_outbox` with its kind, dates and ids; the address is read
+from the recipient's Sign in with Apple identity when the email is sent and never copied into Foon's tables. A row
+that hasn't gone within 2 days is dropped rather than sent. Rows are deleted 30 days after they're queued (job **M**),
+at once with their household (job **E**), and at once when the recipient's account is deleted. A deletion receipt is
+never queued: `delete-account` reads the address before deleting and sends the email once the deletion is done, and
+keeps nothing. We keep no copy of any of these emails; Resend keeps its own send logs (see above).
 
 ## Push devices
 

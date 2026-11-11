@@ -813,7 +813,13 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
 | Email | Resend | Adults only (parents, for consent); see below |
 | Landing page and waitlist | Nuxt on Vercel | Founding-family signups |
 
-**Email (Resend), adults only.** Built: the waitlist (see Business model), and parental consent (#275, below). Planned: owner welcome, invite fallback for adults, subscription and deletion receipts, optional weekly plan email for planners, opt-in founding-family updates (CAN-SPAM). Later: inbound address for forwarded digital receipts. Register the sending domain with Apple's private email relay service or emails to Sign in with Apple relay addresses will bounce.
+**Email (Resend), adults only.** Built: the waitlist (see Business model), parental consent (#275, below), and account email (#48, below; off until `account_email_enabled` is turned on). Planned: invite fallback for adults, optional weekly plan email for planners, opt-in founding-family updates (CAN-SPAM). Later: inbound address for forwarded digital receipts. Register the sending domain with Apple's private email relay service or emails to Sign in with Apple relay addresses will bounce.
+
+**Account email (#48, built server side, off).** Transactional emails to an adult about their own account, from `ACCOUNT_EMAIL_FROM`, in English, with the sender, postal address and support@getfoon.com at the end and no unsubscribe link. They go to the email Apple gave for the recipient's Sign in with Apple identity (`verified_account_email`, as for consent email 1), read at send time and never copied into Foon's tables; an account without one gets none. Kids never get email: a row is sent only while its recipient is an adult in that household.
+- **Welcome**, to the owner when a household is created (not a sample family; "Start your real family" welcomes the real one): what Foon does in three lines, how to invite (Family → a person → Invite), the privacy link and support address.
+- **Subscription notices**, to the household's owner, from Apple's notifications: started (SUBSCRIBED: the plan, monthly or yearly, whether it's the free trial, when the trial or period ends, and the exact time to turn off renewal by to avoid being charged, 24 hours before), ending (renewal turned off: when access ends), ended (EXPIRED: when, and what changes: nothing while billing isn't enforced; once it is, the household is view-only as in Lapsed means read-only, and nothing is deleted). Dates and times are in the household's time zone (America/New_York without one). Plain facts and how to manage it (Settings → your name → Subscriptions), no upsell. No renewal emails: Apple sends receipts. Ending and ended aren't sent while another of the household's subscriptions still grants access (an ownership transfer).
+- **Deletion receipts**: after Delete my account or Delete household has fully gone through, `delete-account` emails the person who did it what was deleted, that nothing else is kept beyond what the privacy policy lists, and the support address. The address is read before deleting (only for an adult in a household, while email is on) and never stored; sending can't fail or change the deletion. Household delete emails only the person who deleted it.
+- How it runs: triggers queue welcome and subscription rows in `email_outbox` (ids and dates only; one row per event). Every 5 minutes pg_cron calls `kick_account_email()`, which pokes the `account-email` Edge Function when something is due. The function claims a batch (`claim_account_emails`: 200 sends an hour overall, under a lock), sends (with the row's id as Resend's idempotency key, so a retry can't send twice), and marks each sent or releases it to retry with backoff (5 tries). While `app_config.account_email_enabled` is off (the default) rows queue but nothing is claimed or sent; a row more than 2 days old is dropped instead of sent, so turning it on doesn't send stale welcomes. Rows go after 30 days, with their household, or with the recipient's account. Setup: [account-email.md](account-email.md).
 
 **Consent email to parents (#275, built server side).** COPPA's "email plus" (16 CFR 312.5(b)(2)(viii), decided 2026-11-08): verifiable consent before a kid can be invited or claim a profile. The `parental-consent` Edge Function sends two emails from `CONSENT_FROM` (info@getfoon.com), in English only:
 - **Email 1, the direct notice** (312.4(c)(1)), when a parent taps the request in the app. It goes to the email Apple gave for that parent's Sign in with Apple identity, which Apple vouches for (not the account's editable email; a confirmed flag proves nothing while sign-ups autoconfirm); without one it's treated as missing. Then the parent types one. A typed address is the parent's own claim, and the notice sent there is what confirms it. It's kept only on the request and cleared once email 2 is sent or the request ends. It says why they're getting it, that nothing is collected from the kid without consent, what Foon keeps and who receives it, that nothing is disclosed to anyone else, the privacy policy link, the "Review and agree" link, that the link works for 7 days, and how to withdraw. The kid's first name is the only value in it, escaped in the HTML.
@@ -841,61 +847,61 @@ Build everything, in order: Phase 1 (the Sunday flow) is what to sit down with y
 
 **Phase 0: Foundation**
 
-- [ ] Supabase project, schema, and row-level security by household
-- [ ] Sign in with Apple; household creation; member profiles, roles, away status
-- [ ] iMessage invites with link plus code; claim-a-profile flow
-- [ ] Starter pack data: about 50 dinners with ingredients, tags, and prep steps
-- [ ] SwiftUI app shell and SwiftData offline cache
+- [x] Supabase project, schema, and row-level security by household
+- [x] Sign in with Apple; household creation; member profiles, roles, away status
+- [x] iMessage invites with link plus code; claim-a-profile flow
+- [x] Starter pack data: about 50 dinners with ingredients, tags, and prep steps
+- [x] SwiftUI app shell and SwiftData offline cache
 
-* [ ] Age assurance and parental consent (Declared Age Range API, PermissionKit, consent logging)
-* [ ] Storage security: private buckets, signed URLs, photo metadata stripping
-* [ ] Security hardening: invite code limits, role-escalation RLS tests, sign out everywhere
+* [ ] Age assurance and parental consent (Declared Age Range API, PermissionKit, consent logging) (parental consent and consent logging built, #12, #275, #277; Declared Age Range and PermissionKit open, #88)
+* [x] Storage security: private buckets, signed URLs, photo metadata stripping
+* [x] Security hardening: invite code limits, role-escalation RLS tests, sign out everywhere
 
 **Phase 1: Sunday flow (show this first)**
 
-- [ ] Onboarding: pick starter dishes, add family, invite
-- [ ] Meal library: quick add, copy and tweak, recipe-site link import, archive
-- [ ] Weekly plan: nightly attendance from defaults, night effort, event nights
-- [ ] Build my week algorithm; edit, lock, shuffle, approve
-- [ ] Weekly shopping list generated from the plan; check-off with offline sync
+- [x] Onboarding: pick starter dishes, add family, invite
+- [x] Meal library: quick add, copy and tweak, recipe-site link import, archive
+- [x] Weekly plan: nightly attendance from defaults, night effort, event nights
+- [x] Build my week algorithm; edit, lock, shuffle, approve
+- [x] Weekly shopping list generated from the plan; check-off with offline sync
 - [ ] Success test: download to first plan and list in under 15 minutes
 
-* [ ] Observability: Sentry with PII scrubbing; TelemetryDeck or anonymized PostHog; privacy manifest
+* [ ] Observability: Sentry with PII scrubbing; TelemetryDeck or anonymized PostHog; privacy manifest (privacy manifest built, #273; Sentry and analytics open, #28)
 * [x] Account deletion (with Sign in with Apple token revocation) and household data export (#29)
-* [ ] Edge cases: fewer than 7 meals, 1-member and 8+ member households, localizable strings
+* [x] Edge cases: fewer than 7 meals, 1-member and 8+ member households, localizable strings
 
-- [ ] Standing traditions (recurring nights)
-- [ ] Side dish pairings
-- [ ] Non-food items, item notes and brands on lists
+- [x] Standing traditions (recurring nights)
+- [x] Side dish pairings
+- [x] Non-food items, item notes and brands on lists
 
 **Phase 2: Family loop**
 
-- [ ] Idea inbox and requests (dated and someday)
-- [ ] Share Sheet extension (links, screenshots, PDFs, text)
-- [ ] Day-of check-in and after-dinner confirm, reactions, leftovers, who cooked
-- [ ] Dislike rules, favorites, trials, cook tally, Thanks chef, pass the phone
-- [ ] Tonight poll and pivots (quick list gaps, move bumped meals)
-- [ ] Keep-on-hand staples and backup dinners; quick list with urgency
-- [ ] Prep reminders; allergies and dietary flags; serving notes; cook mode
-- [ ] Notification settings, presets, budgets, ignore handling
+- [x] Idea inbox and requests (dated and someday)
+- [ ] Share Sheet extension (links, screenshots, PDFs, text) (built, #39; open until the device checks in #151 are done)
+- [ ] Day-of check-in and after-dinner confirm, reactions, leftovers, who cooked (after-dinner confirm, reactions, leftovers and who cooked built, #42, #46; the check-in is built, #193, #217, and stays open until its push is seen on a device, #41)
+- [x] Dislike rules, favorites, trials, cook tally, Thanks chef, pass the phone
+- [ ] Tonight poll and pivots (quick list gaps, move bumped meals) (pivots built, #198; the poll is built, #199, #218, and stays open until its push is seen on a device, #43)
+- [ ] Keep-on-hand staples and backup dinners; quick list with urgency (built, #198, #204, #218; open until the urgent-item push is seen on a device, #44)
+- [x] Prep reminders; allergies and dietary flags; serving notes; cook mode
+- [ ] Notification settings, presets, budgets, ignore handling (settings, presets and budgets built, #47, #219, #222; ignore handling built for ratings, #225; Requests open's pause and Time to plan's banner not yet, #40)
 
-* [ ] All 12 notification types built; 4 on by default, the rest off in settings
-* [ ] Transactional email with Resend, adults only; Apple private relay domain registered
-* [ ] Household shapes: recurring away patterns, eats-separately flag, recurring food rules, two-seating data model, hide comments
+* [ ] All 12 notification types built; 4 on by default, the rest off in settings (Requests open and No plan tonight not built yet, #40)
+* [ ] Transactional email with Resend, adults only; Apple private relay domain registered (consent and waitlist emails send through Resend, #275, #277, #284; the adult templates and the private relay registration are open, #48)
+* [x] Household shapes: recurring away patterns, eats-separately flag, recurring food rules, two-seating data model, hide comments
 
 - [x] Claim a night and dinner jobs (#50)
 - [x] Heading to the store broadcast (#51)
-- [ ] Vacation or pause mode; season templates
-- [ ] Cook once, eat twice; freezer stash
+- [x] Vacation or pause mode; season templates
+- [x] Cook once, eat twice; freezer stash
 - [x] Seasonal weighting and variety nudges in the algorithm (#54)
-- [ ] Cooking start time nudge; kitchen equipment filter
+- [x] Cooking start time nudge; kitchen equipment filter
 - [x] Change history and undo (#57)
 
 **Phase 3: Wow layer**
 
-- [ ] On-device AI features and the household AI job queue, with non-AI fallbacks (capability check and queue built, #58; recipe tidy-up and prep-step detection built, #59; rescue phrasing #60 next)
+- [x] On-device AI features and the household AI job queue, with non-AI fallbacks (capability check and queue built, #58; recipe tidy-up and prep-step detection built, #59; rescue phrasing built, #60)
 - [x] Receipt scanning from a photo (#61); the image stays on the phone (forwarded email receipts moved to External TestFlight, #237)
-- [ ] Widgets, Siri and App Intents
+- [x] Widgets, Siri and App Intents (#62)
 - [x] Weekly recap and one-time tips (built, #63); planner engagement view (built, #235)
 - [x] Polished onboarding that demonstrates the AI features (built, #236)
 
@@ -904,14 +910,14 @@ Build everything, in order: Phase 1 (the Sunday flow) is what to sit down with y
 
 **Phase 4: Launch**
 
-- [ ] StoreKit products (standard and Founding Family) with household entitlement
+- [ ] StoreKit products (standard and Founding Family) with household entitlement (app and server built, #66; the products in App Store Connect are still open)
   - Server half (#66): notifications, entitlement and `billing_enforced` are built (see Payments), and so are the paywall, the purchase with `appAccountToken`, and read-only when lapsed (client-side).
-- [ ] Privacy policy, terms, App Store privacy label; legal review (COPPA, allergy disclaimer, the allergy consent wording, the household time zone, how long hosted backups keep deleted data, and the hard delete of a withdrawn kid's own ratings)
-- [ ] TestFlight with our family, then the founding 50 households (flagged on the server)
+- [ ] Privacy policy, terms, App Store privacy label; legal review (COPPA, allergy disclaimer, the allergy consent wording, the household time zone, how long hosted backups keep deleted data, and the hard delete of a withdrawn kid's own ratings) (policy and terms drafted, #272, with a compliance self-check, #274; legal review still open, #67)
+- [ ] TestFlight with our family, then the founding 50 households (flagged on the server) (our family on the production build since 2026-11-10, #312; the founding 50 not yet)
   - Founding flag (#37): while `app_config.founding_open` is on (both betas), a trigger flags every new household `founding = true`. Clients can't read the switch, flip it, or set the flag. At launch a migration turns it off, and flagged households keep it. There's no automatic cap at 50: we close it by hand.
-- [ ] Enroll in Apple's Small Business Program; App Store submission
+- [ ] Enroll in Apple's Small Business Program; App Store submission (open, #68)
 
-* [ ] Written data-retention policy; allergy data opt-in consent; receipt images deleted after parsing
+* [ ] Written data-retention policy; allergy data opt-in consent; receipt images deleted after parsing (allergy consent built, #77, #280; receipt photos are read on the phone and never uploaded, #61; the retention policy is drafted, #272, and waits on legal review, #67)
 
 **Later.** Budget awareness and lean-week mode from receipts; taste-based recommendations from long-term ratings history ("everyone loved the chicken and pork dishes; here's a new one similar to both"), surfaced in New finds; shopping insights; bring-your-own AI via MCP; web page for non-iPhone members; multiple households per person; per-night scaling of weight-based items; retailer partnerships.
 
