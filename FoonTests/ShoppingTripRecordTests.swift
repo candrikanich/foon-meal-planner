@@ -53,15 +53,27 @@ struct ShoppingTripRecordTests {
 
     @Test func finishingATripMakesOneRecordWithANewID() {
         let at = Date(timeIntervalSince1970: 1_800_000_000)
-        let first = ListBoard.finishTrip(householdID: household, at: at)
-        let second = ListBoard.finishTrip(householdID: household, at: at)
-        guard case .finishTrip(let firstHousehold, let firstTrip, let firstAt) = first,
-              case .finishTrip(_, let secondTrip, _) = second else {
+        let bought = ListBoard.Summary(got: 2, left: 1)
+        let first = ListBoard.finishTrip(householdID: household, summary: bought, at: at)
+        let second = ListBoard.finishTrip(householdID: household, summary: bought, at: at)
+        guard case .finishTrip(let firstHousehold, let firstTrip, let firstAt)? = first,
+              case .finishTrip(_, let secondTrip, _)? = second else {
             Issue.record("not a finished trip")
             return
         }
         #expect(firstHousehold == household)
         #expect(firstAt == at)
         #expect(firstTrip != secondTrip, "each finish is its own trip")
+    }
+
+    /// A trip counts only if something was bought: finishing an empty one still works, it just isn't recorded.
+    @Test func aTripWhereNothingWasBoughtIsNotRecorded() {
+        let empty = ListBoard.Summary(got: 0, left: 5)
+        #expect(ListBoard.finishTrip(householdID: household, summary: empty, at: .now) == nil)
+    }
+
+    @Test func aTripWithOneItemBoughtIsRecorded() {
+        let one = ListBoard.Summary(got: 1, left: 0)
+        #expect(ListBoard.finishTrip(householdID: household, summary: one, at: .now) != nil)
     }
 }

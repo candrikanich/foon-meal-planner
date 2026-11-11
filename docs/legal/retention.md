@@ -75,7 +75,7 @@ open since the new wordings came into force, `20261119000000_agreements_in_force
 | Push notifications queued or sent (`push_outbox`) | 8 weeks | Row created | P |
 | Account emails queued, sent or dropped (`email_outbox`: kind, dates and ids, never an address) | 30 days | Row created | M |
 | "Heading to the store" runs (`store_runs`) | 1 day | Run ends | P |
-| Finished shopping trips (`shopping_trips`): household and time only, for the internal metrics (#260) | 13 months | Trip finished | T |
+| Finished shopping trips (`shopping_trips`; only trips where something was bought): household and time only, for the internal metrics (#260) | 13 months | Trip finished | T |
 | AI job recipe lines (`ai_jobs.payload`) | Until the job ends; 3 days max | Job queued | J (hourly), trigger |
 | AI job and its copy of the tidied result | 30 days | Job finishes | J |
 | Apple subscription notices (`subscription_events`) | 2 years | Notice received | S |

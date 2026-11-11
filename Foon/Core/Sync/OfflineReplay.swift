@@ -26,8 +26,8 @@ enum OfflineChange: Codable, Equatable, Sendable {
     /// A receipt line corrected on review: this text is this item from now on, for the whole household (#61). Upserted by
     /// `teach_receipt_alias`, never deleted. Changes nothing this phone shows.
     case teachReceiptAlias(householdID: UUID, rawText: String, itemID: UUID)
-    /// Finish trip (#260): the household finished a shopping trip at this time, for the internal metrics. No items,
-    /// names or store. `tripID` is made once per finish, so a resend after a lost answer records nothing more.
+    /// Finish trip (#260): the household finished a shopping trip with something bought, at this time, for the internal
+    /// metrics. No items, names or store. `tripID` is made once per finish, so a resend after a lost answer records nothing more.
     /// Changes nothing this phone shows.
     case finishTrip(householdID: UUID, tripID: UUID, finishedAt: Date)
 

@@ -15,7 +15,7 @@ struct PrivacySummaryView: View {
                 Text("Which reminders each person's device sent and whether they answered: the kind, the night, and the time, never the words.")
                 Text("If your household subscribes: Apple's subscription status for it, which plan, when it ends, and Apple's original transaction ID. Apple holds your payment details; Foon never sees them.")
                 Text("Receipt lines someone in the family corrected, and the item each one is, so the next receipt reads right.")
-                Text("When someone finishes a shopping trip, that your household finished one and when, never what was bought, where, or by whom. Foon counts trips across many families to see how it's used.")
+                Text("When someone finishes a shopping trip with something bought, that your household finished one and when, never what was bought, where, or by whom. Foon counts trips across many families to see how it's used.")
                 Text("When a planner adds a dish from a photo, PDF, or post on a device that can't run Apple's on-device AI, its recipe lines, held briefly so a planner's device in your family that can will tidy them up. They go once that's done, or after 3 days at most; the tidied recipe is kept for 30 days.")
                 Text("Foon doesn't ask for birthdays, phone numbers, or your location.")
             }

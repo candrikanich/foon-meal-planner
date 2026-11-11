@@ -148,8 +148,9 @@ struct StoreModeView: View {
         let summary = ListBoard.summary(entries, tripStart: current.start, skipped: current.skipped)
         savedTrip = ""
         finished = summary
-        if let householdID = household.household?.id {
-            await sync?.perform(ListBoard.finishTrip(householdID: householdID, at: .now))
+        if let householdID = household.household?.id,
+           let record = ListBoard.finishTrip(householdID: householdID, summary: summary, at: .now) {
+            await sync?.perform(record)
         }
     }
 
