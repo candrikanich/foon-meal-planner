@@ -184,6 +184,10 @@ struct FamilyView: View {
 
                 Section {
                     NavigationLink("What Foon keeps") { PrivacySummaryView() }
+                    Link("Privacy Policy", destination: FoonLinks.privacy)
+                        .accessibilityHint("Opens Foon's privacy policy on the web")
+                    Link("Consumer Health Data Policy", destination: FoonLinks.consumerHealthData)
+                        .accessibilityHint("Opens Foon's policy for allergy information on the web")
                     if store.canExport {
                         ExportButton(exportURL: $exportURL)
                     }

@@ -136,8 +136,12 @@ Found by the compliance self-check ([compliance-check.md](compliance-check.md), 
 - Households that agreed to the first allergy consent (`allergy-data-v1`), which named neither who receives allergies
   nor how to withdraw, are asked again since #277 (Chris reversed the 2026-11-07 call on 2026-11-09): their allergies
   keep flagging, and nobody adds one until a parent agrees to v2.
-- No links yet to the privacy policy or the consumer health data policy on the homepage, the App Store page, onboarding
-  or Your data. (The paywall and the kid invite and join screens have their links, #282 and #276.)
+- The app links the policies (#281): Terms and Privacy on the agreement screen, join a family, the paywall and the kid
+  invite; Privacy and the Consumer Health Data Policy in Family → Your data; the Consumer Health Data Policy in Allergy
+  alerts and beside every allergy agreement. Every page on getfoon.com links both in its footer, and
+  getfoon.com/consumer-health-data is a plain summary until the reviewed policy replaces it. Still to do after review:
+  the App Store description's links, and whether a footer link is "prominent" enough on the homepage
+  (RCW 19.373.020(1)(b)).
 - Age assurance (#88) isn't built: Texas SB 2420 is in force; California, Utah and Louisiana follow in 2027.
 - No notice to the App Store before a significant change to the terms or privacy policy (Texas §121.053).
 - The delete-account screen doesn't say billing continues through Apple or how to cancel.
