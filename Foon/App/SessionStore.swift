@@ -13,7 +13,7 @@ final class SessionStore {
     private(set) var errorMessage: String?
     /// The first name Apple shared at first sign-in, for onboarding to prefill the owner's profile.
     private(set) var appleGivenName: String?
-    /// An invite code from a `foon://invite/…` link, kept until the person signs in and joins.
+    /// An invite code from an invite link (`InviteCode.code(from:)`), kept until the person signs in and joins.
     private(set) var pendingInviteCode: String?
 
     private let auth: AuthClient

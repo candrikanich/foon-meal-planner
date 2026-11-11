@@ -109,6 +109,8 @@ struct SessionStoreTests {
         #expect(store.pendingInviteCode == "THESM-7KQ4-M9XP")
         store.open(try #require(URL(string: "foon://somewhere-else")))
         #expect(store.pendingInviteCode == "THESM-7KQ4-M9XP", "unrelated links leave the code alone")
+        store.open(try #require(URL(string: "https://www.getfoon.com/invite?code=THESM-AAAA-BBBB")))
+        #expect(store.pendingInviteCode == "THESM-AAAA-BBBB", "a universal link (#85) replaces it")
         store.clearPendingInvite()
         #expect(store.pendingInviteCode == nil)
     }
