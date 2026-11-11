@@ -75,6 +75,8 @@ Data used to track you: **None.**
 | Other data (the age range Apple's Declared Age Range API gives when someone joins with an invite, #88: a band such as "13 to 15", never a birthdate) | Yes | App functionality | Yes |
 | Product interaction (which reminders went out and were answered: kind, night, time; that a shopping trip finished with something bought, and when) | Yes | App functionality (reminders), Analytics (finished trips, #260) | Yes |
 
+An address a parent types to email an adult's invite (#48 PR B) changes nothing here: it goes to Resend for that one email, in real time, and Foon never stores it, and Email address is already declared.
+
 Finished shopping trips (#260, only those where something was bought) are the one product interaction kept for Analytics: the household and the time, counted only across at least 5 households (docs/metrics.md), never used for tracking. An analytics SDK and crash and performance data aren't in the app yet: they come back to this table with #28.
 
 Not collected: precise or coarse location, contacts, browsing history, search history, financial info, sensitive info beyond allergies, calendar data (read on device only, never collected), library photos shown in Dinner memories (read on device only, never uploaded or kept), receipt photos (read on device only, never uploaded or kept; what's kept is "Other user content": receipt lines the family corrected and the item each is).
