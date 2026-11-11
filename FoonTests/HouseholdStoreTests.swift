@@ -426,7 +426,7 @@ extension HouseholdClient {
             addMember: addMember,
             updateMember: updateMember,
             createInvite: { _ in throw URLError(.unknown) },
-            redeemInvite: { _ in .invalid },
+            redeemInvite: { _, _ in .invalid },
             invitedMemberIDs: { _ in [] },
             parentalConsentMemberIDs: { _ in [] },
             requestParentalConsent: { _, _ in throw URLError(.unknown) },

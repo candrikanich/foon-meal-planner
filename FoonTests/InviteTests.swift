@@ -82,37 +82,38 @@ struct HouseholdStoreInviteTests {
         let joined = Mutex(false)
         var client = HouseholdClient.preview(household: nil, members: [])
         client.myHousehold = { joined.withLock { $0 } ? .sample : nil }
-        client.redeemInvite = { code in
+        client.redeemInvite = { code, ageBand in
             #expect(code == "THESM7KQ4M9XP")
+            #expect(ageBand == .adult)
             joined.withLock { $0 = true }
             return .claimed
         }
         let store = HouseholdStore(userID: me, client: client)
         await store.load()
         #expect(store.phase == .needsHousehold)
-        await store.redeem(" thesm 7kq4 m9xp ")
+        await store.redeem(" thesm 7kq4 m9xp ", ageBand: .adult)
         #expect(store.phase == .ready(.sample))
     }
 
     @Test(arguments: [RedeemResult.invalid, .expired, .used, .hasHousehold, .rateLimited])
     func eachFailedRedeemExplainsItself(result: RedeemResult) async {
         var client = HouseholdClient.preview(household: nil, members: [])
-        client.redeemInvite = { _ in result }
+        client.redeemInvite = { _, _ in result }
         let store = HouseholdStore(userID: me, client: client)
         await store.load()
-        await store.redeem("THESM-7KQ4-M9XP")
+        await store.redeem("THESM-7KQ4-M9XP", ageBand: .unknown)
         #expect(store.phase == .needsHousehold)
         #expect(store.errorMessage != nil)
     }
 
     @Test func anIncompleteCodeIsNotSent() async {
         var client = HouseholdClient.preview(household: nil, members: [])
-        client.redeemInvite = { _ in
+        client.redeemInvite = { _, _ in
             Issue.record("should not be called")
             return .invalid
         }
         let store = HouseholdStore(userID: me, client: client)
-        await store.redeem("7KQ4")
+        await store.redeem("7KQ4", ageBand: .unknown)
         #expect(store.errorMessage != nil)
     }
 }

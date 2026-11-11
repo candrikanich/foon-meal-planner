@@ -129,6 +129,8 @@ struct HouseholdGate: View {
         }
         .environment(store)
         .task { await store.load() }
+        // A significant change (#88) waits for a parent's OK or an adult's acknowledgment where the law asks for one.
+        .modifier(SignificantChangeGate())
     }
 
     /// No household for this account (the owner deleted it, this person was removed, or a hold signed them out):

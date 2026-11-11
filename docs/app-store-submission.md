@@ -72,6 +72,7 @@ Data used to track you: **None.**
 | Other user content (meals, comments, requests, receipt lines the family corrected, a dish's recipe lines queued for an AI tidy-up) | Yes | App functionality | Yes |
 | User ID | Yes | App functionality | Yes |
 | Purchase history | Yes | App functionality | Yes |
+| Other data (the age range Apple's Declared Age Range API gives when someone joins with an invite, #88: a band such as "13 to 15", never a birthdate) | Yes | App functionality | Yes |
 | Product interaction (which reminders went out and were answered: kind, night, time; that a shopping trip finished with something bought, and when) | Yes | App functionality (reminders), Analytics (finished trips, #260) | Yes |
 
 Finished shopping trips (#260, only those where something was bought) are the one product interaction kept for Analytics: the household and the time, counted only across at least 5 households (docs/metrics.md), never used for tracking. An analytics SDK and crash and performance data aren't in the app yet: they come back to this table with #28.
@@ -91,7 +92,7 @@ Dinner memories (#65, part 3): in App Privacy, the existing Photos row stays as 
 Target: the lowest available rating. Answer the questionnaire honestly: no mature content, no gambling, no web browsing, no public user-generated content. Family comments are private to a household with no public sharing or messaging strangers. Confirm the resulting rating in App Store Connect.
 
 - Not in the Kids category.
-- Texas age-assurance support (Declared Age Range API, PermissionKit) implemented before submission.
+- Texas age-assurance support (Declared Age Range API, PermissionKit): built in #88. Joining with an invite asks for the age range once; a significant change asks a minor's parent through PermissionKit, or shows an adult Apple's acknowledgment, where Apple says the region requires it (no change qualifies yet). Before submission: turn on the Declared Age Range capability for the App ID, and test in Apple's age assurance sandbox. Consent revoked through Apple waits for the App Store Server Notifications endpoint (Phase 4).
 
 ## Screenshots
 

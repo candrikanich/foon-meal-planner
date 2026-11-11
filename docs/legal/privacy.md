@@ -91,8 +91,10 @@ keep it.
 Foon doesn't ask for birthdays, phone numbers, addresses or your location (apart from the household time zone). It
 doesn't ask for photos of people.
 
-If Apple's age range feature is used when a kid's account joins, Foon keeps only the age range Apple gives (for
-example, "under 13"), never a birthdate. [CHECK: this is planned for #88; the field exists but isn't used yet.]
+When someone joins a family with an invite, Foon asks Apple for their age range once and keeps only the range Apple
+gives (for example, "13 to 15"), never a birthdate. It uses it to check that the account matches the profile: a
+minor's account can't take an adult's profile, and an adult's can't take a kid's. [CHECK: Texas §121.055(b) and
+keeping the range; see retention.md.]
 
 ### Dinner, food and lists
 
@@ -214,8 +216,8 @@ account as a child's account under the Children's Online Privacy Protection Act 
     wording they saw. We keep no copy of either email.
 
 > **Review:** today the app doesn't check the age of someone who signs up and creates a household; a kid's account
-> is only marked as a kid by the parent who invites them. Apple's age range check is planned (#88). Confirm this is
-> enough, given the Terms say account holders must be 18 or older. [CHECK]
+> is only marked as a kid by the parent who invites them. Apple's age range is checked only when someone joins with an
+> invite (#88). Confirm this is enough, given the Terms say account holders must be 18 or older. [CHECK]
 - **Profiles without accounts.** A parent can add a kid's profile (first name, avatar, schedule, allergies) without the
   kid having an account. The kid can take part by "passing the phone".
 - **What we keep about a kid.** The same things as for anyone in the household, listed above: first name, avatar,

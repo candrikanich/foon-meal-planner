@@ -59,6 +59,8 @@ targets:
         aps-environment: development
         com.apple.developer.applesignin: [Default]
         com.apple.security.application-groups: [group.com.andrikanich.foon]
+        # Apple's age range when someone claims a profile (#88); also add it to FoonMac.entitlements.
+        com.apple.developer.declared-age-range: true
     info:
       path: Foon/App/Info.plist
       properties:

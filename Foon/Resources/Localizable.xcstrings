@@ -751,6 +751,9 @@
     "A parent keeps these up to date. Foon flags dishes, and you still check labels." : {
 
     },
+    "A parent needs to OK this before you keep using Foon." : {
+
+    },
     "A parent needs to agree to Foon's new allergy wording" : {
 
     },
@@ -1061,6 +1064,9 @@
 
     },
     "Ask %@ to unlock Foon" : {
+
+    },
+    "Ask a parent" : {
 
     },
     "Ask again" : {
@@ -2022,6 +2028,9 @@
 
     },
     "Foon goes by names and ingredients, so it can be wrong either way. Tap one to plan it anyway." : {
+
+    },
+    "Foon has changed" : {
 
     },
     "Foon holds back dishes that usually use kitchen equipment you don't have, unless few others fit. Search your meals to plan one anyway." : {
@@ -3618,6 +3627,9 @@
 
     },
     "Sends a link and a code so %@ can join on their own device. Codes work once and expire in 7 days." : {
+
+    },
+    "Sends the question to your parent's device" : {
 
     },
     "Separate them with commas or new lines. You can add them later too." : {
