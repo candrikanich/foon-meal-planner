@@ -258,6 +258,8 @@ An invite a parent emails to another adult (#48 PR B) is sent directly and never
 to Resend for that one email, and isn't stored, logged or sent back anywhere in Foon. The rate limit keeps a send record
 (`invite_email_sends`: the household, who sent it and when, never the address), deleted after a day
 (`prune_invite_email_sends()`, `20261128000000_invite_email.sql`, daily at 04:59) or with the household (cascade).
+The invite itself counts how many times it was emailed (`invites.emails_sent`, at most 3), and goes with the invite.
+No limit is ever counted by recipient.
 
 The confirmed waitlist gets only a launch email, never founding-family updates (decided 2026-11-11); see Website and
 waitlist.

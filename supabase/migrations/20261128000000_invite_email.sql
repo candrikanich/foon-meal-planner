@@ -1,7 +1,11 @@
 -- Email an adult's invite (#48 PR B). A parent who can invite an adult's profile types the adult's address in the app;
 -- the account-email Edge Function checks the request here (as the parent, with their JWT), then sends one email with
 -- the link and the code. The address never reaches the database: this function never sees it, and nothing here stores
--- it. What's kept is the send itself (who sent it, for which household, when), for the rate limit, for a day.
+-- it. What's kept is the send itself (who sent it, for which household, when), for the rate limit, for a day, and a
+-- count of emails on the invite. Every limit counts by sender, household or invite, never by recipient.
+
+-- At most 3 emails per invite code, for its whole life. Kept on the invite, so it lasts as long as the code does.
+alter table public.invites add column emails_sent smallint not null default 0;
 
 -- One row per invite email about to go. Who sent it and the household are on the row, so the limits survive the invite
 -- or the profile changing; rows go after a day (prune_invite_email_sends), or with the household (cascade).
@@ -64,15 +68,20 @@ begin
     secret := right(normalized, 8);
     select * into invite from public.invites i
     where i.member_id = target_member and i.code_hash = encode(extensions.digest(secret, 'sha256'), 'hex')
-      and i.redeemed_at is null and i.revoked_at is null and i.expires_at > now();
+      and i.redeemed_at is null and i.revoked_at is null and i.expires_at > now()
+    for update;
   end if;
   if invite.id is null then
     return jsonb_build_object('outcome', 'wrong_code');
   end if;
 
-  -- 5 a day for each parent, 10 a day for each household, 200 an hour across Foon (Resend's sending budget is shared
-  -- with the account emails). Which limit is never said.
-  if (select count(*) from public.invite_email_sends
+  select * into home from public.households where id = member.household_id;
+  -- 3 emails per invite code ever; none from a household under 10 minutes old (a throwaway one can't start sending at
+  -- once); 5 a day for each parent; 10 a day for each household; 200 an hour across Foon (Resend's sending budget is
+  -- shared with the account emails). Which limit is never said.
+  if invite.emails_sent >= 3
+     or home.created_at > now() - interval '10 minutes'
+     or (select count(*) from public.invite_email_sends
       where sent_by = caller and created_at > now() - interval '1 day') >= 5
      or (select count(*) from public.invite_email_sends
          where household_id = member.household_id and created_at > now() - interval '1 day') >= 10
@@ -80,13 +89,13 @@ begin
     return jsonb_build_object('outcome', 'rate_limited');
   end if;
 
-  select * into home from public.households where id = member.household_id;
   select m.first_name into inviter from public.members m
   where m.household_id = member.household_id and m.user_id = caller and m.status <> 'removed';
   prefix := coalesce(nullif(left(regexp_replace(upper(home.name), '[^A-Z]', '', 'g'), 5), ''), 'FOON');
 
   insert into public.invite_email_sends (household_id, sent_by) values (member.household_id, caller)
   returning id into send_id;
+  update public.invites set emails_sent = emails_sent + 1 where id = invite.id;
 
   return jsonb_build_object(
     'outcome', 'send',

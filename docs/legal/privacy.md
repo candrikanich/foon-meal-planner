@@ -181,7 +181,7 @@ household can see its subscription status.
   in the app (an email's, each time you turn it on). Kept after your account is deleted, as proof of what you agreed
   to, with nothing else about you. Deleted with the rest of a kid's information when a parent deletes everything about
   them.
-- **Invites.** An invite records who it's for, who made it, and when it was used. Only a scrambled form of the code is
+- **Invites.** An invite records who it's for, who made it, when it was used, and how many times it was emailed. Only a scrambled form of the code is
   stored. Invites are deleted 30 days after they expire, are used or are cancelled.
 - **Safety counters.** To stop someone guessing invite codes, we record each attempt to use a code, wrong or right,
   for 1 day. To stop emailed invites being misused, we record who emailed one, for which household and when (never

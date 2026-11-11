@@ -79,29 +79,42 @@ export const inviteSchema = z.object({
   email: z.string().trim().max(254).pipe(z.email()),
 });
 
-// A name the family typed, safe for a subject line: no control characters or line breaks, at most 60 characters.
-export function plainName(value: string | null | undefined, fallback: string): string {
+// Anything that reads as a link or an address: a scheme (https://), www., an @, or a dotted domain (foo.com).
+const LINK_LIKE = /[a-z][a-z0-9+.-]*:\/\/|www\.|@|[\p{L}\p{N}-]+\.[\p{L}]{2,}/iu;
+
+// Fixed, so nothing the family typed reaches the subject line.
+export const INVITE_SUBJECT = "You're invited to join a family on Foon";
+const NOT_SHOWN = "(not shown)";
+
+// A name the family typed, safe to show as plain text: no control characters or line breaks, at most 60 characters,
+// and never something that looks like a link or an address (an email to any address mustn't carry someone's URL).
+export function plainName(value: string | null | undefined): string {
   const cleaned = (value ?? "").replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, " ").replace(/\s+/g, " ").trim();
-  if (!cleaned) return fallback;
+  if (!cleaned || LINK_LIKE.test(cleaned)) return NOT_SHOWN;
   return cleaned.length > 60 ? `${cleaned.slice(0, 59).trimEnd()}…` : cleaned;
 }
 
+// Our own words, with the family's names only as labeled plain text (escaped in the HTML), and our own link only.
 export function inviteEmail(invite: Extract<InviteReservation, { outcome: "send" }>): Omit<Email, "to"> {
-  const inviter = plainName(invite.inviter, "Someone in your family");
-  const household = plainName(invite.household, "their family");
-  const firstName = plainName(invite.firstName, "there");
   const expires = formatDate(invite.expiresAt, invite.timeZone ?? undefined);
-  return transactionalEmail(`${inviter} invited you to ${household} on Foon`, [
-    `Hi ${firstName},`,
-    `${inviter} invited you to join ${household} on Foon, a dinner planner for the whole family. Everyone can suggest ` +
-    "dishes, rate dinners and offer to cook, so planning isn't one person's job.",
+  return transactionalEmail(INVITE_SUBJECT, [
+    "Hi,",
+    "Someone in a family on Foon invited you to join them. Foon is a dinner planner for the whole family: everyone " +
+    "can suggest dishes, rate dinners and offer to cook, so planning isn't one person's job.",
+    {
+      list: [
+        `Invited by: ${plainName(invite.inviter)}`,
+        `Family: ${plainName(invite.household)}`,
+        `Invite for: ${plainName(invite.firstName)}`,
+      ],
+    },
     `To join on your iPhone, iPad or Mac, open this link: ${inviteLink(invite.code)}`,
     `Or get Foon from the App Store, sign in with Apple, and enter this code: ${invite.code}`,
     expires
       ? `The code works once, and expires on ${expires}.`
       : "The code works once, and expires 7 days after it was made.",
-    `You're getting this because ${inviter} typed your address in Foon to send you this invite. Foon used it only to ` +
-    "send this email and didn't keep it. If you weren't expecting it, you can ignore it.",
+    "You're getting this because someone in that family typed your address in Foon to send you this invite. Foon used " +
+    "it only to send this email and didn't keep it. If you weren't expecting it, you can ignore it.",
   ]);
 }
 

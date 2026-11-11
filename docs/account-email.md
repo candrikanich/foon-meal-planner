@@ -188,7 +188,7 @@ can be the hourly cap.
    email has the postal address, why you got it, and an unsubscribe link; the mail app's own Unsubscribe works too.
 8. Sign in as a kid: Family has no Email section.
 9. Emailed invite (#48 PR B): as a parent, Family → an unclaimed adult → Invite → Email the invite, type a real inbox,
-   Send. "<you> invited you to <household> on Foon" arrives with the www.getfoon.com/invite link and the code. Then
+   Send. "You're invited to join a family on Foon" arrives, naming you, the household and them as labeled lines, with the www.getfoon.com/invite link and the code. Then
    `select * from invite_email_sends` shows one row with no address, and the function's logs show none either. A
    kid's profile has no Email the invite. With the sheet open on one device, invite the same person again from
    another parent's device: Send on the first then says the code was replaced. With the flag off, the sheet says "Foon doesn't send email yet."
@@ -198,6 +198,6 @@ can be the hourly cap.
 Database side: `supabase/migrations/20261128000000_invite_email.sql`. The app POSTs `{memberId, code, email}` to
 `account-email?invite=1` with the parent's JWT (`invite.ts`). `reserve_invite_email`, run as the parent, checks they're
 a parent in the household, the profile is an unclaimed adult's, the flag is on, the code is that profile's open invite,
-and the limits (5 a day per parent, 10 a day per household, 200 an hour overall), then records the send in
+and the limits (3 emails per invite code ever, none from a household under 10 minutes old, 5 a day per parent, 10 a day per household, 200 an hour overall; never counted by recipient), then records the send in
 `invite_email_sends` (household, sender, time; pruned daily after a day) and returns what the email says. The address
 goes only to Resend: no table, log line or response carries it. A failed send still counts toward the limits.

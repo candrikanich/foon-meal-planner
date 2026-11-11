@@ -2,7 +2,7 @@
 -- only while account email is on, under the limits; the send record is the server's alone, holds no address, and goes
 -- after a day.
 begin;
-select plan(26);
+select plan(30);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -77,6 +77,13 @@ select is((select count(*)::int from public.invite_email_sends), 0, 'and nothing
 update public.app_config set account_email_enabled = true;
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 
+-- A household under 10 minutes old can't send yet, so a throwaway one can't start spraying mail at once.
+select is(pg_temp.reserve('00000000-0000-0000-0000-0000000000a5', pg_temp.code('gran')) ->> 'outcome', 'rate_limited',
+  'a brand-new household can''t email invites yet');
+select pg_temp.as_admin();
+update public.households set created_at = now() - interval '1 hour';
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+
 -- The code ------------------------------------------------------------------------------------
 select is(pg_temp.reserve('00000000-0000-0000-0000-0000000000a5', 'THEAN-2345-6789') ->> 'outcome', 'wrong_code',
   'a code that isn''t the invite''s is refused');
@@ -123,8 +130,18 @@ select throws_ok($$ insert into public.invite_email_sends (household_id, sent_by
 
 -- Limits ----------------------------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
-select pg_temp.reserve('00000000-0000-0000-0000-0000000000a5', pg_temp.code('gran')) from generate_series(1, 3);
+select is(pg_temp.reserve('00000000-0000-0000-0000-0000000000a5', pg_temp.code('gran')) ->> 'outcome', 'send',
+  'a third email of the same invite goes');
 select is(pg_temp.reserve('00000000-0000-0000-0000-0000000000a5', pg_temp.code('gran')) ->> 'outcome', 'rate_limited',
+  'a fourth doesn''t: 3 per invite code');
+
+-- 5 a day for each parent, across invites.
+select pg_temp.as_admin();
+delete from public.invite_email_sends;
+insert into public.invite_email_sends (household_id, sent_by)
+select '00000000-0000-0000-0000-0000000000a0', 'a0000000-0000-0000-0000-00000000000a' from generate_series(1, 5);
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+select is(pg_temp.reserve('00000000-0000-0000-0000-0000000000a6', pg_temp.code('joe')) ->> 'outcome', 'rate_limited',
   'a parent sends 5 a day');
 
 -- Another parent's sends count toward the household's 10.
@@ -133,17 +150,19 @@ delete from public.invite_email_sends;
 insert into public.invite_email_sends (household_id, sent_by)
 select '00000000-0000-0000-0000-0000000000a0', 'a0000000-0000-0000-0000-0000000000a3' from generate_series(1, 10);
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
-select is(pg_temp.reserve('00000000-0000-0000-0000-0000000000a5', pg_temp.code('gran')) ->> 'outcome', 'rate_limited',
+select is(pg_temp.reserve('00000000-0000-0000-0000-0000000000a6', pg_temp.code('joe')) ->> 'outcome', 'rate_limited',
   'a household sends 10 a day');
 
--- A day on, the rows go and so does the limit.
+-- A day on, the rows go and so do the daily limits; an invite's 3 stay.
 select pg_temp.as_admin();
 update public.invite_email_sends set created_at = now() - interval '25 hours';
 select public.prune_invite_email_sends();
 select is((select count(*)::int from public.invite_email_sends), 0, 'sends go after a day');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
-select is(pg_temp.reserve('00000000-0000-0000-0000-0000000000a5', pg_temp.code('gran')) ->> 'outcome', 'send',
+select is(pg_temp.reserve('00000000-0000-0000-0000-0000000000a6', pg_temp.code('joe')) ->> 'outcome', 'send',
   'and the parent can send again');
+select is(pg_temp.reserve('00000000-0000-0000-0000-0000000000a5', pg_temp.code('gran')) ->> 'outcome', 'rate_limited',
+  'but not a fourth email of the same invite');
 
 select * from finish();
 rollback;

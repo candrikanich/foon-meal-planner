@@ -2,6 +2,7 @@ import { assert, assertEquals, assertStringIncludes, assertThrows } from "@std/a
 import type { Email } from "../_shared/resend.ts";
 import {
   handleInviteEmail,
+  INVITE_SUBJECT,
   inviteEmail,
   type InviteEmailDeps,
   inviteLink,
@@ -98,7 +99,7 @@ Deno.test("sends one email with the link, the code, who invited them and the hou
     "the database checks the request as the parent");
   assertEquals(sent.length, 1);
   assertEquals(sent[0].to, ADDRESS);
-  assertEquals(sent[0].subject, "Alice invited you to The Andersons on Foon");
+  assertEquals(sent[0].subject, INVITE_SUBJECT);
   assertEquals(sent[0].idempotencyKey, "invite-email/41");
   for (const part of [sent[0].text, sent[0].html]) {
     assertStringIncludes(part, "https://www.getfoon.com/invite?code=THEAN-7KQ4-M9XP");
@@ -199,19 +200,69 @@ Deno.test("reads the database's answer", () => {
   assertThrows(() => reservationFromRow(null));
 });
 
-Deno.test("names the family typed can't break the subject or the HTML", () => {
-  const email = inviteEmail({ ...reserved, inviter: "Al\r\nBcc: x@y.com", household: "<b>Smiths</b>" });
-  assert(!email.subject.includes("\n") && !email.subject.includes("\r"));
+Deno.test("the subject is fixed: nothing the family typed reaches it", () => {
+  for (const names of [reserved, { ...reserved, inviter: "Bank of X: verify now", household: "Act now\r\nBcc: x" }]) {
+    assertEquals(inviteEmail(names).subject, INVITE_SUBJECT);
+  }
+  assertEquals(INVITE_SUBJECT, "You're invited to join a family on Foon");
+});
+
+Deno.test("names show only as labeled plain text", () => {
+  const email = inviteEmail(reserved);
+  for (const line of ["Invited by: Alice", "Family: The Andersons", "Invite for: Gran"]) {
+    assertStringIncludes(email.text, line);
+  }
+  assertStringIncludes(email.html, "<li>Invited by: Alice</li>");
+});
+
+Deno.test("names that look like a link or an address are never shown", () => {
+  for (const name of [
+    "https://evil.example",
+    "Visit evil.com now",
+    "www.evil",
+    "hxxp://x",
+    "javascript://x",
+    "bob@evil.co",
+    "Claim at paypal.com-secure.ru",
+    "Ünïcode.Domäin",
+  ]) {
+    assertEquals(plainName(name), "(not shown)", name);
+  }
+  for (const name of ["The Andersons", "St. Clair", "Mary-Jo", "O'Brien family", "Mr. Smith"]) {
+    assertEquals(plainName(name), name, name);
+  }
+});
+
+Deno.test("the only link is our own invite link", () => {
+  const email = inviteEmail({ ...reserved, inviter: "see evil.com", household: "https://phish.example/login" });
+  const links = [...email.text.matchAll(/https?:\/\/\S+/g)].map((match) => match[0]);
+  assertEquals(links, ["https://www.getfoon.com/invite?code=THEAN-7KQ4-M9XP"]);
+  assert(!email.html.includes("evil.com") && !email.html.includes("phish.example"));
+  assert(!email.html.includes("<a "), "no anchors at all: mail apps link our URL themselves");
+});
+
+Deno.test("names the family typed can't break the HTML, and are trimmed", () => {
+  const email = inviteEmail({ ...reserved, inviter: "Al\r\nice", household: "<b>Smiths</b>" });
   assertStringIncludes(email.html, "&lt;b&gt;Smiths&lt;/b&gt;");
-  assertEquals(plainName("  ", "fallback"), "fallback");
-  assertEquals(plainName(null, "fallback"), "fallback");
-  assertEquals(plainName("x".repeat(80), "f").length, 60);
+  assertStringIncludes(email.text, "Invited by: Al ice");
+  assertEquals(plainName("  "), "(not shown)");
+  assertEquals(plainName(null), "(not shown)");
+  assertEquals(plainName("x".repeat(80)).length, 60);
 });
 
 Deno.test("with no inviter name or a bad date, it still reads", () => {
   const email = inviteEmail({ ...reserved, inviter: null, expiresAt: "not a date" });
-  assertEquals(email.subject, "Someone in your family invited you to The Andersons on Foon");
+  assertStringIncludes(email.text, "Invited by: (not shown)");
   assertStringIncludes(email.text, "expires 7 days after it was made");
+});
+
+Deno.test("every limit (3 per invite, a new household, 5 per parent, 10 per household) refuses alike, sends nothing", async () => {
+  // reserve_invite_email answers rate_limited for each limit, never saying which (pgTAP 95_invite_email checks each).
+  const { deps, sent } = fakeDeps({ outcome: "rate_limited" });
+  const response = await handleInviteEmail(ask(good), deps);
+  assertEquals(response.status, 429);
+  assertEquals(await response.json(), { error: "rate_limited" });
+  assertEquals(sent, []);
 });
 
 Deno.test("the link matches the app's universal link", () => {
