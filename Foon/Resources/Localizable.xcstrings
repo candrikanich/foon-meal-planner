@@ -790,6 +790,9 @@
     "About the food, not the cook. Only your family sees it." : {
 
     },
+    "About your account: a welcome when you create a household; if you own it, notices when its subscription starts, renews, changes plan, can't be charged, has renewal turned off or on, is refunded, or ends; and a receipt when you delete your account or household." : {
+
+    },
     "Add" : {
 
     },
@@ -1763,6 +1766,9 @@
     "Email" : {
 
     },
+    "Email from Foon" : {
+
+    },
     "Email me" : {
 
     },
@@ -2021,6 +2027,9 @@
         }
       }
     },
+    "Foon emails adults only, never kids. Emails about your account go to the email Apple gives for your account (which can be Apple's private relay address). Our email provider, Resend, sends them." : {
+
+    },
     "Foon flags dishes that contain them, and you plan as usual." : {
 
     },
@@ -2061,6 +2070,9 @@
 
     },
     "Foon keeps allergies once a parent agrees. Ask a parent to add yours first." : {
+
+    },
+    "Foon keeps no copy of these emails. A record that one was queued or sent, its kind and date and never your address, is deleted after 30 days. Resend keeps its own record of each email it sends." : {
 
     },
     "Foon keeps these so it can flag dishes. Only your household and our hosting provider, which stores them for us, receive them. They're never sold, never used for ads, and never leave your devices for AI. A parent can withdraw anytime in Family → Allergy alerts, which erases them all." : {
@@ -2402,6 +2414,9 @@
 
     },
     "If you don't, the allergies on your profile still flag dishes, and you can remove them. You can't add new ones until you agree." : {
+
+    },
+    "If you email an invite to another adult, Foon uses the address you type only to send that one invite. Foon doesn't keep it; Resend keeps its own record of the send, as for every email." : {
 
     },
     "If you turn on Dinner memories, Foon shows photos from this device's library taken around dinner on nights your family logged. It never saves or uploads them." : {
@@ -3129,6 +3144,9 @@
 
     },
     "Only an adult in the family can say they're heading to the store." : {
+
+    },
+    "Only if you turn them on, in Family under Email: the weekly plan email (the week's dinners when it's approved, never allergies or who's home) and founding-family updates (news and offers about Foon, now and then). Both start off." : {
 
     },
     "Only parents can change allergies." : {
@@ -4612,6 +4630,9 @@
     "Turn on reminders" : {
 
     },
+    "Turn the weekly plan email or founding-family updates off in Family under Email, or with the link in any of them." : {
+
+    },
     "Turn this off if you buy it fresh, and Foon skips thaw reminders and won't hold a dish back to give it time to thaw." : {
 
     },
@@ -4904,6 +4925,9 @@
     },
     "When your family's week is approved, Foon emails you its dinners at the email Apple gave for your account. It never includes allergies. Turn it off here anytime, or with the link in any of the emails." : {
       "comment" : "What an adult agrees to when turning on the weekly plan email. Must say exactly what the English says; see EmailOptIn.textVersion."
+    },
+    "Whether you turned on the weekly plan email or founding-family updates, and when you agreed. Only you see it. The setting goes with your account; the record that you agreed, like your agreement to the Terms and Privacy Policy, is kept as proof." : {
+
     },
     "Which dish?" : {
 

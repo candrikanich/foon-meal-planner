@@ -54,7 +54,7 @@ insert into public.consents (household_id, member_id, kind, granted_by, text_ver
 select pg_temp.as_admin();
 update public.agreement_versions set effective_at = null
  where version in ('allergy-data-v2', 'own-allergy-v1', 'parental-invite-v2', 'parental-invite-v3', 'terms-draft-v1',
-                   'privacy-draft-v1');
+                   'privacy-draft-v1', 'privacy-draft-v2', 'weekly-plan-email-v1', 'founding-updates-v1');
 
 -- Which wording may be sent ------------------------------------------------------------------------------------------------
 select pg_temp.as_service();

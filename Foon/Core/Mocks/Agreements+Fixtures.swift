@@ -65,9 +65,12 @@ extension AgreementStatus {
 extension TermsGate {
     static let previewFirstTime = TermsGate(firstTime: true, context: .nextLaunch, terms: "terms-draft-v1",
                                             privacy: "privacy-draft-v1", summaries: [])
+    /// The gate every adult sees once privacy v2 is in force (#48), with its registry summary.
     static let previewChanged = TermsGate(
-        firstTime: false, context: .changed, terms: "terms-v2", privacy: "privacy-draft-v1",
-        summaries: ["The Terms now say how a parent withdraws a kid's consent."]
+        firstTime: false, context: .changed, terms: "terms-draft-v1", privacy: "privacy-draft-v2",
+        summaries: ["The Privacy Policy now lists the emails Foon sends adults (account notices, plus a weekly plan "
+            + "email and founding-family updates only if you turn them on), and that Foon counts finished shopping "
+            + "trips, never what was bought."]
     )
 }
 
