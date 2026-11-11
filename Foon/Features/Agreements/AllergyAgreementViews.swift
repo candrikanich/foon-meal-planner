@@ -17,6 +17,7 @@ struct AllergyAgreementView: View {
                 }
                 Section {
                     Text(AllergyConsent.statement)
+                    HealthDataPolicyLink()
                 } header: {
                     Text("What a parent agrees to")
                 } footer: {
@@ -76,6 +77,7 @@ struct OwnAllergiesAgreementView: View {
                 }
                 Section {
                     Text(OwnAllergyConsent.statement)
+                    HealthDataPolicyLink()
                 } footer: {
                     Text("""
                     If you don't, the allergies on your profile still flag dishes, and you can remove them. You can't \

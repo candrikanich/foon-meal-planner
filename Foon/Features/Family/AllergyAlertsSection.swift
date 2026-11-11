@@ -21,6 +21,7 @@ struct AllergyAlertsSection: View {
                     }
                 ))
                 .disabled(model.isSaving)
+                HealthDataPolicyLink()
             } footer: {
                 if let message = model.errorMessage {
                     Text(message).foregroundStyle(.red)
@@ -58,6 +59,7 @@ private struct AllergyAlertsConsentView: View {
             Form {
                 Section {
                     Text(AllergyConsent.statement)
+                    HealthDataPolicyLink()
                 } footer: {
                     Text("Then add allergies on each person's profile in Family.")
                 }

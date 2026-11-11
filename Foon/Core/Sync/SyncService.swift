@@ -343,7 +343,7 @@ final class SyncService {
         case .removeStapleLine(let listItemID):
             if let line = listLine(lineAliases[listItemID] ?? listItemID), Self.isOpenStapleLine(line) { context.delete(line) }
 
-        case .teachReceiptAlias:
+        case .teachReceiptAlias, .finishTrip:
             break
 
         case .addToList(let household, let itemID, let list, let urgency, let source, let note, let lineID, let quantity, let planID, let replacing):

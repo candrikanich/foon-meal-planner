@@ -405,6 +405,10 @@ verify_jwt = false
 [functions.parental-consent]
 verify_jwt = false
 
+# pg_cron calls it through pg_net with the ACCOUNT_EMAIL_CRON_SECRET header instead of a user's JWT; it checks that itself.
+[functions.account-email]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54427

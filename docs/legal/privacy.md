@@ -44,6 +44,21 @@ When you sign in with Apple, Apple gives us:
 We use these to sign you in and to tell your account apart from others. We don't use your email for marketing. If you
 invite your kid to their own account, we use your email to ask for your consent (see Kids and parental consent).
 
+We also email adults a few messages about their own account:
+
+- a welcome when you create a household (not for a sample family), with how to invite your family;
+- if you own the household: when a subscription or free trial starts, when you turn off its renewal, and when it
+  ends (Apple sends its own receipts for each payment);
+- a receipt when you delete your account or your household, sent once the deletion is done.
+
+They go to the email Apple gave us for your Sign in with Apple account, read when each email is sent; we don't copy it
+anywhere else. Kids never get email from Foon. These emails are about your account, so they have no unsubscribe link;
+we keep no copy of them, and a record that one was queued or sent (its kind and date, never your address) is deleted
+after 30 days (see the Data Retention Policy).
+
+> **Review:** account emails (#48) are built but switched off (`account_email_enabled`) until a privacy policy version
+> that lists them is in force; the public /privacy page doesn't list them yet.
+
 > **Review:** our hosting provider (Supabase) keeps sign-in records for the accounts it manages, which can include
 > device and network details. Confirm what Supabase Auth logs and for how long, and whether to say so here. [CHECK]
 
@@ -96,6 +111,7 @@ example, "under 13"), never a birthdate. [CHECK: this is planned for #88; the fi
 | Comments a planner hid | Planners can hide a comment | Planners, and a kid's parents | Until shown again or erased |
 | Receipt lines someone corrected | So the next receipt reads right | Your household | While the household exists |
 | A shopping trip in progress | To tell the family | Your household | 1 day after it ends |
+| That a shopping trip finished with something bought, and when (never what, where or who) | Counting trips across families, to see how Foon is used | Your household | 13 months |
 
 Meal photos have their location and camera details removed on your device before they're uploaded. Recipe photos from
 websites aren't saved.
@@ -310,7 +326,7 @@ policy does. [CHECK: data processing agreements on file.]
 | --- | --- | --- |
 | Supabase | Database, sign-in, photo storage, server functions | Everything Foon keeps on its servers |
 | Apple | Sign in with Apple, push notifications, App Store payments | Sign-in, push tokens and text, subscriptions |
-| Resend | Sends waitlist emails, and parental consent emails | Waitlist email addresses and names; a parent's email address and their kid's first name, in consent emails. Resend keeps its own logs of each email sent [CHECK: period] |
+| Resend | Sends waitlist emails, parental consent emails, and account emails to adults | Waitlist email addresses and names; a parent's email address and their kid's first name, in consent emails; an adult's email address in account emails (no names). Resend keeps its own logs of each email sent [CHECK: period] |
 | Vercel | Hosts the getfoon.com website | Website requests |
 
 Our servers are in the United States (Supabase's us-east-1 region, AWS, N. Virginia).

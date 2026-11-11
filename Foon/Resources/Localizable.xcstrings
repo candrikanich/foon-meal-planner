@@ -1287,6 +1287,9 @@
     "Confirms with Apple, then deletes your account" : {
 
     },
+    "Consumer Health Data Policy" : {
+
+    },
     "Contains %@ (%@)" : {
       "comment" : "Allergy flag: allergen, then who",
       "localizations" : {
@@ -1869,6 +1872,9 @@
 
     },
     "Finish trip" : {
+
+    },
+    "Finished shopping trips are deleted after 13 months." : {
 
     },
     "First name" : {
@@ -3159,6 +3165,9 @@
 
     },
     "Open the recipe" : {
+
+    },
+    "Opens Foon's policy for allergy information on the web" : {
 
     },
     "Opens Foon's privacy policy on the web" : {
@@ -4843,6 +4852,9 @@
 
     },
     "When someone changes the plan, it shows here." : {
+
+    },
+    "When someone finishes a shopping trip with something bought, that your household finished one and when, never what was bought, where, or by whom. Foon counts trips across many families to see how it's used." : {
 
     },
     "When you import a recipe from a link, Foon's server opens that page to read it." : {

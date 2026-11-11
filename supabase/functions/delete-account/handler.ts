@@ -2,8 +2,12 @@
 // owner starts over and keeps their account; no Apple step). For an account the order matters: Apple first, so a
 // refused revocation leaves everything as it was. Then the household's photos, then the database, then the auth user
 // last. A failure part-way can be retried: each step is safe to run again.
+//
+// Once it has all gone through, the adult who asked gets a receipt by email (#48). The address is read before anything
+// is deleted and never stored; reading it or sending can't fail the deletion or change what it reports.
 
 import { AppleAccountMismatch } from "./apple.ts";
+import type { DeletionScope } from "./receipt.ts";
 
 export interface DeleteAccountDeps {
   userFromToken(jwt: string): Promise<string | null>;
@@ -18,6 +22,11 @@ export interface DeleteAccountDeps {
   // `delete_household_data`: erases the household this person owns.
   deleteHouseholdData(userID: string): Promise<string>;
   deleteUser(userID: string): Promise<void>;
+  // `deletion_receipt_address`: the account's verified Apple email, or null when account email is off, the account isn't
+  // an adult's in a household, or it has none.
+  receiptAddress(userID: string): Promise<string | null>;
+  // Null when email isn't configured (no RESEND_API_KEY or ACCOUNT_EMAIL_FROM).
+  sendReceipt: ((to: string, scope: DeletionScope) => Promise<void>) | null;
   log(message: string, error?: unknown): void;
 }
 
@@ -48,11 +57,13 @@ export async function handleDeleteAccount(req: Request, deps: DeleteAccountDeps)
     return json(502, { error: "apple_revoke_failed" });
   }
 
+  const address = await receiptAddress(userID, deps);
   try {
     const household = await deps.ownedHousehold(userID);
     if (household) await deps.removeHouseholdPhotos(household);
     const result = await deps.deleteAccountData(userID);
     await deps.deleteUser(userID);
+    await sendReceipt(address, result === "household_deleted" ? "account_and_household" : "account", deps);
     return json(200, { result });
   } catch (error) {
     deps.log("account deletion failed", error);
@@ -65,13 +76,44 @@ async function deleteHousehold(userID: string, deps: DeleteAccountDeps): Promise
   try {
     const household = await deps.ownedHousehold(userID);
     if (!household) return json(403, { error: "not_owner" });
+    const address = await receiptAddress(userID, deps);
     await deps.removeHouseholdPhotos(household);
     const result = await deps.deleteHouseholdData(userID);
     // Ownership moved between the check and the delete: say so rather than report success.
     if (result !== "household_deleted") return json(403, { error: "not_owner" });
+    await sendReceipt(address, "household", deps);
     return json(200, { result });
   } catch (error) {
     deps.log("household deletion failed", error);
     return json(500, { error: "delete_failed" });
+  }
+}
+
+// Read before anything is deleted: afterwards there's no profile to say it's an adult's.
+async function receiptAddress(userID: string, deps: DeleteAccountDeps): Promise<string | null> {
+  if (!deps.sendReceipt) return null;
+  try {
+    return await deps.receiptAddress(userID);
+  } catch {
+    deps.log("deletion receipt: address lookup failed");
+    return null;
+  }
+}
+
+// A short code for the log: Resend's status, a timeout, or "error". Never the address.
+function sendErrorCode(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  const status = message.match(/^Resend answered (\d{3})$/)?.[1];
+  if (status) return `resend_${status}`;
+  return message.startsWith("Resend didn't answer") ? "timeout" : "error";
+}
+
+// The deletion is done whatever happens here.
+async function sendReceipt(address: string | null, scope: DeletionScope, deps: DeleteAccountDeps): Promise<void> {
+  if (!address || !deps.sendReceipt) return;
+  try {
+    await deps.sendReceipt(address, scope);
+  } catch (error) {
+    deps.log(`deletion receipt not sent (${sendErrorCode(error)})`);
   }
 }
