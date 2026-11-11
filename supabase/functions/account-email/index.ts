@@ -1,7 +1,9 @@
-// Sends Foon's account emails (#48). Three doors, none behind the gateway's JWT check (config.toml):
+// Sends Foon's account emails (#48). Four doors, none behind the gateway's JWT check (config.toml); the
+// app's checks the parent's JWT itself:
 //   POST (x-account-email-secret)            pg_cron's run: sends what's queued (handler.ts)
 //   GET/POST ?unsubscribe=<signed>           an opt-in email's unsubscribe link and one-click (unsubscribe.ts)
 //   POST ?founding=preview|send              the "Founding update" Action (x-founding-updates-secret; founding.ts)
+//   POST ?invite=1                           the app: a parent emails an adult's invite (their JWT; invite.ts)
 // Needs the service role. RESEND_API_KEY and ACCOUNT_EMAIL_FROM turn email on; ACCOUNT_EMAIL_SITE_URL overrides
 // https://getfoon.com for links; EMAIL_POSTAL_ADDRESS (lines split by ";") is required for founding updates;
 // FOUNDING_UPDATES_SECRET and FOUNDING_UPDATES_PREVIEW_TO are the Action's. Nothing is claimed until
@@ -11,6 +13,7 @@ import { resendConfigFromEnv, sendEmail } from "../_shared/resend.ts";
 import { DEFAULT_SITE_URL } from "./email.ts";
 import { handleFoundingUpdate } from "./founding.ts";
 import { type ClaimedEmail, handleAccountEmail } from "./handler.ts";
+import { handleInviteEmail, InviteRefusedError, reservationFromRow } from "./invite.ts";
 import { type FoundingUpdate, parsePostalAddress } from "./opt_in_email.ts";
 import { handleUnsubscribe, unsubscribeLinks, unsubscribeOrigins } from "./unsubscribe.ts";
 
@@ -22,9 +25,9 @@ function required(key: string): string {
 
 const supabaseUrl = required("SUPABASE_URL");
 const serviceKey = required("SUPABASE_SERVICE_ROLE_KEY");
-const admin = createClient(supabaseUrl, serviceKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+const anonKey = required("SUPABASE_ANON_KEY");
+const session = { persistSession: false, autoRefreshToken: false };
+const admin = createClient(supabaseUrl, serviceKey, { auth: session });
 const resend = resendConfigFromEnv((key) => Deno.env.get(key), "ACCOUNT_EMAIL_FROM");
 const send = resend ? (email: Parameters<typeof sendEmail>[1]) => sendEmail(resend, email) : null;
 const siteUrl = Deno.env.get("ACCOUNT_EMAIL_SITE_URL") || DEFAULT_SITE_URL;
@@ -48,6 +51,25 @@ Deno.serve((req) => {
       siteUrl,
       sign: links.sign,
       unsubscribe: (userId, kind) => rpc("email_unsubscribe", { account: userId, email_kind: kind }),
+      log,
+    });
+  }
+
+  if (url.searchParams.has("invite")) {
+    return handleInviteEmail(req, {
+      userFromToken: async (jwt) => (await admin.auth.getUser(jwt)).data.user?.id ?? null,
+      send,
+      // As the parent (their JWT, with the anon key), so the database checks their own rights and session.
+      reserve: async (jwt, memberId, code) => {
+        const asParent = createClient(supabaseUrl, anonKey, {
+          auth: session,
+          global: { headers: { Authorization: `Bearer ${jwt}` } },
+        });
+        const { data, error } = await asParent.rpc("reserve_invite_email", { target_member: memberId, code });
+        if (error?.code === "28000" || error?.code === "42501") throw new InviteRefusedError(error.code);
+        if (error) throw error;
+        return reservationFromRow(data);
+      },
       log,
     });
   }

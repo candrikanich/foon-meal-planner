@@ -20,6 +20,7 @@ turn it on, and what to check. The function is `supabase/functions/account-email
 | Edge Function secret | `EMAIL_POSTAL_ADDRESS` | The postal address for marketing email (founding-family updates), lines split by `;`, e.g. `PO Box 1; Town, OH 44000`. Unset, no founding update goes: the Action's calls answer 503 `no_postal_address` and queued rows are given up as `no_postal_address`. The weekly plan email uses the address in `_shared/resend.ts` |
 | Edge Function secret | `FOUNDING_UPDATES_SECRET` | A long random string, the same value as the GitHub environment secret of that name. Unset, the Action's calls answer 401 |
 | Edge Function secret | `FOUNDING_UPDATES_PREVIEW_TO` | Where a preview goes (Chris's own address). Unset, a preview answers 503 `no_preview_address` |
+| Edge Function (built in) | `SUPABASE_ANON_KEY` | Set by Supabase. The invite door (`?invite=1`, #48 PR B) calls `reserve_invite_email` as the parent with it and their JWT |
 | Edge Function (built in) | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Set by Supabase. The service role key also signs the opt-in emails' unsubscribe links (as the waitlist's), so rotating it breaks unsubscribing from emails already sent: the footer link and the mail app's one-click button carry the same signed URL, and both fail. Only Family → Email still turns them off; emails sent after the rotation work |
 | GitHub environments `staging` and `production` | `FOUNDING_UPDATES_SECRET` | The same value as that project's Edge secret. Create the `staging` environment if it doesn't exist; `production`'s required reviewer applies to the Action |
 | Vault (database) | `account_email_function_url` | `https://<project-ref>.supabase.co/functions/v1/account-email`. `kick_account_email()` POSTs to it |
@@ -186,3 +187,17 @@ can be the hourly cap.
 7. Turn on founding-family updates, then run the Founding update Action on staging in preview mode, then send: the
    email has the postal address, why you got it, and an unsubscribe link; the mail app's own Unsubscribe works too.
 8. Sign in as a kid: Family has no Email section.
+9. Emailed invite (#48 PR B): as a parent, Family → an unclaimed adult → Invite → Email the invite, type a real inbox,
+   Send. "<you> invited you to <household> on Foon" arrives with the www.getfoon.com/invite link and the code. Then
+   `select * from invite_email_sends` shows one row with no address, and the function's logs show none either. A
+   kid's profile has no Email the invite. With the sheet open on one device, invite the same person again from
+   another parent's device: Send on the first then says the code was replaced. With the flag off, the sheet says "Foon doesn't send email yet."
+
+## Emailed invites (PR B)
+
+Database side: `supabase/migrations/20261128000000_invite_email.sql`. The app POSTs `{memberId, code, email}` to
+`account-email?invite=1` with the parent's JWT (`invite.ts`). `reserve_invite_email`, run as the parent, checks they're
+a parent in the household, the profile is an unclaimed adult's, the flag is on, the code is that profile's open invite,
+and the limits (5 a day per parent, 10 a day per household, 200 an hour overall), then records the send in
+`invite_email_sends` (household, sender, time; pruned daily after a day) and returns what the email says. The address
+goes only to Resend: no table, log line or response carries it. A failed send still counts toward the limits.

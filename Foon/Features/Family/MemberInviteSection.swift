@@ -9,6 +9,7 @@ struct MemberInviteSection: View {
     @State private var inviteCode: String?
     @State private var isWorking = false
     @State private var confirmingWithdrawal = false
+    @State private var emailingInvite = false
     /// What went wrong with the last invite or withdrawal. The store's message is shared, so it's copied here only when
     /// one of these fails.
     @State private var inviteFailure: String?
@@ -63,6 +64,16 @@ struct MemberInviteSection: View {
                         firstName: member.firstName, code: inviteCode
                     )
                 )
+                // Foon emails adults only; a kid's invite goes by the share sheet, after a parent's consent.
+                if member.ageGroup == .adult {
+                    Button("Email the invite") { emailingInvite = true }
+                        .accessibilityHint("Type \(member.firstName)'s email, and Foon sends them the link and the code")
+                        .sheet(isPresented: $emailingInvite) {
+                            InviteEmailSheet(model: InviteEmailModel(
+                                member: member, code: inviteCode, emailInvite: store.client.emailInvite
+                            ))
+                        }
+                }
             } else if store.needsParentalConsent(member) {
                 ParentalConsentRows(member: member, renewal: store.kidHold(for: member))
             } else {

@@ -407,6 +407,12 @@
     "%@'s at the store: 1 min left" : {
       "comment" : "A family member is shopping now"
     },
+    "%@'s email" : {
+
+    },
+    "%@'s email address" : {
+
+    },
     "%@'s favorite" : {
       "comment" : "Reason chip: a member's favorite"
     },
@@ -1778,6 +1784,12 @@
     "Email me the form" : {
 
     },
+    "Email the invite" : {
+
+    },
+    "Emails the invite to %@" : {
+
+    },
     "End the poll" : {
 
     },
@@ -2001,6 +2013,9 @@
     "Foon doesn't ask for birthdays, phone numbers, or your location." : {
 
     },
+    "Foon doesn't send email yet." : {
+
+    },
     "Foon doesn't send email yet. Try again later." : {
 
     },
@@ -2027,7 +2042,13 @@
         }
       }
     },
+    "Foon emails %@ the link and the code, and says it's from you. It uses this address only to send this one email, and doesn't keep it." : {
+
+    },
     "Foon emails adults only, never kids. Emails about your account go to the email Apple gives for your account (which can be Apple's private relay address). Our email provider, Resend, sends them." : {
+
+    },
+    "Foon emails invites to adults only. Share a kid's invite another way." : {
 
     },
     "Foon flags dishes that contain them, and you plan as usual." : {
@@ -2413,6 +2434,9 @@
     "If a planner turns on Spot busy evenings, Foon reads the times of this device's calendar events to suggest rushed nights. It never saves or sends them." : {
 
     },
+    "If it doesn't arrive, ask them to check their spam folder, or send the invite another way." : {
+
+    },
     "If you don't, the allergies on your profile still flag dishes, and you can remove them. You can't add new ones until you agree." : {
 
     },
@@ -2471,6 +2495,9 @@
 
     },
     "Invite sent" : {
+
+    },
+    "Invite sent to %@." : {
 
     },
     "Invite your family" : {
@@ -3140,6 +3167,9 @@
     "Only a parent in the family can delete a kid." : {
 
     },
+    "Only a parent in the family can send this invite." : {
+
+    },
     "Only adults can get email from Foon." : {
 
     },
@@ -3660,6 +3690,9 @@
 
     },
     "Send invite" : {
+
+    },
+    "Sending" : {
 
     },
     "Sends a link and a code so %@ can join on their own device. Codes work once and expire in 7 days." : {
@@ -4380,6 +4413,9 @@
     "They're signed out of the household on their own device now, and stay in the family on yours. If you don't consent again within 30 days, what they added themselves is erased." : {
 
     },
+    "They've already joined, so there's nothing to send." : {
+
+    },
     "Things they added to a list stay on it." : {
 
     },
@@ -4396,6 +4432,9 @@
 
     },
     "This code is shown only now. Inviting again replaces it." : {
+
+    },
+    "This code was replaced or has expired. Invite again for a new one." : {
 
     },
     "This deletes %@ for everyone: meals, plans, lists, photos, and family profiles. Everyone keeps their account and can start or join another household. This can't be undone." : {
@@ -4643,6 +4682,9 @@
 
     },
     "Type %@ to confirm" : {
+
+    },
+    "Type %@'s email, and Foon sends them the link and the code" : {
 
     },
     "Type or paste several, separated by commas or new lines" : {
