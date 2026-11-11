@@ -70,10 +70,11 @@ Two more emails are yours to turn on, in Foon under Family, then Email (adults o
 - **Founding-family updates:** now and then, news about Foon for founding families, including offers. This is
   marketing, and only sent if you turn it on. Each one ends with our postal address (see Contact).
 
-Turning one on records that you agreed, when, and to which wording. These are just yours: nobody else in your household
-sees whether you turned them on. Each one has an unsubscribe link (and your mail app's own unsubscribe button), or turn
-it off in Foon; either way it stops at once. Your setting is deleted with your account, or when you leave or are removed
-from your household; the record that you agreed is kept (see Other records). Founding-family updates go only to adults who turned them on in Foon, not to the waitlist.
+Each time you turn one on, Foon records that you agreed, when, and to which wording. These are just yours: nobody else
+in your household sees whether you turned them on. Each one has an unsubscribe link (and your mail app's own unsubscribe
+button), or turn it off in Foon; either way it stops at once. The switch is deleted with your account, or when you
+leave or are removed from your household. The record that you agreed is kept, as proof (see Other records).
+Founding-family updates go only to adults who turned them on in Foon, not to the waitlist.
 
 If you email an invite to another adult, Foon uses the address you type only to send that one invite. Foon doesn't keep it; Resend keeps its own record of the send, as for every email.
 
@@ -177,8 +178,9 @@ household can see its subscription status.
   show the consent was given. They're deleted when the household is, and a kid's parental consent record is deleted
   when a parent deletes everything about that kid.
 - **Agreement records.** Which version of the Terms, this policy, or an email's wording you agreed to, when, and where
-  in the app. Kept after your account is deleted, as proof of what you agreed to, with nothing else about you. Deleted
-  with the rest of a kid's information when a parent deletes everything about them.
+  in the app (an email's, each time you turn it on). Kept after your account is deleted, as proof of what you agreed
+  to, with nothing else about you. Deleted with the rest of a kid's information when a parent deletes everything about
+  them.
 - **Invites.** An invite records who it's for, who made it, and when it was used. Only a scrambled form of the code is
   stored. Invites are deleted 30 days after they expire, are used or are cancelled.
 - **Safety counters.** To stop someone guessing invite codes, we record each attempt to use a code, wrong or right,

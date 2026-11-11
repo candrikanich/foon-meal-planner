@@ -214,7 +214,8 @@ released, and the reminder log about them is deleted. The parent-entered profile
   parent deletes everything about a kid (job **K**). Neither `delete_account_data()` nor the `delete-account` Edge
   Function touches it. Asked by the app since `terms-draft-v1` and `privacy-draft-v1` came into force (#277), and again
   for `privacy-draft-v2` (#48). An adult turning on an opt-in email (#48) logs their agreement to its wording here too
-  (`weekly-plan-email-v1`, `founding-updates-v1`, context `opt_in`), kept the same way.
+  (`weekly-plan-email-v1`, `founding-updates-v1`, context `opt_in`), kept the same way. Terms and Privacy log once per
+  wording; an opt-in logs a new row each time it's turned on, even to the same wording.
 - **Any account:** Foon's Sign in with Apple token is revoked first; if Apple refuses, nothing is deleted. Push devices,
   import counts and invite guesses are deleted, then the sign-in account itself (`delete-account` Edge Function, job
   **D**, foreign-key cascades).
