@@ -59,7 +59,9 @@ private struct SignificantChangeFlow: ViewModifier {
 
     private func check() async {
         let changes = await pending()
-        guard !changes.isEmpty, let (parentsMustApprove, adultsAcknowledge) = await Self.whatTheLawAsks() else { return }
+        guard !changes.isEmpty, let law = await Self.whatTheLawAsks() else { return }
+        let parentsMustApprove = law.parents
+        let adultsAcknowledge = law.adults
         guard parentsMustApprove || adultsAcknowledge else {
             // Nothing the law asks for where they are.
             SignificantChangeLedger().markHandled(changes)
