@@ -1,0 +1,114 @@
+name: Founding update
+
+# Sends a founding-family update (#48) through the account-email Edge Function. Preview first: it emails only the
+# preview address (FOUNDING_UPDATES_PREVIEW_TO on that project) and says how many adults would get it. Send queues it
+# for every adult who turned on founding-family updates in Foon; the function's cron run sends them, at most 200 an
+# hour, each with its own unsubscribe link. Sending the same text again queues nothing new. The function refuses both
+# until EMAIL_POSTAL_ADDRESS is set (CAN-SPAM). Setup and usage: docs/account-email.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Which Foon to send from
+        type: choice
+        options: [staging, production]
+        default: staging
+      mode:
+        description: preview emails only the preview address; send queues it for everyone opted in
+        type: choice
+        options: [preview, send]
+        default: preview
+      file:
+        description: Path in this repo to the update as markdown, first line "# Subject" (e.g. docs/updates/launch.md)
+        required: false
+      subject:
+        description: Subject (overrides the file's # line; needed without a file)
+        required: false
+      body:
+        description: Body, without a file (one line here; use a file for anything longer)
+        required: false
+      confirm:
+        description: For send, type send
+        required: false
+
+concurrency:
+  group: founding-update
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    name: Founding update (${{ inputs.mode }}, ${{ inputs.target }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Each environment holds that project's FOUNDING_UPDATES_SECRET; production's rules (a required reviewer) apply.
+    environment: ${{ inputs.target }}
+    env:
+      # Passed through env rather than interpolated into the script, so typed text can't run as shell.
+      TARGET: ${{ inputs.target }}
+      MODE: ${{ inputs.mode }}
+      FILE: ${{ inputs.file }}
+      SUBJECT: ${{ inputs.subject }}
+      BODY: ${{ inputs.body }}
+      CONFIRM: ${{ inputs.confirm }}
+      SECRET: ${{ secrets.FOUNDING_UPDATES_SECRET }}
+    steps:
+      - name: Check the inputs
+        run: |
+          set -euo pipefail
+          if [ "$MODE" = "send" ] && [ "$CONFIRM" != "send" ]; then
+            echo "::error::Type send to confirm. Nothing was sent."
+            exit 1
+          fi
+          if [ "$MODE" = "send" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Send only from main, so what goes out is what was reviewed. Nothing was sent."
+            exit 1
+          fi
+          if [ -z "$SECRET" ]; then
+            echo "::error::FOUNDING_UPDATES_SECRET isn't set on the $TARGET environment. Nothing was sent."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+
+      - name: Build the request
+        run: |
+          set -euo pipefail
+          if [ -n "$FILE" ]; then
+            case "$FILE" in
+              /* | *..*) echo "::error::Give a path inside the repo. Nothing was sent."; exit 1 ;;
+            esac
+            if [ ! -f "$FILE" ]; then
+              echo "::error::$FILE isn't in the repo at $GITHUB_REF. Nothing was sent."
+              exit 1
+            fi
+            jq -n --rawfile markdown "$FILE" --arg subject "$SUBJECT" '{markdown: $markdown, subject: $subject}' \
+              > "$RUNNER_TEMP/request.json"
+          else
+            jq -n --arg subject "$SUBJECT" --arg body "$BODY" '{subject: $subject, body: $body}' \
+              > "$RUNNER_TEMP/request.json"
+          fi
+
+      - name: Call account-email
+        run: |
+          set -euo pipefail
+          case "$TARGET" in
+            staging) REF=cbftcssbnfdjjxoeflvj ;;
+            production) REF=itnhdikhdsujklaimqqd ;;
+          esac
+          status=$(curl -sS -o "$RUNNER_TEMP/response.json" -w '%{http_code}' -X POST \
+            "https://$REF.supabase.co/functions/v1/account-email?founding=$MODE" \
+            -H "Content-Type: application/json" \
+            -H "x-founding-updates-secret: $SECRET" \
+            --data-binary "@$RUNNER_TEMP/request.json")
+          cat "$RUNNER_TEMP/response.json"
+          echo
+          if [ "$status" != "200" ]; then
+            # 503 no_postal_address: set EMAIL_POSTAL_ADDRESS. 503 no_preview_address: set FOUNDING_UPDATES_PREVIEW_TO.
+            # 409 email_off: account_email_enabled is off. 400: the update needs a one-line subject and a body.
+            echo "::error::account-email answered $status. See the response above."
+            exit 1
+          fi

@@ -1,6 +1,7 @@
 // account-email: pg_cron (kick_account_email) pokes it every 5 minutes while emails are due, with a shared secret. It
 // claims due rows from email_outbox (the claim resolves each address and skips what can't go), renders each, sends it
-// through Resend, and marks it sent or releases it to retry. Nothing is claimed while email is off (no Resend key or
+// through Resend, and marks it sent or releases it to retry. Opt-in rows (weekly_plan, founding_update) read their words
+// when they're sent and carry the recipient's own unsubscribe link. Nothing is claimed while email is off (no Resend key or
 // sender), so no row is burned. Logs carry row ids and error codes only, never an address.
 import { sameSecret } from "../_shared/token.ts";
 import type { Email } from "../_shared/resend.ts";
@@ -16,6 +17,13 @@ import {
   subscriptionStartedEmail,
   welcomeEmail,
 } from "./email.ts";
+import {
+  type FoundingUpdate,
+  foundingUpdateEmail,
+  type OptInKind,
+  weeklyPlanDetails,
+  weeklyPlanEmail,
+} from "./opt_in_email.ts";
 
 export interface ClaimedEmail {
   id: string;
@@ -36,6 +44,13 @@ export interface AccountEmailDeps {
   release(id: string, errorCode: string, giveUp: boolean): Promise<void>;
   now(): number;
   log(message: string, error?: unknown): void;
+  // Opt-in emails read what they say when they're sent: the week (account_email_weekly_plan, null once it isn't
+  // approved) and Chris's update (null when it's gone).
+  weeklyPlan(planId: string): Promise<unknown>;
+  foundingUpdate(updateId: string): Promise<FoundingUpdate | null>;
+  unsubscribeUrl(kind: OptInKind, userId: string): Promise<string>;
+  // EMAIL_POSTAL_ADDRESS's lines; null when unset, and then no founding update goes.
+  postalAddress: readonly string[] | null;
 }
 
 export const BATCH_SIZE = 50;
@@ -72,6 +87,35 @@ export function messageFor(row: ClaimedEmail, siteUrl: string): Omit<Email, "to"
   }
 }
 
+const idIn = (payload: Record<string, unknown> | null, key: string) =>
+  typeof payload?.[key] === "string" ? payload[key] as string : null;
+
+// The words for an opt-in row (the weekly plan email, a founding update), or the code it's given up with.
+export async function optInMessage(row: ClaimedEmail, deps: AccountEmailDeps): Promise<Omit<Email, "to"> | string> {
+  const userId = idIn(row.payload, "user_id");
+  if (!userId) return "no_words";
+  if (row.kind === "weekly_plan") {
+    const planId = idIn(row.payload, "plan_id");
+    if (!planId) return "no_words";
+    const details = weeklyPlanDetails(await deps.weeklyPlan(planId));
+    if (!details) return "not_approved";
+    return weeklyPlanEmail(details, {
+      siteUrl: deps.siteUrl,
+      unsubscribeUrl: await deps.unsubscribeUrl("weekly_plan", userId),
+    });
+  }
+  if (!deps.postalAddress) return "no_postal_address";
+  const updateId = idIn(row.payload, "update_id");
+  const update = updateId ? await deps.foundingUpdate(updateId) : null;
+  if (!update) return "no_words";
+  return foundingUpdateEmail(update, {
+    unsubscribeUrl: await deps.unsubscribeUrl("founding_updates", userId),
+    postalAddress: deps.postalAddress,
+  });
+}
+
+const optInKinds = new Set(["weekly_plan", "founding_update"]);
+
 // A short code for the log and the row: Resend's status, a timeout, or "send_failed". Never the message's details.
 function errorCode(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
@@ -96,10 +140,12 @@ export async function handleAccountEmail(req: Request, deps: AccountEmailDeps): 
     while (deps.now() - started < RUN_BUDGET_MS) {
       const rows = await deps.claim(BATCH_SIZE);
       for (const row of rows) {
-        const message = messageFor(row, deps.siteUrl);
-        if (!message) {
-          deps.log(`account-email: can't write ${row.id} (${row.kind})`);
-          await deps.release(row.id, "no_words", true);
+        const message = optInKinds.has(row.kind)
+          ? await optInMessage(row, deps)
+          : messageFor(row, deps.siteUrl) ?? "no_words";
+        if (typeof message === "string") {
+          deps.log(`account-email: can't write ${row.id} (${row.kind}, ${message})`);
+          await deps.release(row.id, message, true);
           totals.unwritable += 1;
           continue;
         }

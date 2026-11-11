@@ -16,8 +16,12 @@ turn it on, and what to check. The function is `supabase/functions/account-email
 | Edge Function secret | `RESEND_API_KEY` | Already set for the waitlist and consent emails; the same key sends these |
 | Edge Function secret | `ACCOUNT_EMAIL_FROM` | `Foon <info@getfoon.com>`. Must be on a domain verified in Resend. Without it (or the key) `account-email` answers 503 `email_off` and claims nothing, and `delete-account` sends no receipt |
 | Edge Function secret | `ACCOUNT_EMAIL_CRON_SECRET` | A long random string, the same value as Vault's `account_email_cron_secret`. Unset, every run answers 401 |
-| Edge Function secret | `ACCOUNT_EMAIL_SITE_URL` | Optional. Defaults to `https://getfoon.com`; only the privacy link uses it |
-| Edge Function (built in) | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Set by Supabase |
+| Edge Function secret | `ACCOUNT_EMAIL_SITE_URL` | Optional. Defaults to `https://getfoon.com`. Used for the welcome's privacy link, the weekly email's "Open Foon" link, and where an unsubscribe link redirects (`/email/unsubscribe`); its origin may also POST unsubscribes from a browser (alongside getfoon.com, www and localhost) |
+| Edge Function secret | `EMAIL_POSTAL_ADDRESS` | The postal address for marketing email (founding-family updates), lines split by `;`, e.g. `PO Box 1; Town, OH 44000`. Unset, no founding update goes: the Action's calls answer 503 `no_postal_address` and queued rows are given up as `no_postal_address`. The weekly plan email uses the address in `_shared/resend.ts` |
+| Edge Function secret | `FOUNDING_UPDATES_SECRET` | A long random string, the same value as the GitHub environment secret of that name. Unset, the Action's calls answer 401 |
+| Edge Function secret | `FOUNDING_UPDATES_PREVIEW_TO` | Where a preview goes (Chris's own address). Unset, a preview answers 503 `no_preview_address` |
+| Edge Function (built in) | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Set by Supabase. The service role key also signs the opt-in emails' unsubscribe links (as the waitlist's), so rotating it breaks unsubscribing from emails already sent: the footer link and the mail app's one-click button carry the same signed URL, and both fail. Only Family → Email still turns them off; emails sent after the rotation work |
+| GitHub environments `staging` and `production` | `FOUNDING_UPDATES_SECRET` | The same value as that project's Edge secret. Create the `staging` environment if it doesn't exist; `production`'s required reviewer applies to the Action |
 | Vault (database) | `account_email_function_url` | `https://<project-ref>.supabase.co/functions/v1/account-email`. `kick_account_email()` POSTs to it |
 | Vault (database) | `account_email_cron_secret` | Same value as `ACCOUNT_EMAIL_CRON_SECRET`; sent in the `x-account-email-secret` header. Without both Vault secrets the cron does nothing, silently |
 
@@ -83,6 +87,46 @@ off again, set it to `false`; rows keep queueing and nothing goes.
 
 Logs carry row ids and error codes only, never an address.
 
+## Opt-in emails (PR C)
+
+Database side: `supabase/migrations/20261123900000_email_opt_in_agreement_kinds.sql` (the two agreement kinds, on
+their own because an enum value can't be used in the transaction that adds it) and
+`supabase/migrations/20261124000000_account_email_opt_in.sql`.
+
+- An adult turns them on in Family → Email (`set_email_preference`, which logs the agreement). The section shows only
+  while `account_email_enabled` is on, and opting in is refused while it's off.
+- **Weekly plan email:** `plans_queue_weekly_plan_email` queues a `weekly_plan` row for each opted-in adult the first
+  time a week is approved (dedupe `plan:user`, so once per week per person; not for a week that's over), 10 minutes
+  out. The function reads the week when it sends (`account_email_weekly_plan`); a week no longer approved is given up
+  as `not_approved`.
+- **Founding-family updates:** the "Founding update" Action (`.github/workflows/founding-update.yml`) POSTs to
+  `account-email?founding=preview|send` with `x-founding-updates-secret`. Send queues `founding_update` rows through
+  `queue_founding_update` (409 `email_off` while the flag is off; the same subject and body again queues nothing).
+- **Unsubscribe:** each email's link is `account-email?unsubscribe=<kind>.<account>.<signature>`. A GET redirects to
+  getfoon.com/email/unsubscribe (the site builds its POST URL from `NUXT_PUBLIC_WAITLIST_URL`, so it needs no new
+  setting); a POST (the page's button, or the mail app's one-click) runs `email_unsubscribe`. Turning one off, either
+  way, drops that email's waiting rows as `opted_out`.
+
+### Sending a founding update
+
+1. Write the update as markdown in the repo, first line `# Subject`, then the body: paragraphs separated by blank
+   lines, lists as `- ` lines. No HTML; links stay as text and mail apps make them links. Merge it to main.
+2. Actions → Founding update → Run workflow, from main: target `production` (or `staging` to try it), mode
+   `preview`, file `docs/updates/<name>.md`. The preview arrives at `FOUNDING_UPDATES_PREVIEW_TO` with "[Preview]" in
+   the subject, and the run's log says how many adults would get it (`audience`).
+3. Read the preview. Then run it again with mode `send` and confirm `send`. The log shows `queued`; the cron sends at
+   most 200 an hour (shared with every other account email), so a large list takes a few hours. A row not sent within
+   2 days is dropped as `stale`, so above about 9,000 opted-in adults this needs a bigger cap first.
+
+```sql
+-- Opt-ins (counts only):
+select count(*) filter (where weekly_plan) as weekly_plan, count(*) filter (where founding_updates) as founding
+  from public.email_preferences;
+-- How an update is going:
+select last_error_code, count(*) filter (where sent_at is not null) as sent, count(*) as total
+  from public.email_outbox where kind = 'founding_update' and created_at > now() - interval '3 days' group by 1;
+```
+
 ## Monitoring (SQL editor, read only)
 
 ```sql
@@ -132,3 +176,13 @@ can be the hourly cap.
    and a grace period ending have their own; they're easiest to trigger from Xcode's StoreKit transaction manager.
 4. Delete household, then Delete my account: one receipt each, to the person who did it.
 5. Edge Functions → account-email and delete-account → Logs: ids and codes only, never an address.
+6. Family → Email: turn on the weekly plan email (the wording shows first). Approve a week: about 10 minutes later the
+   email lists its dinners. Un-approve and approve it again: nothing more arrives. Then turn it off from the email and
+   check Family → Email shows it off after a refresh. On staging, use the mail app's own Unsubscribe button (one-click
+   POSTs straight to staging's function): the Unsubscribe link in the footer opens getfoon.com, whose button POSTs to
+   production's function, which rejects staging's signature ("This link didn't work"). The footer link works on
+   staging only if `ACCOUNT_EMAIL_SITE_URL` points at a site built with `NUXT_PUBLIC_WAITLIST_URL` set to staging. On
+   production, both the footer link (the site page's button) and the mail app's button work.
+7. Turn on founding-family updates, then run the Founding update Action on staging in preview mode, then send: the
+   email has the postal address, why you got it, and an unsubscribe link; the mail app's own Unsubscribe works too.
+8. Sign in as a kid: Family has no Email section.
