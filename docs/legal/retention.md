@@ -21,6 +21,7 @@ Scheduled jobs run in the database (pg_cron), every day unless noted. Times are 
 | A | `anonymize_expired_profiles()` | `20261110000000_retention_cleanup.sql` | Daily, 03:17 |
 | P | `prune_push_outbox()` | `20261102210000_store_run.sql` | Daily, 03:29 |
 | S | `prune_subscription_events()` | `20261107000000_entitlement.sql` | Daily, 03:41 |
+| T | `prune_shopping_trips()` | `20261120000000_shopping_trips.sql` | Daily, 03:53 |
 | W | `prune_waitlist()` | `20261108000000_waitlist.sql` | Daily, 04:17 |
 | C | `purge_parental_consent_requests()` | `20261116000000_email_plus_consent.sql` | Daily, 04:23 |
 | J | `expire_ai_jobs()` | `20261103210000_ai_jobs.sql` | Hourly, :41 |
@@ -72,6 +73,7 @@ open since the new wordings came into force, `20261119000000_agreements_in_force
 | Reminder log (`notification_log`): kind, night, times | 8 weeks | Row created | A |
 | Push notifications queued or sent (`push_outbox`) | 8 weeks | Row created | P |
 | "Heading to the store" runs (`store_runs`) | 1 day | Run ends | P |
+| Finished shopping trips (`shopping_trips`): household and time only, for the internal metrics (#260) | 13 months | Trip finished | T |
 | AI job recipe lines (`ai_jobs.payload`) | Until the job ends; 3 days max | Job queued | J (hourly), trigger |
 | AI job and its copy of the tidied result | 30 days | Job finishes | J |
 | Apple subscription notices (`subscription_events`) | 2 years | Notice received | S |

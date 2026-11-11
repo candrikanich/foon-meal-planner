@@ -191,6 +191,11 @@ enum ListBoard {
         return (aisles, cart, nextTime)
     }
 
+    /// What Finish trip sends the server (#260): only that a trip finished, and when.
+    static func finishTrip(householdID: UUID, at finishedAt: Date) -> OfflineChange {
+        .finishTrip(householdID: householdID, tripID: UUID(), finishedAt: finishedAt)
+    }
+
     static func summary(_ entries: [ListEntry], tripStart: Date, skipped: Set<UUID> = []) -> Summary {
         let board = store(entries, tripStart: tripStart, skipped: skipped)
         return Summary(got: board.cart.count, left: board.aisles.reduce(0) { $0 + $1.entries.count })

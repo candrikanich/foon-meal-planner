@@ -142,10 +142,15 @@ struct StoreModeView: View {
 
     /// Staples went back to in stock as they were checked off, so one marked low or out since stays that way.
     private func finish() async {
+        // A second tap while the summary is up would record a second trip.
+        guard finished == nil else { return }
         let current = trip
         let summary = ListBoard.summary(entries, tripStart: current.start, skipped: current.skipped)
         savedTrip = ""
         finished = summary
+        if let householdID = household.household?.id {
+            await sync?.perform(ListBoard.finishTrip(householdID: householdID, at: .now))
+        }
     }
 
     private var summaryTitle: String {

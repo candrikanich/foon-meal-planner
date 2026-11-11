@@ -1871,6 +1871,9 @@
     "Finish trip" : {
 
     },
+    "Finished shopping trips are deleted after 13 months." : {
+
+    },
     "First name" : {
 
     },
@@ -4843,6 +4846,9 @@
 
     },
     "When someone changes the plan, it shows here." : {
+
+    },
+    "When someone finishes a shopping trip, that your household finished one and when, never what was bought, where, or by whom. Foon counts trips across many families to see how it's used." : {
 
     },
     "When you import a recipe from a link, Foon's server opens that page to read it." : {

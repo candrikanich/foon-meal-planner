@@ -1,6 +1,6 @@
 # Internal metrics
 
-Whether Foon shares the load, measured from data Supabase already has (#36). There's no analytics SDK, no event tracking, and no column added for this: every number comes from tables the app already writes. The product side is in [spec.md → Success metrics: internal](spec.md).
+Whether Foon shares the load, measured from data Supabase already has (#36). There's no analytics SDK and no event tracking: every number comes from tables the app already writes, except finished shopping trips, which the app records for this alone (household and time, #260). The product side is in [spec.md → Success metrics: internal](spec.md).
 
 ## Running it
 
@@ -47,6 +47,7 @@ Per week (by the night's date or the activity's household day):
 | `after_dinner_response_rate` | reactions left on logged dishes, by people marked home that night, divided by the people marked home for those dishes. Removed members and people who eat separately (who don't rate) aren't counted on either side; someone with no attendance row isn't counted | households with a logged dish and someone marked home |
 | `plans_approved` | approved plans whose middle day (`week_start + 3`) falls in this week. A plan's week can start on any day, Sunday by default, so it's counted in the ISO week that holds most of its dinners | distinct households with an approved plan in this week, at least 5 |
 | `active_households` | households where anyone did something stored that week: added a member, asked, said me too, reacted, voted or started a poll, claimed or released a night, confirmed a dinner, thanked the cook, answered a check-in, made or approved a plan, added a dish, or added or checked off a list line. The overnight job's unconfirmed logs don't count | itself |
+| `shopping_trips` | trips finished with Finish trip in store mode, by the household's day it finished (#260). Each finish is recorded once, even from a phone that was offline (it's sent when the phone reconnects); the server keeps the household and time only, for 13 months | distinct households that finished a trip that week, at least 5 |
 | `households` | households signed up by the end of the week, rounded down to the nearest 10 (12 shows as 10). Under 10 it's `null`, since a rounded 0 would read as none | itself, at least 10 |
 
 Per sign-up week (households made that week, by their own day):
@@ -62,7 +63,6 @@ Per sign-up week (households made that week, by their own day):
 
 ## What's always null, and what it waits on
 
-- `shopping_trips`: a trip lives on the shopper's device until Finish trip and is never stored on the server. Store runs ("Heading to the store") are pruned after a day and aren't trips. Needs the server to keep a finished trip (a time and an item count would do).
 - `trial_to_paid`: waits on StoreKit and the household entitlement (#66). `households.subscription_status` holds only the current state, with no history of when a trial started or converted.
 
 ## Known limits

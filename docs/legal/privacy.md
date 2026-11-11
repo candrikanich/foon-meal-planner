@@ -96,6 +96,7 @@ example, "under 13"), never a birthdate. [CHECK: this is planned for #88; the fi
 | Comments a planner hid | Planners can hide a comment | Planners, and a kid's parents | Until shown again or erased |
 | Receipt lines someone corrected | So the next receipt reads right | Your household | While the household exists |
 | A shopping trip in progress | To tell the family | Your household | 1 day after it ends |
+| That a shopping trip finished, and when (never what, where or who) | Counting trips across families, to see how Foon is used | Your household | 13 months |
 
 Meal photos have their location and camera details removed on your device before they're uploaded. Recipe photos from
 websites aren't saved.
