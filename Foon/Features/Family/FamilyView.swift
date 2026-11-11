@@ -12,6 +12,7 @@ struct FamilyView: View {
     @State private var deletingHousehold = false
     @State private var exportURL: URL?
     @State private var allergyAlerts: AllergyAlertsModel?
+    @State private var emailPreferences: EmailPreferencesModel?
 
     private var isOwner: Bool { store.household?.owner == store.userID }
 
@@ -140,6 +141,11 @@ struct FamilyView: View {
 
                 ReminderSettingsSection()
 
+                // Adults only: kids never get email (the server refuses them too).
+                if store.me?.ageGroup == .adult, let emailPreferences {
+                    EmailPreferencesSection(model: emailPreferences)
+                }
+
                 // Only planners change effort, so only they get the calendar's suggestions.
                 if canPlan { CalendarSettingsSection() }
 
@@ -235,6 +241,7 @@ struct FamilyView: View {
             .refreshable {
                 await store.load()
                 await allergyAlerts?.load()
+                await emailPreferences?.load()
                 await loadDinners()
                 await store.loadStats()
                 await store.loadEngagement()
@@ -243,6 +250,7 @@ struct FamilyView: View {
             .task(id: store.household?.id) { await loadDinners() }
             .task(id: store.household?.id) { await store.loadStats() }
             .task(id: store.household?.id) { await loadAllergyAlerts() }
+            .task(id: store.household?.id) { await loadEmailPreferences() }
             // Again once the first allergy is saved (on someone's profile), which turns them on.
             .onChange(of: library.allergies.isEmpty) { Task { await allergyAlerts?.load() } }
             // Again when someone becomes a planner or stops being one, so it never shows to someone who can't plan.
@@ -313,6 +321,16 @@ struct FamilyView: View {
         }
         let model = AllergyAlertsModel(householdID: household.id, client: store.client)
         allergyAlerts = model
+        await model.load()
+    }
+
+    private func loadEmailPreferences() async {
+        guard store.household != nil else {
+            emailPreferences = nil
+            return
+        }
+        let model = EmailPreferencesModel(client: store.client)
+        emailPreferences = model
         await model.load()
     }
 

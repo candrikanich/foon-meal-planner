@@ -87,7 +87,14 @@ extension HouseholdClient {
             dinnerMemories: { _, from, through in
                 from < CalendarDay(.now).adding(days: -100) ? [] : MemoryLog.samples(through: through)
             },
-            oldestDinnerLog: { _ in CalendarDay(.now).adding(days: -20) }
+            oldestDinnerLog: { _ in CalendarDay(.now).adding(days: -20) },
+            // Email is on and Ann, an adult, may opt in; both start off.
+            emailPreferences: { EmailPreferences(canOptIn: true, available: true) },
+            setEmailPreference: { email, isOn, _, _ in
+                var preferences = EmailPreferences(canOptIn: true, available: true)
+                if email == .weeklyPlan { preferences.weeklyPlan = isOn } else { preferences.foundingUpdates = isOn }
+                return preferences
+            }
         )
     }
 }

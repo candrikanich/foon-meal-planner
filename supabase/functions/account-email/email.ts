@@ -55,12 +55,19 @@ export const planName = (productId: unknown) =>
 export interface SubscriptionDetails {
   trial: boolean;
   plan: string;
-  // When the trial or paid period ends (started, ending) or ended (ended), formatted.
+  // When the trial or paid period ends (started, ending, renewed as the next renewal, renewal_on, plan_changed), when
+  // grace ends (billing_problem in a grace period), or when access ended (ended, refunded), formatted.
   date: string;
   // The last moment to turn off renewal before Apple charges (started).
   deadline: string;
   // Whether a household without a subscription is view-only (app_config.billing_enforced when it was queued).
   billingEnforced: boolean;
+  // billing_problem: Apple is retrying and the family keeps access until `date`.
+  grace: boolean;
+  // refunded: Family Sharing was removed rather than a refund given.
+  revoked: boolean;
+  // plan_changed: an upgrade, in force already; otherwise it takes over at the next renewal.
+  immediate: boolean;
 }
 
 // What a subscription row's payload says, in words; null when it has no usable date.
@@ -77,6 +84,9 @@ export function subscriptionDetails(payload: Record<string, unknown> | null): Su
     date,
     deadline,
     billingEnforced: payload?.billing_enforced === true,
+    grace: payload?.grace === true,
+    revoked: payload?.revoked === true,
+    immediate: payload?.immediate === true,
   };
 }
 
@@ -132,17 +142,93 @@ export function subscriptionEndingEmail(details: SubscriptionDetails): Message {
   ]);
 }
 
+// What ending means for the family, said the same way whether it ran out or was refunded.
+const afterAccessEnds = (details: SubscriptionDetails) => [
+  details.billingEnforced
+    ? "Foon is now view-only for your family. Everyone can still see everything, check things off on a shopping " +
+      "trip and export your data, but building and editing the week's plan, editing dishes and adding to lists are " +
+      "paused until you subscribe again."
+    : "Foon is free for every family during the beta, so nothing changes for yours for now.",
+  "Nothing in your household was deleted: your plans, dishes and lists are still there.",
+];
+
 export function subscriptionEndedEmail(details: SubscriptionDetails): Message {
   return render("Your Foon subscription has ended", [
     "Hi,",
     `Your family's ${details.plan} ended on ${details.date}.`,
-    details.billingEnforced
-      ? "Foon is now view-only for your family. Everyone can still see everything, check things off on a shopping " +
-        "trip and export your data, but building and editing the week's plan, editing dishes and adding to lists are " +
-        "paused until you subscribe again."
-      : "Foon is free for every family during the beta, so nothing changes for yours for now.",
-    "Nothing in your household was deleted: your plans, dishes and lists are still there.",
+    ...afterAccessEnds(details),
     manage,
     questions,
   ]);
+}
+
+export function subscriptionRenewedEmail(details: SubscriptionDetails): Message {
+  return render("Your Foon subscription renewed", [
+    "Hi,",
+    `Your family's ${details.plan} renewed. The new period runs until ${details.date}, and then Apple renews it ` +
+    "again unless renewal is turned off. Apple emails the receipt for each payment.",
+    manage,
+    questions,
+  ]);
+}
+
+export function subscriptionBillingProblemEmail(details: SubscriptionDetails): Message {
+  return render("Apple couldn't charge for your Foon subscription", [
+    "Hi,",
+    `Apple couldn't charge the payment method for your family's ${details.plan}.`,
+    details.grace
+      ? `Your family keeps everything Foon offers until ${details.date} while Apple tries again.`
+      : "Apple keeps trying for up to 60 days.",
+    ...(details.grace ? [] : afterAccessEnds(details)),
+    "To fix it, open Settings on your iPhone or iPad, tap your name, then Subscriptions, and update your payment " +
+    "method there.",
+    questions,
+  ]);
+}
+
+export function subscriptionRenewalOnEmail(details: SubscriptionDetails): Message {
+  return render("Your Foon subscription will renew", [
+    "Hi,",
+    `Renewal is turned back on for your family's ${details.plan}. Apple will renew it on ${details.date}, and ` +
+    "emails the receipt each time.",
+    "If that's not what you meant, you can turn renewal off again. " + manage,
+    questions,
+  ]);
+}
+
+export function subscriptionPlanChangedEmail(details: SubscriptionDetails): Message {
+  return details.immediate
+    ? render("Your Foon plan has changed", [
+      "Hi,",
+      `Your family's Foon subscription is now the ${details.plan}. The new period runs until ${details.date}, and ` +
+      "then Apple renews it.",
+      manage,
+      questions,
+    ])
+    : render("Your Foon plan is changing", [
+      "Hi,",
+      `Your family's Foon subscription will change to the ${details.plan} when the current period ends on ` +
+      `${details.date}. Until then nothing changes.`,
+      "If that's not what you meant, you can change it back before then. " + manage,
+      questions,
+    ]);
+}
+
+export function subscriptionRefundedEmail(details: SubscriptionDetails): Message {
+  return details.revoked
+    ? render("Your Foon subscription access has ended", [
+      "Hi,",
+      `Apple removed your family's access to the ${details.plan} on ${details.date}, because Family Sharing for it ` +
+      "was ended.",
+      ...afterAccessEnds(details),
+      manage,
+      questions,
+    ])
+    : render("Your Foon subscription was refunded", [
+      "Hi,",
+      `Apple refunded your family's ${details.plan}, so access ended on ${details.date}.`,
+      ...afterAccessEnds(details),
+      manage,
+      questions,
+    ]);
 }

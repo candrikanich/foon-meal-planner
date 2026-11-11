@@ -19,10 +19,13 @@ export function transactionalFooter(contact = SUPPORT_EMAIL) {
 // A paragraph, or a bulleted list.
 export type Block = string | { list: string[] };
 
-// A transactional email from plain blocks, written out as both the text and the HTML part (every value escaped), with
-// the transactional footer.
-export function transactionalEmail(subject: string, blocks: Block[]): Omit<Email, "to"> {
-  const footer = transactionalFooter();
+// An email from plain blocks, written out as both the text and the HTML part (every value escaped), ending with the
+// footer.
+export function blocksEmail(
+  subject: string,
+  blocks: Block[],
+  footer: { text: string; html: string },
+): Omit<Email, "to"> {
   const text = [
     ...blocks.flatMap((block) =>
       typeof block === "string" ? [block, ""] : [...block.list.map((item) => `- ${item}`), ""]
@@ -40,16 +43,28 @@ export function transactionalEmail(subject: string, blocks: Block[]): Omit<Email
   return { subject, text, html };
 }
 
+// A transactional email from plain blocks, with the transactional footer.
+export function transactionalEmail(subject: string, blocks: Block[]): Omit<Email, "to"> {
+  return blocksEmail(subject, blocks, transactionalFooter());
+}
+
 // Commercial email ends with who sent it, a valid postal address, and a working unsubscribe link. `effect` says what
-// unsubscribing does, as "deletes your address right away".
-export function commercialFooter(unsubscribeUrl: string, effect: string) {
+// unsubscribing does, as "deletes your address right away"; `why`, when given, says why they're getting it.
+export function commercialFooter(
+  unsubscribeUrl: string,
+  effect: string,
+  postal: readonly string[] = POSTAL_ADDRESS,
+  why?: string,
+) {
   const text = [
     "--",
+    ...(why ? [why] : []),
     SENDER,
-    ...POSTAL_ADDRESS,
+    ...postal,
     `Unsubscribe (${effect}): ${unsubscribeUrl}`,
   ].join("\n");
-  const html = `<p style="${footerStyle}">${[SENDER, ...POSTAL_ADDRESS].map(escapeHtml).join("<br>")}<br>
+  const lines = [...(why ? [why] : []), SENDER, ...postal].map(escapeHtml).join("<br>");
+  const html = `<p style="${footerStyle}">${lines}<br>
 <a href="${escapeHtml(unsubscribeUrl)}">Unsubscribe</a> (${escapeHtml(effect)}).</p>`;
   return { text, html };
 }

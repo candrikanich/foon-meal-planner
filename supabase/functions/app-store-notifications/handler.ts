@@ -20,6 +20,8 @@ export interface SubscriptionUpdate {
   // The transaction's own period end: a refund of a period before the current one doesn't cancel it.
   periodEndsAt: Date | null;
   autoRenew: boolean | null;
+  // For a change of plan preference: the product the subscription renews as (the owner's email names it).
+  nextProductId: string | null;
 }
 
 // What apply_subscription_notification returns.
@@ -89,6 +91,7 @@ export async function handleAppStoreNotification(req: Request, deps: AppStoreNot
       environment: notification.environment,
       signedAt: notification.signedDate,
       periodEndsAt: transaction.expiresDate === undefined ? null : new Date(transaction.expiresDate),
+      nextProductId: notificationType === "DID_CHANGE_RENEWAL_PREF" ? renewal?.autoRenewProductId ?? null : null,
       ...change,
     });
     if (outcome === "no_household") {

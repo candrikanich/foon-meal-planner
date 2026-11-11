@@ -107,6 +107,11 @@ struct HouseholdClient: Sendable {
     var agreeToOwnAllergies: @Sendable (_ memberID: UUID, _ wording: String) async throws -> Void = { _, _ in }
     /// A kid's account a hold signed out, or nil (`my_access_hold`).
     var accessHold: @Sendable () async throws -> AccessHold? = { nil }
+    /// The caller's own email switches (`my_email_preferences`, #48).
+    var emailPreferences: @Sendable () async throws -> EmailPreferences = { EmailPreferences() }
+    /// Turns one of the caller's emails on (logging the agreement to `wording`) or off (`set_email_preference`).
+    var setEmailPreference: @Sendable (_ email: EmailOptIn, _ isOn: Bool, _ wording: String?, _ client: String)
+        async throws -> EmailPreferences = { _, _, _, _ in EmailPreferences() }
 }
 
 /// Why Delete household didn't go through.
@@ -409,8 +414,37 @@ extension HouseholdClient {
             },
             accessHold: {
                 try await client.rpc("my_access_hold").execute().value
+            },
+            emailPreferences: {
+                try await client.rpc("my_email_preferences").execute().value
+            },
+            setEmailPreference: { email, isOn, wording, version in
+                try await client.rpc("set_email_preference", params: EmailPreferenceParams(
+                    emailKind: email.rawValue, enabled: isOn, wording: wording, client: version
+                )).execute().value
             }
         )
+    }
+}
+
+/// Sends `wording` even when it's nil (turning off): PostgREST finds the function by argument names.
+private struct EmailPreferenceParams: Encodable, Sendable {
+    let emailKind: String
+    let enabled: Bool
+    let wording: String?
+    let client: String
+
+    enum CodingKeys: String, CodingKey {
+        case emailKind = "email_kind"
+        case enabled, wording, client
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(emailKind, forKey: .emailKind)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encode(wording, forKey: .wording)
+        try container.encode(client, forKey: .client)
     }
 }
 

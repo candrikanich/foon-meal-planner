@@ -32,11 +32,13 @@ select ok((select bool_and(relrowsecurity) from pg_class
 select is((select array_agg(schedule order by jobname) from cron.job
            where jobname in ('apply-agreement-holds', 'kick-consent-renewals')),
   array['11 * * * *', '*/15 * * * *'], 'holds are applied hourly and renewal emails checked every 15 minutes');
-select is((select count(*)::int from public.agreement_versions), 8, 'eight wordings are registered');
+select is((select count(*)::int from public.agreement_versions), 11,
+  'eleven wordings are registered (the two email opt-ins and privacy v2 since #48)');
 select results_eq($$ select version from public.agreement_versions where effective_at <= now() order by version $$,
-  $$ values ('allergy-data-v2'), ('own-allergy-v1'), ('parental-invite-v2'), ('parental-invite-v3'),
-            ('privacy-draft-v1'), ('terms-draft-v1') $$,
-  'PR D put the new wordings in force');
+  $$ values ('allergy-data-v2'), ('founding-updates-v1'), ('own-allergy-v1'), ('parental-invite-v2'),
+            ('parental-invite-v3'), ('privacy-draft-v1'), ('privacy-draft-v2'), ('terms-draft-v1'),
+            ('weekly-plan-email-v1') $$,
+  'PR D put the new wordings in force, and #48 privacy v2 with the email opt-ins');
 select is(public.current_agreement_version('parental'), 'parental-invite-v3', 'so the newest is current');
 -- A kind with nothing in force (as every kind was before PR D) counts every agreement.
 update public.agreement_versions set effective_at = null where kind = 'parental';
@@ -48,7 +50,7 @@ select is((select summary from public.agreement_versions where version = 'parent
 
 -- Who reads and writes it -----------------------------------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
-select is((select count(*)::int from public.agreement_versions), 8, 'anyone signed in reads the wordings');
+select is((select count(*)::int from public.agreement_versions), 11, 'anyone signed in reads the wordings');
 select throws_ok($$ insert into public.agreement_versions (version, kind, ordinal, summary)
                     values ('terms-v9', 'terms', 9, 'New terms.') $$,
   '42501', null, 'but can''t add one');

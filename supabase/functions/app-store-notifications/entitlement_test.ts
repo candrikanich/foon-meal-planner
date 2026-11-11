@@ -80,7 +80,7 @@ Deno.test("turning auto-renew off or on keeps the status until the period ends",
 });
 
 Deno.test("other notifications don't change entitlement", () => {
-  for (const type of ["TEST", "PRICE_INCREASE", "OFFER_REDEEMED", "DID_CHANGE_RENEWAL_PREF", "CONSUMPTION_REQUEST"]) {
+  for (const type of ["TEST", "PRICE_INCREASE", "OFFER_REDEEMED", "CONSUMPTION_REQUEST"]) {
     assertEquals(entitlementChange(type, undefined, transaction, renewing), null);
   }
 });
@@ -92,7 +92,12 @@ Deno.test("a reversed refund gives access back; an upgrade moves to the new prod
     expiresAt: new Date(expires),
     autoRenew: true,
   });
-  assertEquals(entitlementChange("DID_CHANGE_RENEWAL_PREF", "DOWNGRADE", transaction, renewing), null);
+  // A downgrade waits for the renewal: nothing about access moves, but it's applied so the notice can go out.
+  assertEquals(entitlementChange("DID_CHANGE_RENEWAL_PREF", "DOWNGRADE", transaction, renewing), {
+    status: null,
+    expiresAt: new Date(expires),
+    autoRenew: true,
+  });
 });
 
 Deno.test("an extended renewal only moves the expiry", () => {

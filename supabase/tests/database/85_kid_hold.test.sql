@@ -94,7 +94,7 @@ insert into public.push_devices (user_id, member_id, household_id, token, enviro
 select pg_temp.as_admin();
 update public.agreement_versions set effective_at = null
  where version in ('allergy-data-v2', 'own-allergy-v1', 'parental-invite-v2', 'parental-invite-v3', 'terms-draft-v1',
-                   'privacy-draft-v1');
+                   'privacy-draft-v1', 'privacy-draft-v2', 'weekly-plan-email-v1', 'founding-updates-v1');
 
 -- Dormant -------------------------------------------------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');  -- Ann invites Owen while nothing is in force

@@ -62,7 +62,24 @@ Deno.test("a new trial updates the household it names", async () => {
     expiresAt: new Date(Date.UTC(2026, 11, 7)),
     periodEndsAt: new Date(Date.UTC(2026, 11, 7)),
     autoRenew: true,
+    nextProductId: null,
   });
+});
+
+Deno.test("a downgrade is applied with the plan the subscription renews as, so the owner can be told", async () => {
+  const { deps, applied } = fakeDeps();
+  const response = await handleAppStoreNotification(
+    await notify({
+      type: "DID_CHANGE_RENEWAL_PREF",
+      subtype: "DOWNGRADE",
+      transaction: { productId: "foon.family.annual" },
+      renewal: { autoRenewProductId: "foon.family.monthly" },
+    }),
+    deps,
+  );
+  assertEquals(await response.json(), { result: "applied" });
+  assertEquals(applied[0].status, null);
+  assertEquals(applied[0].nextProductId, "foon.family.monthly");
 });
 
 Deno.test("Apple's retry of one already handled is a 200, so it stops retrying", async () => {
