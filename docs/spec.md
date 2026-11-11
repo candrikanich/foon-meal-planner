@@ -870,7 +870,7 @@ Build everything, in order: Phase 1 (the Sunday flow) is what to sit down with y
 **Phase 2: Family loop**
 
 - [x] Idea inbox and requests (dated and someday)
-- [x] Share Sheet extension (links, screenshots, PDFs, text)
+- [ ] Share Sheet extension (links, screenshots, PDFs, text) (built, #39; open until the device checks in #151 are done)
 - [ ] Day-of check-in and after-dinner confirm, reactions, leftovers, who cooked (after-dinner confirm, reactions, leftovers and who cooked built, #42, #46; the check-in is built, #193, #217, and stays open until its push is seen on a device, #41)
 - [x] Dislike rules, favorites, trials, cook tally, Thanks chef, pass the phone
 - [ ] Tonight poll and pivots (quick list gaps, move bumped meals) (pivots built, #198; the poll is built, #199, #218, and stays open until its push is seen on a device, #43)
