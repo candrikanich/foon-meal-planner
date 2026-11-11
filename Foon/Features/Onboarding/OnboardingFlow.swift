@@ -149,6 +149,7 @@ private struct AllergyStep: View {
             } else {
                 Section {
                     Text(AllergyConsent.statement).font(.callout)
+                    HealthDataPolicyLink()
                 } footer: {
                     // The same words as member allergies, so the promise reads the same wherever allergies are added.
                     Text("Foon flags dishes with these. It's a helper, not a guarantee: still check labels.")

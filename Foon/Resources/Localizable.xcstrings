@@ -1287,6 +1287,9 @@
     "Confirms with Apple, then deletes your account" : {
 
     },
+    "Consumer Health Data Policy" : {
+
+    },
     "Contains %@ (%@)" : {
       "comment" : "Allergy flag: allergen, then who",
       "localizations" : {
@@ -3159,6 +3162,9 @@
 
     },
     "Open the recipe" : {
+
+    },
+    "Opens Foon's policy for allergy information on the web" : {
 
     },
     "Opens Foon's privacy policy on the web" : {

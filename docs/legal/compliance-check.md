@@ -160,7 +160,7 @@ size.
 
 | Requirement | Citation | Where we meet it | Verdict | Fix |
 | --- | --- | --- | --- | --- |
-| Online notice linked on the home page and where kids' information is collected | 312.4(d) | Linked on the paywall and the kid invite and join screens (#282, #276); planned for the homepage, onboarding and Your data | partly | Code: homepage, onboarding and Your data (#281) |
+| Online notice linked on the home page and where kids' information is collected | 312.4(d) | Linked on the paywall, the kid invite and join screens, onboarding's agreement screen, Your data and the site footer on every page, homepage included (#282, #276, #277, #281) | met | |
 | Operator name, address, phone, email | 312.4(d)(1) | privacy.md Contact: LLC, postal address (#284), email; no phone | partly | Phone: decision 7 (whether email-only is accepted is UNVERIFIED) |
 | What's collected from kids, how it's used, who gets it | 312.4(d)(2) | privacy.md "Children under 13" (this PR), Kids, tables | partly → met in this PR | Wording (this PR) |
 | Retention policy in the notice | 312.4(d)(2), 312.10 | privacy.md How long we keep it; retention.md Kids | partly | Wording (this PR): retention.md stated to be part of the notice, with business need. The passes disagreed: one said met; this file takes partly |
