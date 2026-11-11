@@ -931,6 +931,9 @@
     "Agree and save" : {
 
     },
+    "Agree and turn on" : {
+
+    },
     "Agree to Foon's new allergy wording on Family first. Taking one away still works." : {
 
     },
@@ -1349,6 +1352,9 @@
     "Couldn't change who's home. Check your connection and try again." : {
 
     },
+    "Couldn't change your email. Check your connection and try again." : {
+
+    },
     "Couldn't check for changes, so allergies and favorites may be out of date." : {
 
     },
@@ -1751,6 +1757,9 @@
     "Effort: %@" : {
 
     },
+    "Email" : {
+
+    },
     "Email me" : {
 
     },
@@ -1980,6 +1989,9 @@
     "Foon doesn't ask for birthdays, phone numbers, or your location." : {
 
     },
+    "Foon doesn't send email yet. Try again later." : {
+
+    },
     "Foon drafts the week from your library and who's home each night. You can change any night." : {
 
     },
@@ -2134,6 +2146,9 @@
     },
     "Founding Family" : {
 
+    },
+    "Founding-family updates" : {
+      "comment" : "Family → Email: the switch's name"
     },
     "Free during the beta" : {
 
@@ -2487,6 +2502,9 @@
     },
     "Just added" : {
       "comment" : "Store mode: put on the list during this store run"
+    },
+    "Just for you, at the email Apple gave for your account. Nobody else in your family sees these settings." : {
+
     },
     "Keep %@ on hand" : {
 
@@ -3044,6 +3062,12 @@
     "Notifications for Foon are off. Turn them on in Settings." : {
 
     },
+    "Now and then, Foon emails you news for founding families: what's new, what's coming, and offers. They go to the email Apple gave for your account. Turn them off here anytime, or unsubscribe with the link in any of them." : {
+      "comment" : "What an adult agrees to when turning on founding-family updates. Must say exactly what the English says; see EmailOptIn.textVersion."
+    },
+    "Now and then, news about Foon for founding families." : {
+      "comment" : "Family → Email: what founding-family updates are"
+    },
     "Off" : {
       "comment" : "Family: the household doesn't use dinner jobs"
     },
@@ -3093,6 +3117,9 @@
 
     },
     "Only a parent in the family can delete a kid." : {
+
+    },
+    "Only adults can get email from Foon." : {
 
     },
     "Only an adult in the family can say they're heading to the store." : {
@@ -3731,6 +3758,9 @@
     "Shows what you can make tonight in the time there is" : {
 
     },
+    "Shows what you're agreeing to before it turns on." : {
+
+    },
     "Shuffle this night" : {
 
     },
@@ -4260,6 +4290,9 @@
     "The week starts on your shopping day." : {
 
     },
+    "The week's dinners, by email, when the week is approved." : {
+      "comment" : "Family → Email: what the weekly plan email is"
+    },
     "The week's hit: %@" : {
       "comment" : "Weekly recap: the dish the family liked most last week; the food, not the cook"
     },
@@ -4573,6 +4606,9 @@
     "Turn this off if you buy it fresh, and Foon skips thaw reminders and won't hold a dish back to give it time to thaw." : {
 
     },
+    "Turns this email off." : {
+
+    },
     "Two ways Foon takes work off your plate, with your own dinners. Try one, or skip ahead." : {
 
     },
@@ -4734,6 +4770,9 @@
     "Week starts" : {
 
     },
+    "Weekly plan email" : {
+      "comment" : "Family → Email: the switch's name"
+    },
     "Weeknight chili" : {
       "comment" : "Onboarding: the example recipe when the family has no dinners yet"
     },
@@ -4850,6 +4889,9 @@
     },
     "When you plan, when the week starts, dinner time, and what goes in a week." : {
 
+    },
+    "When your family's week is approved, Foon emails you its dinners at the email Apple gave for your account. It never includes allergies. Turn it off here anytime, or with the link in any of the emails." : {
+      "comment" : "What an adult agrees to when turning on the weekly plan email. Must say exactly what the English says; see EmailOptIn.textVersion."
     },
     "Which dish?" : {
 

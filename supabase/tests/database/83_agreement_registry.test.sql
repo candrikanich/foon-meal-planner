@@ -32,7 +32,7 @@ select ok((select bool_and(relrowsecurity) from pg_class
 select is((select array_agg(schedule order by jobname) from cron.job
            where jobname in ('apply-agreement-holds', 'kick-consent-renewals')),
   array['11 * * * *', '*/15 * * * *'], 'holds are applied hourly and renewal emails checked every 15 minutes');
-select is((select count(*)::int from public.agreement_versions), 8, 'eight wordings are registered');
+select is((select count(*)::int from public.agreement_versions), 10, 'ten wordings are registered (the two email opt-ins since #48)');
 select results_eq($$ select version from public.agreement_versions where effective_at <= now() order by version $$,
   $$ values ('allergy-data-v2'), ('own-allergy-v1'), ('parental-invite-v2'), ('parental-invite-v3'),
             ('privacy-draft-v1'), ('terms-draft-v1') $$,
@@ -48,7 +48,7 @@ select is((select summary from public.agreement_versions where version = 'parent
 
 -- Who reads and writes it -----------------------------------------------------------------------------------------------
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
-select is((select count(*)::int from public.agreement_versions), 8, 'anyone signed in reads the wordings');
+select is((select count(*)::int from public.agreement_versions), 10, 'anyone signed in reads the wordings');
 select throws_ok($$ insert into public.agreement_versions (version, kind, ordinal, summary)
                     values ('terms-v9', 'terms', 9, 'New terms.') $$,
   '42501', null, 'but can''t add one');

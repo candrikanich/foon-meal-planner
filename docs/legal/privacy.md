@@ -41,8 +41,9 @@ When you sign in with Apple, Apple gives us:
 - an email address, which can be Apple's private relay address if you chose "Hide My Email",
 - your first name, if you chose to share it.
 
-We use these to sign you in and to tell your account apart from others. We don't use your email for marketing. If you
-invite your kid to their own account, we use your email to ask for your consent (see Kids and parental consent).
+We use these to sign you in and to tell your account apart from others. We don't use your email for marketing unless
+you turn on founding-family updates (below). If you invite your kid to their own account, we use your email to ask for
+your consent (see Kids and parental consent).
 
 We also email adults a few messages about their own account:
 
@@ -56,8 +57,22 @@ anywhere else. Kids never get email from Foon. These emails are about your accou
 we keep no copy of them, and a record that one was queued or sent (its kind and date, never your address) is deleted
 after 30 days (see the Data Retention Policy).
 
+Two more emails are yours to turn on, in Foon under Family, then Email (adults only, both off until you do):
+
+- **The weekly plan email:** when your family's week is approved, the week's dinners (each night's dish or plan, using
+  your family's own names for its dishes), and a link to Foon. Never allergies, and nothing about who's home or
+  who's cooking.
+- **Founding-family updates:** now and then, news about Foon for founding families, including offers. This is
+  marketing, and only sent if you turn it on.
+
+Turning one on records that you agreed, when, and to which wording. These are just yours: nobody else in your household
+sees whether you turned them on. Each one has an unsubscribe link (and your mail app's own unsubscribe button), or turn
+it off in Foon; either way it stops at once. Your choice is deleted with your account, or when you leave or are removed
+from your household. Founding-family updates go only to adults who turned them on in Foon, not to the waitlist.
+
 > **Review:** account emails (#48) are built but switched off (`account_email_enabled`) until a privacy policy version
-> that lists them is in force; the public /privacy page doesn't list them yet.
+> that lists them is in force; the public /privacy page doesn't list them yet. The opt-in emails above join that
+> version (privacy-draft-v2, a separate PR).
 
 > **Review:** our hosting provider (Supabase) keeps sign-in records for the accounts it manages, which can include
 > device and network details. Confirm what Supabase Auth logs and for how long, and whether to say so here. [CHECK]
@@ -325,7 +340,7 @@ policy does. [CHECK: data processing agreements on file.]
 | --- | --- | --- |
 | Supabase | Database, sign-in, photo storage, server functions | Everything Foon keeps on its servers |
 | Apple | Sign in with Apple, push notifications, App Store payments | Sign-in, push tokens and text, subscriptions |
-| Resend | Sends waitlist emails, parental consent emails, and account emails to adults | Waitlist email addresses and names; a parent's email address and their kid's first name, in consent emails; an adult's email address in account emails (no names). Resend keeps its own logs of each email sent [CHECK: period] |
+| Resend | Sends waitlist emails, parental consent emails, and account emails to adults | Waitlist email addresses and names; a parent's email address and their kid's first name, in consent emails; an adult's email address in account emails (no names; the weekly plan email carries the family's dish names). Resend keeps its own logs of each email sent [CHECK: period] |
 | Vercel | Hosts the getfoon.com website | Website requests |
 
 Our servers are in the United States (Supabase's us-east-1 region, AWS, N. Virginia).

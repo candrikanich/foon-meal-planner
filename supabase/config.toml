@@ -406,6 +406,8 @@ verify_jwt = false
 verify_jwt = false
 
 # pg_cron calls it through pg_net with the ACCOUNT_EMAIL_CRON_SECRET header instead of a user's JWT; it checks that itself.
+# So do the opt-in emails' signed unsubscribe links (a mail app's one-click, the site's page) and the Founding update
+# Action (FOUNDING_UPDATES_SECRET).
 [functions.account-email]
 verify_jwt = false
 

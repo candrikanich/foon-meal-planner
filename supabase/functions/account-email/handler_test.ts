@@ -30,6 +30,10 @@ function fakeDeps(rows: ClaimedEmail[][], overrides: Partial<AccountEmailDeps> =
     },
     now: () => 0,
     log: (message, detail) => logs.push(`${message} ${detail ?? ""}`),
+    weeklyPlan: () => Promise.resolve(null),
+    foundingUpdate: () => Promise.resolve({ subject: "Big news", body: "We launched." }),
+    unsubscribeUrl: (kind, userId) => Promise.resolve(`https://x/account-email?unsubscribe=${kind}.${userId}.sig`),
+    postalAddress: ["PO Box 1", "Town, OH 44000"],
     ...overrides,
   };
   return { deps, sent, steps, logs };
@@ -165,4 +169,80 @@ Deno.test("a database error ends the run with a 500; what's claimed goes out aga
   assertEquals(response.status, 500);
   assertEquals((await response.json()).error, "run_failed");
   assert(logs.some((line) => line.includes("db down")));
+});
+
+// Opt-in emails ------------------------------------------------------------------------------------------------------------
+
+const alice = "a0000000-0000-0000-0000-00000000000a";
+const weeklyRow = (id: string, planId = "p1"): ClaimedEmail => ({
+  id,
+  kind: "weekly_plan",
+  email: `${id}@example.com`,
+  payload: { plan_id: planId, user_id: alice },
+  attempts: 1,
+});
+const foundingRow = (id: string, updateId = "u1"): ClaimedEmail => ({
+  id,
+  kind: "founding_update",
+  email: `${id}@example.com`,
+  payload: { update_id: updateId, user_id: alice },
+  attempts: 1,
+});
+const week = {
+  week_start: "2026-11-16",
+  nights: [{ date: "2026-11-16", meal: "Tacos", quick_pick: null, away: false }],
+};
+
+Deno.test("the weekly plan email reads the week when it's sent, with the person's own unsubscribe link", async () => {
+  const asked: string[] = [];
+  const { deps, sent, steps } = fakeDeps([[weeklyRow("w")]], {
+    weeklyPlan: (planId) => {
+      asked.push(planId);
+      return Promise.resolve(week);
+    },
+  });
+  const response = await handleAccountEmail(post(), deps);
+  assertEquals(await response.json(), { sent: 1, failed: 0, unwritable: 0 });
+  assertEquals(asked, ["p1"]);
+  assertEquals(sent[0].to, "w@example.com");
+  assertEquals(sent[0].subject, "Your family's dinners for the week of November 16");
+  assertStringIncludes(sent[0].text, "Monday, November 16: Tacos");
+  assertEquals(sent[0].headers?.["List-Unsubscribe"], `<https://x/account-email?unsubscribe=weekly_plan.${alice}.sig>`);
+  assertEquals(sent[0].headers?.["List-Unsubscribe-Post"], "List-Unsubscribe=One-Click");
+  assertEquals(sent[0].idempotencyKey, "account-email/w");
+  assertEquals(steps.slice(1), ["sent w"]);
+});
+
+Deno.test("a week that's no longer approved is given up", async () => {
+  const { deps, sent, steps } = fakeDeps([[weeklyRow("w")]], { weeklyPlan: () => Promise.resolve(null) });
+  await handleAccountEmail(post(), deps);
+  assertEquals(sent, []);
+  assertEquals(steps.slice(1), ["release w not_approved true"]);
+});
+
+Deno.test("a founding update goes with the postal address and its unsubscribe link", async () => {
+  const { deps, sent } = fakeDeps([[foundingRow("f")]]);
+  await handleAccountEmail(post(), deps);
+  assertEquals(sent[0].subject, "Big news");
+  assertStringIncludes(sent[0].text, "PO Box 1");
+  assertStringIncludes(sent[0].text, `founding_updates.${alice}.sig`);
+  assertEquals(sent[0].headers?.["List-Unsubscribe-Post"], "List-Unsubscribe=One-Click");
+});
+
+Deno.test("no founding update goes without the postal address, and one that's gone isn't written", async () => {
+  const unset = fakeDeps([[foundingRow("f")]], { postalAddress: null });
+  await handleAccountEmail(post(), unset.deps);
+  assertEquals(unset.sent, []);
+  assertEquals(unset.steps.slice(1), ["release f no_postal_address true"]);
+
+  const gone = fakeDeps([[foundingRow("g")]], { foundingUpdate: () => Promise.resolve(null) });
+  await handleAccountEmail(post(), gone.deps);
+  assertEquals(gone.steps.slice(1), ["release g no_words true"]);
+});
+
+Deno.test("an opt-in row without its person isn't written", async () => {
+  const row: ClaimedEmail = { ...weeklyRow("w"), payload: { plan_id: "p1" } };
+  const { deps, steps } = fakeDeps([[row]]);
+  await handleAccountEmail(post(), deps);
+  assertEquals(steps.slice(1), ["release w no_words true"]);
 });
