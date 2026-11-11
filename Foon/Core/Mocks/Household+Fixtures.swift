@@ -69,7 +69,7 @@ extension HouseholdClient {
                 (members.first { $0.id == memberID } ?? .fixture(id: memberID)).applying(changes)
             },
             createInvite: { _ in "THESM-7KQ4-M9XP" },
-            redeemInvite: { _ in .invalid },
+            redeemInvite: { _, _ in .invalid },
             invitedMemberIDs: { _ in [] },
             parentalConsentMemberIDs: { _ in [] },
             requestParentalConsent: { _, _ in .sent(requestID: UUID(), email: "ann@example.com", source: .account) },

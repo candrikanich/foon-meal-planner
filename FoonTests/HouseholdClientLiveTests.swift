@@ -72,11 +72,13 @@ struct HouseholdClientLiveTests {
         #expect(try await parent.invitedMemberIDs(household.id) == [grace.id])
 
         let newcomer = try await Self.signedUpClient()
-        #expect(try await newcomer.redeemInvite("WRONG-2222-2222") == .invalid)
-        #expect(try await newcomer.redeemInvite(InviteCode.normalized(code)) == .claimed)
+        #expect(try await newcomer.redeemInvite("WRONG-2222-2222", .unknown) == .invalid)
+        // The band reaches the server (#88): a minor's account can't claim an adult's profile.
+        #expect(try await newcomer.redeemInvite(InviteCode.normalized(code), .from13To15) == .ageMismatch)
+        #expect(try await newcomer.redeemInvite(InviteCode.normalized(code), .adult) == .claimed)
         #expect(try await newcomer.myHousehold()?.id == household.id)
         #expect(try await parent.invitedMemberIDs(household.id).isEmpty, "a redeemed invite is no longer open")
-        #expect(try await newcomer.redeemInvite(code) == .hasHousehold)
+        #expect(try await newcomer.redeemInvite(code, .adult) == .hasHousehold)
         #expect(try await newcomer.parentalConsentRequests(household.id).isEmpty, "only parents read the requests")
     }
 

@@ -14,7 +14,9 @@ struct HouseholdClient: Sendable {
     var updateMember: @Sendable (_ memberID: UUID, _ changes: MemberChanges) async throws -> Member
     /// Returns the code to share; it is shown once and stored only as a hash.
     var createInvite: @Sendable (_ memberID: UUID) async throws -> String
-    var redeemInvite: @Sendable (_ code: String) async throws -> RedeemResult
+    /// Claims the profile behind the code. `ageBand` is Apple's age range for this account (#88): the server refuses a
+    /// minor's account claiming an adult's profile and an adult's claiming a kid's, and only when the band is sent.
+    var redeemInvite: @Sendable (_ code: String, _ ageBand: AgeBand) async throws -> RedeemResult
     /// Profiles with an invite that is still open (parents only; others get none).
     var invitedMemberIDs: @Sendable (_ householdID: UUID) async throws -> Set<UUID>
     /// Kids whose parental consent is active.
@@ -170,8 +172,9 @@ extension HouseholdClient {
             createInvite: { memberID in
                 try await client.rpc("create_invite", params: ["target_member": memberID]).execute().value
             },
-            redeemInvite: { code in
-                try await client.rpc("redeem_invite", params: ["code": code]).execute().value
+            redeemInvite: { code, ageBand in
+                try await client.rpc("redeem_invite", params: ["code": code, "age_band": ageBand.rawValue])
+                    .execute().value
             },
             invitedMemberIDs: { householdID in
                 let rows: [OpenInvite] = try await client.from("invites")

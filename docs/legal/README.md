@@ -53,8 +53,8 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 - [ ] The written information security program (312.8(b)): who is named, and what goes in it.
 - [ ] Texas SB 2420 (§121.053–121.055): store notice before significant policy changes, age verification, and
       deleting the App Store's age data after use.
-- [ ] Age at sign-up: the app doesn't check it today (Apple's age range check is #88). Is that acceptable, along with
-      Texas's App Store Accountability Act?
+- [ ] Age at sign-up: the app doesn't check it; Apple's age range is asked only when someone claims a profile (#88).
+      Is that acceptable, along with Texas's App Store Accountability Act?
 
 ### Allergies as health data
 
@@ -142,8 +142,10 @@ Found by the compliance self-check ([compliance-check.md](compliance-check.md), 
   getfoon.com/consumer-health-data is a plain summary until the reviewed policy replaces it. Still to do after review:
   the App Store description's links, and whether a footer link is "prominent" enough on the homepage
   (RCW 19.373.020(1)(b)).
-- Age assurance (#88) isn't built: Texas SB 2420 is in force; California, Utah and Louisiana follow in 2027.
-- No notice to the App Store before a significant change to the terms or privacy policy (Texas §121.053).
+- Age assurance (#88) is partly built: the age range is asked when someone claims a profile, and a significant-change
+  hook exists (iOS 26.4+, no change qualifies yet); consent revoked through Apple waits for Phase 4. Texas SB 2420 is
+  in force; California, Utah and Louisiana follow in 2027.
+- Which changes to the terms or privacy policy count as significant (Texas §121.053) isn't decided.
 - The delete-account screen doesn't say billing continues through Apple or how to cancel.
 - Allergy consent is one household-wide agreement, and only parents can give or withdraw it for the household or
   change anyone's allergies. An adult can add and remove their own in the app (#285), adding only under that

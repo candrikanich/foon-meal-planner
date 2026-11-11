@@ -762,15 +762,16 @@ final class HouseholdStore {
         return true
     }
 
-    /// Joins the household behind an invite code, then loads it.
-    func redeem(_ typedCode: String) async {
+    /// Joins the household behind an invite code, then loads it. `ageBand` is Apple's age range for this account,
+    /// asked for once on the join screen (#88).
+    func redeem(_ typedCode: String, ageBand: AgeBand) async {
         errorMessage = nil
         guard InviteCode.isComplete(typedCode) else {
             errorMessage = RedeemResult.invalid.message
             return
         }
         do {
-            let result = try await client.redeemInvite(InviteCode.normalized(typedCode))
+            let result = try await client.redeemInvite(InviteCode.normalized(typedCode), ageBand)
             guard result == .claimed else {
                 errorMessage = result.message
                 return

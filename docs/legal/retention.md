@@ -114,7 +114,7 @@ and help. We never use it for ads, never sell it, and never send it anywhere for
 | Consent requests about the kid (status, times, and whether it was a first consent or a renewal) | Asking a parent by email | Shows the parent where the request stands, and keeps the withdraw link working | 30 days after the request ends; at once if a parent deletes everything about the kid |
 | Agreement hold (#277): wording agreed and needed, when held and released, why; their account ID while held | Asking a parent again when the consent wording changes | Proof the kid was signed out until a parent agreed; the account ID links them back | Hold: while the household exists, or until a parent deletes everything about the kid. Account ID: until the hold ends |
 | Apple account ID and email (from Sign in with Apple), and first name if Apple shares it | Signing in | Needed for each sign-in | Until the kid deletes their account, or a parent deletes everything about them. The bare account ID in their Terms and Privacy acceptances stays after the kid deletes their account (see Deleting below) |
-| Apple age range (#88, not yet used) | Age checks | See the note on Texas below | Until consent is withdrawn (30 days) or the account is deleted |
+| Apple age range (#88), asked once when they join | Age checks | See the note on Texas below | Until consent is withdrawn (30 days) or the account is deleted |
 | What they enter (ratings, comments, votes) | Family planning | It's the family's dinner history, which planning draws on | As for all; erased 30 days after withdrawal |
 | Their device's push token | Reminders | Needed to deliver each reminder | Until sign-out, reminders off, unlinking, or removal |
 | Reminders sent to them | Budgets, quiet hours | To keep to the daily reminder budget and quiet hours | 8 weeks, or sooner: see below |
@@ -123,7 +123,7 @@ Everything a household holds about a kid is deleted when the household is delete
 the note below), unless a parent deletes everything about them first.
 
 > **Review:** Texas's App Store Accountability Act (SB 2420, §121.055(b)) says a developer must delete the age data it
-> gets from the App Store once it has used it to verify age. If #88 stores Apple's age range as planned above, that
+> gets from the App Store once it has used it to verify age. #88 stores Apple's age range as planned above, so that
 > conflicts. Decide whether to keep only a derived kid/adult flag. See compliance-check.md.
 
 > **Review:** withdrawing consent or removing a kid unlinks their sign-in account but doesn't delete it, so the Apple
