@@ -43,7 +43,10 @@ struct MemberAllergiesView: View {
                         if let block = model.addBlock {
                             addBlockSection(block)
                         } else if model.showsStatement {
-                            Section { Text(AllergyConsent.statement).font(.callout) }
+                            Section {
+                                Text(AllergyConsent.statement).font(.callout)
+                                HealthDataPolicyLink()
+                            }
                         }
                         Section {
                             AllergenChips(selection: $model.answer.allergens)
