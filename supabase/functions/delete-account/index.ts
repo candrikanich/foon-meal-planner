@@ -1,9 +1,12 @@
 // Deletes the caller's account (#29), or only the household they own. Needs the service role (only here, never in the
 // app) and the Sign in with Apple key as secrets: APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_CLIENT_ID (the bundle id),
-// APPLE_PRIVATE_KEY.
+// APPLE_PRIVATE_KEY. The deletion receipt (#48) goes out with RESEND_API_KEY and ACCOUNT_EMAIL_FROM set and
+// app_config.account_email_enabled on; ACCOUNT_EMAIL_SITE_URL overrides https://getfoon.com for its privacy link.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { resendConfigFromEnv, sendEmail } from "../_shared/resend.ts";
 import { appleConfigFromEnv, revokeAppleToken } from "./apple.ts";
 import { handleDeleteAccount } from "./handler.ts";
+import { DEFAULT_SITE_URL, deletionReceipt } from "./receipt.ts";
 
 function required(key: string): string {
   const value = Deno.env.get(key);
@@ -15,6 +18,8 @@ const admin = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_
   auth: { persistSession: false, autoRefreshToken: false },
 });
 const apple = appleConfigFromEnv((key) => Deno.env.get(key));
+const resend = resendConfigFromEnv((key) => Deno.env.get(key), "ACCOUNT_EMAIL_FROM");
+const siteUrl = Deno.env.get("ACCOUNT_EMAIL_SITE_URL") || DEFAULT_SITE_URL;
 const bucket = "household-photos";
 
 // Every object under the household's folder; Storage lists one level at a time.
@@ -72,6 +77,14 @@ Deno.serve((req) =>
       const { error } = await admin.auth.admin.deleteUser(userID);
       if (error) throw error;
     },
+    receiptAddress: async (userID) => {
+      const { data, error } = await admin.rpc("deletion_receipt_address", { account: userID });
+      if (error) throw error;
+      return (data as string | null) ?? null;
+    },
+    sendReceipt: resend
+      ? (to, scope) => sendEmail(resend, { to, ...deletionReceipt(scope, siteUrl) })
+      : null,
     // Ids and status codes only: no names, tokens, or household data in logs.
     log: (message, error) => console.error(message, error instanceof Error ? error.message : error),
   })

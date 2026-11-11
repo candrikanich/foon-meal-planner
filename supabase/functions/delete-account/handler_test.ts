@@ -28,6 +28,8 @@ function fakeDeps(overrides: Partial<DeleteAccountDeps> = {}): { deps: DeleteAcc
       steps.push(`user ${user}`);
       return Promise.resolve();
     },
+    receiptAddress: () => Promise.resolve(null),
+    sendReceipt: null,
     log: () => {},
     ...overrides,
   };
@@ -141,4 +143,83 @@ Deno.test("delete household: ownership moving mid-way isn't reported as deleted"
     deleteHouseholdData: () => Promise.resolve("not_owner"),
   });
   assertEquals((await handleDeleteAccount(request({ scope: "household" }), deps)).status, 403);
+});
+
+// Deletion receipts (#48).
+function withReceipts(overrides: Partial<DeleteAccountDeps> = {}) {
+  const sent: string[] = [];
+  const logs: string[] = [];
+  const faked = fakeDeps({
+    receiptAddress: (user) => {
+      faked.steps.push(`address ${user}`);
+      return Promise.resolve("pat@example.com");
+    },
+    sendReceipt: (to, scope) => {
+      sent.push(`${to} ${scope}`);
+      return Promise.resolve();
+    },
+    log: (message) => logs.push(message),
+    ...overrides,
+  });
+  return { ...faked, sent, logs };
+}
+
+Deno.test("receipt: the address is read before anything is deleted, and the email goes once it's all done", async () => {
+  const { deps, steps, sent } = withReceipts();
+  const response = await handleDeleteAccount(request({ authorization_code: "c1" }), deps);
+  assertEquals(response.status, 200);
+  assertEquals(steps, ["revoke c1 apple-1", "address user-1", "data user-1", "user user-1"]);
+  assertEquals(sent, ["pat@example.com account"]);
+});
+
+Deno.test("receipt: an owner's says the household went too", async () => {
+  const { deps, sent } = withReceipts({
+    ownedHousehold: () => Promise.resolve("house-1"),
+    deleteAccountData: () => Promise.resolve("household_deleted"),
+  });
+  await handleDeleteAccount(request({ authorization_code: "c1" }), deps);
+  assertEquals(sent, ["pat@example.com account_and_household"]);
+});
+
+Deno.test("receipt: delete household emails only the person who deleted it", async () => {
+  const { deps, steps, sent } = withReceipts({ ownedHousehold: () => Promise.resolve("house-1") });
+  const response = await handleDeleteAccount(request({ scope: "household" }), deps);
+  assertEquals(response.status, 200);
+  assertEquals(steps, ["address user-1", "photos house-1", "household data user-1"]);
+  assertEquals(sent, ["pat@example.com household"]);
+});
+
+Deno.test("receipt: none when there's no address (email off, a kid, or no verified email)", async () => {
+  const { deps, sent } = withReceipts({ receiptAddress: () => Promise.resolve(null) });
+  assertEquals((await handleDeleteAccount(request({ authorization_code: "c1" }), deps)).status, 200);
+  assertEquals(sent, []);
+});
+
+Deno.test("receipt: none when email isn't configured, and the address isn't even read", async () => {
+  const { deps, steps } = withReceipts({ sendReceipt: null });
+  assertEquals((await handleDeleteAccount(request({ authorization_code: "c1" }), deps)).status, 200);
+  assertEquals(steps, ["revoke c1 apple-1", "data user-1", "user user-1"]);
+});
+
+Deno.test("receipt: none when the deletion fails part-way", async () => {
+  const { deps, sent } = withReceipts({ deleteUser: () => Promise.reject(new Error("auth down")) });
+  assertEquals((await handleDeleteAccount(request({ authorization_code: "c1" }), deps)).status, 500);
+  assertEquals(sent, []);
+});
+
+Deno.test("receipt: a failed send or lookup never fails the deletion, and logs no address", async () => {
+  const failedSend = withReceipts({ sendReceipt: () => Promise.reject(new Error("Resend answered 500")) });
+  const response = await handleDeleteAccount(request({ authorization_code: "c1" }), failedSend.deps);
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), { result: "profile_anonymized" });
+  assertEquals(failedSend.logs, ["deletion receipt not sent (resend_500)"]);
+
+  const failedLookup = withReceipts({
+    ownedHousehold: () => Promise.resolve("house-1"),
+    receiptAddress: () => Promise.reject(new Error("db down")),
+  });
+  const household = await handleDeleteAccount(request({ scope: "household" }), failedLookup.deps);
+  assertEquals(household.status, 200);
+  assertEquals(failedLookup.sent, []);
+  assertEquals(failedLookup.logs, ["deletion receipt: address lookup failed"]);
 });

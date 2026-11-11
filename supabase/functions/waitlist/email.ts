@@ -1,29 +1,11 @@
 // The confirmation email, through Resend (_shared/resend.ts). With no RESEND_API_KEY or WAITLIST_FROM nothing is sent.
-import {
-  escapeHtml,
-  POSTAL_ADDRESS,
-  type ResendConfig,
-  sendEmail,
-  SENDER,
-} from "../_shared/resend.ts";
+import { escapeHtml, type ResendConfig, sendEmail } from "../_shared/resend.ts";
+import { commercialFooter, unsubscribeHeaders } from "../_shared/email_layout.ts";
 
 // CAN-SPAM: the confirmation carries the founding-family offer, so it's commercial. Every waitlist email ends with this
 // footer: who sent it, a valid postal address, and a working unsubscribe link.
-export function emailFooter(unsubscribeUrl: string) {
-  const text = [
-    "--",
-    SENDER,
-    ...POSTAL_ADDRESS,
-    `Unsubscribe (deletes your address right away): ${unsubscribeUrl}`,
-  ].join("\n");
-  const html = `<p style="color:#6b6058;font-size:13px">${
-    [SENDER, ...POSTAL_ADDRESS].map(escapeHtml).join("<br>")
-  }<br>
-<a href="${
-    escapeHtml(unsubscribeUrl)
-  }">Unsubscribe</a> (deletes your address right away).</p>`;
-  return { text, html };
-}
+export const emailFooter = (unsubscribeUrl: string) =>
+  commercialFooter(unsubscribeUrl, "deletes your address right away");
 
 // Nothing the signer typed goes into the email: it comes from our domain before anyone has confirmed it's theirs, so a
 // typed name could carry someone else's words.
@@ -62,9 +44,6 @@ export async function sendViaResend(
   await sendEmail(config, {
     to,
     ...confirmationEmail(message),
-    headers: {
-      "List-Unsubscribe": `<${message.unsubscribeUrl}>`,
-      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-    },
+    headers: unsubscribeHeaders(message.unsubscribeUrl),
   }, post);
 }
