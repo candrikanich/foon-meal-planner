@@ -24,6 +24,9 @@ struct HouseholdClient: Sendable {
     /// Emails the parent the consent notice (COPPA email plus, #275); `email` only after a `.noEmail` answer.
     /// A refusal throws `ParentalConsentError`.
     var requestParentalConsent: @Sendable (_ memberID: UUID, _ email: String?) async throws -> ParentalConsentAnswer
+    /// Emails an adult's open invite to the address a parent typed (#48 PR B); the address isn't kept anywhere. A refusal
+    /// throws `InviteEmailError`.
+    var emailInvite: @Sendable (_ request: InviteEmailRequest) async throws -> Void = { _ in }
     /// The household's consent requests, newest first (parents only; others get none).
     var parentalConsentRequests: @Sendable (_ householdID: UUID) async throws -> [ParentalConsentRequest] = { _ in [] }
     /// Unlinks the kid's account at once (the database does it when consent is revoked).
@@ -205,6 +208,14 @@ extension HouseholdClient {
                     }
                 } catch FunctionsError.httpError(let code, let data) {
                     return try ParentalConsentAnswer.decode(status: code, body: data)
+                }
+            },
+            emailInvite: { request in
+                let options = FunctionInvokeOptions(query: InviteEmailRequest.query, body: request)
+                do {
+                    try await client.functions.invoke(InviteEmailRequest.function, options: options)
+                } catch FunctionsError.httpError(let code, let data) {
+                    throw InviteEmailError(status: code, body: data)
                 }
             },
             parentalConsentRequests: { householdID in

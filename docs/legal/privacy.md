@@ -80,8 +80,8 @@ If you email an invite to another adult, Foon uses the address you type only to 
 
 > **Review:** account emails (#48) are built and listed here since `privacy-draft-v2` (#48 PR D), which also put the
 > two opt-in wordings (`weekly-plan-email-v1`, `founding-updates-v1`) in force. Nothing is sent until
-> `account_email_enabled` is turned on. Emailing an adult's invite is approved but not built yet (#48 PR B, after
-> #314); the sentence above is conditional ("If you email an invite") so the policy needn't change again when it ships.
+> `account_email_enabled` is turned on. Emailing an adult's invite is built (#48 PR B) and off with it: a parent types
+> the address in the app, it goes only to Resend for that one email, and Foon never stores or logs it.
 
 > **Review:** our hosting provider (Supabase) keeps sign-in records for the accounts it manages, which can include
 > device and network details. Confirm what Supabase Auth logs and for how long, and whether to say so here. [CHECK]
@@ -183,10 +183,11 @@ household can see its subscription status.
   in the app (an email's, each time you turn it on). Kept after your account is deleted, as proof of what you agreed
   to, with nothing else about you. Deleted with the rest of a kid's information when a parent deletes everything about
   them.
-- **Invites.** An invite records who it's for, who made it, and when it was used. Only a scrambled form of the code is
+- **Invites.** An invite records who it's for, who made it, when it was used, and how many times it was emailed. Only a scrambled form of the code is
   stored. Invites are deleted 30 days after they expire, are used or are cancelled.
 - **Safety counters.** To stop someone guessing invite codes, we record each attempt to use a code, wrong or right,
-  for 1 day. To keep the recipe importer fair, we count how many links each account reads a day, and delete those
+  for 1 day. To stop emailed invites being misused, we record who emailed one, for which household and when (never
+  the address), for 1 day. To keep the recipe importer fair, we count how many links each account reads a day, and delete those
   counts after 7 days.
 
 > **Review:** we don't currently use analytics or crash reporting in the app. If we add them (#28), this policy, the App

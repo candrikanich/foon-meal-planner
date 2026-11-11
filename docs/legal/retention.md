@@ -25,6 +25,7 @@ Scheduled jobs run in the database (pg_cron), every day unless noted. Times are 
 | M | `prune_email_outbox()` | `20261121000000_account_email.sql` | Daily, 03:47 |
 | W | `prune_waitlist()` | `20261108000000_waitlist.sql` | Daily, 04:17 |
 | C | `purge_parental_consent_requests()` | `20261116000000_email_plus_consent.sql` | Daily, 04:23 |
+| I | `prune_invite_email_sends()` | `20261128000000_invite_email.sql` | Daily, 04:59 |
 | J | `expire_ai_jobs()` | `20261103210000_ai_jobs.sql` | Hourly, :41 |
 | E | `erase_household()` | `20261117000000_agreements.sql` | On Delete household or the owner's account delete |
 | D | `delete_account_data()` | `20261103040000_kid_delete_own_words.sql` | On Delete my account |
@@ -85,6 +86,7 @@ open since the new wordings came into force, `20261119000000_agreements_in_force
 | Parental consent requests (`parental_consent_requests`): kid, parent who asked, status, times | 30 days | Request ends: confirmed, refused, cancelled, or its 7-day link lapses | C |
 | An email address a parent typed for a consent request (their account had none) | Until the confirming email is sent or the request ends: at most 7 days, and up to a day more | Typed | `activate_parental_consent()`, the request's end, C |
 | Consent email bookkeeping (`parental_consent_sends`: who asked, when) | 1 day | Send | C |
+| Emailed-invite bookkeeping (`invite_email_sends`: household, who sent it, when; never the address) | 1 day | Send | I |
 | Renewal requests for a held kid (#277): one per parent with a verified email, and one reminder 7 days on | 30 days, as other consent requests | Request ends | C |
 
 ## People who leave
@@ -257,8 +259,12 @@ household is erased (trigger `members_forget_email_preferences`, cascade from th
 that email's waiting rows at once (`opted_out`). The text of each founding-family update (`founding_updates`: subject
 and body, no personal data) is kept as the record of what was sent.
 
-An invite an adult emails to another adult (#48 PR B, approved, not built yet) is to be sent directly and never queued:
-the typed address is used for that one email and not stored anywhere in Foon.
+An invite a parent emails to another adult (#48 PR B) is sent directly and never queued: the typed address goes only
+to Resend for that one email, and isn't stored, logged or sent back anywhere in Foon. The rate limit keeps a send record
+(`invite_email_sends`: the household, who sent it and when, never the address), deleted after a day
+(`prune_invite_email_sends()`, `20261128000000_invite_email.sql`, daily at 04:59) or with the household (cascade).
+The invite itself counts how many times it was emailed (`invites.emails_sent`, at most 3), and goes with the invite.
+No limit is ever counted by recipient.
 
 The confirmed waitlist gets only a launch email, never founding-family updates (decided 2026-11-11); see Website and
 waitlist.

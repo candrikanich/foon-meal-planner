@@ -155,6 +155,8 @@ select public.apply_subscription_notification(gen_random_uuid(), '00000000-0000-
 -- The household's insert already queued the owner's welcome (#48); one for another adult too.
 insert into public.email_outbox (household_id, user_id, kind, dedupe_key) values
   ('00000000-0000-0000-0000-0000000000a0', 'b0000000-0000-0000-0000-00000000000b', 'welcome', 'seed-bob');
+insert into public.invite_email_sends (household_id, sent_by) values
+  ('00000000-0000-0000-0000-0000000000a0', 'a0000000-0000-0000-0000-00000000000a');
 select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 
 -- Clients never call it, not even the owner: it goes through the Edge Function, which removes photos first.
