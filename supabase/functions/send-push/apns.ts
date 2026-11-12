@@ -160,6 +160,10 @@ export function payloadFor(alert: Alert, route: Route | null): ApnsPayload {
 
 const deadReasons = new Set(["BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic"]);
 
+// Apple's reasons are short PascalCase words (the longest about 35 letters). Anything else, a 64-character token
+// included, isn't logged.
+const appleReason = /^[A-Z][A-Za-z]{1,39}$/;
+
 // Deno's fetch speaks HTTP/2 to APNs (it negotiates it over TLS). A network error is worth another try.
 export async function deliver(
   device: Device,
@@ -168,6 +172,8 @@ export async function deliver(
   topic: string = defaultTopic,
   fetchFn: typeof fetch = fetch,
   now: Date = new Date(),
+  // Told why a push didn't go, for the logs: "production 400 TopicDisallowed". Never the token.
+  onRefused: (refusal: string) => void = () => {},
 ): Promise<DeliveryResult> {
   let response: Response;
   try {
@@ -185,6 +191,7 @@ export async function deliver(
       body: JSON.stringify(payload),
     });
   } catch {
+    onRefused(`${device.environment} network error`);
     return "retry";
   }
   if (response.ok) {
@@ -192,6 +199,8 @@ export async function deliver(
     return "delivered";
   }
   const reason = await response.json().then((body: { reason?: unknown }) => body.reason).catch(() => undefined);
+  const shown = typeof reason === "string" && appleReason.test(reason) ? reason : "(no reason)";
+  onRefused(`${device.environment} ${response.status} ${shown}`);
   if (response.status === 410 || (typeof reason === "string" && deadReasons.has(reason))) return "dead_token";
   return "retry";
 }
