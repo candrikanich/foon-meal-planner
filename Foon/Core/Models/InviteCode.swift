@@ -11,26 +11,45 @@ enum InviteCode {
         normalized(typed).count >= 8
     }
 
+    /// Where this build's invites point. Foon QA (the Staging build, docs/foon-qa.md) has its own path and scheme, so a
+    /// QA invite opens Foon QA and a family invite opens Foon when both are installed: getfoon.com's association file
+    /// gives `/invite` to Foon and `/qa/invite` to Foon QA.
+    struct Links: Equatable, Sendable {
+        let invitePath: String
+        let scheme: String
+
+        static let production = Links(invitePath: "/invite", scheme: "foon")
+        static let qa = Links(invitePath: "/qa/invite", scheme: "foonqa")
+
+        /// From the Info.plist keys project.yml sets per config.
+        static let current = Links(
+            invitePath: Bundle.main.object(forInfoDictionaryKey: "FoonInvitePath") as? String ?? production.invitePath,
+            scheme: Bundle.main.object(forInfoDictionaryKey: "FoonURLScheme") as? String ?? production.scheme
+        )
+    }
+
     /// A universal link (#85): it opens Foon when it's installed, and getfoon.com's invite page when it isn't. A fresh
     /// install loses the link, so the message carries the code too. getfoon.com redirects to www, and Apple doesn't
     /// follow redirects to the association file, so the link uses www.
-    static func link(for code: String) -> URL {
+    static func link(for code: String, links: Links = .current) -> URL {
         var link = URLComponents()
         link.scheme = "https"
         link.host = "www.getfoon.com"
-        link.path = "/invite"
+        link.path = links.invitePath
         link.queryItems = [URLQueryItem(name: "code", value: code)]
         return link.url!
     }
 
-    /// Also takes `foon://invite/<code>`, which invites sent before #85 carry.
-    static func code(from url: URL) -> String? {
+    /// Also takes `<scheme>://invite/<code>` in this build's own scheme, which invites sent before #85 carry. Either
+    /// app takes either web path: iOS only hands each app its own, and a code from the other environment's server just
+    /// fails to redeem, so there's no need to refuse it here.
+    static func code(from url: URL, links: Links = .current) -> String? {
         let code: String?
         switch (url.scheme, url.host()) {
-        case ("foon", "invite"):
+        case (links.scheme, "invite"):
             code = url.lastPathComponent
         case ("https", "www.getfoon.com"), ("https", "getfoon.com"):
-            guard url.path() == "/invite" else { return nil }
+            guard [Links.production.invitePath, Links.qa.invitePath].contains(url.path()) else { return nil }
             code = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                 .queryItems?.first { $0.name == "code" }?.value
         default:
@@ -40,10 +59,10 @@ enum InviteCode {
         return code
     }
 
-    static func shareMessage(householdName: String, firstName: String, code: String) -> String {
+    static func shareMessage(householdName: String, firstName: String, code: String, links: Links = .current) -> String {
         String(localized: """
             \(firstName), join \(householdName) on Foon, our family dinner planner.
-            Open \(link(for: code).absoluteString), or sign in and enter code \(code).
+            Open \(link(for: code, links: links).absoluteString), or sign in and enter code \(code).
             """, comment: "Invite text: invitee's first name, household name, link, invite code")
     }
 }

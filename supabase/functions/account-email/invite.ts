@@ -35,13 +35,34 @@ export interface InviteEmailDeps {
   // Null when RESEND_API_KEY or ACCOUNT_EMAIL_FROM isn't set.
   send: ((email: Email) => Promise<void>) | null;
   reserve(jwt: string, memberId: string, code: string): Promise<InviteReservation>;
+  // Foon's /invite unless this project serves Foon QA (invitePathFromEnv).
+  invitePath?: InvitePath;
   // Ids and codes only: never the address, a name or the invite code.
   log(message: string, error?: unknown): void;
 }
 
+// The app that opens an invite link: /invite is Foon's, /qa/invite Foon QA's, the staging test app (docs/foon-qa.md),
+// so on a phone with both the link opens the app whose server made the code. Staging sets INVITE_PATH=/qa/invite.
+export const invitePaths = ["/invite", "/qa/invite"] as const;
+export type InvitePath = (typeof invitePaths)[number];
+
+// A typo falls back to /invite and is logged rather than thrown: throwing at load would take down every route of the
+// function, unsubscribe included.
+export function invitePathFromEnv(
+  get: (key: string) => string | undefined,
+  warn: (message: string) => void,
+): InvitePath {
+  const value = get("INVITE_PATH")?.trim() || "/invite";
+  const path = invitePaths.find((known) => known === value);
+  if (path) return path;
+  warn(`INVITE_PATH must be one of ${invitePaths.join(", ")}; using /invite`);
+  return "/invite";
+}
+
 // The same link as the app's InviteCode.link(for:): www, because Apple doesn't follow getfoon.com's redirect to the
 // association file.
-export const inviteLink = (code: string) => `https://www.getfoon.com/invite?code=${encodeURIComponent(code)}`;
+export const inviteLink = (code: string, path: InvitePath = "/invite") =>
+  `https://www.getfoon.com${path}?code=${encodeURIComponent(code)}`;
 
 // What the app is told for each refusal.
 const refusals: Record<InviteRefusal, number> = {
@@ -105,7 +126,10 @@ export function plainName(value: string | null | undefined): string {
 }
 
 // Our own words, with the family's names only as labeled plain text (escaped in the HTML), and our own link only.
-export function inviteEmail(invite: Extract<InviteReservation, { outcome: "send" }>): Omit<Email, "to"> {
+export function inviteEmail(
+  invite: Extract<InviteReservation, { outcome: "send" }>,
+  path: InvitePath = "/invite",
+): Omit<Email, "to"> {
   const expires = formatDate(invite.expiresAt, invite.timeZone ?? undefined);
   return transactionalEmail(INVITE_SUBJECT, [
     "Hi,",
@@ -118,7 +142,7 @@ export function inviteEmail(invite: Extract<InviteReservation, { outcome: "send"
         `Invite for: ${plainName(invite.firstName)}`,
       ],
     },
-    `To join on your iPhone, iPad or Mac, open this link: ${inviteLink(invite.code)}`,
+    `To join on your iPhone, iPad or Mac, open this link: ${inviteLink(invite.code, path)}`,
     `Or get Foon from the App Store, sign in with Apple, and enter this code: ${invite.code}`,
     expires
       ? `The code works once, and expires on ${expires}.`
@@ -165,7 +189,7 @@ export async function handleInviteEmail(req: Request, deps: InviteEmailDeps): Pr
   try {
     await deps.send({
       to: parsed.data.email,
-      ...inviteEmail(reservation),
+      ...inviteEmail(reservation, deps.invitePath),
       idempotencyKey: `invite-email/${reservation.sendId}`,
     });
   } catch (error) {

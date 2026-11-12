@@ -6,6 +6,12 @@
         "components": [
           { "/": "/invite", "?": { "code": "?*" }, "comment": "Household invites (#85)" }
         ]
+      },
+      {
+        "appIDs": ["G374A783RH.com.andrikanich.foon.qa"],
+        "components": [
+          { "/": "/qa/invite", "?": { "code": "?*" }, "comment": "Foon QA's invites, the staging test app (docs/foon-qa.md)" }
+        ]
       }
     ]
   }

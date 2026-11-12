@@ -46,3 +46,17 @@ fi
 
 brew install xcodegen
 xcodegen generate
+
+# Foon QA (com.andrikanich.foon.qa) and Foon are separate apps (docs/foon-qa.md). A QA build archived as Foon would
+# reach the family's TestFlight with staging inside, and a production build as Foon QA would miss them, so check what
+# the scheme's archive config really builds.
+scheme="${CI_XCODE_SCHEME:-Foon}"
+if [ "$scheme" = "Foon Prod" ]; then expected_id="com.andrikanich.foon"; else expected_id="com.andrikanich.foon.qa"; fi
+archive_config=$(sed -n '/<ArchiveAction/,/>/s/.*buildConfiguration = "\([^"]*\)".*/\1/p' \
+  "Foon.xcodeproj/xcshareddata/xcschemes/$scheme.xcscheme")
+built_id=$(xcodebuild -project Foon.xcodeproj -target Foon -configuration "$archive_config" -showBuildSettings 2>/dev/null |
+  sed -n 's/^ *PRODUCT_BUNDLE_IDENTIFIER = //p')
+if [ "$built_id" != "$expected_id" ]; then
+  echo "error: scheme $scheme archives $archive_config as '$built_id', not $expected_id." >&2
+  exit 1
+fi

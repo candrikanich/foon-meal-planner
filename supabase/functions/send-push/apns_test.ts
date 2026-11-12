@@ -3,6 +3,8 @@ import {
   alertFor,
   type ApnsConfig,
   apnsConfigFromEnv,
+  apnsTopicFromEnv,
+  defaultTopic,
   apnsHost,
   cachedProviderToken,
   deliver,
@@ -217,7 +219,7 @@ Deno.test("a push is posted with the topic, type and provider token", async () =
     calls.push({ url: String(input), init: init! });
     return Promise.resolve(new Response(null, { status: 200 }));
   }) as typeof fetch;
-  assertEquals(await deliver(device, payload, "jwt-1", fakeFetch), "delivered");
+  assertEquals(await deliver(device, payload, "jwt-1", defaultTopic, fakeFetch), "delivered");
   assertEquals(calls[0].url, `https://api.sandbox.push.apple.com/3/device/${"ab".repeat(32)}`);
   const headers = calls[0].init.headers as Record<string, string>;
   assertEquals(headers.authorization, "bearer jwt-1");
@@ -226,15 +228,29 @@ Deno.test("a push is posted with the topic, type and provider token", async () =
   assertEquals(JSON.parse(String(calls[0].init.body)), payload);
 });
 
+Deno.test("the topic is Foon unless APNS_TOPIC names Foon QA", async () => {
+  assertEquals(apnsTopicFromEnv(() => undefined), "com.andrikanich.foon");
+  assertEquals(apnsTopicFromEnv(() => "  "), "com.andrikanich.foon");
+  const qa = apnsTopicFromEnv((key) => (key === "APNS_TOPIC" ? "com.andrikanich.foon.qa" : undefined));
+  assertEquals(qa, "com.andrikanich.foon.qa");
+  const calls: RequestInit[] = [];
+  const fakeFetch = ((_input: string | URL | Request, init?: RequestInit) => {
+    calls.push(init!);
+    return Promise.resolve(new Response(null, { status: 200 }));
+  }) as typeof fetch;
+  await deliver(device, payload, "jwt-1", qa, fakeFetch);
+  assertEquals((calls[0].headers as Record<string, string>)["apns-topic"], "com.andrikanich.foon.qa");
+});
+
 Deno.test("410 and dead-token reasons say the token is gone; anything else is retried", async () => {
   const replying = (status: number, reason?: string) =>
     (() => Promise.resolve(Response.json(reason ? { reason } : {}, { status }))) as typeof fetch;
-  assertEquals(await deliver(device, payload, "j", replying(410, "Unregistered")), "dead_token");
-  assertEquals(await deliver(device, payload, "j", replying(400, "BadDeviceToken")), "dead_token");
-  assertEquals(await deliver(device, payload, "j", replying(400, "DeviceTokenNotForTopic")), "dead_token");
-  assertEquals(await deliver(device, payload, "j", replying(429, "TooManyRequests")), "retry");
-  assertEquals(await deliver(device, payload, "j", replying(403, "ExpiredProviderToken")), "retry");
-  assertEquals(await deliver(device, payload, "j", replying(500)), "retry");
+  assertEquals(await deliver(device, payload, "j", defaultTopic, replying(410, "Unregistered")), "dead_token");
+  assertEquals(await deliver(device, payload, "j", defaultTopic, replying(400, "BadDeviceToken")), "dead_token");
+  assertEquals(await deliver(device, payload, "j", defaultTopic, replying(400, "DeviceTokenNotForTopic")), "dead_token");
+  assertEquals(await deliver(device, payload, "j", defaultTopic, replying(429, "TooManyRequests")), "retry");
+  assertEquals(await deliver(device, payload, "j", defaultTopic, replying(403, "ExpiredProviderToken")), "retry");
+  assertEquals(await deliver(device, payload, "j", defaultTopic, replying(500)), "retry");
   const offline = (() => Promise.reject(new TypeError("network"))) as typeof fetch;
-  assertEquals(await deliver(device, payload, "j", offline), "retry");
+  assertEquals(await deliver(device, payload, "j", defaultTopic, offline), "retry");
 });

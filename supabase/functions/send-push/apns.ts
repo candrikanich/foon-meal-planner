@@ -36,7 +36,13 @@ export type ApnsPayload = { aps: { alert: Alert; sound: "default" } } & Partial<
 
 export type DeliveryResult = "delivered" | "dead_token" | "retry";
 
-export const topic = "com.andrikanich.foon";
+// The app the push is for: Foon by default. Hosted staging sets APNS_TOPIC to Foon QA's com.andrikanich.foon.qa
+// (docs/foon-qa.md), since its devices run Foon QA, and APNs refuses a topic that isn't the token's app.
+export const defaultTopic = "com.andrikanich.foon";
+
+export function apnsTopicFromEnv(get: (key: string) => string | undefined): string {
+  return get("APNS_TOPIC")?.trim() || defaultTopic;
+}
 
 export function apnsConfigFromEnv(get: (key: string) => string | undefined): ApnsConfig | null {
   const teamId = get("APPLE_TEAM_ID");
@@ -159,6 +165,7 @@ export async function deliver(
   device: Device,
   payload: ApnsPayload,
   jwt: string,
+  topic: string = defaultTopic,
   fetchFn: typeof fetch = fetch,
   now: Date = new Date(),
 ): Promise<DeliveryResult> {

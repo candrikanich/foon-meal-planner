@@ -6,6 +6,7 @@ import {
   inviteEmail,
   type InviteEmailDeps,
   inviteLink,
+  invitePathFromEnv,
   InviteRefusedError,
   type InviteReservation,
   plainName,
@@ -282,4 +283,19 @@ Deno.test("every limit (3 per invite, a new household, 5 per parent, 10 per hous
 
 Deno.test("the link matches the app's universal link", () => {
   assertEquals(inviteLink("THEAN-7KQ4-M9XP"), "https://www.getfoon.com/invite?code=THEAN-7KQ4-M9XP");
+  assertEquals(inviteLink("THEAN-7KQ4-M9XP", "/qa/invite"), "https://www.getfoon.com/qa/invite?code=THEAN-7KQ4-M9XP");
+});
+
+Deno.test("staging's INVITE_PATH makes emailed invites open Foon QA", async () => {
+  const warnings: string[] = [];
+  const warn = (message: string) => warnings.push(message);
+  assertEquals(invitePathFromEnv(() => undefined, warn), "/invite");
+  assertEquals(invitePathFromEnv(() => " /qa/invite ", warn), "/qa/invite");
+  assertEquals(warnings, []);
+  assertEquals(invitePathFromEnv(() => "https://evil.example/invite", warn), "/invite");
+  assertEquals(invitePathFromEnv(() => "/qa/invite/", warn), "/invite");
+  assertEquals(warnings.length, 2);
+  const { deps, sent } = fakeDeps(reserved, { invitePath: "/qa/invite" });
+  assertEquals((await handleInviteEmail(ask(good), deps)).status, 200);
+  assertStringIncludes(sent[0].text, "https://www.getfoon.com/qa/invite?code=");
 });

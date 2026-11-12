@@ -52,10 +52,9 @@ The family beta and the App Store get the `Foon Prod` build, which talks to prod
    `push_cron_secret` = the same `PUSH_CRON_SECRET`. Without them no push is ever sent.
 4. Xcode Cloud: a second workflow, "Production beta": scheme `Foon Prod`, start condition tags `beta/*`, environment
    `PROD_SUPABASE_URL` (`https://itnhdikhdsujklaimqqd.supabase.co`) and `PROD_SUPABASE_ANON_KEY` (production's
-   publishable key), post-action TestFlight External testing → Family. The QA workflow stays on `testflight/*` →
-   Internal. Both builds are the same app in App Store Connect, so a tester's phone installs whichever group's newest
-   build it's offered: keep the family out of Internal, and expect Internal testers to land on production when they
-   pick a `beta/*` build (a fresh sign-in, since each backend keeps its own session).
+   publishable key), post-action TestFlight External testing → Family. The QA workflow (`testflight/*`) builds a
+   separate app, Foon QA (`com.andrikanich.foon.qa`), with its own Xcode Cloud product and Internal group, so a phone
+   can hold both and each has its own sign-in ([foon-qa.md](foon-qa.md)).
 5. From the family's first sign-in on, production has real users: their allergies, consents and agreement holds are
    real data.
 

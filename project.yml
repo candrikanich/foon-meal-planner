@@ -29,6 +29,23 @@ settings:
     CODE_SIGN_STYLE: Automatic
     # The Recruiting Compass LLC publishes Foon for now; see planning/m0-foundation-plan.md.
     DEVELOPMENT_TEAM: G374A783RH
+    # Which app a config builds (docs/foon-qa.md). Debug and Release are Foon; Staging is Foon QA, a separate app with its
+    # own IDs, so it installs beside the family's Foon. Extensions' IDs build on FOON_APP_ID, and the app and extensions
+    # read FOON_APP_GROUP, FOON_URL_SCHEME and FOON_INVITE_PATH from their Info.plist at run time.
+    FOON_APP_ID: com.andrikanich.foon
+    FOON_APP_NAME: Foon
+    FOON_APP_GROUP: group.com.andrikanich.foon
+    FOON_APP_ICON: AppIcon
+    FOON_URL_SCHEME: foon
+    FOON_INVITE_PATH: /invite
+  configs:
+    Staging:
+      FOON_APP_ID: com.andrikanich.foon.qa
+      FOON_APP_NAME: Foon QA
+      FOON_APP_GROUP: group.com.andrikanich.foon.qa
+      FOON_APP_ICON: AppIcon-QA
+      FOON_URL_SCHEME: foonqa
+      FOON_INVITE_PATH: /qa/invite
 
 targets:
   Foon:
@@ -58,7 +75,7 @@ targets:
         # Server push (#40 part 2). Development here; an App Store or TestFlight export signs it for production.
         aps-environment: development
         com.apple.developer.applesignin: [Default]
-        com.apple.security.application-groups: [group.com.andrikanich.foon]
+        com.apple.security.application-groups: [$(FOON_APP_GROUP)]
         # Invite links (#85; the Mac's are in FoonMac.entitlements). www: getfoon.com redirects there, and Apple won't
         # follow a redirect to the association file.
         com.apple.developer.associated-domains: ["applinks:www.getfoon.com"]
@@ -69,9 +86,12 @@ targets:
       properties:
         SupabaseURL: $(SUPABASE_URL)
         SupabaseAnonKey: $(SUPABASE_ANON_KEY)
+        FoonAppGroup: $(FOON_APP_GROUP)
+        FoonURLScheme: $(FOON_URL_SCHEME)
+        FoonInvitePath: $(FOON_INVITE_PATH)
         CFBundleURLTypes:
-          - CFBundleURLName: com.andrikanich.foon
-            CFBundleURLSchemes: [foon]
+          - CFBundleURLName: $(FOON_APP_ID)
+            CFBundleURLSchemes: [$(FOON_URL_SCHEME)]
         # Only the OS's own encryption (HTTPS, Sign in with Apple): exempt, so App Store Connect skips the question.
         ITSAppUsesNonExemptEncryption: false
         # Background refreshes send the after-dinner card's answers (#122, AnswerRefresh) and, on a device that can run the
@@ -94,12 +114,12 @@ targets:
         PHPhotoLibraryPreventAutomaticLimitedAccessAlert: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon
+        PRODUCT_BUNDLE_IDENTIFIER: $(FOON_APP_ID)
         PRODUCT_NAME: Foon
         # The App Group only serves the share extension, the after-dinner card and the widget, which are iOS only.
         "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Foon/App/FoonMac.entitlements
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Foon
+        INFOPLIST_KEY_CFBundleDisplayName: $(FOON_APP_NAME)
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UIApplicationSupportsMultipleScenes: NO
@@ -108,7 +128,7 @@ targets:
           UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown
           UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.lifestyle
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_APPICON_NAME: $(FOON_APP_ICON)
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SWIFT_EMIT_LOC_STRINGS: YES
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
@@ -131,11 +151,12 @@ targets:
     entitlements:
       path: FoonShare/FoonShare.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.andrikanich.foon]
+        com.apple.security.application-groups: [$(FOON_APP_GROUP)]
     info:
       path: FoonShare/Info.plist
       properties:
-        CFBundleDisplayName: Foon
+        CFBundleDisplayName: $(FOON_APP_NAME)
+        FoonAppGroup: $(FOON_APP_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
@@ -150,7 +171,7 @@ targets:
               OR ANY $file.registeredTypeIdentifiers UTI-CONFORMS-TO "com.adobe.pdf").@count >= 1).@count >= 1
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon.share
+        PRODUCT_BUNDLE_IDENTIFIER: $(FOON_APP_ID).share
         GENERATE_INFOPLIST_FILE: YES
         SKIP_INSTALL: YES
         SWIFT_EMIT_LOC_STRINGS: YES
@@ -171,11 +192,12 @@ targets:
     entitlements:
       path: FoonDinner/FoonDinner.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.andrikanich.foon]
+        com.apple.security.application-groups: [$(FOON_APP_GROUP)]
     info:
       path: FoonDinner/Info.plist
       properties:
-        CFBundleDisplayName: Foon
+        CFBundleDisplayName: $(FOON_APP_NAME)
+        FoonAppGroup: $(FOON_APP_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.content-extension
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).DinnerViewController
@@ -188,7 +210,7 @@ targets:
             UNNotificationExtensionUserInteractionEnabled: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon.dinner
+        PRODUCT_BUNDLE_IDENTIFIER: $(FOON_APP_ID).dinner
         GENERATE_INFOPLIST_FILE: YES
         SKIP_INSTALL: YES
         SWIFT_EMIT_LOC_STRINGS: YES
@@ -207,16 +229,17 @@ targets:
     entitlements:
       path: FoonWidget/FoonWidget.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.andrikanich.foon]
+        com.apple.security.application-groups: [$(FOON_APP_GROUP)]
     info:
       path: FoonWidget/Info.plist
       properties:
-        CFBundleDisplayName: Foon
+        CFBundleDisplayName: $(FOON_APP_NAME)
+        FoonAppGroup: $(FOON_APP_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.andrikanich.foon.widget
+        PRODUCT_BUNDLE_IDENTIFIER: $(FOON_APP_ID).widget
         GENERATE_INFOPLIST_FILE: YES
         SKIP_INSTALL: YES
         SWIFT_EMIT_LOC_STRINGS: YES
@@ -248,7 +271,8 @@ schemes:
     # Runs from Xcode buy from the local StoreKit config (#66), not the sandbox; archives and TestFlight don't use it.
     run:
       storeKitConfiguration: Foon/Foon.storekit
-    # QA builds (Xcode Cloud, tags testflight/*) point at hosted staging and go to the Internal TestFlight group.
+    # QA builds (Xcode Cloud, tags testflight/*) are Foon QA (com.andrikanich.foon.qa), point at hosted staging, and go
+    # to Foon QA's Internal TestFlight group.
     archive:
       config: Staging
   # The production build (Xcode Cloud, tags beta/*): the Family beta in External TestFlight, and the binary that's

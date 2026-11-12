@@ -1,0 +1,132 @@
+name: Promote to family
+
+# Takes a Foon QA build that passed testing (a testflight/* tag) to the family: tags the same commit beta/<date>, which
+# Xcode Cloud's production workflow archives as Foon (scheme "Foon Prod") for the External "Family" TestFlight group.
+# See docs/foon-qa.md. It refuses unless production's database and Edge Functions already have everything that commit
+# needs, and won't tag a commit a beta/* tag already points at.
+#
+# Tags pushed with GITHUB_TOKEN don't start other GitHub workflows, but Xcode Cloud isn't one: it's a GitHub App that
+# sees every tag push through its own webhook, so the beta/* tag still starts the production build.
+
+on:
+  workflow_dispatch:
+    inputs:
+      testflight_tag:
+        description: The testflight/* tag to promote (empty means the newest)
+        required: false
+        default: ""
+
+concurrency:
+  group: promote-to-family
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  promote:
+    name: Tag beta/<date> on a tested commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # Passed through env rather than interpolated into the script, so the typed text can't run as shell.
+      REQUESTED: ${{ inputs.testflight_tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Find the testflight tag and its commit
+        id: source
+        run: |
+          git fetch --quiet --tags origin
+          # By name, which is the date and count: the tags are lightweight, so their creatordate is the commit's.
+          tag="${REQUESTED:-$(git tag -l 'testflight/*' --sort=-v:refname | head -n 1)}"
+          case "$tag" in
+            testflight/*) ;;
+            *) echo "::error::'$tag' isn't a testflight/* tag. Nothing was tagged."; exit 1 ;;
+          esac
+          if ! commit=$(git rev-parse --verify --quiet "refs/tags/$tag^{commit}"); then
+            echo "::error::There's no tag $tag. Nothing was tagged."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "::error::$tag ($commit) isn't on main. The family only gets merged code. Nothing was tagged."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      # The newest "Deploy production" run that really applied migrations: a run can succeed having skipped them
+      # because main had a newer backend change that its own run deploys.
+      - name: Refuse unless production already has this commit's backend
+        env:
+          COMMIT: ${{ steps.source.outputs.commit }}
+        run: |
+          deployed=""
+          for run in $(gh run list --repo "$GITHUB_REPOSITORY" --workflow deploy-production.yml --status success \
+              --limit 30 --json databaseId --jq '.[].databaseId'); do
+            migrated=$(gh run view "$run" --repo "$GITHUB_REPOSITORY" --json jobs,headSha --jq \
+              'select(any(.jobs[].steps[]; .name == "Migrations and starter catalog" and .conclusion == "success"))
+               | .headSha')
+            if [ -n "$migrated" ]; then deployed="$migrated"; break; fi
+          done
+          if [ -z "$deployed" ]; then
+            echo "::error::No recent Deploy production run applied migrations. Nothing was tagged."
+            exit 1
+          fi
+          if ! git cat-file -e "$deployed^{commit}"; then
+            echo "::error::Production's commit $deployed isn't in this clone. Nothing was tagged."
+            exit 1
+          fi
+          # Contained in what production got, or nothing under supabase/ changed since: either way production's database
+          # and functions are what this commit expects.
+          if ! git merge-base --is-ancestor "$COMMIT" "$deployed" &&
+              ! git diff --quiet "$deployed" "$COMMIT" -- supabase/migrations supabase/functions supabase/seed \
+                supabase/config.toml; then
+            echo "::error::Production was last deployed at $deployed, which doesn't have $COMMIT's backend changes." \
+              "Wait for Deploy production (it follows Deploy staging on main), then run this again. Nothing was tagged."
+            exit 1
+          fi
+          echo "DEPLOYED=$deployed" >> "$GITHUB_ENV"
+
+      - name: Refuse a commit the family already has
+        env:
+          COMMIT: ${{ steps.source.outputs.commit }}
+        run: |
+          existing=$(git tag -l 'beta/*' --points-at "$COMMIT" | head -n 1)
+          if [ -n "$existing" ]; then
+            echo "::error::$existing already points at $COMMIT. Nothing was tagged."
+            exit 1
+          fi
+
+      - name: Tag beta/<date> and push
+        env:
+          COMMIT: ${{ steps.source.outputs.commit }}
+          SOURCE: ${{ steps.source.outputs.tag }}
+        run: |
+          # The runner's date is UTC, so an evening promotion in America can carry tomorrow's date.
+          base="beta/$(date -u +%F)"
+          tag="$base"
+          n=2
+          while git rev-parse --verify --quiet "refs/tags/$tag" > /dev/null; do
+            tag="$base-$n"
+            n=$((n + 1))
+          done
+          git tag "$tag" "$COMMIT"
+          git push origin "refs/tags/$tag"
+          {
+            echo "## Promoted to family"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Tag | \`$tag\` |"
+            echo "| Commit | \`$COMMIT\` |"
+            echo "| From | \`$SOURCE\` |"
+            echo "| Production last deployed at | \`$DEPLOYED\` |"
+            echo ""
+            echo "Xcode Cloud's production workflow builds Foon from \`$tag\` for the External \"Family\" group."
+          } >> "$GITHUB_STEP_SUMMARY"
