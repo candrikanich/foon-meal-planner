@@ -109,3 +109,10 @@ Deno.test("an unclosed style or comment doesn't hide the receipt and stays linea
 Deno.test("closed blocks and comments are cut, in any case", () => {
   assertEquals(dropBlocks("a<!-- x -->b<STYLE type=x>c</style >d<script>e</SCRIPT>f"), "abdf");
 });
+
+Deno.test("tags are stripped in linear time, and a stray < keeps the rest as text", () => {
+  const started = performance.now();
+  htmlToText("<".repeat(400_000) + "<hr".repeat(30_000));
+  assertEquals(performance.now() - started < 1_000, true);
+  assertEquals(htmlToText("<p>Milk</p><br class=x>Eggs < 3"), "Milk\n\nEggs < 3");
+});

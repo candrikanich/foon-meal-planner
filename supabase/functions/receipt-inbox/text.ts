@@ -80,14 +80,36 @@ export function dropBlocks(html: string): string {
   return out + html.slice(from);
 }
 
-// Rows and blocks end lines; table cells stay on their row, so "Bananas | 2 | $1.29" reads as one line.
+const LINE_TAGS = new Set(["br", "hr"]);
+const LINE_CLOSES = new Set(["p", "div", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6", "table", "blockquote", "ul", "ol"]);
+const CELL_CLOSES = new Set(["td", "th"]);
+
+// What a tag leaves behind: a line break, a cell gap, or nothing.
+function tagBreak(inside: string): string {
+  const closing = inside.startsWith("/");
+  const name = (inside.slice(closing ? 1 : 0).match(/^[a-z0-9]+/i)?.[0] ?? "").toLowerCase();
+  if (LINE_TAGS.has(name)) return "\n";
+  if (closing && LINE_CLOSES.has(name)) return "\n";
+  if (closing && CELL_CLOSES.has(name)) return " ";
+  return "";
+}
+
+// Rows and blocks end lines; table cells stay on their row, so "Bananas | 2 | $1.29" reads as one line. One forward
+// scan, never a regex that rescans: a "<" with no ">" after it ends the tags, and the rest stays text.
 export function htmlToText(html: string): string {
-  const text = dropBlocks(html)
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<hr\b[^>]*>/gi, "\n")
-    .replace(/<\/(p|div|tr|li|h[1-6]|table|blockquote|ul|ol)\s*>/gi, "\n")
-    .replace(/<\/t[dh]\s*>/gi, " ")
-    .replace(/<[^>]*>/g, "");
+  const source = dropBlocks(html);
+  let text = "";
+  let from = 0;
+  while (from < source.length) {
+    const open = source.indexOf("<", from);
+    const close = open === -1 ? -1 : source.indexOf(">", open + 1);
+    if (close === -1) {
+      text += source.slice(from);
+      break;
+    }
+    text += source.slice(from, open) + tagBreak(source.slice(open + 1, close));
+    from = close + 1;
+  }
   // Decoded last, so an escaped "&lt;b&gt;" in the receipt stays text instead of being read as a tag.
   return decodeEntities(text);
 }
