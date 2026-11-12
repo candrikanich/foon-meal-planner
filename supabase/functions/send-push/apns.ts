@@ -160,8 +160,9 @@ export function payloadFor(alert: Alert, route: Route | null): ApnsPayload {
 
 const deadReasons = new Set(["BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic"]);
 
-// Apple's reasons are single PascalCase words; anything else in the body could be a token, so it isn't logged.
-const appleReason = /^[A-Z][A-Za-z]{1,63}$/;
+// Apple's reasons are short PascalCase words (the longest about 35 letters). Anything else, a 64-character token
+// included, isn't logged.
+const appleReason = /^[A-Z][A-Za-z]{1,39}$/;
 
 // Deno's fetch speaks HTTP/2 to APNs (it negotiates it over TLS). A network error is worth another try.
 export async function deliver(

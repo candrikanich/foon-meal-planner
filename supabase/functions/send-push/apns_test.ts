@@ -264,12 +264,14 @@ Deno.test("a refusal is reported with the environment, status and Apple's reason
   await deliver(device, payload, "j", defaultTopic, replying(400, { reason: "TopicDisallowed" }), at, report);
   await deliver(device, payload, "j", defaultTopic, replying(410, { reason: "Unregistered" }), at, report);
   await deliver(device, payload, "j", defaultTopic, replying(500, { reason: device.token }), at, report);
+  await deliver(device, payload, "j", defaultTopic, replying(500, { reason: "A".repeat(64) }), at, report);
   await deliver(device, payload, "j", defaultTopic, replying(200, {}), at, report);
   const offline = (() => Promise.reject(new TypeError("network"))) as typeof fetch;
   await deliver(device, payload, "j", defaultTopic, offline, at, report);
   assertEquals(refusals, [
     "sandbox 400 TopicDisallowed",
     "sandbox 410 Unregistered",
+    "sandbox 500 (no reason)",
     "sandbox 500 (no reason)",
     "sandbox network error",
   ]);
