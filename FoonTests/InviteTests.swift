@@ -25,10 +25,32 @@ struct InviteCodeTests {
         #expect(InviteCode.code(from: try #require(URL(string: link))) == "ANDRI-7KQ4-M9XP")
     }
 
+    @Test func testsRunAsFoonNotFoonQA() {
+        #expect(InviteCode.Links.current == .production)
+    }
+
+    /// Foon QA (the Staging build) has its own path, so its invites open Foon QA beside the family's Foon.
+    @Test func foonQALinksUseTheQAPath() throws {
+        let url = InviteCode.link(for: "ANDRI-7KQ4-M9XP", links: .qa)
+        #expect(url.absoluteString == "https://www.getfoon.com/qa/invite?code=ANDRI-7KQ4-M9XP")
+        #expect(InviteCode.code(from: url, links: .qa) == "ANDRI-7KQ4-M9XP")
+        #expect(InviteCode.code(from: url, links: .production) == "ANDRI-7KQ4-M9XP", "the server decides, not the path")
+        let message = InviteCode.shareMessage(householdName: "The Andrikanichs", firstName: "Owen", code: "X", links: .qa)
+        #expect(message.contains("https://www.getfoon.com/qa/invite?code=X"))
+    }
+
+    @Test func eachAppTakesOnlyItsOwnScheme() throws {
+        let qa = try #require(URL(string: "foonqa://invite/ANDRI-7KQ4-M9XP"))
+        let foon = try #require(URL(string: "foon://invite/ANDRI-7KQ4-M9XP"))
+        #expect(InviteCode.code(from: qa, links: .qa) == "ANDRI-7KQ4-M9XP")
+        #expect(InviteCode.code(from: foon, links: .qa) == nil)
+        #expect(InviteCode.code(from: qa, links: .production) == nil)
+    }
+
     @Test(arguments: [
         "foon://recipe/123", "https://example.com/invite?code=ABC", "foon://invite/",
         "https://www.getfoon.com/invite", "https://www.getfoon.com/invite?code=",
-        "https://www.getfoon.com/privacy?code=ABC",
+        "https://www.getfoon.com/privacy?code=ABC", "https://www.getfoon.com/qa?code=ABC",
         "http://www.getfoon.com/invite?code=ABC",
     ])
     func ignoresOtherLinks(link: String) throws {

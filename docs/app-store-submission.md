@@ -2,6 +2,15 @@
 
 Draft App Store Connect data for Foon, ready to paste. Verify field limits and the age-rating questionnaire in App Store Connect at submission time; Apple changes them.
 
+## Builds
+
+Two apps in App Store Connect, built by Xcode Cloud from tags ([foon-qa.md](foon-qa.md)):
+
+- **Foon QA** (`com.andrikanich.foon.qa`): the Staging build, on hosted staging, from `testflight/*` tags. Internal testing only; it's never submitted and has no listing.
+- **Foon** (`com.andrikanich.foon`): the production build, from `beta/*` tags, to the External "Family" group, and the build that's submitted to the App Store. Everything below is about this app.
+
+A QA build that passes goes to the family on the same commit with Actions → **Promote to family**, which tags it `beta/<date>` once production's database has its migrations. Setup steps for Foon QA (App IDs, App Group, the App Store Connect app, Supabase staging, Xcode Cloud) are in [foon-qa.md](foon-qa.md) → Foon QA setup.
+
 ## Listing
 
 | Field | Value | Limit |
@@ -130,11 +139,12 @@ Key flows: This Week tab, Fill my week, approve, then the cart icon for the shop
 - [x] Share extension: App IDs `com.andrikanich.foon` and `com.andrikanich.foon.share` both have App Groups on, with `group.com.andrikanich.foon`
 - [x] After-dinner card (#122): App ID `com.andrikanich.foon.dinner` registered with App Groups on, with `group.com.andrikanich.foon`
 - [x] Tonight widget (#62): App ID `com.andrikanich.foon.widget` registered with App Groups on, with `group.com.andrikanich.foon`
+- [ ] Foon QA: App IDs `com.andrikanich.foon.qa`, `.qa.share`, `.qa.dinner`, `.qa.widget` with `group.com.andrikanich.foon.qa`, and the "Foon QA" app record ([foon-qa.md](foon-qa.md) → Foon QA setup)
 - [x] Calendar awareness (#64): `NSCalendarsFullAccessUsageDescription` in Info.plist (via project.yml), the Mac's calendars entitlement, and no App Privacy data type (never leaves the device)
 - [x] AI queue (#58): background fetch (`UIBackgroundModes: fetch`, already on for #122) with a second refresh identifier, `com.andrikanich.foon.ai`, in `BGTaskSchedulerPermittedIdentifiers` (via project.yml). Only a device that can run Apple's on-device model asks for it; the Mac claims jobs when Foon opens. No new permission prompt. #59's recipe kind is in the label's "Other user content" row and in What Foon keeps
 - [x] Dinner memories (#65, part 3): `NSPhotoLibraryUsageDescription` in Info.plist (via project.yml), the Mac's photos entitlement, and no new App Privacy type (library photos never leave the device)
 - [x] Receipt scanning (#61): `NSCameraUsageDescription` in Info.plist (via project.yml), iPhone and iPad only (the Mac picks a photo, so no camera entitlement), and no App Privacy type for the photo (never leaves the device)
-- [ ] Invite links (#85): App ID `com.andrikanich.foon` has Associated Domains on (the app's entitlement is `applinks:www.getfoon.com`), and `https://www.getfoon.com/.well-known/apple-app-site-association` serves the app's `G374A783RH.com.andrikanich.foon` for `/invite?code=…`. Once Foon is in the App Store, set `APP_STORE_URL` in `web/app/content.ts` so the invite page links it instead of explaining TestFlight
+- [ ] Invite links (#85): App ID `com.andrikanich.foon` has Associated Domains on (the app's entitlement is `applinks:www.getfoon.com`), and `https://www.getfoon.com/.well-known/apple-app-site-association` serves the app's `G374A783RH.com.andrikanich.foon` for `/invite?code=…` (and Foon QA's `G374A783RH.com.andrikanich.foon.qa` for `/qa/invite?code=…`, [foon-qa.md](foon-qa.md)). Once Foon is in the App Store, set `APP_STORE_URL` in `web/app/content.ts` so the invite page links it instead of explaining TestFlight
 - [ ] Privacy policy, terms and consumer health data policy live at the URLs above (the reviewed versions, #67)
 - [x] Policy links in the app (#281): Terms and Privacy on the agreement screen, join a family, the paywall and the kid invite; Privacy and the Consumer Health Data Policy in Family → Your data; the Consumer Health Data Policy in Allergy alerts and beside every allergy agreement
 - [ ] Sign in with Apple private email relay: sending domain registered

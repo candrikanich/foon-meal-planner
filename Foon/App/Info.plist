@@ -25,15 +25,21 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.andrikanich.foon</string>
+			<string>$(FOON_APP_ID)</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>foon</string>
+				<string>$(FOON_URL_SCHEME)</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>FoonAppGroup</key>
+	<string>$(FOON_APP_GROUP)</string>
+	<key>FoonInvitePath</key>
+	<string>$(FOON_INVITE_PATH)</string>
+	<key>FoonURLScheme</key>
+	<string>$(FOON_URL_SCHEME)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCalendarsFullAccessUsageDescription</key>

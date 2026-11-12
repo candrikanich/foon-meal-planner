@@ -1,8 +1,9 @@
 // Sends what's due in push_outbox through APNs (#40 part 2). pg_cron calls it through pg_net with the PUSH_CRON_SECRET
 // header, so it skips Supabase's JWT check (config.toml). Needs the service role and the Apple key: APPLE_TEAM_ID,
-// APPLE_KEY_ID, APPLE_PRIVATE_KEY.
+// APPLE_KEY_ID, APPLE_PRIVATE_KEY; on staging also APNS_TOPIC=com.andrikanich.foon.qa (Foon QA). Unset, it's
+// Foon's com.andrikanich.foon.
 import { createClient } from "@supabase/supabase-js";
-import { apnsConfigFromEnv, cachedProviderToken, deliver } from "./apns.ts";
+import { apnsConfigFromEnv, apnsTopicFromEnv, cachedProviderToken, deliver } from "./apns.ts";
 import { handleSendPush, type OutboxRow } from "./handler.ts";
 
 function required(key: string): string {
@@ -15,6 +16,7 @@ const admin = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_
   auth: { persistSession: false, autoRefreshToken: false },
 });
 const apns = apnsConfigFromEnv((key) => Deno.env.get(key));
+const topic = apnsTopicFromEnv((key) => Deno.env.get(key));
 
 const tokenStore = {
   load: async (keyId: string) => {
@@ -39,7 +41,7 @@ Deno.serve((req) =>
       if (error) throw error;
       return data as OutboxRow[];
     },
-    deliver: (device, payload, jwt) => deliver(device, payload, jwt),
+    deliver: (device, payload, jwt) => deliver(device, payload, jwt, topic),
     forgetDevices: async (tokens) => {
       const { error } = await admin.rpc("forget_push_devices", { tokens });
       if (error) throw error;

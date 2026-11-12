@@ -42,15 +42,17 @@ supabase stop
 
 ### Environments
 
-| Build configuration | Supabase | Settings file (gitignored) | Who gets it |
-| --- | --- | --- | --- |
-| Debug | local stack | `Config/Local.local.xcconfig` | Run from Xcode |
-| Staging | hosted staging | `Config/Staging.local.xcconfig` | QA build: scheme `Foon`, tag `testflight/*`, Internal TestFlight |
-| Release | production | `Config/Prod.local.xcconfig` | Production build: scheme `Foon Prod`, tag `beta/*`, External TestFlight (Family), then the App Store |
+| Build configuration | App | Supabase | Settings file (gitignored) | Who gets it |
+| --- | --- | --- | --- | --- |
+| Debug | Foon (`com.andrikanich.foon`) | local stack | `Config/Local.local.xcconfig` | Run from Xcode |
+| Staging | **Foon QA** (`com.andrikanich.foon.qa`) | hosted staging | `Config/Staging.local.xcconfig` | QA build: scheme `Foon`, tag `testflight/*`, Foon QA's Internal TestFlight |
+| Release | Foon (`com.andrikanich.foon`) | production | `Config/Prod.local.xcconfig` | Production build: scheme `Foon Prod`, tag `beta/*`, Foon's External TestFlight (Family), then the App Store |
+
+Foon QA is a separate app (its own bundle IDs, App Group, icon, URL scheme and invite links), so it installs beside the family's Foon: see [docs/foon-qa.md](docs/foon-qa.md).
 
 Copy the matching `*.local.xcconfig.example` to create each file. Staging and Release builds fail if their file is missing, so a hosted build can't ship unconfigured. Xcode Cloud writes it in `ci_scripts/ci_post_clone.sh`: the `Foon Prod` scheme from `PROD_SUPABASE_URL`/`PROD_SUPABASE_ANON_KEY`, and only production's URL; any other scheme from `SUPABASE_URL`/`SUPABASE_ANON_KEY`, and never production's URL. Test builds (anything but production) show "Test build: Staging · iOS 0.1.0 (n)" at the bottom of Family. Only the URL and anon key live in the app; service-role keys belong in Edge Functions only.
 
-To ship: `git tag testflight/<yyyy-mm-dd>[-n] origin/main` (QA) or `git tag beta/<yyyy-mm-dd>[-n] origin/main` (production), then push the tag. Production's database and functions deploy right after staging's on each backend merge (`deploy-production.yml`), so keep migrations backward compatible with the last `beta/*` build too. What production needs before its first build is in `docs/waitlist.md` (Production).
+To ship: `git tag testflight/<yyyy-mm-dd>[-n] origin/main` and push it for Foon QA. Once that build passes, run Actions → **Promote to family** (`promote-to-family.yml`), which tags the same commit `beta/<yyyy-mm-dd>[-n]` for production after checking production's database already has its migrations (tagging `beta/*` by hand still works). Production's database and functions deploy right after staging's on each backend merge (`deploy-production.yml`), so keep migrations backward compatible with the last `beta/*` build too. What production needs before its first build is in `docs/waitlist.md` (Production).
 
 ### Starter catalog
 
