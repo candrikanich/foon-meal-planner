@@ -77,6 +77,10 @@ Tagging by hand (`git tag beta/<date> <commit>`, then push) still works; the wor
 - **Push** on staging needs `APNS_TOPIC=com.andrikanich.foon.qa`. Without it, APNs refuses every staging push with
   `DeviceTokenNotForTopic`, and `send-push` forgets the device as dead. Once it's set, the same happens to devices still
   registered by older staging builds of Foon: they're forgotten, and Foon QA registers its own.
+  A mistyped topic is different: Apple refuses it without calling the token dead, so pushes are retried and given up
+  while the device stays registered (seen 2026-11-12). The Edge Function logs show each refusal as
+  `apns refused: <environment> <status> <reason>`. To check the secret, compare `supabase secrets list` (a SHA-256 of
+  each value) with `printf %s com.andrikanich.foon.qa | shasum -a 256`.
 - **Delete my account** on staging exchanges the app's Sign in with Apple code, so staging's `APPLE_CLIENT_ID` must
   match the app that signed in. Set it to `com.andrikanich.foon.qa` only once Foon QA is on the phone (step 13): before
   that, staging builds of Foon would get `apple_revoke_failed` and couldn't delete an account at all. Afterwards, a

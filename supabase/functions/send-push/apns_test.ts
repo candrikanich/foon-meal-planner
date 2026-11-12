@@ -254,3 +254,23 @@ Deno.test("410 and dead-token reasons say the token is gone; anything else is re
   const offline = (() => Promise.reject(new TypeError("network"))) as typeof fetch;
   assertEquals(await deliver(device, payload, "j", defaultTopic, offline), "retry");
 });
+
+Deno.test("a refusal is reported with the environment, status and Apple's reason, never the token", async () => {
+  const replying = (status: number, body: unknown) =>
+    (() => Promise.resolve(Response.json(body, { status }))) as typeof fetch;
+  const refusals: string[] = [];
+  const report = (refusal: string) => refusals.push(refusal);
+  const at = new Date();
+  await deliver(device, payload, "j", defaultTopic, replying(400, { reason: "TopicDisallowed" }), at, report);
+  await deliver(device, payload, "j", defaultTopic, replying(410, { reason: "Unregistered" }), at, report);
+  await deliver(device, payload, "j", defaultTopic, replying(500, { reason: device.token }), at, report);
+  await deliver(device, payload, "j", defaultTopic, replying(200, {}), at, report);
+  const offline = (() => Promise.reject(new TypeError("network"))) as typeof fetch;
+  await deliver(device, payload, "j", defaultTopic, offline, at, report);
+  assertEquals(refusals, [
+    "sandbox 400 TopicDisallowed",
+    "sandbox 410 Unregistered",
+    "sandbox 500 (no reason)",
+    "sandbox network error",
+  ]);
+});

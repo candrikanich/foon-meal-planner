@@ -41,7 +41,8 @@ Deno.serve((req) =>
       if (error) throw error;
       return data as OutboxRow[];
     },
-    deliver: (device, payload, jwt) => deliver(device, payload, jwt, topic),
+    deliver: (device, payload, jwt) =>
+      deliver(device, payload, jwt, topic, fetch, new Date(), (refusal) => console.error(`apns refused: ${refusal}`)),
     forgetDevices: async (tokens) => {
       const { error } = await admin.rpc("forget_push_devices", { tokens });
       if (error) throw error;
