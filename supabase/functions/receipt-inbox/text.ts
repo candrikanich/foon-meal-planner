@@ -1,0 +1,142 @@
+// A forwarded receipt's body as plain lines in receipt order, for the phone's ReceiptMatcher to read (it handles prices,
+// totals and the rest). Pure, so the same mail always gives the same lines.
+
+// What record_forwarded_receipt accepts.
+export const MAX_LINES = 400;
+export const MAX_LINE_LENGTH = 200;
+// When the text part has fewer lines than this, it's a stub ("view this email in your browser") and the HTML is read.
+const MIN_TEXT_LINES = 3;
+
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+  middot: "·",
+  bull: "•",
+  ndash: "–",
+  mdash: "—",
+  hellip: "…",
+  lsquo: "‘",
+  rsquo: "’",
+  ldquo: "“",
+  rdquo: "”",
+  times: "×",
+  cent: "¢",
+  pound: "£",
+  euro: "€",
+  copy: "©",
+  reg: "®",
+  trade: "™",
+};
+
+function codePoint(value: number): string {
+  return Number.isInteger(value) && value > 0 && value <= 0x10ffff ? String.fromCodePoint(value) : "";
+}
+
+export function decodeEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]+);/gi, (match, name: string) => {
+    if (name[0] === "#") {
+      return codePoint(name[1] === "x" || name[1] === "X" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10));
+    }
+    return NAMED_ENTITIES[name.toLowerCase()] ?? match;
+  });
+}
+
+const BLOCK_OPEN = /<!--|<(script|style|head|title)\b/gi;
+
+// Comments and script, style, head and title blocks, cut in one pass. A lazy regex rescans to the end of the mail for
+// every opening without a close, which a stranger's mail can make quadratic; here an unclosed kind is noted once, its
+// later openings are left as text, and the scan never goes back.
+export function dropBlocks(html: string): string {
+  const unclosed = new Set<string>();
+  let out = "";
+  let from = 0;
+  BLOCK_OPEN.lastIndex = 0;
+  for (let open = BLOCK_OPEN.exec(html); open; open = BLOCK_OPEN.exec(html)) {
+    const kind = open[1]?.toLowerCase() ?? "comment";
+    if (unclosed.has(kind)) continue;
+    const after = open.index + open[0].length;
+    let end = -1;
+    if (kind === "comment") {
+      const close = html.indexOf("-->", after);
+      end = close === -1 ? -1 : close + 3;
+    } else {
+      const close = new RegExp(`</${kind}\\s*>`, "gi");
+      close.lastIndex = after;
+      const found = close.exec(html);
+      end = found ? found.index + found[0].length : -1;
+    }
+    if (end === -1) {
+      unclosed.add(kind);
+      continue;
+    }
+    out += html.slice(from, open.index);
+    from = end;
+    BLOCK_OPEN.lastIndex = end;
+  }
+  return out + html.slice(from);
+}
+
+// Rows and blocks end lines; table cells stay on their row, so "Bananas | 2 | $1.29" reads as one line.
+export function htmlToText(html: string): string {
+  const text = dropBlocks(html)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<hr\b[^>]*>/gi, "\n")
+    .replace(/<\/(p|div|tr|li|h[1-6]|table|blockquote|ul|ol)\s*>/gi, "\n")
+    .replace(/<\/t[dh]\s*>/gi, " ")
+    .replace(/<[^>]*>/g, "");
+  // Decoded last, so an escaped "&lt;b&gt;" in the receipt stays text instead of being read as a tag.
+  return decodeEntities(text);
+}
+
+const FORWARD_MARKERS = [
+  /^-{2,}\s*Forwarded message\s*-{2,}$/i,
+  /^Begin forwarded message:?$/i,
+  /^-{2,}\s*Original Message\s*-{2,}$/i,
+];
+const FORWARD_HEADER = /^(From|Date|Sent|Subject|To|Cc|Reply-To):/i;
+
+// Mail apps quote with leading ">"; invisible format characters pad marketing mail's preheaders.
+const clean = (line: string) =>
+  line
+    .replace(/^(\s*>)+/, "")
+    .replace(/[\p{Cc}\p{Cf}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+// Code points rather than UTF-16 units, as Postgres's char_length counts, and so an emoji isn't cut in half.
+const clip = (line: string) => {
+  const points = Array.from(line);
+  return points.length > MAX_LINE_LENGTH ? points.slice(0, MAX_LINE_LENGTH).join("") : line;
+};
+
+// Only the header block straight after a forwarding marker is dropped: a "To:" line elsewhere may be the receipt's.
+export function textToLines(text: string): string[] {
+  const lines: string[] = [];
+  let inForwardHeader = false;
+  for (const raw of text.split(/\r\n|\r|\n/)) {
+    const line = clean(raw);
+    if (FORWARD_MARKERS.some((marker) => marker.test(line))) {
+      inForwardHeader = true;
+      continue;
+    }
+    if (inForwardHeader) {
+      if (line === "" || FORWARD_HEADER.test(line)) continue;
+      inForwardHeader = false;
+    }
+    if (line === "") continue;
+    lines.push(clip(line));
+    if (lines.length === MAX_LINES) break;
+  }
+  return lines;
+}
+
+export function receiptLines(text: string | null | undefined, html: string | null | undefined): string[] {
+  const fromText = textToLines(text ?? "");
+  if (fromText.length >= MIN_TEXT_LINES || !html) return fromText;
+  const fromHtml = textToLines(htmlToText(html));
+  return fromHtml.length > 0 ? fromHtml : fromText;
+}

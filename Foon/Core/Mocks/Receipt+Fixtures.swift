@@ -132,4 +132,22 @@ enum ReceiptFixtures {
     static func item(_ name: String) -> ReceiptItem {
         items.first { $0.name == name }!
     }
+
+    /// Receipt emails as `receipt-inbox` hands them over, one per line.
+    static let forwarded: [ForwardedReceipt] = [
+        ForwardedReceipt(id: UUID(uuidString: "F0000000-0000-0000-0000-000000000001")!,
+                         lines: ["Your Target order", "Bananas 1.23", "Good & Gather Milk 3.48", "Total 4.71"],
+                         receivedAt: Date(timeIntervalSince1970: 1_794_700_800)),
+        ForwardedReceipt(id: UUID(uuidString: "F0000000-0000-0000-0000-000000000002")!,
+                         lines: ["Instacart receipt", "Strawberries 1 lb 3.99", "Bagels 6ct 4.29", "Total 8.28"],
+                         receivedAt: Date(timeIntervalSince1970: 1_794_528_000))
+    ]
+
+    static let senders: [ReceiptSender] = [
+        ReceiptSender(id: UUID(), memberID: UUID(), addressHint: "c\u{2022}\u{2022}\u{2022}@gmail.com",
+                      confirmedAt: Date(timeIntervalSince1970: 1_794_000_000),
+                      createdAt: Date(timeIntervalSince1970: 1_793_990_000)),
+        ReceiptSender(id: UUID(), memberID: UUID(), addressHint: "c\u{2022}\u{2022}\u{2022}@work.example",
+                      confirmedAt: nil, createdAt: Date(timeIntervalSince1970: 1_794_600_000))
+    ]
 }

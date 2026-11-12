@@ -80,11 +80,13 @@ Data used to track you: **None.**
 | Photos | Yes (meal photos) | App functionality | Yes |
 | Other user content (meals, comments, requests, receipt lines the family corrected, a dish's recipe lines queued for an AI tidy-up) | Yes | App functionality | Yes |
 | User ID | Yes | App functionality | Yes |
-| Purchase history | Yes | App functionality | Yes |
+| Purchase history (the in-app subscription; and a forwarded receipt email's lines, #237, kept until the family reviews it, 14 days at most) | Yes | App functionality | Yes |
 | Other data (the age range Apple's Declared Age Range API gives when someone joins with an invite, #88: a band such as "13 to 15", never a birthdate; once the claim is checked only kid or adult is kept) | Yes | App functionality | Yes |
 | Product interaction (which reminders went out and were answered: kind, night, time; that a shopping trip finished with something bought, and when) | Yes | App functionality (reminders), Analytics (finished trips, #260) | Yes |
 
 An address a parent types to email an adult's invite (#48 PR B) changes nothing here: it goes to Resend for that one email, in real time, and Foon never stores it, and Email address is already declared.
+
+Forwarded receipts (#237): an adult forwards a store's receipt email to the household's Foon address. Its lines of text reach Foon's servers and wait for the family to review them (Purchase history, above; deleted on confirm or dismiss, or after 14 days). The address an adult forwards from is kept only as a sha256 and a hint such as c•••@gmail.com (covered by Email address). Resend, which receives the email, keeps it for 30 days.
 
 Finished shopping trips (#260, only those where something was bought) are the one product interaction kept for Analytics: the household and the time, counted only across at least 5 households (docs/metrics.md), never used for tracking. An analytics SDK and crash and performance data aren't in the app yet: they come back to this table with #28.
 

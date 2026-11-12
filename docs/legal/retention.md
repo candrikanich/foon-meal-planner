@@ -25,6 +25,7 @@ Scheduled jobs run in the database (pg_cron), every day unless noted. Times are 
 | M | `prune_email_outbox()` | `20261121000000_account_email.sql` | Daily, 03:47 |
 | W | `prune_waitlist()` | `20261108000000_waitlist.sql` | Daily, 04:17 |
 | C | `purge_parental_consent_requests()` | `20261116000000_email_plus_consent.sql` | Daily, 04:23 |
+| F | `prune_forwarded_receipts()` | `20261130000000_forwarded_receipts.sql` | Daily, 04:41 |
 | I | `prune_invite_email_sends()` | `20261128000000_invite_email.sql` | Daily, 04:59 |
 | J | `expire_ai_jobs()` | `20261103210000_ai_jobs.sql` | Hourly, :41 |
 | E | `erase_household()` | `20261117000000_agreements.sql` | On Delete household or the owner's account delete |
@@ -53,6 +54,8 @@ The household's own dinner history. All of it is erased at once when the househo
 | Meal logs, reactions (ratings and comments), hidden comments, chef thanks | After-dinner history |
 | Serving notes, requests and "me too"s, night claims | Everyone's say |
 | Corrected receipt lines (`receipt_aliases`) | Reading the next receipt |
+| Addresses adults forward receipts from (`receipt_senders`: a sha256 and a hint, never the address), until removed | Accepting forwarded receipts only from that adult; deleted when the adult leaves the household or deletes their account (job **F**) |
+| The household's receipt address token (`receipt_inboxes`) | Receiving forwarded receipts; a new one replaces it |
 | Subscription status (`household_subscriptions` and the household's columns) | Entitlement |
 
 Consent records keep the ID of the account that agreed, without a database link to it, so they stay with the household
@@ -88,6 +91,10 @@ open since the new wordings came into force, `20261119000000_agreements_in_force
 | Consent email bookkeeping (`parental_consent_sends`: who asked, when) | 1 day | Send | C |
 | Emailed-invite bookkeeping (`invite_email_sends`: household, who sent it, when; never the address) | 1 day | Send | I |
 | Renewal requests for a held kid (#277): one per parent with a verified email, and one reminder 7 days on | 30 days, as other consent requests | Request ends | C |
+| A forwarded receipt's lines (`forwarded_receipts`: lines, when it came, Resend's id for it; never the sender or subject) | Until someone confirms or dismisses it; 14 days max | Received | The app, F |
+| Forwarding-link bookkeeping (`receipt_sender_emails`: who was sent a link, when; never the address) | 1 day | Send | F |
+| A forwarding address nobody confirmed (`receipt_senders`) | 7 days after its 1-day link lapses | Link lapses | F |
+| The whole forwarded email, at Resend | 30 days (Resend's retention; it can't be deleted sooner) | Received | Resend |
 
 ## People who leave
 

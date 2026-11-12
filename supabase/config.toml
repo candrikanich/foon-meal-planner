@@ -411,6 +411,12 @@ verify_jwt = false
 [functions.account-email]
 verify_jwt = false
 
+# Resend's email.received webhook carries no JWT; the function checks its Svix signature instead. The site's
+# confirmation button carries none either (the link's token is hashed, single-use and expires), and the app's ?sender
+# door checks the adult's JWT itself.
+[functions.receipt-inbox]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54427

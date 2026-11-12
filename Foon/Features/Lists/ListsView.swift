@@ -21,6 +21,9 @@ struct ListsView: View {
     @State private var storeRuns: StoreRunStore?
     @Environment(\.receiptClient) private var receiptClient
     @State private var receiptScan: ReceiptScanStore?
+    @Environment(\.forwardedReceiptClient) private var forwardedClient
+    @State private var forwarded: ForwardedReceiptsStore?
+    @Environment(\.scenePhase) private var scenePhase
     private let storeModeTip = StoreModeTip()
 
     private var entries: [ListEntry] { ListEntry.entries(lines: lines, items: items) }
@@ -47,11 +50,27 @@ struct ListsView: View {
                 }
                 onTheList
                 runningLow
+                if let forwarded {
+                    ForwardedReceiptsSection(receipts: forwarded.receipts, canReview: canEditLists) { receipt in
+                        review(receipt)
+                    }
+                }
                 Section {
                     Button { scanReceipt() } label: {
                         Label("Scan a receipt", systemImage: "doc.text.viewfinder")
                     }
                     .disabled(household.household == nil || !canEditLists)
+                    if household.isAdult, let householdID = household.household?.id, let me = household.me {
+                        NavigationLink {
+                            ReceiptForwardingView(
+                                store: ReceiptForwardingStore(householdID: householdID, memberID: me.id,
+                                                              client: forwardedClient),
+                                canEdit: canEditLists
+                            )
+                        } label: {
+                            Label("Forward receipts by email", systemImage: "envelope")
+                        }
+                    }
                 } footer: {
                     Text("Marks what you bought, checks it off the lists, and puts staples back in stock.")
                 }
@@ -81,18 +100,27 @@ struct ListsView: View {
             .refreshable {
                 await sync?.pull()
                 await storeRuns?.load()
+                await forwarded?.load()
             }
             .task(id: household.household?.id) {
                 guard let householdID = household.household?.id else { return }
                 if storeRuns?.householdID != householdID {
                     storeRuns = StoreRunStore(householdID: householdID, client: storeRunClient)
                 }
+                if forwarded?.householdID != householdID {
+                    forwarded = ForwardedReceiptsStore(householdID: householdID, client: forwardedClient)
+                }
                 await storeRuns?.load()
+                await forwarded?.load()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                Task { await forwarded?.load() }
             }
             .sheet(item: $openItem) { item in
                 ItemSheet(item: item, canRecategorize: canRecategorize, client: itemClient) { await sync?.pull() }
             }
-            .sheet(item: $receiptScan) { scan in
+            .sheet(item: $receiptScan, onDismiss: { Task { await forwarded?.load() } }) { scan in
                 ReceiptScanView(store: scan)
                     #if os(macOS)
                     .frame(minWidth: 420, minHeight: 560)
@@ -218,6 +246,13 @@ struct ListsView: View {
         receiptScan = ReceiptScanStore(householdID: householdID, client: receiptClient, itemClient: itemClient)
     }
 
+    /// A forwarded receipt email opens the same review as a photo, without the photo.
+    private func review(_ receipt: ForwardedReceipt) {
+        guard let householdID = household.household?.id else { return }
+        receiptScan = ReceiptScanStore(householdID: householdID, client: receiptClient, itemClient: itemClient,
+                                       source: .forwarded(receipt), forwardedClient: forwardedClient)
+    }
+
     private func remove(_ entry: ListEntry) {
         Task { await sync?.perform(ListBoard.remove(entry)) }
     }
@@ -298,6 +333,7 @@ struct ListEntryRow: View {
         .environment(\.itemClient, .preview)
         .environment(\.storeRunClient, .preview)
         .environment(\.receiptClient, .preview())
+        .environment(\.forwardedReceiptClient, .preview(waiting: ReceiptFixtures.forwarded))
         .environment(FreezerStore(householdID: Household.sample.id, client: .preview))
         .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .modelContainer(try! SyncService.inMemoryContainer())
