@@ -6,7 +6,8 @@ import VisionKit
 #endif
 
 /// Lists → Scan a receipt (docs/spec.md → Receipts): take or pick a photo, check what Foon read, then Confirm marks it
-/// bought. Anyone in the family can, kids too, as anyone can check things off.
+/// bought. Anyone in the family can, kids too, as anyone can check things off. A forwarded receipt email opens
+/// here too, straight to the review, with Dismiss to clear it without changing anything.
 struct ReceiptScanView: View {
     @Environment(SyncService.self) private var sync: SyncService?
     @Environment(\.dismiss) private var dismiss
@@ -16,6 +17,8 @@ struct ReceiptScanView: View {
     @State private var photo: PhotosPickerItem?
     @State private var usingCamera = false
     @State private var isConfirming = false
+    @State private var confirmingDismiss = false
+    @State private var isDismissing = false
 
     init(store: ReceiptScanStore) {
         _store = State(initialValue: store)
@@ -32,14 +35,25 @@ struct ReceiptScanView: View {
                    uniquingKeysWith: { first, _ in first })
     }
 
+    private var isForwarded: Bool { store.source != .photo }
+
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("Scan a receipt")
+                .navigationTitle(isForwarded ? Text("Forwarded receipt") : Text("Scan a receipt"))
                 #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
                 #endif
                 .toolbar { toolbar }
+                .confirmationDialog("Dismiss this receipt?", isPresented: $confirmingDismiss,
+                                    titleVisibility: .visible) {
+                    Button("Dismiss receipt", role: .destructive) { Task { await dismissForwarded() } }
+                } message: {
+                    Text("Nothing on the lists changes, and it's cleared for everyone.")
+                }
+        }
+        .task {
+            if isForwarded, store.phase == .reading { await store.readForwarded(items: items) }
         }
         .onChange(of: photo) { _, picked in
             guard let picked else { return }
@@ -61,13 +75,23 @@ struct ReceiptScanView: View {
     @ViewBuilder
     private var content: some View {
         switch store.phase {
-        case .choosing: choosing
+        case .choosing:
+            if isForwarded { nothingFound } else { choosing }
         case .reading:
             ProgressView("Reading the receipt\u{2026}")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .review:
             ReceiptReviewView(review: $store.review, items: items) { rowID, name in
                 await store.assign(rowID, newItemNamed: name)
+            }
+            .safeAreaInset(edge: .bottom) {
+                if isForwarded, let message = store.errorMessage {
+                    Text(message)
+                        .font(.callout)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(.bar)
+                }
             }
         case .done: ReceiptDoneView(store: store, items: items)
         }
@@ -95,6 +119,26 @@ struct ReceiptScanView: View {
         }
     }
 
+    /// A forwarded email with no groceries Foon could place: nothing to review, only to clear.
+    private var nothingFound: some View {
+        List {
+            if let message = store.errorMessage {
+                Text(message).font(.callout)
+            }
+            Section {
+                dismissButton
+            } footer: {
+                Text("Dismiss clears it from Lists for everyone.")
+            }
+        }
+    }
+
+    private var dismissButton: some View {
+        Button("Dismiss receipt", systemImage: "trash", role: .destructive) { confirmingDismiss = true }
+            .disabled(isDismissing || isConfirming)
+            .accessibilityHint(Text("Clears this forwarded receipt without changing the lists"))
+    }
+
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         switch store.phase {
@@ -108,8 +152,11 @@ struct ReceiptScanView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Confirm") { Task { await confirm() } }
-                    .disabled(store.review.itemIDs.isEmpty || isConfirming || sync == nil)
+                    .disabled(store.review.itemIDs.isEmpty || isConfirming || isDismissing || sync == nil)
                     .accessibilityHint(Text("Marks these bought and checks them off the lists"))
+            }
+            if isForwarded {
+                ToolbarItem(placement: .destructiveAction) { dismissButton }
             }
         case .choosing, .reading:
             ToolbarItem(placement: .cancellationAction) {
@@ -126,6 +173,12 @@ struct ReceiptScanView: View {
             return
         }
         await store.read([page], items: items)
+    }
+
+    private func dismissForwarded() async {
+        isDismissing = true
+        defer { isDismissing = false }
+        if await store.dismissForwarded() { dismiss() }
     }
 
     private func confirm() async {
@@ -156,6 +209,9 @@ struct ReceiptDoneView: View {
                 }
             } footer: {
                 Text("They're checked off the lists, and staples are back in stock.")
+            }
+            if let message = store.clearMessage {
+                Text(message).font(.callout).foregroundStyle(.secondary)
             }
             if !store.suggestions.isEmpty {
                 Section {
@@ -241,6 +297,14 @@ struct DocumentCamera: UIViewControllerRepresentable {
         ReceiptDoneView(store: ReceiptScanStore(householdID: Household.sample.id, review: ReceiptReview([])),
                         items: ReceiptFixtures.items)
     }
+}
+
+#Preview("Forwarded") {
+    ReceiptScanView(store: ReceiptScanStore(
+        householdID: Household.sample.id, client: .preview(), itemClient: .preview,
+        source: .forwarded(ReceiptFixtures.forwarded[0]), forwardedClient: .preview()
+    ))
+    .modelContainer(try! SyncService.inMemoryContainer())
 }
 
 #Preview("Review") {

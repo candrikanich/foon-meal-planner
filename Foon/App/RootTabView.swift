@@ -195,5 +195,6 @@ struct RootTabView: View {
         .environment(SessionStore(auth: .preview()))
         .environment(store)
         .environment(\.storeRunClient, .preview)
+        .environment(\.forwardedReceiptClient, .preview())
         .task { await store.load() }
 }

@@ -844,6 +844,9 @@
     "Add allergies" : {
 
     },
+    "Add an address" : {
+
+    },
     "Add an ingredient" : {
 
     },
@@ -917,6 +920,9 @@
       "comment" : "After a swap: an item already listed gained an allergy note"
     },
     "Adding the dish" : {
+
+    },
+    "Addresses you forward from" : {
 
     },
     "Adds it to the freezer" : {
@@ -1040,6 +1046,9 @@
 
     },
     "An idea keeps the name and link. To keep the ingredients and steps, add it to our meals now. Foon can try reading the post again later." : {
+
+    },
+    "Another adult in your family already added that address." : {
 
     },
     "Anyone removed from the family becomes \"Former member\" after 12 months, and their ratings stay as anonymous history." : {
@@ -1228,6 +1237,9 @@
     "Changing your mind" : {
 
     },
+    "Check %@ for a link from Foon. It works for a day." : {
+
+    },
     "Check again" : {
 
     },
@@ -1244,6 +1256,9 @@
     },
     "Check the label" : {
       "comment" : "Shopping note for an allergy typed as Other"
+    },
+    "Check what Foon found before anything changes" : {
+
     },
     "Check your connection and try again." : {
 
@@ -1281,6 +1296,9 @@
     "Clear the table" : {
       "comment" : "A dinner job"
     },
+    "Clears this forwarded receipt without changing the lists" : {
+
+    },
     "Close" : {
 
     },
@@ -1300,6 +1318,9 @@
 
     },
     "Confirm with Apple to delete. Foon also stops using Sign in with Apple for your account." : {
+
+    },
+    "Confirmed" : {
 
     },
     "Confirms with Apple, then deletes your account" : {
@@ -1331,7 +1352,13 @@
     "Cooked this month" : {
 
     },
+    "Copy" : {
+
+    },
     "Copy and tweak" : {
+
+    },
+    "Copy the address" : {
 
     },
     "Couldn't add %@. Check your connection and try again." : {
@@ -1341,6 +1368,9 @@
 
     },
     "Couldn't add %@. Try again." : {
+
+    },
+    "Couldn't add it. Try again." : {
 
     },
     "Couldn't add that to the freezer. Check your connection and try again." : {
@@ -1359,6 +1389,9 @@
 
     },
     "Couldn't change that. Check your connection and try again." : {
+
+    },
+    "Couldn't change the address. Try again." : {
 
     },
     "Couldn't change the dinner. Check your connection and try again." : {
@@ -1385,6 +1418,12 @@
     "Couldn't check what this dish needs. Look over the list before you shop." : {
       "comment" : "After a swap, when stock or the dish couldn't be read"
     },
+    "Couldn't clear it from the list. Dismiss it from Lists later." : {
+
+    },
+    "Couldn't clear it from the list. Dismiss it from Lists when you're online." : {
+
+    },
     "Couldn't copy %@. Check your connection and try again." : {
 
     },
@@ -1404,6 +1443,9 @@
 
     },
     "Couldn't delete. Check your connection and try again." : {
+
+    },
+    "Couldn't dismiss it. Try again." : {
 
     },
     "Couldn't double the night. Check your connection and try again." : {
@@ -1463,6 +1505,9 @@
     "Couldn't load your dinners. Check your connection and try again." : {
 
     },
+    "Couldn't load your forwarding address. Pull to try again." : {
+
+    },
     "Couldn't load your household" : {
 
     },
@@ -1500,6 +1545,9 @@
 
     },
     "Couldn't read the latest week, so the list wasn't updated. Check your connection and try again." : {
+
+    },
+    "Couldn't remove it. Try again." : {
 
     },
     "Couldn't remove your allergies. Check your connection and try again." : {
@@ -1706,11 +1754,23 @@
     "Dismiss" : {
 
     },
+    "Dismiss clears it from Lists for everyone." : {
+
+    },
+    "Dismiss receipt" : {
+
+    },
     "Dismiss the busy evening suggestion" : {
+
+    },
+    "Dismiss this receipt?" : {
 
     },
     "Dismiss: %@" : {
       "comment" : "Check-in news: close the note\nClaim news: close the note\nRequest news: close the note"
+    },
+    "Dismissing needs a connection. Try again when you're online." : {
+
     },
     "Do the dishes" : {
       "comment" : "A dinner job"
@@ -1776,6 +1836,9 @@
 
     },
     "Email" : {
+
+    },
+    "Email address" : {
 
     },
     "Email from Foon" : {
@@ -1943,6 +2006,9 @@
     "Foon Founding Family" : {
 
     },
+    "Foon already sent that address several links. Check its inbox, including spam." : {
+
+    },
     "Foon asks you to agree before it keeps new allergies on your profile." : {
 
     },
@@ -2007,6 +2073,9 @@
     "Foon couldn't find a recipe in this post. You can still save it as an idea with its link." : {
 
     },
+    "Foon couldn't find any groceries in that email." : {
+
+    },
     "Foon couldn't find any text in that. If it's a locked PDF, remove the password and share it again." : {
 
     },
@@ -2055,6 +2124,9 @@
 
     },
     "Foon emails invites to adults only. Share a kid's invite another way." : {
+
+    },
+    "Foon emails it a link to confirm it's yours, and keeps only a hint of it." : {
 
     },
     "Foon flags dishes that contain them, and you plan as usual." : {
@@ -2189,6 +2261,24 @@
     "Former member" : {
 
     },
+    "Forward a store's receipt email to this address from one of your addresses below. Foon reads the items and asks you to check them, like a scanned receipt." : {
+
+    },
+    "Forward receipts" : {
+
+    },
+    "Forward receipts by email" : {
+
+    },
+    "Forwarded receipt" : {
+
+    },
+    "Forwarded receipt from %@" : {
+
+    },
+    "Forwarding isn't available right now." : {
+
+    },
     "Found a recipe in another app? Tap Share, then Foon, and it lands in your ideas." : {
 
     },
@@ -2272,6 +2362,12 @@
 
     },
     "Full evening" : {
+
+    },
+    "Get a new address" : {
+
+    },
+    "Get a new address?" : {
 
     },
     "Get dairy-free" : {
@@ -3020,6 +3116,9 @@
     "None of your meals contain anything your family avoids." : {
 
     },
+    "None yet. Add the address your store receipts go to." : {
+
+    },
     "Normal" : {
 
     },
@@ -3078,6 +3177,9 @@
 
     },
     "Nothing left on the list." : {
+
+    },
+    "Nothing on the lists changes, and it's cleared for everyone." : {
 
     },
     "Nothing on trial" : {
@@ -3692,6 +3794,9 @@
     "Send" : {
 
     },
+    "Send a link to confirm it" : {
+
+    },
     "Send a new email" : {
 
     },
@@ -3737,6 +3842,9 @@
     "Setting up the sample family…" : {
 
     },
+    "Share" : {
+
+    },
     "Share a recipe from any app, a photo or a PDF, and it lands in your ideas." : {
 
     },
@@ -3747,6 +3855,9 @@
 
     },
     "Share recipes to Foon" : {
+
+    },
+    "Share the address" : {
 
     },
     "Shared with Foon" : {
@@ -4221,6 +4332,9 @@
     "Thanks, chef" : {
 
     },
+    "That address is already set up." : {
+
+    },
     "That change isn't allowed. A parent, or the household's owner, can make it." : {
 
     },
@@ -4342,6 +4456,9 @@
 
     },
     "The night stays locked, so Rebuild keeps it." : {
+
+    },
+    "The old address stops working. Anyone forwarding to it will need the new one." : {
 
     },
     "The purchase didn't go through, and you haven't been charged. Try again in a moment." : {
@@ -4818,6 +4935,9 @@
     "Waiting for approval. Foon unlocks as soon as the App Store says yes." : {
 
     },
+    "Waiting for you to confirm" : {
+
+    },
     "Want a copy first? Export saves everything as a file." : {
 
     },
@@ -5070,6 +5190,9 @@
     "You can do that for yourself, or for someone without their own account." : {
 
     },
+    "You can forward from up to 5 addresses. Remove one to add another." : {
+
+    },
     "You can offer for yourself, or for someone without their own account." : {
 
     },
@@ -5154,6 +5277,15 @@
     "Your email" : {
 
     },
+    "Your family has a new address. Forward receipts to it from now on." : {
+
+    },
+    "Your family's address" : {
+
+    },
+    "Your family's receipt address: %@" : {
+
+    },
     "Your first name" : {
 
     },
@@ -5223,6 +5355,9 @@
 
     },
     "Your year in dinners is ready" : {
+
+    },
+    "^[%lld forwarded receipt](inflect: true) to review" : {
 
     },
     "^[%lld item](inflect: true) marked bought" : {

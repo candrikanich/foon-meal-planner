@@ -75,6 +75,7 @@ struct FoonApp: App {
                 .environment(\.itemClient, .live(SupabaseService.shared.client))
                 .environment(\.storeRunClient, .live(SupabaseService.shared.client))
                 .environment(\.receiptClient, .live(SupabaseService.shared.client))
+                .environment(\.forwardedReceiptClient, .live(SupabaseService.shared.client))
                 .environment(\.aiJobClient, .live(SupabaseService.shared.client))
                 .modelContainer(Self.cache)
                 .task { await session.start() }

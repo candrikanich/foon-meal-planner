@@ -78,6 +78,19 @@ Founding-family updates go only to adults who turned them on in Foon, not to the
 
 If you email an invite to another adult, Foon uses the address you type only to send that one invite. Foon doesn't keep it; Resend keeps its own record of the send, as for every email.
 
+**Forwarded receipts.** An adult can forward a store's receipt email to their household's private Foon address, so
+Foon can mark what was bought. Foon accepts it only from an address that adult added in Foon and confirmed with a link
+Foon emailed there. Foon keeps that address only in a scrambled form it can't turn back into the address (a hash), plus
+a hint like c•••@gmail.com so you can tell your addresses apart. From the email itself, Foon keeps only the receipt's
+lines of text, for your household to check. It doesn't keep who sent it, the subject, or anything else in the email,
+and it deletes the lines as soon as someone confirms or dismisses the receipt, or after 14 days if nobody does. Our
+email provider, Resend, receives the email for us and keeps its own copy for 30 days.
+
+> **Review (`privacy-draft-v3` candidate, #237):** forwarded receipts are new since v2 and aren't in the version people
+> agreed to. Purchase lines now reach Foon's servers (App Store "Purchase history"), and Resend keeps the whole email
+> for 30 days (it has no way to delete one sooner; Chris asked Resend support on 2026-11-12). Decide whether this is a
+> significant change that needs the next version and a new agreement before it's turned on for families.
+
 > **Review:** account emails (#48) are built and listed here since `privacy-draft-v2` (#48 PR D), which also put the
 > two opt-in wordings (`weekly-plan-email-v1`, `founding-updates-v1`) in force. Nothing is sent until
 > `account_email_enabled` is turned on. Emailing an adult's invite is built (#48 PR B) and off with it: a parent types
@@ -136,6 +149,8 @@ a minor (nothing, if Apple didn't say).
 | Plan activity (what changed in the plan) | So everyone sees changes | Your household | 8 weeks |
 | Comments a planner hid | Planners can hide a comment | Planners, and a kid's parents | Until shown again or erased |
 | Receipt lines someone corrected | So the next receipt reads right | Your household | While the household exists |
+| A forwarded receipt's lines of text | To check what was bought | Your household | Until someone confirms or dismisses it, at most 14 days |
+| Addresses an adult forwards receipts from (scrambled, plus a hint like c•••@gmail.com) | To accept receipts only from that adult | Adults in your household | Until they remove it, leave the household or delete their account |
 | A shopping trip in progress | To tell the family | Your household | 1 day after it ends |
 | That a shopping trip finished with something bought, and when (never what, where or who) | Counting trips across families, to see how Foon is used | Your household | 13 months |
 
@@ -338,7 +353,8 @@ Some things Foon reads only on your device. It never sends or saves them on our 
 
 - **Calendar.** If a planner turns on Spot busy evenings, Foon reads the times of that device's calendar events to
   suggest rushed nights. It doesn't keep them.
-- **Receipt photos.** Read on the device, never kept or uploaded. Only lines someone corrects are kept.
+- **Receipt photos.** Read on the device, never kept or uploaded. Only lines someone corrects are kept. (A receipt you
+  forward by email is different: see Forwarded receipts.)
 - **Dinner memories.** If you turn it on, Foon shows photos from your library taken around dinner time. It never
   saves or uploads them.
 - **Photos, PDFs and screenshots you share to Foon.** Read on the device and then deleted. Only the text you keep leaves
@@ -357,7 +373,7 @@ policy does. [CHECK: data processing agreements on file.]
 | --- | --- | --- |
 | Supabase | Database, sign-in, photo storage, server functions | Everything Foon keeps on its servers |
 | Apple | Sign in with Apple, push notifications, App Store payments | Sign-in, push tokens and text, subscriptions |
-| Resend | Sends waitlist emails, parental consent emails, account emails to adults, and an invite an adult chooses to email | Waitlist email addresses and names; a parent's email address and their kid's first name, in consent emails; an adult's email address in account emails (no names; the weekly plan email carries the family's dish names); the address typed for an emailed invite, used only for that email. Resend keeps its own logs of each email sent [CHECK: period] |
+| Resend | Sends waitlist emails, parental consent emails, account emails to adults, and an invite an adult chooses to email; receives receipt emails an adult forwards to Foon, and the link to confirm a forwarding address | Waitlist email addresses and names; a parent's email address and their kid's first name, in consent emails; an adult's email address in account emails (no names; the weekly plan email carries the family's dish names); the address typed for an emailed invite, used only for that email; a forwarded receipt email, all of it, which Resend keeps for 30 days; the forwarding address an adult adds, for the confirmation email. Resend keeps its own logs of each email sent [CHECK: period] |
 | Vercel | Hosts the getfoon.com website | Website requests |
 
 Our servers are in the United States (Supabase's us-east-1 region, AWS, N. Virginia).

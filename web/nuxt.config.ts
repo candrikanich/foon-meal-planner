@@ -32,6 +32,9 @@ export default defineNuxtConfig({
       waitlistUrl: "",
       // NUXT_PUBLIC_CONSENT_URL: https://<project-ref>.supabase.co/functions/v1/parental-consent (read at build time).
       consentUrl: "",
+      // NUXT_PUBLIC_RECEIPT_INBOX_URL: https://<project-ref>.supabase.co/functions/v1/receipt-inbox (read at build time).
+      // Optional: left empty, /receipts/confirm uses the receipt-inbox function next to the waitlist one.
+      receiptInboxUrl: "",
       // NUXT_PUBLIC_SITE_URL: the canonical origin, for Open Graph and canonical links.
       siteUrl: "https://getfoon.com",
     },

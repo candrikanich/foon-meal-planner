@@ -1,0 +1,118 @@
+import { assert, assertEquals } from "@std/assert";
+import { decodeEntities, dropBlocks, htmlToText, MAX_LINE_LENGTH, MAX_LINES, receiptLines, textToLines } from "./text.ts";
+
+const GROCERY_HTML = `<!DOCTYPE html>
+<html><head><title>Your receipt</title><style>td { padding: 4px }</style></head>
+<body>
+<!-- tracking pixel below -->
+<div style="display:none">&#8204;&nbsp;&#8204;&nbsp;</div>
+<div class="gmail_quote"><div dir="ltr" class="gmail_attr">---------- Forwarded message ---------<br>
+From: <strong>Green Grocer</strong> <span>&lt;receipts@greengrocer.example&gt;</span><br>
+Date: Mon, Nov 10, 2026 at 5:12&#8239;PM<br>
+Subject: Your Green Grocer receipt<br>
+To: &lt;chris@example.com&gt;<br></div><br><br>
+<h1>Thanks for shopping, Chris!</h1>
+<p>Store #42 &middot; 100 Main St</p>
+<table>
+  <tr><th>Item</th><th>Qty</th><th>Price</th></tr>
+  <tr><td>Bananas</td><td>2</td><td>$1.29</td></tr>
+  <tr><td>Ben &amp; Jerry&#39;s Cherry Garcia</td><td>1</td><td>$5.49</td></tr>
+  <tr><td>BNLS CHKN BRST</td><td>1</td><td>&#x24;9.87</td></tr>
+  <tr><td>Whole&nbsp;Milk   1 gal</td><td>1</td><td>$3.99</td></tr>
+</table>
+<p>Subtotal $20.64<br>Tax $0.00<br>Total $20.64</p>
+<script>track()</script>
+</div></body></html>`;
+
+Deno.test("a grocery receipt's HTML reads as its rows, in order", () => {
+  assertEquals(receiptLines("", GROCERY_HTML), [
+    "Thanks for shopping, Chris!",
+    "Store #42 · 100 Main St",
+    "Item Qty Price",
+    "Bananas 2 $1.29",
+    "Ben & Jerry's Cherry Garcia 1 $5.49",
+    "BNLS CHKN BRST 1 $9.87",
+    "Whole Milk 1 gal 1 $3.99",
+    "Subtotal $20.64",
+    "Tax $0.00",
+    "Total $20.64",
+  ]);
+});
+
+const GMAIL_TEXT = [
+  "Here's the one from Saturday",
+  "",
+  "---------- Forwarded message ---------",
+  "From: Green Grocer <receipts@greengrocer.example>",
+  "Date: Sat, Nov 8, 2026 at 10:02 AM",
+  "Subject: Your Green Grocer receipt",
+  "To: <chris@example.com>",
+  "",
+  "",
+  "GREEN GROCER #42",
+  "> BANANAS            1.29",
+  ">   MILK 2%  1GAL      3.99",
+  "",
+  "TOTAL              5.28",
+  "To: be paid on card ending 1234",
+].join("\r\n");
+
+Deno.test("a forward from Gmail keeps the receipt and drops the forwarding header block", () => {
+  assertEquals(receiptLines(GMAIL_TEXT, "<p>ignored</p>"), [
+    "Here's the one from Saturday",
+    "GREEN GROCER #42",
+    "BANANAS 1.29",
+    "MILK 2% 1GAL 3.99",
+    "TOTAL 5.28",
+    "To: be paid on card ending 1234",
+  ]);
+});
+
+Deno.test("Apple Mail's and Outlook's markers count too", () => {
+  assertEquals(textToLines("Begin forwarded message:\n\nFrom: A <a@b.c>\nSubject: x\nEGGS 2.99"), ["EGGS 2.99"]);
+  assertEquals(textToLines("-----Original Message-----\nSent: today\nTo: me\nEGGS 2.99"), ["EGGS 2.99"]);
+});
+
+Deno.test("a text part that's only a stub falls back to the HTML", () => {
+  assertEquals(receiptLines("View this email in your browser", "<p>EGGS 2.99</p><p>MILK 3.99</p>"), [
+    "EGGS 2.99",
+    "MILK 3.99",
+  ]);
+  assertEquals(receiptLines("View this email in your browser", null), ["View this email in your browser"]);
+  assertEquals(receiptLines("only", "<div></div>"), ["only"]);
+  assertEquals(receiptLines(null, null), []);
+});
+
+Deno.test("lines are clipped to 200 code points and there are at most 400", () => {
+  const long = "🍌".repeat(MAX_LINE_LENGTH + 5);
+  const [clipped] = textToLines(long);
+  assertEquals(Array.from(clipped).length, MAX_LINE_LENGTH);
+  assert(Array.from(clipped).every((c) => c === "🍌"), "no emoji cut in half");
+  const many = Array.from({ length: 450 }, (_, i) => `ITEM ${i}`).join("\n");
+  assertEquals(textToLines(many).length, MAX_LINES);
+});
+
+Deno.test("entities decode once, and escaped tags stay text", () => {
+  assertEquals(decodeEntities("&amp;lt; &#65;&#x42; &QUOT; &bogus; &#0;"), '&lt; AB " &bogus; ');
+  assertEquals(htmlToText("<td>&lt;b&gt;2 for 1&lt;/b&gt;</td>").trim(), "<b>2 for 1</b>");
+});
+
+Deno.test("an unclosed style or comment doesn't hide the receipt and stays linear", () => {
+  const html = "<style>p{}<p>Bananas 0.59</p><p>Milk 3.49</p><!-- x <p>Eggs 2.99</p>";
+  assertEquals(receiptLines(null, html).length > 0, true);
+  const hostile = "<style>".repeat(50_000) + "<!--".repeat(50_000);
+  const started = performance.now();
+  dropBlocks(hostile);
+  assertEquals(performance.now() - started < 1_000, true);
+});
+
+Deno.test("closed blocks and comments are cut, in any case", () => {
+  assertEquals(dropBlocks("a<!-- x -->b<STYLE type=x>c</style >d<script>e</SCRIPT>f"), "abdf");
+});
+
+Deno.test("tags are stripped in linear time, and a stray < keeps the rest as text", () => {
+  const started = performance.now();
+  htmlToText("<".repeat(400_000) + "<hr".repeat(30_000));
+  assertEquals(performance.now() - started < 1_000, true);
+  assertEquals(htmlToText("<p>Milk</p><br class=x>Eggs < 3"), "Milk\n\nEggs < 3");
+});

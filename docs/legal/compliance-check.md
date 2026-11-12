@@ -128,6 +128,12 @@ Verdicts: **met**, **partly**, **gap**, **n/a** (doesn't apply, with why).
 14. **Allergy "Other" free text.** Could someone type a medication or diagnosis? If so, say so in the categories.
 15. **New York.** Recheck S9269 (NY Health Information Privacy Act) before launch.
 16. **Research not done:** Vermont's and Nebraska's age-appropriate design codes, and the Texas SCOPE Act.
+17. **Forwarded receipts (#237).** Built and shipped without a flag (Chris, 2026-11-12). Purchase lines from a
+    forwarded store email now reach Foon's servers (kept until reviewed, 14 days at most), and Resend keeps the whole
+    email for 30 days with no way to delete it sooner. Only adults can add a forwarding address, and only from an
+    address they confirm. The privacy draft describes it under Forwarded receipts, but `privacy-draft-v2`, the version
+    in force, doesn't. Is this a significant change that needs `privacy-draft-v3` and a new agreement before families
+    use it? Is Resend's 30 days acceptable, or should receiving move to a provider that deletes on delivery?
 
 **Decided by Chris (2026-11-11), for counsel to confirm in their review (#88):**
 - **Texas age range (decision 6, §121.055(b)).** After a claim Foon keeps only whether Apple's age range said adult or

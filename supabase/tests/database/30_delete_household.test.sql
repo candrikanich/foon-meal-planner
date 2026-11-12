@@ -148,6 +148,13 @@ insert into public.store_runs (household_id, started_by, ends_at) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a2', now() + interval '10 minutes');
 insert into public.shopping_trips (id, household_id, finished_at) values
   (gen_random_uuid(), '00000000-0000-0000-0000-0000000000a0', now());
+insert into public.receipt_inboxes (household_id, token) values
+  ('00000000-0000-0000-0000-0000000000a0', '0123456789abcdef');
+insert into public.receipt_senders (household_id, member_id, user_id, address_hash, address_hint, confirmed_at) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a1', 'a0000000-0000-0000-0000-00000000000a',
+   repeat('a', 64), 'a•••@example.com', now());
+insert into public.forwarded_receipts (household_id, source_id, lines) values
+  ('00000000-0000-0000-0000-0000000000a0', 'seed-email', array['TACO SHELLS 2.49']);
 select set_config('request.jwt.claims', '', true);
 select public.apply_subscription_notification(gen_random_uuid(), '00000000-0000-0000-0000-0000000000a0', 'SUBSCRIBED',
   'INITIAL_BUY', 'foon.family.monthly', 'tx-1', 'Sandbox', now(), 'trial', now() + interval '30 days',
