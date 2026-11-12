@@ -29,6 +29,15 @@ struct InviteCodeTests {
         #expect(InviteCode.Links.current == .production)
     }
 
+    /// The fallbacks hide a missing key, so check the keys themselves: without them a Staging build would quietly use
+    /// Foon's App Group, URL scheme and invite path while signed as Foon QA.
+    @Test func theBuildHandsItsIdentityToTheCode() {
+        let info = Bundle.main.infoDictionary ?? [:]
+        #expect(info["FoonAppGroup"] as? String == AppGroup.production)
+        #expect(info["FoonURLScheme"] as? String == InviteCode.Links.production.scheme)
+        #expect(info["FoonInvitePath"] as? String == InviteCode.Links.production.invitePath)
+    }
+
     /// Foon QA (the Staging build) has its own path, so its invites open Foon QA beside the family's Foon.
     @Test func foonQALinksUseTheQAPath() throws {
         let url = InviteCode.link(for: "ANDRI-7KQ4-M9XP", links: .qa)

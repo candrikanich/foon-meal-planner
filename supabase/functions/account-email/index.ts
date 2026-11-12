@@ -31,7 +31,7 @@ const admin = createClient(supabaseUrl, serviceKey, { auth: session });
 const resend = resendConfigFromEnv((key) => Deno.env.get(key), "ACCOUNT_EMAIL_FROM");
 const send = resend ? (email: Parameters<typeof sendEmail>[1]) => sendEmail(resend, email) : null;
 const siteUrl = Deno.env.get("ACCOUNT_EMAIL_SITE_URL") || DEFAULT_SITE_URL;
-const invitePath = invitePathFromEnv((key) => Deno.env.get(key));
+const invitePath = invitePathFromEnv((key) => Deno.env.get(key), (message) => console.error(message));
 const postalAddress = parsePostalAddress(Deno.env.get("EMAIL_POSTAL_ADDRESS"));
 const links = unsubscribeLinks(serviceKey, `${supabaseUrl}/functions/v1/account-email`);
 // Row ids and codes only: no addresses, names or household data in logs.

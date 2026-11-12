@@ -287,9 +287,14 @@ Deno.test("the link matches the app's universal link", () => {
 });
 
 Deno.test("staging's INVITE_PATH makes emailed invites open Foon QA", async () => {
-  assertEquals(invitePathFromEnv(() => undefined), "/invite");
-  assertEquals(invitePathFromEnv(() => " /qa/invite "), "/qa/invite");
-  assertThrows(() => invitePathFromEnv(() => "https://evil.example/invite"));
+  const warnings: string[] = [];
+  const warn = (message: string) => warnings.push(message);
+  assertEquals(invitePathFromEnv(() => undefined, warn), "/invite");
+  assertEquals(invitePathFromEnv(() => " /qa/invite ", warn), "/qa/invite");
+  assertEquals(warnings, []);
+  assertEquals(invitePathFromEnv(() => "https://evil.example/invite", warn), "/invite");
+  assertEquals(invitePathFromEnv(() => "/qa/invite/", warn), "/invite");
+  assertEquals(warnings.length, 2);
   const { deps, sent } = fakeDeps(reserved, { invitePath: "/qa/invite" });
   assertEquals((await handleInviteEmail(ask(good), deps)).status, 200);
   assertStringIncludes(sent[0].text, "https://www.getfoon.com/qa/invite?code=");

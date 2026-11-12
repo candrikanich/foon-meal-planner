@@ -77,9 +77,11 @@ Tagging by hand (`git tag beta/<date> <commit>`, then push) still works; the wor
 - **Push** on staging needs `APNS_TOPIC=com.andrikanich.foon.qa`. Without it, APNs refuses every staging push with
   `DeviceTokenNotForTopic`, and `send-push` forgets the device as dead. Once it's set, the same happens to devices still
   registered by older staging builds of Foon: they're forgotten, and Foon QA registers its own.
-- **Delete my account** on staging exchanges Foon QA's Sign in with Apple code, so staging's `APPLE_CLIENT_ID` must be
-  `com.andrikanich.foon.qa`. A Staging-pointed build signed as Foon (an older QA build) then can't revoke its token
-  when deleting an account on staging.
+- **Delete my account** on staging exchanges the app's Sign in with Apple code, so staging's `APPLE_CLIENT_ID` must
+  match the app that signed in. Set it to `com.andrikanich.foon.qa` only once Foon QA is on the phone (step 13): before
+  that, staging builds of Foon would get `apple_revoke_failed` and couldn't delete an account at all. Afterwards, a
+  Staging-pointed build signed as Foon (an older QA build, or Debug from Xcode against hosted staging) has the same
+  problem.
 - **Emailed invites** on staging need `INVITE_PATH=/qa/invite`, or they open Foon instead of Foon QA.
 
 ## Foon QA setup (one time, Chris)
@@ -116,9 +118,7 @@ In this order; Xcode Cloud can't build Foon QA until the App IDs and the App Sto
 
 7. Authentication → Sign In / Providers → Apple → Client IDs: `com.andrikanich.foon,com.andrikanich.foon.qa` (keep Foon's
    for Xcode runs of Debug against a hosted project and for older staging builds) → Save.
-8. Edge Functions → Secrets: add `APNS_TOPIC` = `com.andrikanich.foon.qa` and `INVITE_PATH` = `/qa/invite`, and set
-   `APPLE_CLIENT_ID` = `com.andrikanich.foon.qa` (delete-account's token revoke). Production leaves `APNS_TOPIC` and
-   `INVITE_PATH` unset and keeps `APPLE_CLIENT_ID` = `com.andrikanich.foon`.
+8. Edge Functions → Secrets: nothing yet. These switch staging over to Foon QA, so they wait for step 13.
 
 **Xcode Cloud** (see below for why it's a new product):
 
@@ -132,6 +132,13 @@ In this order; Xcode Cloud can't build Foon QA until the App IDs and the App Sto
    Cloud → Manage Workflows, delete Foon's old QA workflow (`testflight/*`), or its next tag builds Foon QA under Foon and
    the upload fails.
 12. Push a `testflight/*` tag and check the build lands in Foon QA's TestFlight with the QA icon.
+
+**Supabase, staging, once Foon QA is installed:**
+
+13. Edge Functions → Secrets: add `APNS_TOPIC` = `com.andrikanich.foon.qa` and `INVITE_PATH` = `/qa/invite`, and set
+   `APPLE_CLIENT_ID` = `com.andrikanich.foon.qa` (delete-account's token revoke). Production leaves `APNS_TOPIC` and
+   `INVITE_PATH` unset and keeps `APPLE_CLIENT_ID` = `com.andrikanich.foon`. A mistyped `INVITE_PATH` falls back to
+   `/invite` and logs a warning.
 
 ## Xcode Cloud: one product per bundle ID
 

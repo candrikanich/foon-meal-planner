@@ -46,11 +46,17 @@ export interface InviteEmailDeps {
 export const invitePaths = ["/invite", "/qa/invite"] as const;
 export type InvitePath = (typeof invitePaths)[number];
 
-export function invitePathFromEnv(get: (key: string) => string | undefined): InvitePath {
+// A typo falls back to /invite and is logged rather than thrown: throwing at load would take down every route of the
+// function, unsubscribe included.
+export function invitePathFromEnv(
+  get: (key: string) => string | undefined,
+  warn: (message: string) => void,
+): InvitePath {
   const value = get("INVITE_PATH")?.trim() || "/invite";
   const path = invitePaths.find((known) => known === value);
-  if (!path) throw new Error(`INVITE_PATH must be one of ${invitePaths.join(", ")}`);
-  return path;
+  if (path) return path;
+  warn(`INVITE_PATH must be one of ${invitePaths.join(", ")}; using /invite`);
+  return "/invite";
 }
 
 // The same link as the app's InviteCode.link(for:): www, because Apple doesn't follow getfoon.com's redirect to the
