@@ -70,12 +70,12 @@ struct ReceiptSenderAddressTests {
     }
 
     @Test func foonsOwnInboxCannotForwardToFoon() {
-        #expect(ReceiptSenderAddress.validated("r-3f9a1c0b7d2e4a68@in.getfoon.com") == nil)
+        #expect(ReceiptSenderAddress.validated("r-0123456789abcdef@in.getfoon.com") == nil)
         #expect(ReceiptSenderAddress.validated("R-3F9A@IN.GETFOON.COM") == nil)
     }
 
     @Test func theHouseholdAddressIsBuiltFromItsToken() {
-        #expect(ReceiptInbox.address(token: "3f9a1c0b7d2e4a68") == "r-3f9a1c0b7d2e4a68@in.getfoon.com")
+        #expect(ReceiptInbox.address(token: "0123456789abcdef") == "r-0123456789abcdef@in.getfoon.com")
     }
 }
 
@@ -234,10 +234,10 @@ struct ForwardedReceiptsStoreTests {
 @MainActor
 struct ReceiptForwardingStoreTests {
     @Test func loadsTheAddressAndMySenders() async {
-        let client = ForwardedReceiptClient.preview(token: "3f9a1c0b7d2e4a68", senders: ReceiptFixtures.senders)
+        let client = ForwardedReceiptClient.preview(token: "0123456789abcdef", senders: ReceiptFixtures.senders)
         let store = ReceiptForwardingStore(householdID: UUID(), memberID: UUID(), client: client)
         await store.load()
-        #expect(store.address == "r-3f9a1c0b7d2e4a68@in.getfoon.com")
+        #expect(store.address == "r-0123456789abcdef@in.getfoon.com")
         #expect(store.senders == ReceiptFixtures.senders)
     }
 

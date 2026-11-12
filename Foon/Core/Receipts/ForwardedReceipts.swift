@@ -182,7 +182,7 @@ extension ForwardedReceiptClient {
 
     static func preview(
         waiting: [ForwardedReceipt] = [],
-        token: String = "3f9a1c0b7d2e4a68",
+        token: String = "0123456789abcdef",
         senders: [ReceiptSender] = [],
         outcome: ReceiptSenderOutcome = .send,
         delete: @escaping @Sendable (UUID) async throws -> Void = { _ in }
