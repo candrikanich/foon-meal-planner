@@ -86,6 +86,25 @@ const ok = (result: string) =>
 const fail = (status: number, error: string) =>
   new Response(JSON.stringify({ error }), { status, headers: { "Content-Type": "application/json" } });
 
+// The sender check below trusts the From address only when its domain sent the mail. DMARC pass says so. So does a
+// DKIM pass under a gray DMARC (a domain with no policy or p=none, which is Gmail): Resend reports DKIM as pass only
+// when the signing domain matches From, and grays it otherwise (docs, checked 2026-11-13). SPF alone isn't enough,
+// since it checks the envelope sender, which needn't match From.
+export function fromDomainSentIt(authentication: ReceivedEmail["authentication"]): boolean {
+  if (authentication?.dmarc === "pass") return true;
+  return authentication?.dmarc === "gray" && authentication.dkim === "pass";
+}
+
+const AUTHENTICATION_RESULTS = new Set(["pass", "fail", "gray", "processing_failed", "unknown"]);
+
+// Only Resend's result words reach the log; anything else is "other".
+function authenticationSummary(authentication: ReceivedEmail["authentication"]): string {
+  if (!authentication) return "no authentication result";
+  const word = (value: string | undefined) => value && AUTHENTICATION_RESULTS.has(value) ? value : "other";
+  const { spf, dkim, dmarc } = authentication;
+  return `spf=${word(spf)} dkim=${word(dkim)} dmarc=${word(dmarc)}`;
+}
+
 export async function handleInbound(req: Request, deps: InboundDeps): Promise<Response> {
   if (req.method !== "POST") return fail(405, "method_not_allowed");
   // 503 rather than 200 while it's being set up, so Resend holds the mail and retries.
@@ -131,9 +150,8 @@ export async function handleInbound(req: Request, deps: InboundDeps): Promise<Re
   // Resend keeps received mail for 30 days and has no API to delete it (checked 2026-11-12); once it does, each
   // email is deleted here, whatever happens to it below.
 
-  // DMARC pass means the From domain is the one that sent it, so the sender check below can trust the address.
-  if (email.authentication?.dmarc !== "pass") {
-    deps.log(`receipt-inbox: dropped ${emailId}`, email.authentication ? "dmarc not pass" : "no authentication result");
+  if (!fromDomainSentIt(email.authentication)) {
+    deps.log(`receipt-inbox: dropped ${emailId}`, authenticationSummary(email.authentication));
     return ok("dropped");
   }
   const sender = addressOf(email.from);

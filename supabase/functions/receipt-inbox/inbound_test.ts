@@ -108,6 +108,9 @@ Deno.test("the inbox can be in received_for, named, or in capitals", async () =>
 Deno.test("mail that fails DMARC, is too big, or has no lines is dropped without recording", async () => {
   const cases: ReceivedEmail[] = [
     { ...received, authentication: { spf: "pass", dkim: "pass", dmarc: "fail" } },
+    { ...received, authentication: { spf: "pass", dkim: "gray", dmarc: "gray" } },
+    { ...received, authentication: { spf: "pass", dkim: "fail", dmarc: "gray" } },
+    { ...received, authentication: { spf: "pass", dkim: "pass", dmarc: "unknown" } },
     { ...received, authentication: null },
     { ...received, from: "not an address" },
     { ...received, text: "x".repeat(1_500_000), html: "y".repeat(600_000) },
@@ -120,6 +123,26 @@ Deno.test("mail that fails DMARC, is too big, or has no lines is dropped without
     assertEquals(await response.json(), { result: "dropped" });
     assertEquals(recorded, []);
   }
+});
+
+Deno.test("a gray DMARC result with an aligned DKIM pass is kept, as from Gmail's p=none", async () => {
+  const { deps, recorded } = fakeDeps({ ...received, authentication: { spf: "pass", dkim: "pass", dmarc: "gray" } });
+  assertEquals(await (await handleInbound(await delivery(event()), deps)).json(), { result: "stored" });
+  assertEquals(recorded.length, 1);
+});
+
+Deno.test("a dropped email logs its authentication results, so a drop can be explained", async () => {
+  const { deps, logs } = fakeDeps({ ...received, authentication: { spf: "pass", dkim: "fail", dmarc: "gray" } });
+  await handleInbound(await delivery(event()), deps);
+  assert(logs.some((line) => line.includes("em_1") && line.includes("spf=pass dkim=fail dmarc=gray")), logs.join("\n"));
+});
+
+Deno.test("a result word Resend doesn't define is logged as other", async () => {
+  const odd = { spf: "pass", dkim: "a@b.com", dmarc: "softfail" };
+  const { deps, logs } = fakeDeps({ ...received, authentication: odd });
+  await handleInbound(await delivery(event()), deps);
+  assert(logs.some((line) => line.includes("spf=pass dkim=other dmarc=other")), logs.join("\n"));
+  assert(!logs.join("\n").includes("a@b.com"));
 });
 
 Deno.test("a missing email is dropped; a transient failure asks Resend to retry", async () => {
