@@ -108,8 +108,9 @@ Deno.test("the inbox can be in received_for, named, or in capitals", async () =>
 Deno.test("mail that fails DMARC, is too big, or has no lines is dropped without recording", async () => {
   const cases: ReceivedEmail[] = [
     { ...received, authentication: { spf: "pass", dkim: "pass", dmarc: "fail" } },
-    { ...received, authentication: { spf: "pass", dkim: "gray", dmarc: "gray" } },
-    { ...received, authentication: { spf: "pass", dkim: "fail", dmarc: "gray" } },
+    { ...received, authentication: { spf: "gray", dkim: "gray", dmarc: "gray" } },
+    { ...received, authentication: { spf: "fail", dkim: "fail", dmarc: "gray" } },
+    { ...received, authentication: { spf: "pass", dkim: "pass", dmarc: "processing_failed" } },
     { ...received, authentication: { spf: "pass", dkim: "pass", dmarc: "unknown" } },
     { ...received, authentication: null },
     { ...received, from: "not an address" },
@@ -125,16 +126,19 @@ Deno.test("mail that fails DMARC, is too big, or has no lines is dropped without
   }
 });
 
-Deno.test("a gray DMARC result with an aligned DKIM pass is kept, as from Gmail's p=none", async () => {
-  const { deps, recorded } = fakeDeps({ ...received, authentication: { spf: "pass", dkim: "pass", dmarc: "gray" } });
-  assertEquals(await (await handleInbound(await delivery(event()), deps)).json(), { result: "stored" });
-  assertEquals(recorded.length, 1);
+Deno.test("a gray DMARC result is kept when SPF or DKIM passed, as from Gmail or a DreamHost domain", async () => {
+  for (const [spf, dkim] of [["pass", "pass"], ["gray", "pass"], ["pass", "fail"], ["pass", "gray"]]) {
+    const { deps, recorded } = fakeDeps({ ...received, authentication: { spf, dkim, dmarc: "gray" } });
+    const response = await handleInbound(await delivery(event()), deps);
+    assertEquals(await response.json(), { result: "stored" }, `${spf} ${dkim}`);
+    assertEquals(recorded.length, 1);
+  }
 });
 
 Deno.test("a dropped email logs its authentication results, so a drop can be explained", async () => {
-  const { deps, logs } = fakeDeps({ ...received, authentication: { spf: "pass", dkim: "fail", dmarc: "gray" } });
+  const { deps, logs } = fakeDeps({ ...received, authentication: { spf: "pass", dkim: "fail", dmarc: "fail" } });
   await handleInbound(await delivery(event()), deps);
-  assert(logs.some((line) => line.includes("em_1") && line.includes("spf=pass dkim=fail dmarc=gray")), logs.join("\n"));
+  assert(logs.some((line) => line.includes("em_1") && line.includes("spf=pass dkim=fail dmarc=fail")), logs.join("\n"));
 });
 
 Deno.test("a result word Resend doesn't define is logged as other", async () => {
