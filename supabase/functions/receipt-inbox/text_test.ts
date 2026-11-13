@@ -134,9 +134,66 @@ Deno.test("lines are clipped to 200 code points and there are at most 400", () =
   assertEquals(textToLines(many).length, MAX_LINES);
 });
 
-Deno.test("the personal-detail check stays fast on one huge line", () => {
+Deno.test("several receipts forwarded in one email are all kept", () => {
+  const text = [
+    "Begin forwarded message:",
+    "From: A <a@a.example>",
+    "",
+    "RECEIPT ONE",
+    "APPLES 1.00",
+    "",
+    "Begin forwarded message:",
+    "From: B <b@b.example>",
+    "",
+    "RECEIPT TWO",
+    "PEARS 2.00",
+  ].join("\n");
+  assertEquals(textToLines(text), ["RECEIPT ONE", "APPLES 1.00", "RECEIPT TWO", "PEARS 2.00"]);
+});
+
+Deno.test("Outlook's underscore divider before a From header counts as a forward; a plain divider doesn't", () => {
+  const outlook = [
+    "See attached",
+    "Sam Doe",
+    "Senior Engineer, Acme",
+    "",
+    "________________________________",
+    "From: Store <no-reply@store.example>",
+    "Sent: Monday, October 26, 2026 5:05 PM",
+    "To: sam@x.example",
+    "Subject: Your receipt",
+    "",
+    "BANANAS 1.29",
+  ].join("\n");
+  assertEquals(textToLines(outlook), ["BANANAS 1.29"]);
+  assertEquals(textToLines("GREEN GROCER\n______________________\nBANANAS 1.29"), [
+    "GREEN GROCER",
+    "______________________",
+    "BANANAS 1.29",
+  ]);
+});
+
+Deno.test("a name or address block under a label is dropped, with or without a colon", () => {
+  const text = [
+    "Ship to",
+    "Sam Doe",
+    "123 Elm St",
+    "Cleveland, OH 44101",
+    "",
+    "1 x Raspberries, 12 oz",
+    "Delivery address:",
+    "Sam Doe",
+    "",
+    "$6.34",
+    "Ship to: Sam Doe, 123 Elm St",
+  ].join("\n");
+  assertEquals(textToLines(text), ["1 x Raspberries, 12 oz", "$6.34"]);
+});
+
+Deno.test("the checks stay fast on one huge line and on many divider lines", () => {
   const started = performance.now();
   textToLines("card ".repeat(200_000) + "x".repeat(500_000));
+  textToLines("____________\n".repeat(150_000));
   assert(performance.now() - started < 1000);
 });
 
