@@ -59,12 +59,54 @@ const GMAIL_TEXT = [
 
 Deno.test("a forward from Gmail keeps the receipt and drops the forwarding header block", () => {
   assertEquals(receiptLines(GMAIL_TEXT, "<p>ignored</p>"), [
-    "Here's the one from Saturday",
     "GREEN GROCER #42",
     "BANANAS 1.29",
     "MILK 2% 1GAL 3.99",
     "TOTAL 5.28",
-    "To: be paid on card ending 1234",
+  ]);
+});
+
+Deno.test("the forwarder's note and signature above the forwarded message are dropped", () => {
+  const text = [
+    "Thanks,",
+    "Sam Doe | example.org",
+    "twitter.com/samdoe",
+    "",
+    "> Begin forwarded message:",
+    "> From: Store <no-reply@store.example>",
+    "> Subject: Your receipt",
+    ">",
+    "> 1 x Raspberries, 12 oz",
+    "> $6.34",
+  ].join("\n");
+  assertEquals(textToLines(text), ["1 x Raspberries, 12 oz", "$6.34"]);
+});
+
+Deno.test("lines with an address, a phone number, a card or a name label are dropped, and links are cut", () => {
+  const text = [
+    "Contact: sam@example.org",
+    "Call 216-555-0123 or (216) 555 0123 or +1 216.555.0123",
+    "Your Visa 4822 card was temporarily authorized for $271.00.",
+    "Paid with card ending in 1234",
+    "Mastercard **** 9876",
+    "Name: SAM DOE",
+    "Customer: Sam",
+    "Report an issue <https://store.example/help/123?token=abc>",
+    "View Order <https://store.example/orders/1?euid=MTM4>Rate http://store.example/rate/9",
+    "1 x Kirkland Signature Rotisserie Chicken",
+    "Item 1919858",
+    "UPC 012345678905",
+    "$5.66",
+    "Total: $271.00",
+  ].join("\n");
+  assertEquals(textToLines(text), [
+    "Report an issue",
+    "View Order Rate",
+    "1 x Kirkland Signature Rotisserie Chicken",
+    "Item 1919858",
+    "UPC 012345678905",
+    "$5.66",
+    "Total: $271.00",
   ]);
 });
 
@@ -90,6 +132,12 @@ Deno.test("lines are clipped to 200 code points and there are at most 400", () =
   assert(Array.from(clipped).every((c) => c === "🍌"), "no emoji cut in half");
   const many = Array.from({ length: 450 }, (_, i) => `ITEM ${i}`).join("\n");
   assertEquals(textToLines(many).length, MAX_LINES);
+});
+
+Deno.test("the personal-detail check stays fast on one huge line", () => {
+  const started = performance.now();
+  textToLines("card ".repeat(200_000) + "x".repeat(500_000));
+  assert(performance.now() - started < 1000);
 });
 
 Deno.test("entities decode once, and escaped tags stay text", () => {

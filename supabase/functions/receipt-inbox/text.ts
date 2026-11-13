@@ -135,13 +135,31 @@ const clip = (line: string) => {
   return points.length > MAX_LINE_LENGTH ? points.slice(0, MAX_LINE_LENGTH).join("") : line;
 };
 
+// Lines that name or reach a person: an email address, a phone number, a payment card, or a name label. The phone's
+// ReceiptMatcher only wants items, so dropping one of these never costs a match (minimal data, CLAUDE.md rule 4).
+const PERSONAL = [
+  /[^\s@<>]+@[^\s@<>]+\.[a-z]{2,}/i,
+  /(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b/,
+  /\b(?:visa|mastercard|master card|amex|american express|discover|debit|credit|card)\b.*\b\d{4}\b/i,
+  /\b(?:ending|ends) in\b/i,
+  /[*•x]{2,}\s?\d{4}\b/i,
+  /^(?:name|customer|member|cardholder|account holder|bill to|ship to|deliver to|delivered to)\s*:/i,
+];
+const LINK = /<?\bhttps?:\/\/[^\s>]*>?/gi;
+
+// Links carry tracking tokens and order ids; the words around them stay.
+const withoutLinks = (line: string) => line.replace(LINK, " ").replace(/\s+/g, " ").trim();
+
 // Only the header block straight after a forwarding marker is dropped: a "To:" line elsewhere may be the receipt's.
+// What came before a marker is the forwarder's own note and signature, not the receipt, so it goes too.
 export function textToLines(text: string): string[] {
-  const lines: string[] = [];
+  let lines: string[] = [];
   let inForwardHeader = false;
   for (const raw of text.split(/\r\n|\r|\n/)) {
-    const line = clean(raw);
+    // Clipped before the patterns run, so a stranger's one huge line can't make them slow; it's what's stored anyway.
+    const line = clip(withoutLinks(clean(raw)));
     if (FORWARD_MARKERS.some((marker) => marker.test(line))) {
+      lines = [];
       inForwardHeader = true;
       continue;
     }
@@ -149,8 +167,8 @@ export function textToLines(text: string): string[] {
       if (line === "" || FORWARD_HEADER.test(line)) continue;
       inForwardHeader = false;
     }
-    if (line === "") continue;
-    lines.push(clip(line));
+    if (line === "" || PERSONAL.some((pattern) => pattern.test(line))) continue;
+    lines.push(line);
     if (lines.length === MAX_LINES) break;
   }
   return lines;
