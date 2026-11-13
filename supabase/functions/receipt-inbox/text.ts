@@ -136,10 +136,12 @@ const clip = (line: string) => {
 };
 
 // Labels over a person's name or address. Inline ("Ship to: Sam, 12 Elm St") the line goes; alone ("Ship to") the
-// block under it goes too, up to a blank line.
-const PERSON_LABEL = "name|customer|member|cardholder|account holder|bill to|billing address|ship to|" +
-  "shipping address|deliver to|delivered to|delivery address|address";
-const LABEL_ALONE = new RegExp(`^(?:${PERSON_LABEL})\\s*:?$`, "i");
+// block under it goes too, up to a blank line. A lone name label needs its colon: "MEMBER" or "Name" by itself is
+// as likely a receipt's own heading over item lines.
+const NAME_LABEL = "name|customer|member|cardholder|account holder";
+const ADDRESS_LABEL = "bill to|billing address|ship to|shipping address|deliver to|delivered to|delivery address|address";
+const PERSON_LABEL = `${NAME_LABEL}|${ADDRESS_LABEL}`;
+const LABEL_ALONE = new RegExp(`^(?:(?:${ADDRESS_LABEL})\\s*:?|(?:${NAME_LABEL})\\s*:)$`, "i");
 const LABEL_BLOCK_LINES = 4;
 
 // Lines that name or reach a person: an email address, a phone number, a payment card, or a labelled name or address.

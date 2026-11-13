@@ -186,8 +186,18 @@ Deno.test("a name or address block under a label is dropped, with or without a c
     "",
     "$6.34",
     "Ship to: Sam Doe, 123 Elm St",
+    "Name:",
+    "Sam Doe",
   ].join("\n");
   assertEquals(textToLines(text), ["1 x Raspberries, 12 oz", "$6.34"]);
+});
+
+Deno.test("a lone name label without a colon is a heading, so the items under it stay", () => {
+  assertEquals(textToLines("MEMBER\nBANANAS 1.29\nMILK 3.99"), ["MEMBER", "BANANAS 1.29", "MILK 3.99"]);
+  assertEquals(receiptLines("", "<table><tr><th>Name</th></tr><tr><td>EGGS</td><td>2.99</td></tr></table>"), [
+    "Name",
+    "EGGS 2.99",
+  ]);
 });
 
 Deno.test("the checks stay fast on one huge line and on many divider lines", () => {
