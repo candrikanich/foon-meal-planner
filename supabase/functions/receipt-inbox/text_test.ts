@@ -59,12 +59,54 @@ const GMAIL_TEXT = [
 
 Deno.test("a forward from Gmail keeps the receipt and drops the forwarding header block", () => {
   assertEquals(receiptLines(GMAIL_TEXT, "<p>ignored</p>"), [
-    "Here's the one from Saturday",
     "GREEN GROCER #42",
     "BANANAS 1.29",
     "MILK 2% 1GAL 3.99",
     "TOTAL 5.28",
-    "To: be paid on card ending 1234",
+  ]);
+});
+
+Deno.test("the forwarder's note and signature above the forwarded message are dropped", () => {
+  const text = [
+    "Thanks,",
+    "Sam Doe | example.org",
+    "twitter.com/samdoe",
+    "",
+    "> Begin forwarded message:",
+    "> From: Store <no-reply@store.example>",
+    "> Subject: Your receipt",
+    ">",
+    "> 1 x Raspberries, 12 oz",
+    "> $6.34",
+  ].join("\n");
+  assertEquals(textToLines(text), ["1 x Raspberries, 12 oz", "$6.34"]);
+});
+
+Deno.test("lines with an address, a phone number, a card or a name label are dropped, and links are cut", () => {
+  const text = [
+    "Contact: sam@example.org",
+    "Call 216-555-0123 or (216) 555 0123 or +1 216.555.0123",
+    "Your Visa 4822 card was temporarily authorized for $271.00.",
+    "Paid with card ending in 1234",
+    "Mastercard **** 9876",
+    "Name: SAM DOE",
+    "Customer: Sam",
+    "Report an issue <https://store.example/help/123?token=abc>",
+    "View Order <https://store.example/orders/1?euid=MTM4>Rate http://store.example/rate/9",
+    "1 x Kirkland Signature Rotisserie Chicken",
+    "Item 1919858",
+    "UPC 012345678905",
+    "$5.66",
+    "Total: $271.00",
+  ].join("\n");
+  assertEquals(textToLines(text), [
+    "Report an issue",
+    "View Order Rate",
+    "1 x Kirkland Signature Rotisserie Chicken",
+    "Item 1919858",
+    "UPC 012345678905",
+    "$5.66",
+    "Total: $271.00",
   ]);
 });
 
@@ -90,6 +132,79 @@ Deno.test("lines are clipped to 200 code points and there are at most 400", () =
   assert(Array.from(clipped).every((c) => c === "🍌"), "no emoji cut in half");
   const many = Array.from({ length: 450 }, (_, i) => `ITEM ${i}`).join("\n");
   assertEquals(textToLines(many).length, MAX_LINES);
+});
+
+Deno.test("several receipts forwarded in one email are all kept", () => {
+  const text = [
+    "Begin forwarded message:",
+    "From: A <a@a.example>",
+    "",
+    "RECEIPT ONE",
+    "APPLES 1.00",
+    "",
+    "Begin forwarded message:",
+    "From: B <b@b.example>",
+    "",
+    "RECEIPT TWO",
+    "PEARS 2.00",
+  ].join("\n");
+  assertEquals(textToLines(text), ["RECEIPT ONE", "APPLES 1.00", "RECEIPT TWO", "PEARS 2.00"]);
+});
+
+Deno.test("Outlook's underscore divider before a From header counts as a forward; a plain divider doesn't", () => {
+  const outlook = [
+    "See attached",
+    "Sam Doe",
+    "Senior Engineer, Acme",
+    "",
+    "________________________________",
+    "From: Store <no-reply@store.example>",
+    "Sent: Monday, October 26, 2026 5:05 PM",
+    "To: sam@x.example",
+    "Subject: Your receipt",
+    "",
+    "BANANAS 1.29",
+  ].join("\n");
+  assertEquals(textToLines(outlook), ["BANANAS 1.29"]);
+  assertEquals(textToLines("GREEN GROCER\n______________________\nBANANAS 1.29"), [
+    "GREEN GROCER",
+    "______________________",
+    "BANANAS 1.29",
+  ]);
+});
+
+Deno.test("a name or address block under a label is dropped, with or without a colon", () => {
+  const text = [
+    "Ship to",
+    "Sam Doe",
+    "123 Elm St",
+    "Cleveland, OH 44101",
+    "",
+    "1 x Raspberries, 12 oz",
+    "Delivery address:",
+    "Sam Doe",
+    "",
+    "$6.34",
+    "Ship to: Sam Doe, 123 Elm St",
+    "Name:",
+    "Sam Doe",
+  ].join("\n");
+  assertEquals(textToLines(text), ["1 x Raspberries, 12 oz", "$6.34"]);
+});
+
+Deno.test("a lone name label without a colon is a heading, so the items under it stay", () => {
+  assertEquals(textToLines("MEMBER\nBANANAS 1.29\nMILK 3.99"), ["MEMBER", "BANANAS 1.29", "MILK 3.99"]);
+  assertEquals(receiptLines("", "<table><tr><th>Name</th></tr><tr><td>EGGS</td><td>2.99</td></tr></table>"), [
+    "Name",
+    "EGGS 2.99",
+  ]);
+});
+
+Deno.test("the checks stay fast on one huge line and on many divider lines", () => {
+  const started = performance.now();
+  textToLines("card ".repeat(200_000) + "x".repeat(500_000));
+  textToLines("____________\n".repeat(150_000));
+  assert(performance.now() - started < 1000);
 });
 
 Deno.test("entities decode once, and escaped tags stay text", () => {

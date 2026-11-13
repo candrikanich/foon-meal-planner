@@ -135,22 +135,88 @@ const clip = (line: string) => {
   return points.length > MAX_LINE_LENGTH ? points.slice(0, MAX_LINE_LENGTH).join("") : line;
 };
 
+// Labels over a person's name or address. Inline ("Ship to: Sam, 12 Elm St") the line goes; alone ("Ship to") the
+// block under it goes too, up to a blank line. A lone name label needs its colon: "MEMBER" or "Name" by itself is
+// as likely a receipt's own heading over item lines.
+const NAME_LABEL = "name|customer|member|cardholder|account holder";
+const ADDRESS_LABEL = "bill to|billing address|ship to|shipping address|deliver to|delivered to|delivery address|address";
+const PERSON_LABEL = `${NAME_LABEL}|${ADDRESS_LABEL}`;
+const LABEL_ALONE = new RegExp(`^(?:(?:${ADDRESS_LABEL})\\s*:?|(?:${NAME_LABEL})\\s*:)$`, "i");
+const LABEL_BLOCK_LINES = 4;
+
+// Lines that name or reach a person: an email address, a phone number, a payment card, or a labelled name or address.
+// The phone's ReceiptMatcher only wants items, so dropping one of these never costs a match (minimal data, CLAUDE.md
+// rule 4). Best effort: a greeting such as "Sam, here's your receipt" still gets through.
+const PERSONAL = [
+  /[^\s@<>]+@[^\s@<>]+\.[a-z]{2,}/i,
+  /(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b/,
+  /\b(?:visa|mastercard|master card|amex|american express|discover|debit|credit|card)\b.*\b\d{4}\b/i,
+  /\b(?:ending|ends) in\b/i,
+  /[*•x]{2,}\s?\d{4}\b/i,
+  new RegExp(`^(?:${PERSON_LABEL})\\s*:`, "i"),
+];
+const LINK = /<?\bhttps?:\/\/[^\s>]*>?/gi;
+// Outlook's forward: a rule of underscores, then From/Sent/To/Subject. Only a marker when a From line follows, so a
+// receipt's own underscore divider stays.
+const OUTLOOK_RULE = /^_{10,}$/;
+
+// Links carry tracking tokens and order ids; the words around them stay.
+const withoutLinks = (line: string) => line.replace(LINK, " ").replace(/\s+/g, " ").trim();
+
+// For each line, the next non-empty line after it, found in one backward pass so the Outlook check stays linear.
+function nextNonEmpty(lines: string[]): (string | undefined)[] {
+  const next: (string | undefined)[] = new Array(lines.length);
+  let found: string | undefined;
+  for (let index = lines.length - 1; index >= 0; index--) {
+    next[index] = found;
+    if (lines[index] !== "") found = lines[index];
+  }
+  return next;
+}
+
+function isForwardMarker(line: string, nextLine: string | undefined): boolean {
+  if (FORWARD_MARKERS.some((marker) => marker.test(line))) return true;
+  return OUTLOOK_RULE.test(line) && nextLine !== undefined && /^From:/i.test(nextLine);
+}
+
 // Only the header block straight after a forwarding marker is dropped: a "To:" line elsewhere may be the receipt's.
+// What came before the first marker is the forwarder's own note and signature, not the receipt, so it goes too; a
+// later marker starts another forwarded receipt in the same email, and what came before it stays.
 export function textToLines(text: string): string[] {
-  const lines: string[] = [];
+  // Clipped before the patterns run, so a stranger's one huge line can't make them slow; it's what's stored anyway.
+  const source = text.split(/\r\n|\r|\n/).map((raw) => clip(withoutLinks(clean(raw))));
+  const following = nextNonEmpty(source);
+  let lines: string[] = [];
+  let seenMarker = false;
   let inForwardHeader = false;
-  for (const raw of text.split(/\r\n|\r|\n/)) {
-    const line = clean(raw);
-    if (FORWARD_MARKERS.some((marker) => marker.test(line))) {
+  let labelBlockLeft = 0;
+  for (let index = 0; index < source.length; index++) {
+    const line = source[index];
+    if (isForwardMarker(line, following[index])) {
+      if (!seenMarker) lines = [];
+      seenMarker = true;
       inForwardHeader = true;
+      labelBlockLeft = 0;
       continue;
     }
     if (inForwardHeader) {
       if (line === "" || FORWARD_HEADER.test(line)) continue;
       inForwardHeader = false;
     }
-    if (line === "") continue;
-    lines.push(clip(line));
+    if (line === "") {
+      labelBlockLeft = 0;
+      continue;
+    }
+    if (labelBlockLeft > 0) {
+      labelBlockLeft--;
+      continue;
+    }
+    if (LABEL_ALONE.test(line)) {
+      labelBlockLeft = LABEL_BLOCK_LINES;
+      continue;
+    }
+    if (PERSONAL.some((pattern) => pattern.test(line))) continue;
+    lines.push(line);
     if (lines.length === MAX_LINES) break;
   }
   return lines;
