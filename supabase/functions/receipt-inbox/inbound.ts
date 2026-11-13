@@ -86,13 +86,14 @@ const ok = (result: string) =>
 const fail = (status: number, error: string) =>
   new Response(JSON.stringify({ error }), { status, headers: { "Content-Type": "application/json" } });
 
-// The sender check below trusts the From address only when its domain sent the mail. DMARC pass says so. So does a
-// DKIM pass under a gray DMARC (a domain with no policy or p=none, which is Gmail): Resend reports DKIM as pass only
-// when the signing domain matches From, and grays it otherwise (docs, checked 2026-11-13). SPF alone isn't enough,
-// since it checks the envelope sender, which needn't match From.
-export function fromDomainSentIt(authentication: ReceivedEmail["authentication"]): boolean {
+// DMARC pass means the From domain sent it. Gray (Resend: SPF or DKIM passed, but the domain has no DMARC policy or
+// p=none, as Gmail and many hosted domains do) is kept when either passed, though that pass needn't be for the From
+// domain (Chris decided 2026-11-13: a DreamHost forward came in spf=pass dkim=fail). What stays out: DMARC fail, and
+// results Resend couldn't reach. A forged From would also need the household's secret address and a confirmed
+// sender's address, and lands only as lines someone reviews before anything changes.
+export function authenticatedEnough(authentication: ReceivedEmail["authentication"]): boolean {
   if (authentication?.dmarc === "pass") return true;
-  return authentication?.dmarc === "gray" && authentication.dkim === "pass";
+  return authentication?.dmarc === "gray" && (authentication.spf === "pass" || authentication.dkim === "pass");
 }
 
 const AUTHENTICATION_RESULTS = new Set(["pass", "fail", "gray", "processing_failed", "unknown"]);
@@ -150,7 +151,7 @@ export async function handleInbound(req: Request, deps: InboundDeps): Promise<Re
   // Resend keeps received mail for 30 days and has no API to delete it (checked 2026-11-12); once it does, each
   // email is deleted here, whatever happens to it below.
 
-  if (!fromDomainSentIt(email.authentication)) {
+  if (!authenticatedEnough(email.authentication)) {
     deps.log(`receipt-inbox: dropped ${emailId}`, authenticationSummary(email.authentication));
     return ok("dropped");
   }
