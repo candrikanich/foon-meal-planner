@@ -102,6 +102,18 @@ extension NightEffort {
         case .event: .normal
         }
     }
+
+    /// Menu order, lightest night first.
+    static let ordered: [NightEffort] = [.normal, .rushed, .full, .event]
+
+    var symbolName: String {
+        switch self {
+        case .normal: "fork.knife"
+        case .rushed: "hare"
+        case .full: "clock"
+        case .event: "party.popper"
+        }
+    }
 }
 
 /// The words on a DayCard, kept out of the view so they're testable and localizable.
