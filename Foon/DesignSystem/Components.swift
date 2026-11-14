@@ -67,15 +67,19 @@ extension ButtonStyle where Self == PillButtonStyle {
 struct EffortMenu: View {
     let effort: NightEffort
     /// Nil when the viewer can't change the effort.
-    var onChange: (@MainActor @Sendable (NightEffort) -> Void)?
+    var onChange: ((NightEffort) -> Void)?
 
     var body: some View {
         if let onChange {
+            // Buttons, not a Picker over a Binding: passing the callback as a Binding setter crashed the
+            // Xcode 26.6 compiler in IRGen (CI, PR #341).
             Menu {
-                Picker(String(localized: "Effort"), selection: Binding(get: { effort }, set: onChange)) {
-                    ForEach(NightEffort.ordered, id: \.self) { option in
-                        Label(DayCardText.effortLabel(option), systemImage: option.symbolName).tag(option)
+                ForEach(NightEffort.ordered, id: \.self) { option in
+                    Button { onChange(option) } label: {
+                        Label(DayCardText.effortLabel(option),
+                              systemImage: option == effort ? "checkmark" : option.symbolName)
                     }
+                    .accessibilityAddTraits(option == effort ? .isSelected : [])
                 }
             } label: {
                 pill(showsChevron: true)
