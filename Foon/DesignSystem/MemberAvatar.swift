@@ -12,7 +12,7 @@ struct MemberAvatar: View {
                 Text(avatar).font(.system(size: size * 0.55))
             } else {
                 Text(member.firstName.prefix(1).uppercased())
-                    .font(.system(size: size * 0.45, weight: .semibold, design: .rounded))
+                    .font(.system(size: size * 0.45, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
         }

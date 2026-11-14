@@ -50,10 +50,25 @@ Phase 1; later phases branch from `main` after it merges (no stacking, see lesso
    View meal / Swap / More. Keep claim, lock, rescue, prompts.
 5. **Night meal detail**: new pushed screen merging NightDetail + MealDetail; retire the sheet.
 
-## Unresolved questions
+## Decisions (Chris, 2026-11-14)
 
-1. Headings: the mocks switch titles from SF Pro Rounded to SF Pro. It's one line per token in Theme.swift
-   but touches 26 files' look. Adopt it, or keep rounded?
-2. Library: keep photos (tiles) or go photo-less rows like the mock?
-3. Meal detail: replace the NightDetail sheet with a pushed screen?
-4. OK to open GitHub issues for phases 2–5 and the data gaps?
+1. Headings move to SF Pro (done in #331).
+2. Library becomes rows without photos (#333). Whether photos come back, or go entirely: #336.
+3. Meal detail is paused. The Tonight sheet (family dinner) and meal detail (recipe) both have value;
+   how they work together is #335. Phase 5 waits on it.
+4. Issues filed for every phase and gap.
+
+## Issues
+
+| # | What |
+|---|---|
+| #331 | Phase 1: components + SF Pro (this branch) |
+| #332 | Phase 2: Lists restyle |
+| #333 | Phase 3: Library rows restyle |
+| #334 | Phase 4: This Week restyle |
+| #335 | Decide: Tonight sheet vs recipe detail |
+| #336 | Decide: meal photos |
+| #337 | Data: list items remember their meals |
+| #338 | Data: Library multi-select filters |
+| #339 | Data: Library rows show who favorites the dish |
+| #340 | Data: prep line with cook window |

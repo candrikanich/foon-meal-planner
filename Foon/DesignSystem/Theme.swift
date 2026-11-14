@@ -20,11 +20,11 @@ enum Palette {
 }
 
 /// Type styles, all built on Dynamic Type text styles so they scale with the reader's setting.
-/// Headings use the rounded design for Foon's friendly voice; body text stays default for reading.
+/// SF Pro throughout (the Quiet Kitchen redesign dropped SF Pro Rounded): weight, not shape, carries hierarchy.
 extension Font {
-    static let foonLargeTitle = Font.system(.largeTitle, design: .rounded).weight(.bold)
-    static let foonTitle = Font.system(.title2, design: .rounded).weight(.bold)
-    static let foonHeadline = Font.system(.headline, design: .rounded)
+    static let foonLargeTitle = Font.system(.largeTitle).weight(.bold)
+    static let foonTitle = Font.system(.title2).weight(.bold)
+    static let foonHeadline = Font.system(.headline)
     static let foonBody = Font.body
     static let foonCaption = Font.caption.weight(.medium)
 }

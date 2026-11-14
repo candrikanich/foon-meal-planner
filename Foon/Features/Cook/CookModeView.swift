@@ -111,7 +111,7 @@ struct CookModeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Text("Step \(number) of \(meal.steps.count)").font(.foonHeadline).foregroundStyle(.secondary)
-                Text(step).font(.system(.title, design: .rounded)).foregroundStyle(Palette.ink)
+                Text(step).font(.system(.title)).foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
                 ForEach(Array(CookSteps.timers(in: step).enumerated()), id: \.offset) { _, timer in
                     Button {
@@ -152,7 +152,7 @@ struct CookModeView: View {
                         Spacer()
                         Text(remaining == 0 ? String(localized: "cook.timer.finished", defaultValue: "Done", comment: "Cook mode: a timer that has finished")
                                             : CookSteps.clock(remaining))
-                            .font(.system(.title3, design: .rounded).monospacedDigit())
+                            .font(.system(.title3).monospacedDigit())
                             .accessibilityLabel(remaining == 0 ? String(localized: "cook.timer.finished", defaultValue: "Done", comment: "Cook mode: a timer that has finished")
                                                                : String(localized: "\(CookSteps.spoken(remaining)) left"))
                         Button("Stop", systemImage: "xmark.circle.fill") { timers.stop(timer.id) }
