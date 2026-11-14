@@ -103,17 +103,8 @@ struct DayCard: View {
     }
 
     private var effortChip: some View {
-        Chip(text: DayCardText.effortLabel(model.effort), systemImage: effortSymbol,
+        Chip(text: DayCardText.effortLabel(model.effort), systemImage: model.effort.symbolName,
              tint: model.effort == .event ? Palette.paprika : .secondary)
-    }
-
-    private var effortSymbol: String {
-        switch model.effort {
-        case .normal: "fork.knife"
-        case .rushed: "hare"
-        case .full: "clock"
-        case .event: "party.popper"
-        }
     }
 
     @ViewBuilder
