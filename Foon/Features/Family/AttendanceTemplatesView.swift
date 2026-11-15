@@ -17,32 +17,36 @@ struct AttendanceTemplatesView: View {
 
     var body: some View {
         List {
-            Section {
-                if store.attendanceTemplates.isEmpty {
-                    Text("Nothing saved yet. Set up everyone's usual nights for this season, then save them here.")
-                        .foregroundStyle(.secondary)
+            Group {
+                Section {
+                    if store.attendanceTemplates.isEmpty {
+                        Text("Nothing saved yet. Set up everyone's usual nights for this season, then save them here.")
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(store.attendanceTemplates) { template in
+                        row(template)
+                    }
+                } footer: {
+                    Text("Switching changes the usual nights for weeks you start from now on. Weeks already started stay as they are.")
                 }
-                ForEach(store.attendanceTemplates) { template in
-                    row(template)
-                }
-            } footer: {
-                Text("Switching changes the usual nights for weeks you start from now on. Weeks already started stay as they are.")
-            }
 
-            Section {
-                Button("Save today's schedule", systemImage: "square.and.arrow.down") {
-                    name = ""
-                    naming = true
-                }
-                .tint(Palette.paprika)
-            } footer: {
-                if let message = store.errorMessage {
-                    Text(message).foregroundStyle(.red)
-                } else {
-                    Text("Saves everyone's usual nights home as they are now. Using a name again replaces that one.")
+                Section {
+                    Button("Save today's schedule", systemImage: "square.and.arrow.down") {
+                        name = ""
+                        naming = true
+                    }
+                    .tint(Palette.paprika)
+                } footer: {
+                    if let message = store.errorMessage {
+                        Text(message).foregroundStyle(.red)
+                    } else {
+                        Text("Saves everyone's usual nights home as they are now. Using a name again replaces that one.")
+                    }
                 }
             }
+            .foonRows()
         }
+            .foonGrouped()
         .navigationTitle("Saved schedules")
         .task {
             store.clearError()
@@ -109,7 +113,7 @@ struct AttendanceTemplatesView: View {
                 switching = template
             } label: {
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Spacing.xxs) {
                         Text(template.name).font(.body.weight(.medium)).foregroundStyle(Palette.ink)
                         Text(template.summary(members: store.visibleMembers))
                             .font(.subheadline)

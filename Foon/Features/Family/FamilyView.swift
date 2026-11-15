@@ -25,227 +25,231 @@ struct FamilyView: View {
     var body: some View {
         NavigationStack {
             List {
-                if let household = store.household {
-                    Section {
-                        HStack(spacing: 12) {
-                            Text(household.emoji ?? "🏡").font(.largeTitle).accessibilityHidden(true)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(household.name).font(.title2.bold())
-                                if isOwner { SubscriptionHeaderLine() }
-                            }
-                        }
-                        .accessibilityElement(children: .combine)
-                    }
-                    if isOwner, store.isUnsharedSample {
+                Group {
+                    if let household = store.household {
                         Section {
-                            Button("Start your real family", systemImage: "house") { deletingHousehold = true }
-                        } footer: {
-                            Text("This is the sample family. Delete it and set up your own; you keep your account.")
+                            HStack(spacing: Spacing.m) {
+                                Text(household.emoji ?? "🏡").font(.largeTitle).accessibilityHidden(true)
+                                VStack(alignment: .leading, spacing: Spacing.xs) {
+                                    Text(household.name).font(.title2.bold())
+                                    if isOwner { SubscriptionHeaderLine() }
+                                }
+                            }
+                            .accessibilityElement(children: .combine)
                         }
-                    }
-                }
-
-                AgreementCardsSection()
-
-                FamilyStatsSection(stats: store.stats)
-
-                if let household = store.household {
-                    Section {
-                        NavigationLink {
-                            YearRecapView(year: YearRecap.familyYear(today: household.planningSettings.today()))
-                        } label: {
-                            Label("Your year in dinners", systemImage: "book.pages")
-                        }
-                        NavigationLink {
-                            DinnerMemoriesView()
-                        } label: {
-                            Label("Dinner memories", systemImage: "photo.on.rectangle")
-                        }
-                    }
-                }
-
-                if store.isPlanner { EngagementSection(rows: store.engagement) }
-
-                Section("Family") {
-                    ForEach(store.visibleMembers) { member in
-                        NavigationLink {
-                            MemberDetailView(memberID: member.id)
-                        } label: {
-                            MemberRow(member: member, isYou: member.userID == store.userID,
-                                      invited: store.invitedMemberIDs.contains(member.id))
-                        }
-                    }
-                }
-
-                if canPlan {
-                    Section {
-                        Button("Rhythm and planning mix") { editingRhythm = true }
-                    } footer: {
-                        Text("When you plan, when the week starts, dinner time, and what goes in a week.")
-                    }
-                }
-
-                if canPlan || store.canManagePeople {
-                    Section {
-                        if canPlan {
-                            NavigationLink {
-                                AwayDatesView()
-                            } label: {
-                                LabeledContent("Away dates", value: awaySummary)
+                        if isOwner, store.isUnsharedSample {
+                            Section {
+                                Button("Start your real family", systemImage: "house") { deletingHousehold = true }
+                            } footer: {
+                                Text("This is the sample family. Delete it and set up your own; you keep your account.")
                             }
                         }
-                        // A person's usual schedule is theirs or a parent's to change.
-                        if store.canManagePeople {
-                            NavigationLink("Saved schedules") { AttendanceTemplatesView() }
-                        }
-                    } header: {
-                        Text("Trips and seasons")
-                    } footer: {
-                        Text("Pause planning while you're all away, and switch everyone's usual nights home when the season changes.")
-                    }
-                }
-
-                if canPlan {
-                    Section {
-                        NavigationLink {
-                            KitchenView()
-                        } label: {
-                            LabeledContent("Kitchen", value: kitchenSummary)
-                        }
-                    } footer: {
-                        Text("What you have to cook with, and when to start.")
                     }
 
-                    Section {
-                        NavigationLink {
-                            FoodRulesView()
-                        } label: {
-                            LabeledContent("Food rules", value: foodRulesSummary)
+                    AgreementCardsSection()
+
+                    FamilyStatsSection(stats: store.stats)
+
+                    if let household = store.household {
+                        Section {
+                            NavigationLink {
+                                YearRecapView(year: YearRecap.familyYear(today: household.planningSettings.today()))
+                            } label: {
+                                Label("Your year in dinners", systemImage: "book.pages")
+                            }
+                            NavigationLink {
+                                DinnerMemoriesView()
+                            } label: {
+                                Label("Dinner memories", systemImage: "photo.on.rectangle")
+                            }
                         }
-                    } footer: {
-                        Text("What your household skips, and when.")
                     }
 
-                    Section {
-                        NavigationLink {
-                            DinnerJobsView()
-                        } label: {
-                            LabeledContent("Dinner jobs", value: dinnerJobsSummary)
+                    if store.isPlanner { EngagementSection(rows: store.engagement) }
+
+                    Section("Family") {
+                        ForEach(store.visibleMembers) { member in
+                            NavigationLink {
+                                MemberDetailView(memberID: member.id)
+                            } label: {
+                                MemberRow(member: member, isYou: member.userID == store.userID,
+                                          invited: store.invitedMemberIDs.contains(member.id))
+                            }
                         }
-                    } footer: {
-                        Text("Optional helper jobs that rotate among whoever's home.")
                     }
-                }
 
-                if store.canManagePeople, let allergyAlerts { AllergyAlertsSection(model: allergyAlerts) }
+                    if canPlan {
+                        Section {
+                            Button("Rhythm and planning mix") { editingRhythm = true }
+                        } footer: {
+                            Text("When you plan, when the week starts, dinner time, and what goes in a week.")
+                        }
+                    }
 
-                ReminderSettingsSection()
+                    if canPlan || store.canManagePeople {
+                        Section {
+                            if canPlan {
+                                NavigationLink {
+                                    AwayDatesView()
+                                } label: {
+                                    LabeledContent("Away dates", value: awaySummary)
+                                }
+                            }
+                            // A person's usual schedule is theirs or a parent's to change.
+                            if store.canManagePeople {
+                                NavigationLink("Saved schedules") { AttendanceTemplatesView() }
+                            }
+                        } header: {
+                            Text("Trips and seasons")
+                        } footer: {
+                            Text("Pause planning while you're all away, and switch everyone's usual nights home when the season changes.")
+                        }
+                    }
 
-                // Adults only: kids never get email (the server refuses them too).
-                if store.me?.ageGroup == .adult, let emailPreferences {
-                    EmailPreferencesSection(model: emailPreferences)
-                }
+                    if canPlan {
+                        Section {
+                            NavigationLink {
+                                KitchenView()
+                            } label: {
+                                LabeledContent("Kitchen", value: kitchenSummary)
+                            }
+                        } footer: {
+                            Text("What you have to cook with, and when to start.")
+                        }
 
-                // Only planners change effort, so only they get the calendar's suggestions.
-                if canPlan { CalendarSettingsSection() }
+                        Section {
+                            NavigationLink {
+                                FoodRulesView()
+                            } label: {
+                                LabeledContent("Food rules", value: foodRulesSummary)
+                            }
+                        } footer: {
+                            Text("What your household skips, and when.")
+                        }
 
-                Section {
-                    NavigationLink("Plan activity") { PlanActivityView() }
-                } footer: {
-                    Text("Who changed what on the plan, so two planners don't confuse each other.")
-                }
+                        Section {
+                            NavigationLink {
+                                DinnerJobsView()
+                            } label: {
+                                LabeledContent("Dinner jobs", value: dinnerJobsSummary)
+                            }
+                        } footer: {
+                            Text("Optional helper jobs that rotate among whoever's home.")
+                        }
+                    }
 
-                ShowTipsAgainSection()
+                    if store.canManagePeople, let allergyAlerts { AllergyAlertsSection(model: allergyAlerts) }
 
-                #if DEBUG || FOON_QA
-                Section {
-                    NavigationLink { DesignGallery() } label: { Text(verbatim: "Design gallery") }
-                } footer: {
-                    Text(verbatim: "Foon QA only: every color, type style and component in the app.")
-                }
-                #endif
+                    ReminderSettingsSection()
 
-                // Family order, not a ranking: credit, not a leaderboard.
-                let cooks = Dictionary(dinner.cookTally.map { ($0.memberID, $0) }, uniquingKeysWith: { first, _ in first })
-                let cooking = store.visibleMembers.filter { cooks[$0.id] != nil }
-                if !cooking.isEmpty {
+                    // Adults only: kids never get email (the server refuses them too).
+                    if store.me?.ageGroup == .adult, let emailPreferences {
+                        EmailPreferencesSection(model: emailPreferences)
+                    }
+
+                    // Only planners change effort, so only they get the calendar's suggestions.
+                    if canPlan { CalendarSettingsSection() }
+
                     Section {
-                        ForEach(cooking) { member in
-                            if let tally = cooks[member.id] {
-                                HStack(spacing: 12) {
-                                    MemberAvatar(member: member)
-                                    Text(member.firstName).font(.body.weight(.medium))
-                                    Spacer()
-                                    VStack(alignment: .trailing, spacing: 2) {
-                                        Text(tally.dinnersTitle)
-                                        if tally.thanks > 0 {
-                                            Text(tally.thanksTitle)
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
+                        NavigationLink("Plan activity") { PlanActivityView() }
+                    } footer: {
+                        Text("Who changed what on the plan, so two planners don't confuse each other.")
+                    }
+
+                    ShowTipsAgainSection()
+
+                    #if DEBUG || FOON_QA
+                    Section {
+                        NavigationLink { DesignGallery() } label: { Text(verbatim: "Design gallery") }
+                    } footer: {
+                        Text(verbatim: "Foon QA only: every color, type style and component in the app.")
+                    }
+                    #endif
+
+                    // Family order, not a ranking: credit, not a leaderboard.
+                    let cooks = Dictionary(dinner.cookTally.map { ($0.memberID, $0) }, uniquingKeysWith: { first, _ in first })
+                    let cooking = store.visibleMembers.filter { cooks[$0.id] != nil }
+                    if !cooking.isEmpty {
+                        Section {
+                            ForEach(cooking) { member in
+                                if let tally = cooks[member.id] {
+                                    HStack(spacing: Spacing.m) {
+                                        MemberAvatar(member: member)
+                                        Text(member.firstName).font(.body.weight(.medium))
+                                        Spacer()
+                                        VStack(alignment: .trailing, spacing: Spacing.xxs) {
+                                            Text(tally.dinnersTitle)
+                                            if tally.thanks > 0 {
+                                                Text(tally.thanksTitle)
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
                                         }
                                     }
+                                    .accessibilityElement(children: .combine)
                                 }
-                                .accessibilityElement(children: .combine)
                             }
+                        } header: {
+                            Text("Cooked this month")
+                        } footer: {
+                            Text("From the dinners logged after each meal. Tap Thanks, chef on This Week to say so.")
                         }
+                    }
+                    SubscriptionSection()
+
+                    Section {
+                        NavigationLink("What Foon keeps") { PrivacySummaryView() }
+                        Link("Privacy Policy", destination: FoonLinks.privacy)
+                            .accessibilityHint("Opens Foon's privacy policy on the web")
+                        Link("Consumer Health Data Policy", destination: FoonLinks.consumerHealthData)
+                            .accessibilityHint("Opens Foon's policy for allergy information on the web")
+                        if store.canExport {
+                            ExportButton(exportURL: $exportURL)
+                        }
+                        if isOwner {
+                            Button("Delete household", role: .destructive) { deletingHousehold = true }
+                        }
+                        Button(accountDeletion.buttonTitle, role: .destructive) { deletingAccount = true }
                     } header: {
-                        Text("Cooked this month")
+                        Text("Your data")
                     } footer: {
-                        Text("From the dinners logged after each meal. Tap Thanks, chef on This Week to say so.")
+                        if let message = store.errorMessage {
+                            Text(message).foregroundStyle(.red)
+                        } else if isOwner {
+                            Text("Delete household erases it for everyone and keeps your account. Deleting your account also deletes the household. Neither can be undone.")
+                        } else if store.isPlanner {
+                            Text("Export saves the household's meals, plans, lists, and family as a file. Deleting your account can't be undone.")
+                        } else if store.canExport {
+                            Text("Export saves what you can see in the household as a file, with your kids' reminders and hidden comments. Deleting your account can't be undone.")
+                        } else {
+                            Text("Deleting your account can't be undone.")
+                        }
                     }
-                }
-                SubscriptionSection()
 
-                Section {
-                    NavigationLink("What Foon keeps") { PrivacySummaryView() }
-                    Link("Privacy Policy", destination: FoonLinks.privacy)
-                        .accessibilityHint("Opens Foon's privacy policy on the web")
-                    Link("Consumer Health Data Policy", destination: FoonLinks.consumerHealthData)
-                        .accessibilityHint("Opens Foon's policy for allergy information on the web")
-                    if store.canExport {
-                        ExportButton(exportURL: $exportURL)
+                    Section {
+                        Button("Sign out") {
+                            Task { await session.signOut() }
+                        }
+                        Button("Sign out of all devices", role: .destructive) {
+                            confirmingSignOutEverywhere = true
+                        }
+                    } footer: {
+                        if let message = session.errorMessage {
+                            Text(message).foregroundStyle(.red)
+                        } else {
+                            Text("Use this if a phone is lost or shared. Every device, this one included, signs out right away.")
+                        }
                     }
-                    if isOwner {
-                        Button("Delete household", role: .destructive) { deletingHousehold = true }
-                    }
-                    Button(accountDeletion.buttonTitle, role: .destructive) { deletingAccount = true }
-                } header: {
-                    Text("Your data")
-                } footer: {
-                    if let message = store.errorMessage {
-                        Text(message).foregroundStyle(.red)
-                    } else if isOwner {
-                        Text("Delete household erases it for everyone and keeps your account. Deleting your account also deletes the household. Neither can be undone.")
-                    } else if store.isPlanner {
-                        Text("Export saves the household's meals, plans, lists, and family as a file. Deleting your account can't be undone.")
-                    } else if store.canExport {
-                        Text("Export saves what you can see in the household as a file, with your kids' reminders and hidden comments. Deleting your account can't be undone.")
-                    } else {
-                        Text("Deleting your account can't be undone.")
-                    }
-                }
 
-                Section {
-                    Button("Sign out") {
-                        Task { await session.signOut() }
-                    }
-                    Button("Sign out of all devices", role: .destructive) {
-                        confirmingSignOutEverywhere = true
-                    }
-                } footer: {
-                    if let message = session.errorMessage {
-                        Text(message).foregroundStyle(.red)
-                    } else {
-                        Text("Use this if a phone is lost or shared. Every device, this one included, signs out right away.")
+                    if let backend = BackendLabel.current {
+                        Section {} footer: {
+                            Text("Test build: \(backend) · \(AppVersion.client)")
+                        }
                     }
                 }
-
-                if let backend = BackendLabel.current {
-                    Section {} footer: {
-                        Text("Test build: \(backend) · \(AppVersion.client)")
-                    }
-                }
+                .foonRows()
             }
+                .foonGrouped()
             .refreshable {
                 await store.load()
                 await allergyAlerts?.load()
@@ -355,9 +359,9 @@ struct MemberRow: View {
     var invited = false
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Spacing.m) {
             MemberAvatar(member: member)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 HStack(spacing: 6) {
                     Text(member.firstName).font(.body.weight(.medium))
                     if isYou {

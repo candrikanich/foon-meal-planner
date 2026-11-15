@@ -24,25 +24,29 @@ struct IdeasView: View {
     var body: some View {
         NavigationStack {
             List {
-                if showsShareTip, TipRules.eligible(onMac: FoonTips.onMac, canShop: false).contains(.shareToFoon) {
-                    Section { TipView(shareTip) }
-                }
-                if let message = ideas.errorMessage {
-                    Section { Text(message).foregroundStyle(.red) }
-                }
-                let sections = sections
-                section("For this week", sections.thisWeek)
-                section("Later", sections.later)
-                section("Someday", sections.someday)
-                section("New finds", sections.newFinds)
-                if ideas.hasLoaded && ideas.requests.isEmpty {
-                    ContentUnavailableView {
-                        Label("No ideas yet", systemImage: "lightbulb")
-                    } description: {
-                        Text("Want steak Friday, or crab legs someday? Ask here, and the planner sees it.")
+                Group {
+                    if showsShareTip, TipRules.eligible(onMac: FoonTips.onMac, canShop: false).contains(.shareToFoon) {
+                        Section { TipView(shareTip) }
+                    }
+                    if let message = ideas.errorMessage {
+                        Section { Text(message).foregroundStyle(.red) }
+                    }
+                    let sections = sections
+                    section("For this week", sections.thisWeek)
+                    section("Later", sections.later)
+                    section("Someday", sections.someday)
+                    section("New finds", sections.newFinds)
+                    if ideas.hasLoaded && ideas.requests.isEmpty {
+                        ContentUnavailableView {
+                            Label("No ideas yet", systemImage: "lightbulb")
+                        } description: {
+                            Text("Want steak Friday, or crab legs someday? Ask here, and the planner sees it.")
+                        }
                     }
                 }
+                .foonRows()
             }
+                .foonGrouped()
             .navigationTitle("Ideas")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -92,15 +96,15 @@ struct RequestRow: View {
 
     var body: some View {
         let from = household.members.first { $0.id == request.requestedByMemberID }
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: Spacing.m) {
             if let from { MemberAvatar(member: from, size: 36) }
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(RequestText.what(request, library: library)).font(.foonHeadline).foregroundStyle(Palette.ink)
                 if let from {
                     Text(RequestText.from(from.firstName, request: request)).font(.foonCaption).foregroundStyle(.secondary)
                 }
                 if let note = request.note { Text(note).font(.foonBody).foregroundStyle(Palette.ink) }
-                HStack(spacing: 8) {
+                HStack(spacing: Spacing.s) {
                     Chip(text: RequestText.status(RequestBoard.shown(request, today: week.todayDay)))
                     if !request.plusOnes.isEmpty {
                         Label(request.plusOnes.count == 1 ? String(localized: "1 me-too")

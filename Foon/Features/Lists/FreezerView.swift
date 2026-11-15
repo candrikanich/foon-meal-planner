@@ -12,77 +12,81 @@ struct FreezerView: View {
 
     var body: some View {
         List {
-            if let message = freezer.errorMessage {
-                Text(message).font(.callout).foregroundStyle(.red)
-            }
-            Section {
-                if freezer.inTheFreezer.isEmpty {
-                    Text(freezer.hasLoaded ? "Nothing in the freezer yet. Cooked extra? Add it so it gets eaten."
-                                           : "Loading what's in the freezer…")
-                        .foregroundStyle(.secondary)
+            Group {
+                if let message = freezer.errorMessage {
+                    Text(message).font(.callout).foregroundStyle(.red)
                 }
-                ForEach(freezer.inTheFreezer) { item in
-                    row(item)
-                        .swipeActions(edge: .leading) {
-                            Button("Used up", systemImage: "checkmark") { change(.used, item) }.tint(Palette.herb)
-                        }
-                        .swipeActions(edge: .trailing) {
-                            Button("Toss", systemImage: "archivebox") { change(.archived, item) }.tint(Palette.caution)
-                        }
-                        .contextMenu {
-                            Button("Used up", systemImage: "checkmark") { change(.used, item) }
-                            Button("Toss", systemImage: "archivebox") { change(.archived, item) }
-                        }
-                        .accessibilityAction(named: Text("Used up")) { change(.used, item) }
-                        .accessibilityAction(named: Text("Toss")) { change(.archived, item) }
-                }
-            } header: {
-                Text("In the freezer")
-            } footer: {
-                Text("Oldest first. Planners see these in Swap, with allergy flags for whoever's home that night.")
-            }
-            if !freezer.planned(today: today).isEmpty {
-                Section("Planned") {
-                    ForEach(freezer.planned(today: today)) { item in
-                        VStack(alignment: .leading, spacing: 3) {
-                            row(item)
-                            if let night = item.plannedOn {
-                                Text("Planned for \(DayCardText.dateLabel(for: night))")
-                                    .font(.foonCaption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .accessibilityElement(children: .combine)
+                Section {
+                    if freezer.inTheFreezer.isEmpty {
+                        Text(freezer.hasLoaded ? "Nothing in the freezer yet. Cooked extra? Add it so it gets eaten."
+                                               : "Loading what's in the freezer…")
+                            .foregroundStyle(.secondary)
                     }
+                    ForEach(freezer.inTheFreezer) { item in
+                        row(item)
+                            .swipeActions(edge: .leading) {
+                                Button("Used up", systemImage: "checkmark") { change(.used, item) }.tint(Palette.herb)
+                            }
+                            .swipeActions(edge: .trailing) {
+                                Button("Toss", systemImage: "archivebox") { change(.archived, item) }.tint(Palette.caution)
+                            }
+                            .contextMenu {
+                                Button("Used up", systemImage: "checkmark") { change(.used, item) }
+                                Button("Toss", systemImage: "archivebox") { change(.archived, item) }
+                            }
+                            .accessibilityAction(named: Text("Used up")) { change(.used, item) }
+                            .accessibilityAction(named: Text("Toss")) { change(.archived, item) }
+                    }
+                } header: {
+                    Text("In the freezer")
+                } footer: {
+                    Text("Oldest first. Planners see these in Swap, with allergy flags for whoever's home that night.")
                 }
-            }
-            if !freezer.gone(today: today).isEmpty {
-                Section("Used up or tossed") {
-                    ForEach(freezer.gone(today: today)) { item in
-                        HStack {
+                if !freezer.planned(today: today).isEmpty {
+                    Section("Planned") {
+                        ForEach(freezer.planned(today: today)) { item in
                             VStack(alignment: .leading, spacing: 3) {
                                 row(item)
                                 if let night = item.plannedOn {
-                                    Text("Was on the plan for \(DayCardText.dateLabel(for: night))")
+                                    Text("Planned for \(DayCardText.dateLabel(for: night))")
                                         .font(.foonCaption)
                                         .foregroundStyle(.secondary)
                                 }
                             }
                             .accessibilityElement(children: .combine)
-                            Spacer()
-                            // One that was on a night comes back by changing that night; the server refuses otherwise.
-                            if item.plannedOn == nil {
-                                Button("Put back") { change(.in, item) }
-                                    .font(.foonCaption)
-                                    .buttonStyle(.borderless)
-                                    .tint(Palette.paprika)
-                                    .accessibilityLabel("Put \(item.mealName) back in the freezer")
+                        }
+                    }
+                }
+                if !freezer.gone(today: today).isEmpty {
+                    Section("Used up or tossed") {
+                        ForEach(freezer.gone(today: today)) { item in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    row(item)
+                                    if let night = item.plannedOn {
+                                        Text("Was on the plan for \(DayCardText.dateLabel(for: night))")
+                                            .font(.foonCaption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .accessibilityElement(children: .combine)
+                                Spacer()
+                                // One that was on a night comes back by changing that night; the server refuses otherwise.
+                                if item.plannedOn == nil {
+                                    Button("Put back") { change(.in, item) }
+                                        .font(.foonCaption)
+                                        .buttonStyle(.borderless)
+                                        .tint(Palette.paprika)
+                                        .accessibilityLabel("Put \(item.mealName) back in the freezer")
+                                }
                             }
                         }
                     }
                 }
             }
+            .foonRows()
         }
+            .foonGrouped()
         .navigationTitle("Freezer stash")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -108,7 +112,7 @@ struct FreezerView: View {
             AllergyMatcher.flags(ingredients: ShoppingLines.lines(for: dish, library: library.meals).map(\.name),
                                  members: library.allergies)
         } ?? []
-        return VStack(alignment: .leading, spacing: 4) {
+        return VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(item.mealName).font(.foonHeadline).foregroundStyle(Palette.ink)
             Text(FreezerStash.madeText(item.madeOn, today: today)).font(.foonCaption).foregroundStyle(.secondary)
             ForEach(flags, id: \.summary) { flag in
@@ -157,23 +161,27 @@ struct FreezerAddSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                if let message = freezer.errorMessage {
-                    Text(message).font(.callout).foregroundStyle(.red)
-                }
-                Section {
-                    DatePicker("Made on", selection: $madeOn, in: ...Date.now, displayedComponents: .date)
-                        .environment(\.calendar, calendar)
-                        .environment(\.timeZone, calendar.timeZone)
-                }
-                Section("Which dish?") {
-                    if meals.isEmpty { Text("No dishes match. Add it to your library first.").foregroundStyle(.secondary) }
-                    ForEach(meals) { meal in
-                        Button(meal.name) { Task { await add(meal) } }
-                            .tint(Palette.ink)
-                            .accessibilityHint("Adds it to the freezer")
+                Group {
+                    if let message = freezer.errorMessage {
+                        Text(message).font(.callout).foregroundStyle(.red)
+                    }
+                    Section {
+                        DatePicker("Made on", selection: $madeOn, in: ...Date.now, displayedComponents: .date)
+                            .environment(\.calendar, calendar)
+                            .environment(\.timeZone, calendar.timeZone)
+                    }
+                    Section("Which dish?") {
+                        if meals.isEmpty { Text("No dishes match. Add it to your library first.").foregroundStyle(.secondary) }
+                        ForEach(meals) { meal in
+                            Button(meal.name) { Task { await add(meal) } }
+                                .tint(Palette.ink)
+                                .accessibilityHint("Adds it to the freezer")
+                        }
                     }
                 }
+                .foonRows()
             }
+                .foonGrouped()
             .searchable(text: $search, prompt: Text("Search your meals"))
             .disabled(saving)
             .navigationTitle("Add to the freezer")

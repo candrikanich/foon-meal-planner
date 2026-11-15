@@ -11,24 +11,28 @@ struct PlanActivityView: View {
         let calendar = settings.dayCalendar
         let today = settings.today()
         List {
-            if let message = activity.errorMessage {
-                Text(message).font(.callout).foregroundStyle(.red)
-            }
-            if activity.hasLoaded, activity.entries.isEmpty {
-                ContentUnavailableView("No changes yet", systemImage: "clock.arrow.circlepath",
-                                       description: Text("When someone changes the plan, it shows here."))
-            }
-            Section {
-                ForEach(activity.entries) { entry in
-                    PlanChangeRow(line: PlanChangeText.line(entry, members: household.members, today: today, calendar: calendar),
-                                  at: entry.changes[0].createdAt)
+            Group {
+                if let message = activity.errorMessage {
+                    Text(message).font(.callout).foregroundStyle(.red)
                 }
-            } footer: {
-                if !activity.entries.isEmpty {
-                    Text("The last eight weeks. To undo a change, open that night on This Week.")
+                if activity.hasLoaded, activity.entries.isEmpty {
+                    ContentUnavailableView("No changes yet", systemImage: "clock.arrow.circlepath",
+                                           description: Text("When someone changes the plan, it shows here."))
+                }
+                Section {
+                    ForEach(activity.entries) { entry in
+                        PlanChangeRow(line: PlanChangeText.line(entry, members: household.members, today: today, calendar: calendar),
+                                      at: entry.changes[0].createdAt)
+                    }
+                } footer: {
+                    if !activity.entries.isEmpty {
+                        Text("The last eight weeks. To undo a change, open that night on This Week.")
+                    }
                 }
             }
+            .foonRows()
         }
+            .foonGrouped()
         .navigationTitle("Plan activity")
         .refreshable { await activity.load() }
         .task { await activity.load() }
@@ -41,7 +45,7 @@ struct PlanChangeRow: View {
     let at: Date
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(line).font(.foonBody)
             Text(at, format: .relative(presentation: .named)).font(.foonCaption).foregroundStyle(.secondary)
         }

@@ -23,47 +23,51 @@ struct DeleteHouseholdView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    if isSample {
-                        Text("This deletes the sample family and everything in it. You keep your account and go back to start your own household.")
-                    } else {
-                        Text("This deletes \(name) for everyone: meals, plans, lists, photos, and family profiles. Everyone keeps their account and can start or join another household. This can't be undone.")
-                    }
-                }
-                BillingContinuesSection()
-                if !isSample {
+                Group {
                     Section {
-                        ExportButton(exportURL: $exportURL)
-                    } footer: {
-                        Text("Want a copy first? Export saves everything as a file.")
-                    }
-                    Section {
-                        TextField(name, text: $typed)
-                            .autocorrectionDisabled()
-                            .accessibilityLabel(Text("Type \(name) to confirm"))
-                    } header: {
-                        Text("Type \(name) to confirm")
-                    }
-                }
-                Section {
-                    Button(isSample ? "Delete the sample family" : "Delete household", role: .destructive) {
-                        Task {
-                            isDeleting = true
-                            defer { isDeleting = false }
-                            // On success the household is gone and the gate swaps to Create, taking this sheet with it.
-                            _ = await store.deleteHousehold()
+                        if isSample {
+                            Text("This deletes the sample family and everything in it. You keep your account and go back to start your own household.")
+                        } else {
+                            Text("This deletes \(name) for everyone: meals, plans, lists, photos, and family profiles. Everyone keeps their account and can start or join another household. This can't be undone.")
                         }
                     }
-                    .disabled(!confirmed || isDeleting)
-                    if isDeleting {
-                        ProgressView("Deleting…")
+                    BillingContinuesSection()
+                    if !isSample {
+                        Section {
+                            ExportButton(exportURL: $exportURL)
+                        } footer: {
+                            Text("Want a copy first? Export saves everything as a file.")
+                        }
+                        Section {
+                            TextField(name, text: $typed)
+                                .autocorrectionDisabled()
+                                .accessibilityLabel(Text("Type \(name) to confirm"))
+                        } header: {
+                            Text("Type \(name) to confirm")
+                        }
                     }
-                } footer: {
-                    if let message = store.errorMessage {
-                        Text(message).foregroundStyle(.red)
+                    Section {
+                        Button(isSample ? "Delete the sample family" : "Delete household", role: .destructive) {
+                            Task {
+                                isDeleting = true
+                                defer { isDeleting = false }
+                                // On success the household is gone and the gate swaps to Create, taking this sheet with it.
+                                _ = await store.deleteHousehold()
+                            }
+                        }
+                        .disabled(!confirmed || isDeleting)
+                        if isDeleting {
+                            ProgressView("Deleting…")
+                        }
+                    } footer: {
+                        if let message = store.errorMessage {
+                            Text(message).foregroundStyle(.red)
+                        }
                     }
                 }
+                .foonRows()
             }
+                .foonGrouped()
             .navigationTitle(isSample ? "Start your real family?" : "Delete household?")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

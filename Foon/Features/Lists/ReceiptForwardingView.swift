@@ -22,19 +22,23 @@ struct ReceiptForwardingView: View {
 
     var body: some View {
         List {
-            addressSection
-            if let notice = store.notice {
-                Text(notice.text)
-                    .font(.callout)
-                    .foregroundStyle(notice.isProblem ? Color.red : Color.secondary)
+            Group {
+                addressSection
+                if let notice = store.notice {
+                    Text(notice.text)
+                        .font(.callout)
+                        .foregroundStyle(notice.isProblem ? Color.red : Color.secondary)
+                }
+                sendersSection
+                addSection
+                Section {
+                    Button("Get a new address", role: .destructive) { confirmingReset = true }
+                        .disabled(!canEdit || store.isWorking || store.address == nil)
+                }
             }
-            sendersSection
-            addSection
-            Section {
-                Button("Get a new address", role: .destructive) { confirmingReset = true }
-                    .disabled(!canEdit || store.isWorking || store.address == nil)
-            }
+            .foonRows()
         }
+            .foonGrouped()
         .navigationTitle("Forward receipts")
         .refreshable { await store.load() }
         .task { await store.load() }
@@ -139,7 +143,7 @@ struct ReceiptSenderRow: View {
     let sender: ReceiptSender
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(sender.addressHint).font(.foonBody)
             if sender.isConfirmed {
                 Label("Confirmed", systemImage: "checkmark.circle.fill")

@@ -65,44 +65,48 @@ struct DeleteAccountView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Text(outcome.consequence)
-                }
-                if case .household = outcome {
-                    BillingContinuesSection()
-                }
-                if case .household = outcome, household.canExport {
+                Group {
                     Section {
-                        ExportButton(exportURL: $exportURL)
+                        Text(outcome.consequence)
+                    }
+                    if case .household = outcome {
+                        BillingContinuesSection()
+                    }
+                    if case .household = outcome, household.canExport {
+                        Section {
+                            ExportButton(exportURL: $exportURL)
+                        } footer: {
+                            if let message = household.errorMessage {
+                                Text(message).foregroundStyle(.red)
+                            } else {
+                                Text("Want a copy first? Export saves everything as a file.")
+                            }
+                        }
+                    }
+                    Section {
+                        SignInWithAppleButton(.continue) { request in
+                            request.requestedScopes = []
+                        } onCompletion: { result in
+                            confirm(result)
+                        }
+                        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                        .frame(height: 44)
+                        .disabled(isDeleting)
+                        .accessibilityHint("Confirms with Apple, then deletes your account")
+                        if isDeleting {
+                            ProgressView("Deleting…")
+                        }
                     } footer: {
-                        if let message = household.errorMessage {
+                        if let message = session.errorMessage {
                             Text(message).foregroundStyle(.red)
                         } else {
-                            Text("Want a copy first? Export saves everything as a file.")
+                            Text("Confirm with Apple to delete. Foon also stops using Sign in with Apple for your account.")
                         }
                     }
                 }
-                Section {
-                    SignInWithAppleButton(.continue) { request in
-                        request.requestedScopes = []
-                    } onCompletion: { result in
-                        confirm(result)
-                    }
-                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                    .frame(height: 44)
-                    .disabled(isDeleting)
-                    .accessibilityHint("Confirms with Apple, then deletes your account")
-                    if isDeleting {
-                        ProgressView("Deleting…")
-                    }
-                } footer: {
-                    if let message = session.errorMessage {
-                        Text(message).foregroundStyle(.red)
-                    } else {
-                        Text("Confirm with Apple to delete. Foon also stops using Sign in with Apple for your account.")
-                    }
-                }
+                .foonRows()
             }
+                .foonGrouped()
             .navigationTitle(outcome.title)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

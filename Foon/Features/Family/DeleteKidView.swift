@@ -14,43 +14,47 @@ struct DeleteKidView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Label("Their profile, allergies, and schedule", systemImage: "person.crop.circle")
-                    Label("Their ratings, comments, and thank-yous", systemImage: "star")
-                    Label("Their requests, votes, serving notes, and offers to cook", systemImage: "text.bubble")
-                    Label("Reminders sent to them, and the record of your consent", systemImage: "bell")
-                    if member.userID != nil {
-                        Label("Their sign-in account, which signs them out", systemImage: "iphone.slash")
+                Group {
+                    Section {
+                        Label("Their profile, allergies, and schedule", systemImage: "person.crop.circle")
+                        Label("Their ratings, comments, and thank-yous", systemImage: "star")
+                        Label("Their requests, votes, serving notes, and offers to cook", systemImage: "text.bubble")
+                        Label("Reminders sent to them, and the record of your consent", systemImage: "bell")
+                        if member.userID != nil {
+                            Label("Their sign-in account, which signs them out", systemImage: "iphone.slash")
+                        }
+                    } header: {
+                        Text("What's deleted")
+                    } footer: {
+                        Text("It all goes now, not after 30 days. This can't be undone.")
                     }
-                } header: {
-                    Text("What's deleted")
-                } footer: {
-                    Text("It all goes now, not after 30 days. This can't be undone.")
-                }
-                Section {
-                    Text("Plans, dishes, dinners, and shopping lists stay, without \(member.firstName)'s name.")
-                    Text("Things they added to a list stay on it.")
-                } header: {
-                    Text("What stays")
-                }
-                Section {
-                    Button("Delete everything about \(member.firstName)", role: .destructive) {
-                        Task {
-                            isDeleting = true
-                            defer { isDeleting = false }
-                            if await store.deleteKid(member) { onDeleted() }
+                    Section {
+                        Text("Plans, dishes, dinners, and shopping lists stay, without \(member.firstName)'s name.")
+                        Text("Things they added to a list stay on it.")
+                    } header: {
+                        Text("What stays")
+                    }
+                    Section {
+                        Button("Delete everything about \(member.firstName)", role: .destructive) {
+                            Task {
+                                isDeleting = true
+                                defer { isDeleting = false }
+                                if await store.deleteKid(member) { onDeleted() }
+                            }
+                        }
+                        .disabled(isDeleting)
+                        if isDeleting {
+                            ProgressView("Deleting…")
+                        }
+                    } footer: {
+                        if let message = store.errorMessage {
+                            Text(message).foregroundStyle(.red)
                         }
                     }
-                    .disabled(isDeleting)
-                    if isDeleting {
-                        ProgressView("Deleting…")
-                    }
-                } footer: {
-                    if let message = store.errorMessage {
-                        Text(message).foregroundStyle(.red)
-                    }
                 }
+                .foonRows()
             }
+                .foonGrouped()
             .navigationTitle("Delete \(member.firstName)?")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
