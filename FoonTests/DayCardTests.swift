@@ -40,6 +40,45 @@ struct DayCardTextTests {
         #expect(NightEffort.event.next == .normal)
     }
 
+    @Test func badgesSortByHowLoudlyTheQuietCardSaysThem() {
+        let groups = DayCardText.groupBadges([
+            .allergy("Contains milk (Nora)"), .allergyUnchecked("Not checked"), .tradition("Taco Tuesday"),
+            .prep("Thaw tonight"), .startCooking("Start cooking at 5:00 PM"), .request(from: "Owen"),
+            .equipment("Usually uses a grill"), .foodRule("Meatless Monday"), .doubled("Doubled: leftovers Friday")
+        ])
+        #expect(groups.warnings == ["Contains milk (Nora)", "Not checked"])
+        #expect(groups.prep == ["Thaw tonight", "Start cooking at 5:00 PM"])
+        #expect(groups.notes == ["Taco Tuesday", "Owen's request", "Usually uses a grill", "Meatless Monday",
+                                 "Doubled: leftovers Friday"])
+    }
+
+    @Test func everyBadgeLandsInExactlyOneGroup() {
+        let badges: [DayCardModel.Badge] = [.allergy("a"), .allergyUnchecked("b"), .tradition("c"), .request(from: "d"),
+                                            .prep("e"), .equipment("f"), .foodRule("g"), .startCooking("h"),
+                                            .doubled("i")]
+        let groups = DayCardText.groupBadges(badges)
+        #expect(groups.warnings.count + groups.prep.count + groups.notes.count == badges.count)
+    }
+
+    @Test func softLineJoinsWhatIsThere() {
+        #expect(DayCardText.softLine(["Taco Tuesday", nil, "Nora's favorite"]) == "Taco Tuesday · Nora's favorite")
+        #expect(DayCardText.softLine([nil, ""]) == nil)
+        #expect(DayCardText.softLine([]) == nil)
+    }
+
+    @Test func awayLineNamesWhoIsOut() {
+        let home = DayCardModel.Attendee(memberID: UUID(), firstName: "Nora", avatar: nil, isHome: true)
+        let owen = DayCardModel.Attendee(memberID: UUID(), firstName: "Owen", avatar: nil, isHome: false)
+        let ben = DayCardModel.Attendee(memberID: UUID(), firstName: "Ben", avatar: nil, isHome: false)
+        #expect(DayCardText.awayLine([home]) == nil)
+        #expect(DayCardText.awayLine([home, owen, ben]) == "Away: Owen, Ben")
+    }
+
+    @Test func shopActionCountsWhatIsLeftToBuy() {
+        #expect(DayCardText.shopLabel(openItems: 0) == "Shop")
+        #expect(DayCardText.shopLabel(openItems: 5) == "Shop · 5")
+    }
+
     @Test(arguments: [(QuickPick.leftovers, "Leftovers"), (.takeout, "Takeout"), (.eatOut, "Eat out"),
                       (.fendForYourselves, "Fend for yourselves"), (.freezerRaid, "Freezer raid")])
     func quickPickLabels(pick: QuickPick, label: String) {

@@ -157,6 +157,14 @@ struct FamilyView: View {
 
                 ShowTipsAgainSection()
 
+                #if DEBUG || FOON_QA
+                Section {
+                    NavigationLink { DesignGallery() } label: { Text(verbatim: "Design gallery") }
+                } footer: {
+                    Text(verbatim: "Foon QA only: every color, type style and component in the app.")
+                }
+                #endif
+
                 // Family order, not a ranking: credit, not a leaderboard.
                 let cooks = Dictionary(dinner.cookTally.map { ($0.memberID, $0) }, uniquingKeysWith: { first, _ in first })
                 let cooking = store.visibleMembers.filter { cooks[$0.id] != nil }

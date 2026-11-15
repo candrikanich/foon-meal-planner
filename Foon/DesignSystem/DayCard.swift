@@ -1,20 +1,18 @@
 import SwiftUI
 
-/// One night of the week (docs/spec.md → Day cards): effort chip, attendance avatars, the meal with
-/// its reason chip, badges, and inline lock, shuffle, and swap. The same card serves This Week and
-/// planning. Members get the read-only variant: pass no actions.
+/// One night of the week (docs/spec.md → Day cards). Tonight is a hero card with the night's whole story; every
+/// other night is a quiet row. Planners shape a night from its card; members get the same words read-only (pass no
+/// actions). The variants live in DayCardHero.swift and DayCardRow.swift.
 struct DayCard: View {
     /// What the planner can do on a card. Lock, shuffle, and swap appear once they're wired up.
     struct Actions {
         var toggleAttendance: (UUID) -> Void
-        var cycleEffort: () -> Void
+        var setEffort: (NightEffort) -> Void
         var toggleLock: (() -> Void)? = nil
         var shuffle: (() -> Void)? = nil
         var swap: (() -> Void)? = nil
         /// Opens the night's detail; a real button so VoiceOver can reach it on an editable card.
         var open: (() -> Void)? = nil
-
-        var hasNightActions: Bool { toggleLock != nil || shuffle != nil || swap != nil || open != nil }
     }
 
     /// "I'll cook Thursday": for anyone, so it's separate from what planners can do.
@@ -39,420 +37,27 @@ struct DayCard: View {
     var busy: BusySuggestion? = nil
     /// Opens the dish's recipe (#267): for whoever's cooking, so anyone gets it, not just planners.
     var openRecipe: (() -> Void)? = nil
-    /// The card's tap, for VoiceOver: once a card holds buttons it's a container, which can't carry an action itself,
-    /// and members have no Open night button of their own.
+    /// Opens the night's detail: "View meal" on tonight, and the tap for VoiceOver on a row, which can't carry an
+    /// action itself once it holds buttons. Nil on an away night, which has nothing to open.
     var openNight: (() -> Void)? = nil
 
-    private var isTonight: Bool { model.date == today }
+    @Environment(\.dynamicTypeSize) var dynamicTypeSize
+
+    var isTonight: Bool { model.date == today }
+    var usesStackedLayout: Bool { dynamicTypeSize.isAccessibilitySize }
+    var groups: DayCardText.BadgeGroups { DayCardText.groupBadges(model.badges) }
 
     /// Nothing to tap, so VoiceOver reads the card as one summary.
     private var isReadOnly: Bool {
-        actions == nil && offer == nil && rescue == nil && busy == nil && openRecipe == nil
+        actions == nil && offer == nil && rescue == nil && busy == nil && openRecipe == nil && openNight == nil
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            header
-            if let busy { busyRow(busy) }
-            if let openNight, !isReadOnly {
-                mealSlot
-                    .accessibilityElement(children: .combine)
-                    .accessibilityAction(named: Text("Open night"), openNight)
-            } else {
-                mealSlot
-            }
-            if let openRecipe { recipeButton(openRecipe) }
-            if !model.badges.isEmpty { badges }
-            if !model.attendance.isEmpty { attendance }
-            if let cook = model.cook { cookRow(cook) } else if let offer { claimButton(offer) }
-            if !model.jobs.isEmpty { jobs }
-            if let rescue { rescueButton(rescue) }
-            if let actions, actions.hasNightActions { actionRow(actions) }
+        Group {
+            if isTonight { hero } else { row }
         }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Palette.cardSurface))
-        .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(isTonight ? Palette.paprika : .clear, lineWidth: 2)
-        }
-        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
         .accessibilityElement(children: isReadOnly ? .ignore : .contain)
         .accessibilityLabel(DayCardText.accessibilitySummary(model, today: today))
     }
-
-    private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(DayCardText.dayLabel(for: model.date, today: today))
-                .font(.foonHeadline)
-                .foregroundStyle(isTonight ? Palette.paprika : Palette.ink)
-            Text(DayCardText.dateLabel(for: model.date))
-                .font(.foonCaption)
-                .foregroundStyle(.secondary)
-            Spacer()
-            if model.slot == .away {
-                EmptyView()
-            } else if let actions {
-                Button(action: actions.cycleEffort) { effortChip }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(String(localized: "Effort: \(DayCardText.effortLabel(model.effort))"))
-                    .accessibilityHint(String(localized: "Changes the night's effort"))
-            } else {
-                effortChip
-            }
-        }
-    }
-
-    private var effortChip: some View {
-        Chip(text: DayCardText.effortLabel(model.effort), systemImage: model.effort.symbolName,
-             tint: model.effort == .event ? Palette.paprika : .secondary)
-    }
-
-    @ViewBuilder
-    private var mealSlot: some View {
-        switch model.slot {
-        case .empty:
-            HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [5]))
-                    .foregroundStyle(.tertiary)
-                    .frame(width: 56, height: 56)
-                    .overlay(Image(systemName: "plus").foregroundStyle(.tertiary))
-                Text("Nothing planned yet").font(.foonBody).foregroundStyle(.secondary)
-            }
-        case .meal(let name, let reason, let sides):
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(name).font(.foonTitle).foregroundStyle(Palette.ink).lineLimit(2)
-                    if let sides = DayCardText.sidesLabel(sides) {
-                        Text(sides).font(.foonCaption).foregroundStyle(.secondary).lineLimit(2)
-                    }
-                    ForEach(model.servingNotes, id: \.self) { note in
-                        Label(note, systemImage: "fork.knife")
-                            .font(.foonCaption)
-                            .foregroundStyle(.secondary)
-                            .labelStyle(.titleAndIcon)
-                    }
-                    if let reason { Chip(text: reason, systemImage: "sparkles") }
-                }
-            }
-        case .quickPick(let pick):
-            HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Palette.paprika.opacity(0.14))
-                    .frame(width: 56, height: 56)
-                    .overlay(Image(systemName: pick.systemImage).font(.title2).foregroundStyle(Palette.paprika))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(DayCardText.quickPickLabel(pick)).font(.foonTitle).foregroundStyle(Palette.ink)
-                    if let note = model.leftoversNote {
-                        Text(note).font(.foonCaption).foregroundStyle(.secondary).lineLimit(2)
-                    }
-                }
-            }
-        case .away:
-            HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Palette.herb.opacity(0.14))
-                    .frame(width: 56, height: 56)
-                    .overlay(Image(systemName: "airplane").font(.title2).foregroundStyle(Palette.herb))
-                Text("Away").font(.foonTitle).foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var badges: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 6) { badgeChips }
-            VStack(alignment: .leading, spacing: 6) { badgeChips }
-        }
-    }
-
-    @ViewBuilder
-    private var badgeChips: some View {
-        ForEach(model.badges, id: \.self) { badge in
-            switch badge {
-            case .allergy:
-                Chip(text: DayCardText.badgeLabel(badge), systemImage: "exclamationmark.triangle.fill", tint: Palette.caution)
-            case .allergyUnchecked:
-                Chip(text: DayCardText.badgeLabel(badge), systemImage: "questionmark.circle", tint: Palette.caution)
-            case .tradition:
-                Chip(text: DayCardText.badgeLabel(badge), systemImage: "repeat", tint: Palette.paprika)
-            case .request:
-                Chip(text: DayCardText.badgeLabel(badge), systemImage: "hand.raised.fill", tint: Palette.herb)
-            case .prep:
-                Chip(text: DayCardText.badgeLabel(badge), systemImage: "timer", tint: .secondary)
-            case .equipment:
-                Chip(text: DayCardText.badgeLabel(badge), systemImage: "frying.pan", tint: Palette.paprika)
-            case .foodRule:
-                Chip(text: DayCardText.badgeLabel(badge), systemImage: "fork.knife", tint: Palette.paprika)
-            case .startCooking:
-                Chip(text: DayCardText.badgeLabel(badge), systemImage: "flame", tint: .secondary)
-            case .doubled:
-                Chip(text: DayCardText.badgeLabel(badge), systemImage: "square.on.square", tint: Palette.herb)
-            }
-        }
-    }
-
-    private var attendance: some View {
-        let shown = DayCardText.visibleAttendees(model.attendance)
-        return HStack(spacing: -6) {
-            ForEach(shown.visible) { attendee in
-                let avatar = MemberAvatar(member: .fixture(id: attendee.memberID, firstName: attendee.firstName,
-                                                            avatar: attendee.avatar), size: 32)
-                    .opacity(attendee.isHome ? 1 : 0.35)
-                    .overlay(alignment: .bottomTrailing) {
-                        if !attendee.isHome {
-                            Image(systemName: "moon.zzz.fill").font(.caption2).foregroundStyle(.secondary)
-                        }
-                    }
-                if let actions {
-                    Button { actions.toggleAttendance(attendee.memberID) } label: { avatar }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(attendee.isHome
-                            ? String(localized: "\(attendee.firstName), home")
-                            : String(localized: "\(attendee.firstName), away"))
-                        .accessibilityHint(String(localized: "Toggles whether they're home this night"))
-                } else {
-                    avatar
-                }
-            }
-            if shown.hidden > 0 {
-                let more = Text("+\(shown.hidden)")
-                    .font(.foonCaption)
-                    .foregroundStyle(.secondary)
-                    .frame(minWidth: 32, minHeight: 32)
-                    .background(Circle().fill(.fill.tertiary))
-                if let open = actions?.open {
-                    Button(action: open) { more }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(String(localized: "\(shown.hidden) more people"))
-                        .accessibilityHint(String(localized: "Opens the night to see everyone"))
-                } else {
-                    more.accessibilityHidden(true)
-                }
-            }
-        }
-    }
-
-    private func cookRow(_ cook: DayCardModel.Cook) -> some View {
-        HStack(spacing: 8) {
-            MemberAvatar(member: .fixture(id: cook.memberID, firstName: cook.firstName, avatar: cook.avatar), size: 28)
-            Text(DayCardText.cookLabel(cook))
-                .font(.foonCaption)
-                .foregroundStyle(Palette.ink)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private func claimButton(_ offer: ClaimOffer) -> some View {
-        Button(offer.title, systemImage: "frying.pan", action: offer.claim)
-            .buttonStyle(.bordered)
-            .tint(Palette.paprika)
-            .controlSize(.small)
-            .disabled(offer.isDisabled)
-            .accessibilityHint(String(localized: "Tells the family you're cooking this night"))
-    }
-
-    private func busyRow(_ busy: BusySuggestion) -> some View {
-        HStack(spacing: 8) {
-            Button(action: busy.markRushed) {
-                Label("Busy evening? Mark it rushed", systemImage: "calendar.badge.clock")
-                    .font(.foonCaption)
-            }
-            .buttonStyle(.bordered)
-            .tint(Palette.paprika)
-            .controlSize(.small)
-            .accessibilityHint(String(localized: "Changes the night's effort to rushed"))
-            Spacer(minLength: 0)
-            Button("Not this time", systemImage: "xmark", action: busy.dismiss)
-                .labelStyle(.iconOnly)
-                .frame(minWidth: 44, minHeight: 44)
-                .buttonStyle(.borderless)
-                .tint(.secondary)
-                .accessibilityLabel(String(localized: "Dismiss the busy evening suggestion"))
-        }
-    }
-
-    private func recipeButton(_ open: @escaping () -> Void) -> some View {
-        Button("Recipe", systemImage: "book", action: open)
-            .buttonStyle(.bordered)
-            .tint(Palette.paprika)
-            .controlSize(.small)
-            .accessibilityLabel(String(localized: "Open the recipe"))
-            .accessibilityHint(String(localized: "Shows the dish's ingredients and steps"))
-    }
-
-    private func rescueButton(_ rescue: @escaping () -> Void) -> some View {
-        Button("What can we make?", systemImage: "lifepreserver", action: rescue)
-            .buttonStyle(.bordered)
-            .tint(Palette.paprika)
-            .controlSize(.small)
-            .accessibilityLabel(String(localized: "What can we make tonight?"))
-            .accessibilityHint(String(localized: "Shows a few quick ideas from what's in the house"))
-    }
-
-    private var jobs: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            ForEach(model.jobs, id: \.self) { job in
-                Label(DayCardText.jobLabel(job), systemImage: "checklist")
-                    .font(.foonCaption)
-                    .foregroundStyle(.secondary)
-                    .labelStyle(.titleAndIcon)
-            }
-        }
-    }
-
-    private func actionRow(_ actions: Actions) -> some View {
-        HStack(spacing: 8) {
-            Spacer()
-            if let toggleLock = actions.toggleLock {
-                Button(action: toggleLock) {
-                    Image(systemName: model.isLocked ? "lock.fill" : "lock.open")
-                }
-                .accessibilityLabel(model.isLocked ? String(localized: "Unlock night") : String(localized: "Lock night"))
-            }
-            if let shuffle = actions.shuffle {
-                Button(action: shuffle) { Image(systemName: model.slot == .empty ? "wand.and.stars" : "shuffle") }
-                    .disabled(model.isLocked)
-                    .accessibilityLabel(model.slot == .empty
-                        ? String(localized: "Pick for me") : String(localized: "Shuffle this night"))
-            }
-            if let swap = actions.swap {
-                Button(action: swap) { Image(systemName: "arrow.triangle.2.circlepath") }
-                    .accessibilityLabel(String(localized: "Swap this night"))
-            }
-            if let open = actions.open {
-                Button(action: open) { Image(systemName: "info.circle") }
-                    .accessibilityLabel(String(localized: "Open night"))
-            }
-        }
-        .buttonStyle(.bordered)
-        .tint(Palette.paprika)
-        .controlSize(.small)
-    }
 }
 
-// MARK: - Previews
-
-private enum DayCardPreview {
-    static let today = CalendarDay(Date())
-    static let family: [DayCardModel.Attendee] = [
-        .init(memberID: UUID(), firstName: "Ann", avatar: "🦉", isHome: true),
-        .init(memberID: UUID(), firstName: "Ben", avatar: "🐻", isHome: true),
-        .init(memberID: UUID(), firstName: "Owen", avatar: "🦊", isHome: false),
-        .init(memberID: UUID(), firstName: "Nora", avatar: "🐢", isHome: true)
-    ]
-    static var actions: DayCard.Actions {
-        DayCard.Actions(toggleAttendance: { _ in }, cycleEffort: {}, toggleLock: {}, shuffle: {}, swap: {})
-    }
-}
-
-#Preview("States") {
-    ScrollView {
-        VStack(spacing: 16) {
-            DayCard(model: .init(date: DayCardPreview.today, effort: .normal, slot: .empty,
-                                 attendance: DayCardPreview.family, badges: [], isLocked: false),
-                    actions: DayCardPreview.actions)
-            DayCard(model: .init(date: DayCardPreview.today.adding(days: 1), effort: .rushed,
-                                 slot: .meal(name: "Tacos", reason: "Nora's favorite"),
-                                 attendance: DayCardPreview.family, badges: [.tradition("Taco Tuesday")], isLocked: false),
-                    actions: DayCardPreview.actions)
-            DayCard(model: .init(date: DayCardPreview.today.adding(days: 2), effort: .full,
-                                 slot: .meal(name: "Pot roast", reason: "Haven't had it in 7 weeks",
-                                             sides: ["mashed potatoes", "green beans"]),
-                                 attendance: DayCardPreview.family,
-                                 badges: [.equipment("Usually uses a grill"),
-                                          .startCooking("Start cooking at 5:00 PM for 6:00 PM dinner"),
-                                          .prep("Thaw tonight")],
-                                 isLocked: true,
-                                 servingNotes: ["Nora: keep everything separate before mixing", "Owen: no gravy"]),
-                    actions: DayCardPreview.actions, openRecipe: {})
-            DayCard(model: .init(date: DayCardPreview.today.adding(days: 3), effort: .event,
-                                 slot: .quickPick(.eatOut), attendance: DayCardPreview.family,
-                                 badges: [], isLocked: true),
-                    actions: DayCardPreview.actions)
-            DayCard(model: .init(date: DayCardPreview.today.adding(days: 5), effort: .normal,
-                                 slot: .meal(name: "Chili", reason: "Due for a turn"),
-                                 attendance: DayCardPreview.family, badges: [.doubled("Doubled: leftovers Friday")],
-                                 isLocked: true),
-                    actions: DayCardPreview.actions)
-            DayCard(model: .init(date: DayCardPreview.today.adding(days: 6), effort: .rushed, slot: .quickPick(.leftovers),
-                                 attendance: DayCardPreview.family, badges: [.allergy("Contains milk (Nora)")],
-                                 isLocked: true, leftoversNote: "From Thursday's Chili"),
-                    actions: DayCardPreview.actions)
-            DayCard(model: .init(date: DayCardPreview.today.adding(days: 4), effort: .normal,
-                                 slot: .meal(name: "Homemade mac and cheese", reason: "Owen's request"),
-                                 attendance: DayCardPreview.family,
-                                 badges: [.allergy("Contains milk (Nora)"), .request(from: "Owen")], isLocked: false),
-                    actions: DayCardPreview.actions)
-        }
-        .padding()
-    }
-    .background(Palette.cream)
-}
-
-#Preview("Who's cooking, and jobs") {
-    let family = Member.sampleFamily
-    ScrollView {
-        VStack(spacing: 16) {
-            DayCard(model: .init(date: DayCardPreview.today.adding(days: 1), effort: .normal,
-                                 slot: .meal(name: "Tacos", reason: nil),
-                                 attendance: DayCardPreview.family, badges: [], isLocked: false),
-                    offer: DayCard.ClaimOffer(title: "I'll cook tomorrow") {})
-            DayCard(model: .init(date: DayCardPreview.today.adding(days: 2), effort: .normal,
-                                 slot: .meal(name: "Chili", reason: nil),
-                                 attendance: DayCardPreview.family, badges: [], isLocked: false,
-                                 cook: .init(member: family[1], isYou: false, tense: .willCook),
-                                 jobs: [.init(title: "Set the table", firstName: "Nora"),
-                                        .init(title: "Do the dishes", firstName: "Owen")]))
-            DayCard(model: .init(date: DayCardPreview.today.adding(days: 3), effort: .normal, slot: .empty,
-                                 attendance: DayCardPreview.family, badges: [], isLocked: false,
-                                 cook: .init(member: family[0], isYou: true, tense: .willCook)))
-        }
-        .padding()
-    }
-    .background(Palette.cream)
-}
-
-#Preview("Big family") {
-    let family = (0..<10).map { index in
-        DayCardModel.Attendee(memberID: UUID(), firstName: "Kid \(index)", avatar: ["🦊", "🐻", "🐢", "🦉"][index % 4],
-                              isHome: index != 8)
-    }
-    DayCard(model: .init(date: DayCardPreview.today, effort: .normal,
-                         slot: .meal(name: "Spaghetti", reason: "Due for a turn", sides: ["garlic bread"]),
-                         attendance: family, badges: [], isLocked: false),
-            actions: DayCard.Actions(toggleAttendance: { _ in }, cycleEffort: {}, open: {}))
-        .padding()
-        .background(Palette.cream)
-}
-
-#Preview("Tonight, with the rescue") {
-    VStack(spacing: 16) {
-        DayCard(model: .init(date: DayCardPreview.today, effort: .normal, slot: .meal(name: "Tacos",
-                                                                                      reason: "Due for a turn"),
-                             attendance: DayCardPreview.family, badges: [], isLocked: false),
-                actions: DayCardPreview.actions, rescue: {})
-        DayCard(model: .init(date: DayCardPreview.today, effort: .rushed, slot: .empty,
-                             attendance: DayCardPreview.family, badges: [], isLocked: false),
-                rescue: {})
-    }
-    .padding()
-    .background(Palette.cream)
-}
-
-#Preview("Busy evening") {
-    DayCard(model: .init(date: DayCardPreview.today.adding(days: 1), effort: .normal,
-                         slot: .meal(name: "Tacos", reason: "Due for a turn"),
-                         attendance: DayCardPreview.family, badges: [], isLocked: false),
-            actions: DayCardPreview.actions, busy: DayCard.BusySuggestion(markRushed: {}, dismiss: {}))
-        .padding()
-        .background(Palette.cream)
-}
-
-#Preview("Read-only (member)") {
-    DayCard(model: .init(date: DayCardPreview.today, effort: .rushed,
-                         slot: .meal(name: "Tacos", reason: "Nora's favorite"),
-                         attendance: DayCardPreview.family, badges: [.allergy("Contains milk (Nora)")], isLocked: true))
-        .padding()
-        .background(Palette.cream)
-}

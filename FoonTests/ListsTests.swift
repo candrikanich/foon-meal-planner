@@ -19,6 +19,12 @@ struct ListBoardTests {
         #expect(ListBoard.onTheList(entries).map(\.name) == ["Milk", "Beef", "Bread", "Apples"])
     }
 
+    @Test func subtitleCountsTheRowsStillToPickUp() {
+        #expect(ListBoard.pickUpSubtitle(count: 0).isEmpty)
+        #expect(ListBoard.pickUpSubtitle(count: 1) == "1 item to pick up")
+        #expect(ListBoard.pickUpSubtitle(count: 4) == "4 items to pick up")
+    }
+
     @Test func staplesRunningLowSkipWhatsAlreadyOnAList() {
         let cereal = ListBoard.Staple(itemID: UUID(), name: "Cereal", state: .out, category: .pantry)
         let rice = ListBoard.Staple(itemID: UUID(), name: "Rice", state: .low, category: .pantry)

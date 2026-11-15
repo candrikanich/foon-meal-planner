@@ -489,9 +489,6 @@
         }
       }
     },
-    "%lld" : {
-
-    },
     "%lld days ago" : {
       "comment" : "Freezer stash: how long ago"
     },
@@ -513,10 +510,16 @@
     "%lld items are still on the list for next time." : {
 
     },
+    "%lld items to pick up" : {
+
+    },
     "%lld jobs" : {
       "comment" : "Family: how many dinner jobs the household uses"
     },
     "%lld me-toos" : {
+
+    },
+    "%lld meals" : {
 
     },
     "%lld meals can't be fully checked for allergies. Open them to see why." : {
@@ -667,6 +670,9 @@
     "1 item is still on the list for next time." : {
 
     },
+    "1 item to pick up" : {
+
+    },
     "1 job" : {
       "comment" : "Family: how many dinner jobs the household uses"
     },
@@ -674,6 +680,9 @@
 
     },
     "1 me-too" : {
+
+    },
+    "1 meal" : {
 
     },
     "1 meal can't be fully checked for allergies. Open it to see why." : {
@@ -755,6 +764,9 @@
 
     },
     "A parent keeps these up to date. Foon flags dishes, and you still check labels." : {
+
+    },
+    "A parent needs to OK this before you keep using Foon." : {
 
     },
     "A parent needs to agree to Foon's new allergy wording" : {
@@ -857,6 +869,9 @@
 
     },
     "Add ingredients" : {
+
+    },
+    "Add meal" : {
 
     },
     "Add member" : {
@@ -994,6 +1009,9 @@
     "Allergy alerts" : {
 
     },
+    "Allergy flag" : {
+
+    },
     "Allergy flags" : {
 
     },
@@ -1079,6 +1097,9 @@
 
     },
     "Ask %@ to unlock Foon" : {
+
+    },
+    "Ask a parent" : {
 
     },
     "Ask again" : {
@@ -1214,9 +1235,6 @@
 
     },
     "Change my allergies" : {
-
-    },
-    "Changes the night's effort" : {
 
     },
     "Changes the night's effort to rushed" : {
@@ -1817,9 +1835,6 @@
     "Effort" : {
 
     },
-    "Effort: %@" : {
-
-    },
     "Email" : {
 
     },
@@ -1944,6 +1959,15 @@
 
     },
     "Fill remaining nights" : {
+
+    },
+    "Filters" : {
+
+    },
+    "Filters · %@" : {
+
+    },
+    "Filters, %@ selected" : {
 
     },
     "Find or type an item" : {
@@ -2127,6 +2151,9 @@
 
     },
     "Foon goes by names and ingredients, so it can be wrong either way. Tap one to plan it anyway." : {
+
+    },
+    "Foon has changed" : {
 
     },
     "Foon holds back dishes that usually use kitchen equipment you don't have, unless few others fit. Search your meals to plan one anyway." : {
@@ -2921,6 +2948,9 @@
     "More" : {
 
     },
+    "More actions for this night" : {
+
+    },
     "More ideas" : {
 
     },
@@ -3685,6 +3715,9 @@
     "Restore purchases" : {
 
     },
+    "Retired" : {
+
+    },
     "Return date" : {
 
     },
@@ -3794,6 +3827,9 @@
     "Sends a link and a code so %@ can join on their own device. Codes work once and expire in 7 days." : {
 
     },
+    "Sends the question to your parent's device" : {
+
+    },
     "Separate them with commas or new lines. You can add them later too." : {
 
     },
@@ -3851,6 +3887,12 @@
     "Shop in store mode" : {
 
     },
+    "Shop · %lld" : {
+
+    },
+    "Shopping lists" : {
+
+    },
     "Show" : {
 
     },
@@ -3885,6 +3927,12 @@
 
     },
     "Show when to start cooking" : {
+
+    },
+    "Showing %@" : {
+
+    },
+    "Showing meals in your rotation" : {
 
     },
     "Shown on the day card when %@ is home." : {
@@ -4159,7 +4207,7 @@
     "Swap dinner" : {
       "comment" : "Prep reminder action"
     },
-    "Swap this night" : {
+    "Swipe an item for “Got it” or “Remove”." : {
 
     },
     "Switch schedules" : {
@@ -4184,6 +4232,9 @@
       "comment" : "Tradition name placeholder"
     },
     "Tags" : {
+
+    },
+    "Take a photo" : {
 
     },
     "Take back your me too" : {
@@ -4879,6 +4930,9 @@
     "View meal" : {
 
     },
+    "View night" : {
+
+    },
     "View the original recipe" : {
 
     },
@@ -4942,9 +4996,6 @@
 
     },
     "We updated our terms" : {
-
-    },
-    "Week" : {
 
     },
     "Week starts" : {
@@ -5122,6 +5173,9 @@
 
     },
     "Who's cooking" : {
+
+    },
+    "Who's eating" : {
 
     },
     "Who's home" : {
@@ -5319,6 +5373,9 @@
 
     },
     "Your rhythm" : {
+
+    },
+    "Your saved meals" : {
 
     },
     "Your sign-in has ended. Sign in again, then try again." : {
