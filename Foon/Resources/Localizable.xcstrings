@@ -522,6 +522,9 @@
     "%lld me-toos" : {
 
     },
+    "%lld meals" : {
+
+    },
     "%lld meals can't be fully checked for allergies. Open them to see why." : {
 
     },
@@ -680,6 +683,9 @@
 
     },
     "1 me-too" : {
+
+    },
+    "1 meal" : {
 
     },
     "1 meal can't be fully checked for allergies. Open it to see why." : {
@@ -868,6 +874,9 @@
     "Add ingredients" : {
 
     },
+    "Add meal" : {
+
+    },
     "Add member" : {
 
     },
@@ -1004,6 +1013,9 @@
 
     },
     "Allergy alerts" : {
+
+    },
+    "Allergy flag" : {
 
     },
     "Allergy flags" : {
@@ -1965,6 +1977,15 @@
 
     },
     "Fill remaining nights" : {
+
+    },
+    "Filters" : {
+
+    },
+    "Filters · %@" : {
+
+    },
+    "Filters, %@ selected" : {
 
     },
     "Find or type an item" : {
@@ -3709,6 +3730,9 @@
     "Restore purchases" : {
 
     },
+    "Retired" : {
+
+    },
     "Return date" : {
 
     },
@@ -3912,6 +3936,12 @@
 
     },
     "Show when to start cooking" : {
+
+    },
+    "Showing %@" : {
+
+    },
+    "Showing meals in your rotation" : {
 
     },
     "Shown on the day card when %@ is home." : {
@@ -5355,6 +5385,9 @@
 
     },
     "Your rhythm" : {
+
+    },
+    "Your saved meals" : {
 
     },
     "Your sign-in has ended. Sign in again, then try again." : {
