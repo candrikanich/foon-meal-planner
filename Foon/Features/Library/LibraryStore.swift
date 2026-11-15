@@ -61,9 +61,6 @@ final class LibraryStore {
     private var allergiesAreCurrent = false
     /// Loads and refreshes still out. An archive or restore starts a new load if any are, since they read the dish before it.
     private var readsOut = 0
-    /// Signed photo URLs by path. Reusing one keeps `AsyncImage` on the URL cache while scrolling.
-    private var photoURLs: [String: (url: URL, expires: Date)] = [:]
-
     let householdID: UUID
     let client: LibraryClient
 
@@ -514,38 +511,6 @@ final class LibraryStore {
                 ?? String(localized: "Couldn't copy \(meal.name). Check your connection and try again.")
             return nil
         }
-    }
-
-    func reportPhotoLoadFailure() {
-        errorMessage = String(localized: "Couldn't open that photo. Try another one.")
-    }
-
-    /// Replaces the meal's photo. The picture is re-encoded first, which strips location and other metadata.
-    func setPhoto(_ imageData: Data, for meal: LibraryMeal) async -> Bool {
-        let prepared: Data
-        do {
-            prepared = try PhotoPreparation.prepare(imageData)
-        } catch {
-            errorMessage = String(localized: "That file isn't a photo Foon can use.")
-            return false
-        }
-        do {
-            try await client.setPhoto(meal, prepared)
-            await load(members: members)
-            return true
-        } catch {
-            errorMessage = Self.refusal(error)
-                ?? String(localized: "Couldn't upload the photo. Check your connection and try again.")
-            return false
-        }
-    }
-
-    func photoURL(for path: String) async throws -> URL {
-        if let cached = photoURLs[path], cached.expires > .now { return cached.url }
-        let url = try await client.photoURL(path)
-        // Refresh a little before the signed URL lapses.
-        photoURLs[path] = (url, .now.addingTimeInterval(Double(PhotoStorageClient.signedURLLifetime) - 60))
-        return url
     }
 
     /// A retired meal isn't copied: the copy would start its ratings over and undo the dislike rule.

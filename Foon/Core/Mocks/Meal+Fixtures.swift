@@ -96,12 +96,10 @@ extension LibraryClient {
             allergies: { _ in [AllergyRow(memberID: Member.sampleFamily[4].id, allergen: .milk, customText: nil)] },
             setStatus: { _, _ in },
             addFromCatalog: { _, _ in UUID() },
-            photoURL: { _ in throw URLError(.fileDoesNotExist) },
             save: { _, _ in },
             copy: { _, _ in UUID() },
             create: { _, _ in UUID() },
             itemNames: { _ in ["paper towels", "milk", "bananas"] },
-            setPhoto: { _, _ in },
             // Everyone's latest word on the first sample meals, so meal detail's verdicts show in previews.
             verdicts: { _ in
                 guard let first = meals.first else { return [] }

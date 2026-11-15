@@ -120,7 +120,7 @@ struct SideDishTextTests {
         let calendar = Calendar(identifier: .gregorian)
         let today = CalendarDay(year: 2026, month: 11, day: 4)
         let card = DayCardModel(date: today, effort: .normal,
-                                slot: .meal(name: "Spaghetti", photoURL: nil, reason: nil, sides: ["salad"]),
+                                slot: .meal(name: "Spaghetti", reason: nil, sides: ["salad"]),
                                 attendance: [], badges: [], isLocked: false)
         #expect(DayCardText.accessibilitySummary(card, today: today, calendar: calendar)
             .hasPrefix("Tonight, Nov 4. Spaghetti, with salad. Normal."))

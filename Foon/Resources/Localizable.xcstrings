@@ -904,9 +904,6 @@
     "Add to the quick list" : {
 
     },
-    "Add your photo" : {
-
-    },
     "Add your requests" : {
 
     },
@@ -1538,9 +1535,6 @@
     "Couldn't load your year" : {
 
     },
-    "Couldn't open that photo. Try another one." : {
-
-    },
     "Couldn't open that photo. Try another." : {
 
     },
@@ -1638,9 +1632,6 @@
 
     },
     "Couldn't undo it. Check your connection and try again." : {
-
-    },
-    "Couldn't upload the photo. Check your connection and try again." : {
 
     },
     "Couldn't withdraw consent. Check your connection and try again." : {
@@ -3709,9 +3700,6 @@
     "Replace it" : {
 
     },
-    "Replace with yours" : {
-
-    },
     "Replaces what's planned" : {
 
     },
@@ -4393,9 +4381,6 @@
 
     },
     "That email doesn't look right. Check it and try again." : {
-
-    },
-    "That file isn't a photo Foon can use." : {
 
     },
     "That invite has already been used. Ask for a new one." : {
@@ -5082,7 +5067,7 @@
     "What would you like for dinner?" : {
 
     },
-    "What you add goes to Foon's servers, so your family sees it too. Meal photos lose their location and camera details first." : {
+    "What you add goes to Foon's servers, so your family sees it too." : {
 
     },
     "What you have" : {
@@ -5375,7 +5360,7 @@
     "Your meals" : {
 
     },
-    "Your meals and meal photos, plans, lists, ideas, votes on dinner, ratings, comments, serving notes, and who cooked." : {
+    "Your meals, plans, lists, ideas, votes on dinner, ratings, comments, serving notes, and who cooked." : {
 
     },
     "Your planner hasn't planned this week yet. Tell them what you'd like." : {
