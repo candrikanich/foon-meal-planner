@@ -42,6 +42,9 @@ struct WeekView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    UnderlineTabs(options: [.init(value: false, title: String(localized: "This week")),
+                                            .init(value: true, title: String(localized: "Next week"))],
+                                  selection: $week.showingNextWeek)
                     if reminders?.shouldAsk == true { ReminderAskCard() }
                     if reminders?.shouldOfferRatingsBack == true { RatingsBackCard() }
                     if !week.showingNextWeek {
@@ -54,11 +57,6 @@ struct WeekView: View {
                         TonightPollSection()
                         DinnerPromptsSection()
                     }
-                    Picker("Week", selection: $week.showingNextWeek) {
-                        Text("This week").tag(false)
-                        Text("Next week").tag(true)
-                    }
-                    .pickerStyle(.segmented)
                     if let message = week.errorMessage {
                         Text(message).font(.callout).foregroundStyle(.red)
                     }
@@ -285,22 +283,21 @@ struct WeekView: View {
     private func planned(_ layout: WeekLayout) -> some View {
         if canPlan, layout.progress == .unplanned, !layout.plannable.isEmpty {
             Button { Task { await build() } } label: {
-                Label("Build my week", systemImage: "wand.and.stars").frame(maxWidth: .infinity)
+                Label("Build my week", systemImage: "wand.and.stars")
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Palette.paprika)
+            .buttonStyle(.pill(.prominent, fullWidth: true))
             .disabled(week.isBuilding)
         } else if canPlan, layout.progress == .partlyPlanned {
-            HStack {
-                Label(openNightsText(layout.emptyNights.count), systemImage: "square.dashed")
-                    .font(.foonCaption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button("Fill remaining nights") { Task { await fillRemaining() } }
-                    .font(.foonCaption)
-                    .buttonStyle(.bordered)
-                    .tint(Palette.paprika)
-                    .disabled(week.isBuilding)
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    openNightsLabel(layout.emptyNights.count)
+                    Spacer()
+                    fillRemainingButton
+                }
+                VStack(alignment: .leading, spacing: 0) {
+                    openNightsLabel(layout.emptyNights.count)
+                    fillRemainingButton
+                }
             }
         }
         let unfillable = layout.emptyNights.filter { week.unfillableNights.contains($0.id) }.count
@@ -313,22 +310,40 @@ struct WeekView: View {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        ForEach(layout.ahead) { night in
-            card(night)
-        }
+        if let tonight = layout.tonight { card(tonight) }
+        nightRows(layout.upcoming)
         if canPlan, layout.offersApprove(approved: week.week?.approvedAt != nil) {
             approveSection(layout)
         }
         if !layout.past.isEmpty {
             DisclosureGroup(isExpanded: $showingPast) {
-                VStack(spacing: 12) {
-                    ForEach(layout.past) { night in card(night) }
-                }
-                .padding(.top, 8)
+                nightRows(layout.past).padding(.top, 8)
             } label: {
                 Text(earlierText(layout.past.count)).font(.foonHeadline).foregroundStyle(Palette.ink)
             }
             .tint(Palette.paprika)
+        }
+    }
+
+    private func openNightsLabel(_ count: Int) -> some View {
+        Text(openNightsText(count)).font(.foonCaption).foregroundStyle(.secondary)
+    }
+
+    private var fillRemainingButton: some View {
+        Button("Fill remaining nights") { Task { await fillRemaining() } }
+            .font(.foonHeadline)
+            .tint(Palette.paprika)
+            .frame(minHeight: Metrics.minTapHeight)
+            .disabled(week.isBuilding)
+    }
+
+    /// Later nights sit on the page itself, divided by hairlines: only tonight gets a card.
+    private func nightRows(_ nights: [WeekNight]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(nights.enumerated()), id: \.element.id) { index, night in
+                if index > 0 { Divider() }
+                card(night)
+            }
         }
     }
 
@@ -409,8 +424,7 @@ struct WeekView: View {
                       systemImage: approved ? "arrow.triangle.2.circlepath" : "checkmark.seal")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(approved ? Palette.herb : Palette.paprika)
+            .buttonStyle(.pill(.prominent, tint: approved ? Palette.herb : Palette.paprika, fullWidth: true))
             // The list leans on the offline cache for stock and staples, so wait for its first sync.
             .disabled(isApproving || week.isBuilding || !library.hasLoaded || (sync != nil && sync?.lastPulled == nil))
             Text(!approved ? "Approving builds the weekly list from these nights."
@@ -523,20 +537,9 @@ struct WeekView: View {
             }
         }
         ToolbarItem(placement: .primaryAction) {
-            Button { showTab(.lists) } label: {
-                Image(systemName: "cart")
-                    .overlay(alignment: .topTrailing) {
-                        if !openListItems.isEmpty {
-                            Text("\(openListItems.count)")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(Palette.onPaprika)
-                                .padding(.horizontal, 5)
-                                .background(Capsule().fill(Palette.paprika))
-                                .offset(x: 10, y: -8)
-                        }
-                    }
-            }
-            .accessibilityLabel("Lists")
+            Button(DayCardText.shopLabel(openItems: openListItems.count)) { showTab(.lists) }
+                .tint(Palette.paprika)
+                .accessibilityLabel("Shopping lists")
             .accessibilityValue(openListItems.isEmpty ? Text("Nothing to buy") : Text("\(openListItems.count) to buy"))
         }
     }
@@ -546,7 +549,7 @@ struct WeekView: View {
     private func actions(for night: WeekNight) -> DayCard.Actions {
         DayCard.Actions(
             toggleAttendance: { memberID in Task { await week.toggleAttendance(nightID: night.id, memberID: memberID) } },
-            cycleEffort: { Task { await week.cycleEffort(nightID: night.id) } },
+            setEffort: { effort in Task { await week.setEffort(effort, nightID: night.id) } },
             toggleLock: { Task { await week.toggleLock(nightID: night.id) } },
             // Quick-pick nights change through Swap (#25); shuffle re-rolls meals and fills empty nights.
             // Nor on a doubled or freezer night: changing it moves something else, and Swap says what first.

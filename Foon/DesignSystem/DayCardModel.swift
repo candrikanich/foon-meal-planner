@@ -187,6 +187,41 @@ enum DayCardText {
         String(localized: "\(job.title): \(job.firstName)", comment: "A dinner job and whose turn it is")
     }
 
+    /// Badges by how loudly a quiet card says them: allergies in warning color, prep and start-cooking beside the dish,
+    /// everything else as one soft line.
+    struct BadgeGroups: Equatable {
+        var warnings: [String] = []
+        var prep: [String] = []
+        var notes: [String] = []
+    }
+
+    static func groupBadges(_ badges: [DayCardModel.Badge]) -> BadgeGroups {
+        badges.reduce(into: BadgeGroups()) { groups, badge in
+            switch badge {
+            case .allergy, .allergyUnchecked: groups.warnings.append(badgeLabel(badge))
+            case .prep, .startCooking: groups.prep.append(badgeLabel(badge))
+            case .tradition, .request, .equipment, .foodRule, .doubled: groups.notes.append(badgeLabel(badge))
+            }
+        }
+    }
+
+    /// "Taco Tuesday · Nora's favorite": the soft line under a meal.
+    static func softLine(_ parts: [String?]) -> String? {
+        let present = parts.compactMap { $0 }.filter { !$0.isEmpty }
+        return present.isEmpty ? nil : present.joined(separator: " · ")
+    }
+
+    /// "Away: Owen", for nights where someone's out. Quiet rows have no avatars to show it.
+    static func awayLine(_ attendance: [DayCardModel.Attendee]) -> String? {
+        let away = attendance.filter { !$0.isHome }.map(\.firstName)
+        return away.isEmpty ? nil : String(localized: "Away: \(away.joined(separator: ", "))")
+    }
+
+    /// The toolbar's way to the list: "Shop · 5", or just "Shop" with nothing to buy.
+    static func shopLabel(openItems: Int) -> String {
+        openItems > 0 ? String(localized: "Shop · \(openItems)") : String(localized: "Shop")
+    }
+
     /// One sentence VoiceOver reads for the whole card.
     static func accessibilitySummary(_ card: DayCardModel, today: CalendarDay, calendar: Calendar = .current) -> String {
         var parts = ["\(dayLabel(for: card.date, today: today, calendar: calendar)), \(dateLabel(for: card.date, calendar: calendar))"]
