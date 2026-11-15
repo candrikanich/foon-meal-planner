@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The household's meals (docs/spec.md → Library screen): search, filter chips, sorts, and a photo grid.
+/// The household's meals (docs/spec.md → Library screen): search, filter chips, sorts, and meal rows.
 /// Matching starter dishes appear below the family's own when searching.
 struct LibraryView: View {
     @Environment(LibraryStore.self) private var library
@@ -13,13 +13,12 @@ struct LibraryView: View {
     @State private var bringingBack: LibraryMeal?
     @State private var deleting: LibraryMeal?
     @State private var importingLink = false
+    @State private var filtering = false
     @State private var path: [UUID] = []
 
     private var canEdit: Bool {
         subscription.canEdit(asPlanner: LibraryStore.canEdit(me: household.me, isOwner: household.household?.owner == household.userID))
     }
-
-    private let columns = [GridItem(.adaptive(minimum: 150), spacing: 12)]
 
     /// The keyboard covers the tab bar while searching, so there has to be a way out that isn't the search field's own.
     @FocusState private var isSearching: Bool
@@ -29,7 +28,7 @@ struct LibraryView: View {
         NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    FilterChips(selection: $library.filter)
+                    controls
                     if let message = library.errorMessage {
                         Text(message).font(.callout).foregroundStyle(.red)
                     }
@@ -40,6 +39,7 @@ struct LibraryView: View {
             .scrollDismissesKeyboard(.immediately)
             .background(Palette.cream)
             .navigationTitle("Library")
+            .navigationSubtitle("Your saved meals")
             .navigationDestination(for: UUID.self) { id in
                 MealDetailView(mealID: id, canEdit: canEdit)
             }
@@ -73,6 +73,9 @@ struct LibraryView: View {
                 Text("\(meal.name) has never been planned or cooked. This can't be undone.")
             }
             .sheet(item: $planning, onDismiss: { Task { await library.refreshUnused() } }) { meal in PlanItSheet(meal: meal) }
+            .sheet(isPresented: $filtering) {
+                LibraryFiltersSheet(selection: $library.filter) { filtering = false }
+            }
             .sheet(isPresented: $browsingCatalog) {
                 CatalogBrowserView(canAdd: canEdit)
             }
@@ -101,16 +104,20 @@ struct LibraryView: View {
                     .foregroundStyle(Palette.caution)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            LazyVGrid(columns: columns, spacing: 12) {
+            Text(LibraryText.count(entries.count))
+                .font(.foonHeadline)
+                .foregroundStyle(Palette.ink)
+            VStack(spacing: 0) {
                 ForEach(entries) { entry in
+                    if entry.id != entries.first?.id { Divider().padding(.leading, Metrics.cardPadding) }
                     NavigationLink(value: entry.meal.id) {
-                        MealTile(entry: entry, madeBy: library.member(entry.meal.madeByMemberID),
-                                 photoURL: library.photoURL(for:))
+                        LibraryRow(entry: entry, madeBy: library.member(entry.meal.madeByMemberID))
                     }
                     .buttonStyle(.plain)
                     .contextMenu(menuItems: { menu(for: entry.meal) })
                 }
             }
+            .background(Palette.cardSurface, in: .rect(cornerRadius: Metrics.cardRadius, style: .continuous))
             if !catalogMatches.isEmpty {
                 CatalogMatches(dishes: catalogMatches, canAdd: canEdit)
             }
@@ -143,6 +150,30 @@ struct LibraryView: View {
         }
     }
 
+    @ViewBuilder
+    private var controls: some View {
+        @Bindable var library = library
+        let filters = Button { filtering = true } label: {
+            Label(LibraryText.filtersPill(library.filter), systemImage: "line.3.horizontal.decrease")
+        }
+        .buttonStyle(.pill(.tinted))
+        .accessibilityLabel(library.filter.map { String(localized: "Filters, \($0.title) selected") }
+                            ?? String(localized: "Filters"))
+        let sort = Menu {
+            Picker("Sort", selection: $library.sort) {
+                ForEach(LibrarySort.allCases) { sort in Text(sort.title).tag(sort) }
+            }
+        } label: {
+            Label("Sort", systemImage: "arrow.up.arrow.down")
+        }
+        .menuStyle(.button)
+        .buttonStyle(.pill(.tinted))
+        ViewThatFits(in: .horizontal) {
+            HStack { filters; Spacer(minLength: 8); sort }
+            VStack(alignment: .leading) { filters; sort }
+        }
+    }
+
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
@@ -153,16 +184,10 @@ struct LibraryView: View {
                 }
                 Button("Browse ideas", systemImage: "sparkles") { browsingCatalog = true }
             } label: {
-                Label("Add", systemImage: "plus")
+                Text("Add meal")
             }
-        }
-        ToolbarItem(placement: .secondaryAction) {
-            @Bindable var library = library
-            Picker("Sort", selection: $library.sort) {
-                ForEach(LibrarySort.allCases) { sort in
-                    Text(sort.title).tag(sort)
-                }
-            }
+            .buttonStyle(.borderedProminent)
+            .tint(Palette.paprika)
         }
     }
 
@@ -187,34 +212,6 @@ struct LibraryView: View {
             }
         }
         .frame(minHeight: 320)
-    }
-}
-
-/// One chip per filter; tapping the chosen one again clears it.
-private struct FilterChips: View {
-    @Binding var selection: LibraryFilter?
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(LibraryFilter.allCases) { filter in
-                    let isOn = selection == filter
-                    Button {
-                        selection = isOn ? nil : filter
-                    } label: {
-                        Text(filter.title)
-                            .font(.foonCaption)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .foregroundStyle(isOn ? Palette.onPaprika : Palette.ink)
-                            .background(Capsule().fill(isOn ? Palette.paprika : Palette.cardSurface))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(isOn ? .isSelected : [])
-                }
-            }
-        }
-        .scrollClipDisabled()
     }
 }
 

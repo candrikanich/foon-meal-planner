@@ -47,6 +47,7 @@ struct ListsView: View {
                 if canEditLists { addSection }
                 if let errorMessage {
                     Text(errorMessage).font(.callout).foregroundStyle(.red)
+                        .listRowBackground(Color.clear)
                 }
                 onTheList
                 runningLow
@@ -60,6 +61,7 @@ struct ListsView: View {
                         Label("Scan a receipt", systemImage: "doc.text.viewfinder")
                     }
                     .disabled(household.household == nil || !canEditLists)
+                    .tint(Palette.paprika)
                     if household.isAdult, let householdID = household.household?.id, let me = household.me {
                         NavigationLink {
                             ReceiptForwardingView(
@@ -74,25 +76,29 @@ struct ListsView: View {
                 } footer: {
                     Text("Marks what you bought, checks it off the lists, and puts staples back in stock.")
                 }
+                .listRowBackground(Palette.cardSurface)
                 Section {
                     NavigationLink { KeepOnHandView() } label: {
-                        Label("Keep on hand", systemImage: "basket")
+                        Label("Keep on hand", systemImage: "basket").foregroundStyle(Palette.ink)
                     }
-                } footer: {
-                    Text("Staples you never want to run out of. Anyone can mark them low or out.")
-                }
-                Section {
+                    .accessibilityHint("Staples you never want to run out of. Anyone can mark them low or out.")
                     NavigationLink { FreezerView() } label: {
-                        Label("Freezer stash", systemImage: "snowflake")
+                        Label("Freezer stash", systemImage: "snowflake").foregroundStyle(Palette.ink)
                     }
-                } footer: {
-                    Text("Dinners cooked ahead, with the date they were made.")
+                    .accessibilityHint("Dinners cooked ahead, with the date they were made.")
                 }
+                .tint(Palette.paprika)
+                .listRowBackground(Palette.cardSurface)
             }
+            .scrollContentBackground(.hidden)
+            .background(Palette.cream)
             .navigationTitle("Lists")
+            .navigationSubtitle(ListBoard.pickUpSubtitle(count: ListBoard.onTheList(entries).count))
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Shop", systemImage: "cart") { openStoreMode() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Palette.paprika)
                         .disabled(!canShop)
                         .popoverTip(offersStoreModeTip ? storeModeTip : nil)
                 }
@@ -165,24 +171,47 @@ struct ListsView: View {
 
     private var addSection: some View {
         Section {
-            TextField("Add an item", text: $newItem)
-                .onSubmit { Task { await add() } }
-                .submitLabel(.done)
+            addRow
             ForEach(suggestions, id: \.self) { suggestion in
                 Button { newItem = IngredientAutocomplete.completing(newItem, with: suggestion) } label: {
                     Label(suggestion, systemImage: "text.badge.plus")
                 }
+                .tint(Palette.paprika)
             }
             Toggle("For tonight", isOn: $forTonight)
+                .tint(Palette.herb)
         } footer: {
             Text("Goes on the quick list. Several at once: separate them with commas.")
         }
+        .listRowBackground(Palette.cardSurface)
+    }
+
+    private var canAdd: Bool { !IngredientParser.parse(newItem).isEmpty }
+
+    /// Return still submits; the button is for anyone who doesn't reach for it. At AX sizes it drops below the field.
+    private var addRow: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) { addField; addButton }
+            VStack(alignment: .leading, spacing: 8) { addField; addButton }
+        }
+    }
+
+    private var addField: some View {
+        TextField("Add an item", text: $newItem)
+            .onSubmit { Task { await add() } }
+            .submitLabel(.done)
+    }
+
+    private var addButton: some View {
+        Button("Add") { Task { await add() } }
+            .buttonStyle(.pill(.tinted))
+            .disabled(!canAdd)
     }
 
     @ViewBuilder
     private var onTheList: some View {
         let open = ListBoard.onTheList(entries)
-        Section("On the list") {
+        Section {
             if open.isEmpty {
                 Text("Nothing to buy. Approve the week or add an item.").foregroundStyle(.secondary)
             }
@@ -207,29 +236,49 @@ struct ListsView: View {
                     .accessibilityAction(named: Text("Got it")) { gotIt(entry) }
                     .accessibilityAction(named: Text("Remove")) { if canEditLists { remove(entry) } }
             }
+        } header: {
+            SectionHeader("On the list").textCase(nil)
+        } footer: {
+            if !open.isEmpty {
+                Text("Swipe an item for \u{201C}Got it\u{201D} or \u{201C}Remove\u{201D}.")
+            }
         }
+        .listRowBackground(Palette.cardSurface)
     }
 
     @ViewBuilder
     private var runningLow: some View {
         let low = ListBoard.runningLow(staples, open: entries)
         if !low.isEmpty {
-            Section("Staples running low") {
+            Section {
                 ForEach(low) { staple in
-                    HStack {
-                        Label(staple.name, systemImage: staple.category.systemImage)
-                        Spacer()
-                        Text(staple.state == .out ? "Out" : "Low").font(.foonCaption).foregroundStyle(Palette.caution)
-                        Button("Add", systemImage: "plus.circle") {
-                            Task { await sync?.addToList(itemID: staple.itemID, list: .quick, source: .staple) }
-                        }
-                        .disabled(!canEditLists)
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.borderless)
-                        .tint(Palette.paprika)
-                        .accessibilityLabel("Add \(staple.name) to the list")
-                    }
+                    stapleRow(staple)
                 }
+            } header: {
+                SectionHeader("Staples running low").textCase(nil)
+            }
+            .listRowBackground(Palette.cardSurface)
+        }
+    }
+
+    private func stapleRow(_ staple: ListBoard.Staple) -> some View {
+        let state = Text(staple.state == .out ? "Out" : "Low").font(.foonCaption).foregroundStyle(Palette.caution)
+        let add = Button("Add") {
+            Task { await sync?.addToList(itemID: staple.itemID, list: .quick, source: .staple) }
+        }
+        .buttonStyle(.pill(.tinted))
+        .disabled(!canEditLists)
+        .accessibilityLabel("Add \(staple.name) to the list")
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                Label(staple.name, systemImage: staple.category.systemImage)
+                Spacer(minLength: 8)
+                state
+                add
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Label(staple.name, systemImage: staple.category.systemImage)
+                HStack(spacing: 12) { state; add }
             }
         }
     }
@@ -287,32 +336,51 @@ struct ListEntryRow: View {
     /// Put on the list during a store run: store mode marks it so whoever's shopping sees what's new.
     var justAdded = false
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                ItemLabel(name: entry.name, note: entry.itemNote, quantity: entry.quantity)
-                    .font(large ? .title3 : .foonBody)
-                if let note = entry.lineNote {
-                    Label(note, systemImage: "exclamationmark.triangle.fill")
-                        .font(.foonCaption)
-                        .foregroundStyle(Palette.caution)
+        Group {
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) { text; chips }
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    text
+                    Spacer(minLength: 8)
+                    chips
                 }
-                ForEach(entry.folded) { other in
-                    Text(alsoOn(other)).font(.foonCaption).foregroundStyle(.secondary)
-                }
-            }
-            Spacer(minLength: 8)
-            if justAdded {
-                Chip(text: String(localized: "Just added", comment: "Store mode: put on the list during this store run"),
-                     systemImage: "sparkles", tint: Palette.herb)
-            }
-            if entry.list == .quick {
-                Chip(text: entry.urgency == .tonight ? String(localized: "Tonight") : String(localized: "Quick"),
-                     tint: entry.urgency == .tonight ? Palette.paprika : .secondary)
             }
         }
         .padding(.vertical, large ? 8 : 2)
         .accessibilityElement(children: .combine)
+    }
+
+    private var text: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            ItemLabel(name: entry.name, note: entry.itemNote, quantity: entry.quantity)
+                .font(large ? .title3 : .foonBody)
+            if let note = entry.lineNote {
+                Label(note, systemImage: "exclamationmark.triangle.fill")
+                    .font(.foonCaption)
+                    .foregroundStyle(Palette.caution)
+            }
+            ForEach(entry.folded) { other in
+                Text(alsoOn(other)).font(.foonCaption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var chips: some View {
+        if justAdded {
+            Chip(text: String(localized: "Just added", comment: "Store mode: put on the list during this store run"),
+                 systemImage: "sparkles", tint: Palette.herb)
+        }
+        if entry.list == .quick {
+            let tonight = entry.urgency == .tonight
+            Chip(text: tonight ? String(localized: "Tonight") : String(localized: "Quick"),
+                 systemImage: tonight ? "flame.fill" : "bolt.fill",
+                 tint: tonight ? Palette.paprika : .secondary)
+        }
     }
 
     /// The item's other line, with its own amount: added to this row's, it could be the same need twice.
@@ -326,7 +394,8 @@ struct ListEntryRow: View {
     }
 }
 
-#Preview {
+@MainActor
+private func listsPreview() -> some View {
     ListsView()
         .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
         .environment(HouseholdStore.preview())
@@ -338,3 +407,32 @@ struct ListEntryRow: View {
         .environment(LibraryStore(householdID: Household.sample.id, client: .preview()))
         .modelContainer(try! SyncService.inMemoryContainer())
 }
+
+private func previewEntry(_ name: String, quantity: String? = nil, list: ListKind = .weekly,
+                          urgency: ListUrgency = .whenever, note: String? = nil) -> ListEntry {
+    ListEntry(lineID: UUID(), itemID: UUID(), name: name, list: list, urgency: urgency, quantity: quantity,
+              lineNote: note, itemNote: nil, category: .pantry, checkedAt: nil, keepOnHand: false)
+}
+
+private struct ListRowsPreview: View {
+    var body: some View {
+        List {
+            ListEntryRow(entry: previewEntry("Ground beef", quantity: "2 lb", list: .quick, urgency: .tonight))
+            ListEntryRow(entry: previewEntry("Tortillas", quantity: "1", list: .quick))
+            ListEntryRow(entry: previewEntry("Bell peppers", quantity: "3"))
+            ListEntryRow(entry: previewEntry("Extra-virgin olive oil, cold pressed, the big tin from the Italian shop",
+                                             quantity: "2 litres", list: .quick, urgency: .tonight,
+                                             note: "Contains tree nuts: Nora, Owen"))
+        }
+        .scrollContentBackground(.hidden)
+        .background(Palette.cream)
+        .listRowBackground(Palette.cardSurface)
+    }
+}
+
+#Preview("Lists") { listsPreview() }
+#Preview("Lists · Dark") { listsPreview().preferredColorScheme(.dark) }
+#Preview("Lists · AX3") { listsPreview().dynamicTypeSize(.accessibility3) }
+#Preview("Rows") { ListRowsPreview() }
+#Preview("Rows · Dark") { ListRowsPreview().preferredColorScheme(.dark) }
+#Preview("Rows · AX3 long text") { ListRowsPreview().dynamicTypeSize(.accessibility3) }

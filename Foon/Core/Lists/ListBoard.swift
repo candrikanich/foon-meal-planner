@@ -137,6 +137,15 @@ enum ListBoard {
         let left: Int
     }
 
+    /// The Lists subtitle: how many rows are still open. Empty when there's nothing to pick up.
+    static func pickUpSubtitle(count: Int) -> String {
+        switch count {
+        case 0: ""
+        case 1: String(localized: "1 item to pick up")
+        default: String(localized: "\(count) items to pick up")
+        }
+    }
+
     /// Open lines, one row per item: tonight's quick items first, then the weekly list, then the rest of the quick list.
     static func onTheList(_ entries: [ListEntry]) -> [ListEntry] {
         oneRowPerItem(entries.filter { $0.checkedAt == nil }).sorted { lhs, rhs in
