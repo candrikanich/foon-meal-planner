@@ -46,6 +46,8 @@ settings:
       FOON_APP_ICON: AppIcon-QA
       FOON_URL_SCHEME: foonqa
       FOON_INVITE_PATH: /qa/invite
+      # QA-only code (the design gallery) compiles under FOON_QA; family Foon's Release never has it.
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) FOON_QA
 
 targets:
   Foon:
