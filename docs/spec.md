@@ -153,7 +153,7 @@ Full starter list with categories and tags: [Starter Pack](starter-pack.md)
 - **What goes with it:** its ingredient lines, its own side list, and any photo stored from before meal photos came out (#346). The app removes that photo after the delete, so a failure there can leave an unreachable file in Storage. The household keeps the items.
 - **An idea linked to it** stays, with its name and link (taking the dish's name if it had none). A planned one goes back to waiting; an archived or special-occasion one stays as it is.
 
-**Library screen.** Search, a prominent Add button (quick add, link, photo, paste), filter chips (Favorites, Quick, Trying, Backup dinners, Allergy flags, Archived), a two-column grid of tiles (no photos) with effort, made-by, and allergy indicators, and sorts (Haven't had in a while, Most made, Family favorites, Recently added).
+**Library screen.** Search, a prominent Add button (quick add, link, photo, paste), filter chips (Favorites, Quick, Trying, Backup dinners, Allergy flags, Archived), meal rows without photos (#333, #346) with effort, made-by, and allergy indicators, and sorts (Haven't had in a while, Most made, Family favorites, Recently added).
 
 - Filters are one at a time; with none chosen, the grid shows meals in rotation (active and trying). Archived also lists retired dishes.
 - Search matches meal names and ingredients, ignoring case and accents. Matching starter dishes not yet in the library appear below the family's own ("From Foon's ideas").
