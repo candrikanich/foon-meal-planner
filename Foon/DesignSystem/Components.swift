@@ -1,8 +1,11 @@
 import SwiftUI
 
-/// Quiet Kitchen layout constants beyond the Spacing and Radius scales.
+/// Quiet Kitchen layout constants beyond the Spacing and Radius scales (prefer those for new code).
 enum Metrics {
     static let minTapHeight: CGFloat = 44
+    // Older names for `Radius.card` and `Spacing.l`, kept so screens written before the tokens still build.
+    static let cardRadius = Radius.card
+    static let cardPadding = Spacing.l
 }
 
 extension View {
@@ -174,7 +177,7 @@ struct UnderlineTabs<Value: Hashable>: View {
 /// A section title with optional actions on the right. When the actions don't fit beside the title
 /// they drop below it, instead of squeezing it (the Figma Ingredients header did).
 struct SectionHeader<Trailing: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -200,7 +203,7 @@ struct SectionHeader<Trailing: View>: View {
 }
 
 extension SectionHeader where Trailing == EmptyView {
-    init(_ title: String) {
+    init(_ title: LocalizedStringKey) {
         self.init(title: title) { EmptyView() }
     }
 }
@@ -229,10 +232,10 @@ private struct ComponentsPreview: View {
                     }
                 }
                 .foonCard()
-                SectionHeader(title: String(localized: "Ingredients")) {
+                SectionHeader(title: "Ingredients") {
                     Button(String(localized: "Add all to list")) {}.buttonStyle(.pill(.tinted))
                 }
-                SectionHeader(String(localized: "Staples running low"))
+                SectionHeader("Staples running low")
                 HStack {
                     EffortMenu(effort: .full)
                     EffortMenu(effort: .event)
