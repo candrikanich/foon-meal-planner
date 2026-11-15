@@ -513,6 +513,9 @@
     "%lld items are still on the list for next time." : {
 
     },
+    "%lld items to pick up" : {
+
+    },
     "%lld jobs" : {
       "comment" : "Family: how many dinner jobs the household uses"
     },
@@ -665,6 +668,9 @@
 
     },
     "1 item is still on the list for next time." : {
+
+    },
+    "1 item to pick up" : {
 
     },
     "1 job" : {
@@ -3239,9 +3245,6 @@
     "Oldest first. Planners see these in Swap, with allergy flags for whoever's home that night." : {
 
     },
-    "On the list" : {
-
-    },
     "On the quick list for the next trip." : {
 
     },
@@ -4184,6 +4187,9 @@
       "comment" : "Prep reminder action"
     },
     "Swap this night" : {
+
+    },
+    "Swipe an item for “Got it” or “Remove”." : {
 
     },
     "Switch schedules" : {
