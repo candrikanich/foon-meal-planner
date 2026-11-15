@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The household's meals (docs/spec.md → Library screen): search, filter chips, sorts, and and rows.
+/// The household's meals (docs/spec.md → Library screen): search, filter chips, sorts, and meal rows.
 /// Matching starter dishes appear below the family's own when searching.
 struct LibraryView: View {
     @Environment(LibraryStore.self) private var library

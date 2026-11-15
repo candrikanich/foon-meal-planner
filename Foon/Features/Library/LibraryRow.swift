@@ -14,7 +14,7 @@ struct LibraryRow: View {
             if !typeSize.isAccessibilitySize { leading }
             VStack(alignment: .leading, spacing: 4) {
                 Text(meal.name)
-                    .font(.foonHeadline)
+                    .font(.title3.weight(.bold))
                     .foregroundStyle(Palette.ink)
                     .multilineTextAlignment(.leading)
                 if let meta = LibraryText.meta(of: meal) {
