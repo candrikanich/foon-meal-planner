@@ -510,10 +510,16 @@
     "%lld items are still on the list for next time." : {
 
     },
+    "%lld items to pick up" : {
+
+    },
     "%lld jobs" : {
       "comment" : "Family: how many dinner jobs the household uses"
     },
     "%lld me-toos" : {
+
+    },
+    "%lld meals" : {
 
     },
     "%lld meals can't be fully checked for allergies. Open them to see why." : {
@@ -664,6 +670,9 @@
     "1 item is still on the list for next time." : {
 
     },
+    "1 item to pick up" : {
+
+    },
     "1 job" : {
       "comment" : "Family: how many dinner jobs the household uses"
     },
@@ -671,6 +680,9 @@
 
     },
     "1 me-too" : {
+
+    },
+    "1 meal" : {
 
     },
     "1 meal can't be fully checked for allergies. Open it to see why." : {
@@ -998,6 +1010,9 @@
 
     },
     "Allergy alerts" : {
+
+    },
+    "Allergy flag" : {
 
     },
     "Allergy flags" : {
@@ -1953,6 +1968,15 @@
 
     },
     "Fill remaining nights" : {
+
+    },
+    "Filters" : {
+
+    },
+    "Filters · %@" : {
+
+    },
+    "Filters, %@ selected" : {
 
     },
     "Find or type an item" : {
@@ -3236,9 +3260,6 @@
     "Oldest first. Planners see these in Swap, with allergy flags for whoever's home that night." : {
 
     },
-    "On the list" : {
-
-    },
     "On the quick list for the next trip." : {
 
     },
@@ -3703,6 +3724,9 @@
     "Restore purchases" : {
 
     },
+    "Retired" : {
+
+    },
     "Return date" : {
 
     },
@@ -3912,6 +3936,12 @@
 
     },
     "Show when to start cooking" : {
+
+    },
+    "Showing %@" : {
+
+    },
+    "Showing meals in your rotation" : {
 
     },
     "Shown on the day card when %@ is home." : {
@@ -4185,6 +4215,9 @@
     },
     "Swap dinner" : {
       "comment" : "Prep reminder action"
+    },
+    "Swipe an item for “Got it” or “Remove”." : {
+
     },
     "Switch schedules" : {
 
@@ -5352,6 +5385,9 @@
 
     },
     "Your rhythm" : {
+
+    },
+    "Your saved meals" : {
 
     },
     "Your sign-in has ended. Sign in again, then try again." : {
