@@ -489,9 +489,6 @@
         }
       }
     },
-    "%lld" : {
-
-    },
     "%lld days ago" : {
       "comment" : "Freezer stash: how long ago"
     },
@@ -1243,9 +1240,6 @@
     "Change my allergies" : {
 
     },
-    "Changes the night's effort" : {
-
-    },
     "Changes the night's effort to rushed" : {
 
     },
@@ -1848,9 +1842,6 @@
 
     },
     "Effort" : {
-
-    },
-    "Effort: %@" : {
 
     },
     "Email" : {
@@ -2966,6 +2957,9 @@
     "More" : {
 
     },
+    "More actions for this night" : {
+
+    },
     "More ideas" : {
 
     },
@@ -3905,6 +3899,12 @@
     "Shop in store mode" : {
 
     },
+    "Shop · %lld" : {
+
+    },
+    "Shopping lists" : {
+
+    },
     "Show" : {
 
     },
@@ -4218,9 +4218,6 @@
     },
     "Swap dinner" : {
       "comment" : "Prep reminder action"
-    },
-    "Swap this night" : {
-
     },
     "Swipe an item for “Got it” or “Remove”." : {
 
@@ -4948,6 +4945,9 @@
     "View meal" : {
 
     },
+    "View night" : {
+
+    },
     "View the original recipe" : {
 
     },
@@ -5011,9 +5011,6 @@
 
     },
     "We updated our terms" : {
-
-    },
-    "Week" : {
 
     },
     "Week starts" : {
@@ -5191,6 +5188,9 @@
 
     },
     "Who's cooking" : {
+
+    },
+    "Who's eating" : {
 
     },
     "Who's home" : {
