@@ -5,7 +5,7 @@ import Foundation
 struct DayCardModel: Identifiable, Equatable, Sendable {
     enum Slot: Equatable, Sendable {
         case empty
-        case meal(name: String, photoURL: URL?, reason: String?, sides: [String] = [])
+        case meal(name: String, reason: String?, sides: [String] = [])
         case quickPick(QuickPick)
         /// The household's away dates cover this night: nothing to plan.
         case away
@@ -192,7 +192,7 @@ enum DayCardText {
         var parts = ["\(dayLabel(for: card.date, today: today, calendar: calendar)), \(dateLabel(for: card.date, calendar: calendar))"]
         switch card.slot {
         case .empty: parts.append(String(localized: "Nothing planned yet"))
-        case .meal(let name, _, let reason, let sides):
+        case .meal(let name, let reason, let sides):
             parts.append([name, reason, sidesLabel(sides)].compactMap { $0 }.joined(separator: ", "))
         case .quickPick(let pick): parts.append([quickPickLabel(pick), card.leftoversNote].compactMap { $0 }.joined(separator: ", "))
         case .away: parts.append(String(localized: "Away, no dinner to plan"))

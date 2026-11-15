@@ -295,7 +295,7 @@ struct WeekStoreTests {
         var night = week().nights[0]
         night.mealID = UUID()
         night.mealName = "Tacos"
-        #expect(WeekStore.slot(for: night, sides: ["salad"]) == .meal(name: "Tacos", photoURL: nil, reason: nil,
+        #expect(WeekStore.slot(for: night, sides: ["salad"]) == .meal(name: "Tacos", reason: nil,
                                                                    sides: ["salad"]))
         night.mealID = nil
         night.mealName = nil

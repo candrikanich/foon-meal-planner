@@ -1,18 +1,14 @@
 import SwiftUI
 
-/// One meal on the library grid: photo, name, and effort, made-by, and allergy indicators.
+/// One meal on the library grid: name, effort, made-by, and allergy indicators.
 struct MealTile: View {
     let entry: LibraryEntry
     let madeBy: Member?
-    let photoURL: (String) async throws -> URL
-
-    @State private var url: URL?
 
     private var meal: LibraryMeal { entry.meal }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            photo
             Text(meal.name)
                 .font(.foonHeadline)
                 .foregroundStyle(Palette.ink)
@@ -31,43 +27,13 @@ struct MealTile: View {
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(LibraryText.accessibilityLabel(entry, madeBy: madeBy))
-        .task(id: meal.photoPath) {
-            guard let path = meal.photoPath else { url = nil; return }
-            url = try? await photoURL(path)
-        }
-    }
-
-    private var photo: some View {
-        Color.clear
-            .aspectRatio(1, contentMode: .fit)
-            .overlay {
-                if let url {
-                    AsyncImage(url: url) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        placeholder
-                    }
-                } else {
-                    placeholder
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(alignment: .topTrailing) {
-                if meal.status == .trial {
-                    Chip(text: String(localized: "Trying"), tint: Palette.paprika)
-                        .background(Capsule().fill(Palette.cardSurface))
-                        .padding(6)
-                }
-            }
-    }
-
-    private var placeholder: some View {
-        Palette.herb.opacity(0.14)
-            .overlay(Image(systemName: "fork.knife").font(.largeTitle).foregroundStyle(Palette.herb))
     }
 
     private var indicators: some View {
         HStack(spacing: 6) {
+            if meal.status == .trial {
+                Chip(text: String(localized: "Trying"), tint: Palette.paprika)
+            }
             if meal.tags.contains(.quick) {
                 Image(systemName: "hare").foregroundStyle(.secondary)
             }
@@ -117,8 +83,7 @@ enum LibraryText {
     ScrollView {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
             ForEach(entries) { entry in
-                MealTile(entry: entry, madeBy: entry.meal.madeByMemberID.map { _ in Member.sampleFamily[1] },
-                         photoURL: { _ in throw URLError(.fileDoesNotExist) })
+                MealTile(entry: entry, madeBy: entry.meal.madeByMemberID.map { _ in Member.sampleFamily[1] })
             }
         }
         .padding()

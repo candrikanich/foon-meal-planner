@@ -1,7 +1,6 @@
-import PhotosUI
 import SwiftUI
 
-/// One meal (docs/spec.md → Meal detail): photo, tags and allergy flags, history, ingredients with
+/// One meal (docs/spec.md → Meal detail): tags and allergy flags, history, ingredients with
 /// Add to list, prep, recipe steps, and the source link. Planners edit, copy, and archive; everyone
 /// can add ingredients to the list.
 struct MealDetailView: View {
@@ -23,10 +22,7 @@ struct MealDetailView: View {
     @State private var isDeleted = false
     @State private var editingNote: NoteTarget?
     @State private var cooking: LibraryMeal?
-    @State private var photoItem: PhotosPickerItem?
-    @State private var isUploading = false
     @State private var addedItemIDs: Set<UUID> = []
-    @State private var photoURL: URL?
     @State private var openItem: ItemDetails?
     @Environment(\.itemClient) private var itemClient
 
@@ -50,7 +46,6 @@ struct MealDetailView: View {
         let meal = entry.meal
         return ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                hero(meal)
                 header(entry)
                 if aiQueue?.isProcessing(meal: meal.id) == true {
                     // Saved before the tidy-up came back: it fills in whatever nobody's changed (docs/spec.md → Household AI queue).
@@ -139,55 +134,10 @@ struct MealDetailView: View {
         .sheet(item: $openItem) { item in
             ItemSheet(item: item, canRecategorize: canEdit, client: itemClient) { await library.reload() }
         }
-        .onChange(of: photoItem) { _, item in
-            guard let item else { return }
-            Task { await upload(item, for: meal) }
-        }
-        .task(id: meal.photoPath) {
-            guard let path = meal.photoPath else { photoURL = nil; return }
-            photoURL = try? await library.photoURL(for: path)
-        }
         .onAppear { library.clearError() }
     }
 
     // MARK: - Sections
-
-    private func hero(_ meal: LibraryMeal) -> some View {
-        Color.clear
-            .frame(maxWidth: .infinity)
-            .aspectRatio(4 / 3, contentMode: .fit)
-            .overlay {
-                if let photoURL {
-                    AsyncImage(url: photoURL) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        ProgressView()
-                    }
-                } else {
-                    Palette.herb.opacity(0.14)
-                        .overlay(Image(systemName: "fork.knife").font(.system(size: 48)).foregroundStyle(Palette.herb))
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(alignment: .bottomTrailing) {
-                if canEdit {
-                    PhotosPicker(selection: $photoItem, matching: .images) {
-                        Label(meal.photoPath == nil ? "Add your photo" : "Replace with yours",
-                              systemImage: "camera")
-                            .font(.foonCaption)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(.thinMaterial, in: Capsule())
-                    }
-                    .disabled(isUploading)
-                    .padding(10)
-                }
-            }
-            .overlay {
-                if isUploading { ProgressView() }
-            }
-            .accessibilityElement(children: .contain)
-    }
 
     private func header(_ entry: LibraryEntry) -> some View {
         let meal = entry.meal
@@ -503,19 +453,6 @@ struct MealDetailView: View {
         guard let sync, !addedItemIDs.contains(line.itemID) else { return }
         addedItemIDs.insert(line.itemID)
         await sync.addToList(itemID: line.itemID, list: .quick)
-    }
-
-    private func upload(_ item: PhotosPickerItem, for meal: LibraryMeal) async {
-        isUploading = true
-        defer {
-            isUploading = false
-            photoItem = nil
-        }
-        guard let data = try? await item.loadTransferable(type: Data.self) else {
-            library.reportPhotoLoadFailure()
-            return
-        }
-        _ = await library.setPhoto(data, for: meal)
     }
 }
 

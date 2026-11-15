@@ -459,23 +459,6 @@ struct LibraryStoreTests {
         #expect(store.errorMessage == message)
     }
 
-    @Test func aPickedPhotoThatWontOpenSaysSo() async {
-        let store = LibraryStore(householdID: household, client: .fake())
-        store.reportPhotoLoadFailure()
-        #expect(store.errorMessage == "Couldn't open that photo. Try another one.")
-    }
-
-    @Test func aPhotoThatIsNotAnImageIsRefusedBeforeUpload() async {
-        let tacos = LibraryMeal.fixture(name: "Tacos")
-        let store = LibraryStore(householdID: household, client: .fake(
-            meals: { _ in [tacos] },
-            setPhoto: { _, _ in Issue.record("should not upload") }
-        ))
-        await store.load(members: [])
-        #expect(!(await store.setPhoto(Data("not a picture".utf8), for: tacos)))
-        #expect(store.errorMessage != nil)
-    }
-
     @Test func autocompleteDrawsOnEveryIngredientInTheLibrary() async {
         let store = LibraryStore(householdID: household, client: .fake(meals: { _ in [
             .fixture(name: "Tacos", ingredients: ["ground beef", "taco shells"]),
@@ -502,19 +485,17 @@ extension LibraryClient {
         allergies: @escaping @Sendable (UUID) async throws -> [AllergyRow] = { _ in [] },
         setStatus: @escaping @Sendable (UUID, MealStatus) async throws -> Void = { _, _ in },
         addFromCatalog: @escaping @Sendable (UUID, UUID) async throws -> UUID = { _, _ in UUID() },
-        photoURL: @escaping @Sendable (String) async throws -> URL = { _ in throw URLError(.fileDoesNotExist) },
         save: @escaping @Sendable (UUID, MealDraft.Saved) async throws -> Void = { _, _ in },
         copy: @escaping @Sendable (UUID, String) async throws -> UUID = { _, _ in UUID() },
         create: @escaping @Sendable (UUID, MealDraft.Saved) async throws -> UUID = { _, _ in UUID() },
         itemNames: @escaping @Sendable (UUID) async throws -> [String] = { _ in [] },
-        setPhoto: @escaping @Sendable (LibraryMeal, Data) async throws -> Void = { _, _ in },
         importRecipe: @escaping @Sendable (String) async throws -> RecipeImport = { _ in
             throw RecipeImportError.unavailable
         }
     ) -> LibraryClient {
         LibraryClient(meals: meals, history: history, catalog: catalog, allergies: allergies, setStatus: setStatus,
-                      addFromCatalog: addFromCatalog, photoURL: photoURL, save: save, copy: copy, create: create,
-                      itemNames: itemNames, setPhoto: setPhoto, importRecipe: importRecipe)
+                      addFromCatalog: addFromCatalog, save: save, copy: copy, create: create,
+                      itemNames: itemNames, importRecipe: importRecipe)
     }
 }
 

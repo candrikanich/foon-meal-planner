@@ -50,7 +50,7 @@ struct DayCardTextTests {
         let card = DayCardModel(
             date: today,
             effort: .rushed,
-            slot: .meal(name: "Tacos", photoURL: nil, reason: "Nora's favorite"),
+            slot: .meal(name: "Tacos", reason: "Nora's favorite"),
             attendance: [.init(memberID: UUID(), firstName: "Nora", avatar: "🐢", isHome: true),
                          .init(memberID: UUID(), firstName: "Owen", avatar: nil, isHome: false)],
             badges: [.allergy("Contains milk (Nora)")],
@@ -61,7 +61,7 @@ struct DayCardTextTests {
     }
 
     @Test func servingNotesAreReadToo() {
-        let card = DayCardModel(date: today, effort: .normal, slot: .meal(name: "Chili", photoURL: nil, reason: nil),
+        let card = DayCardModel(date: today, effort: .normal, slot: .meal(name: "Chili", reason: nil),
                                 attendance: [], badges: [], isLocked: false, servingNotes: ["Nora: keep it separate"])
         #expect(DayCardText.accessibilitySummary(card, today: today, calendar: calendar)
             == "Tonight, Nov 4. Chili. Normal. Nora: keep it separate.")

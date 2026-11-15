@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The household's meals (docs/spec.md → Library screen): search, filter chips, sorts, and a photo grid.
+/// The household's meals (docs/spec.md → Library screen): search, filter chips, sorts, and a grid.
 /// Matching starter dishes appear below the family's own when searching.
 struct LibraryView: View {
     @Environment(LibraryStore.self) private var library
@@ -104,8 +104,7 @@ struct LibraryView: View {
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(entries) { entry in
                     NavigationLink(value: entry.meal.id) {
-                        MealTile(entry: entry, madeBy: library.member(entry.meal.madeByMemberID),
-                                 photoURL: library.photoURL(for:))
+                        MealTile(entry: entry, madeBy: library.member(entry.meal.madeByMemberID))
                     }
                     .buttonStyle(.plain)
                     .contextMenu(menuItems: { menu(for: entry.meal) })

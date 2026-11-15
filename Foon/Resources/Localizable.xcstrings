@@ -757,9 +757,6 @@
     "A parent keeps these up to date. Foon flags dishes, and you still check labels." : {
 
     },
-    "A parent needs to OK this before you keep using Foon." : {
-
-    },
     "A parent needs to agree to Foon's new allergy wording" : {
 
     },
@@ -890,9 +887,6 @@
 
     },
     "Add to the quick list" : {
-
-    },
-    "Add your photo" : {
 
     },
     "Add your requests" : {
@@ -1085,9 +1079,6 @@
 
     },
     "Ask %@ to unlock Foon" : {
-
-    },
-    "Ask a parent" : {
 
     },
     "Ask again" : {
@@ -1526,9 +1517,6 @@
     "Couldn't load your year" : {
 
     },
-    "Couldn't open that photo. Try another one." : {
-
-    },
     "Couldn't open that photo. Try another." : {
 
     },
@@ -1626,9 +1614,6 @@
 
     },
     "Couldn't undo it. Check your connection and try again." : {
-
-    },
-    "Couldn't upload the photo. Check your connection and try again." : {
 
     },
     "Couldn't withdraw consent. Check your connection and try again." : {
@@ -2142,9 +2127,6 @@
 
     },
     "Foon goes by names and ingredients, so it can be wrong either way. Tap one to plan it anyway." : {
-
-    },
-    "Foon has changed" : {
 
     },
     "Foon holds back dishes that usually use kitchen equipment you don't have, unless few others fit. Search your meals to plan one anyway." : {
@@ -3688,9 +3670,6 @@
     "Replace it" : {
 
     },
-    "Replace with yours" : {
-
-    },
     "Replaces what's planned" : {
 
     },
@@ -3813,9 +3792,6 @@
 
     },
     "Sends a link and a code so %@ can join on their own device. Codes work once and expire in 7 days." : {
-
-    },
-    "Sends the question to your parent's device" : {
 
     },
     "Separate them with commas or new lines. You can add them later too." : {
@@ -4210,9 +4186,6 @@
     "Tags" : {
 
     },
-    "Take a photo" : {
-
-    },
     "Take back your me too" : {
 
     },
@@ -4357,9 +4330,6 @@
 
     },
     "That email doesn't look right. Check it and try again." : {
-
-    },
-    "That file isn't a photo Foon can use." : {
 
     },
     "That invite has already been used. Ask for a new one." : {
@@ -5046,7 +5016,7 @@
     "What would you like for dinner?" : {
 
     },
-    "What you add goes to Foon's servers, so your family sees it too. Meal photos lose their location and camera details first." : {
+    "What you add goes to Foon's servers, so your family sees it too." : {
 
     },
     "What you have" : {
@@ -5336,7 +5306,7 @@
     "Your meals" : {
 
     },
-    "Your meals and meal photos, plans, lists, ideas, votes on dinner, ratings, comments, serving notes, and who cooked." : {
+    "Your meals, plans, lists, ideas, votes on dinner, ratings, comments, serving notes, and who cooked." : {
 
     },
     "Your planner hasn't planned this week yet. Tell them what you'd like." : {

@@ -119,9 +119,8 @@ struct DayCard: View {
                     .overlay(Image(systemName: "plus").foregroundStyle(.tertiary))
                 Text("Nothing planned yet").font(.foonBody).foregroundStyle(.secondary)
             }
-        case .meal(let name, let photoURL, let reason, let sides):
+        case .meal(let name, let reason, let sides):
             HStack(spacing: 12) {
-                MealThumbnail(url: photoURL)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(name).font(.foonTitle).foregroundStyle(Palette.ink).lineLimit(2)
                     if let sides = DayCardText.sidesLabel(sides) {
@@ -332,31 +331,6 @@ struct DayCard: View {
     }
 }
 
-/// A meal's photo, or a warm placeholder tile until there is one.
-struct MealThumbnail: View {
-    let url: URL?
-    var size: CGFloat = 56
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(Palette.herb.opacity(0.14))
-            .frame(width: size, height: size)
-            .overlay {
-                if let url {
-                    AsyncImage(url: url) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        ProgressView()
-                    }
-                } else {
-                    Image(systemName: "fork.knife").font(.title2).foregroundStyle(Palette.herb)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .accessibilityHidden(true)
-    }
-}
-
 // MARK: - Previews
 
 private enum DayCardPreview {
@@ -379,11 +353,11 @@ private enum DayCardPreview {
                                  attendance: DayCardPreview.family, badges: [], isLocked: false),
                     actions: DayCardPreview.actions)
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 1), effort: .rushed,
-                                 slot: .meal(name: "Tacos", photoURL: nil, reason: "Nora's favorite"),
+                                 slot: .meal(name: "Tacos", reason: "Nora's favorite"),
                                  attendance: DayCardPreview.family, badges: [.tradition("Taco Tuesday")], isLocked: false),
                     actions: DayCardPreview.actions)
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 2), effort: .full,
-                                 slot: .meal(name: "Pot roast", photoURL: nil, reason: "Haven't had it in 7 weeks",
+                                 slot: .meal(name: "Pot roast", reason: "Haven't had it in 7 weeks",
                                              sides: ["mashed potatoes", "green beans"]),
                                  attendance: DayCardPreview.family,
                                  badges: [.equipment("Usually uses a grill"),
@@ -397,7 +371,7 @@ private enum DayCardPreview {
                                  badges: [], isLocked: true),
                     actions: DayCardPreview.actions)
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 5), effort: .normal,
-                                 slot: .meal(name: "Chili", photoURL: nil, reason: "Due for a turn"),
+                                 slot: .meal(name: "Chili", reason: "Due for a turn"),
                                  attendance: DayCardPreview.family, badges: [.doubled("Doubled: leftovers Friday")],
                                  isLocked: true),
                     actions: DayCardPreview.actions)
@@ -406,7 +380,7 @@ private enum DayCardPreview {
                                  isLocked: true, leftoversNote: "From Thursday's Chili"),
                     actions: DayCardPreview.actions)
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 4), effort: .normal,
-                                 slot: .meal(name: "Homemade mac and cheese", photoURL: nil, reason: "Owen's request"),
+                                 slot: .meal(name: "Homemade mac and cheese", reason: "Owen's request"),
                                  attendance: DayCardPreview.family,
                                  badges: [.allergy("Contains milk (Nora)"), .request(from: "Owen")], isLocked: false),
                     actions: DayCardPreview.actions)
@@ -421,11 +395,11 @@ private enum DayCardPreview {
     ScrollView {
         VStack(spacing: 16) {
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 1), effort: .normal,
-                                 slot: .meal(name: "Tacos", photoURL: nil, reason: nil),
+                                 slot: .meal(name: "Tacos", reason: nil),
                                  attendance: DayCardPreview.family, badges: [], isLocked: false),
                     offer: DayCard.ClaimOffer(title: "I'll cook tomorrow") {})
             DayCard(model: .init(date: DayCardPreview.today.adding(days: 2), effort: .normal,
-                                 slot: .meal(name: "Chili", photoURL: nil, reason: nil),
+                                 slot: .meal(name: "Chili", reason: nil),
                                  attendance: DayCardPreview.family, badges: [], isLocked: false,
                                  cook: .init(member: family[1], isYou: false, tense: .willCook),
                                  jobs: [.init(title: "Set the table", firstName: "Nora"),
@@ -445,7 +419,7 @@ private enum DayCardPreview {
                               isHome: index != 8)
     }
     DayCard(model: .init(date: DayCardPreview.today, effort: .normal,
-                         slot: .meal(name: "Spaghetti", photoURL: nil, reason: "Due for a turn", sides: ["garlic bread"]),
+                         slot: .meal(name: "Spaghetti", reason: "Due for a turn", sides: ["garlic bread"]),
                          attendance: family, badges: [], isLocked: false),
             actions: DayCard.Actions(toggleAttendance: { _ in }, cycleEffort: {}, open: {}))
         .padding()
@@ -454,7 +428,7 @@ private enum DayCardPreview {
 
 #Preview("Tonight, with the rescue") {
     VStack(spacing: 16) {
-        DayCard(model: .init(date: DayCardPreview.today, effort: .normal, slot: .meal(name: "Tacos", photoURL: nil,
+        DayCard(model: .init(date: DayCardPreview.today, effort: .normal, slot: .meal(name: "Tacos",
                                                                                       reason: "Due for a turn"),
                              attendance: DayCardPreview.family, badges: [], isLocked: false),
                 actions: DayCardPreview.actions, rescue: {})
@@ -468,7 +442,7 @@ private enum DayCardPreview {
 
 #Preview("Busy evening") {
     DayCard(model: .init(date: DayCardPreview.today.adding(days: 1), effort: .normal,
-                         slot: .meal(name: "Tacos", photoURL: nil, reason: "Due for a turn"),
+                         slot: .meal(name: "Tacos", reason: "Due for a turn"),
                          attendance: DayCardPreview.family, badges: [], isLocked: false),
             actions: DayCardPreview.actions, busy: DayCard.BusySuggestion(markRushed: {}, dismiss: {}))
         .padding()
@@ -477,7 +451,7 @@ private enum DayCardPreview {
 
 #Preview("Read-only (member)") {
     DayCard(model: .init(date: DayCardPreview.today, effort: .rushed,
-                         slot: .meal(name: "Tacos", photoURL: nil, reason: "Nora's favorite"),
+                         slot: .meal(name: "Tacos", reason: "Nora's favorite"),
                          attendance: DayCardPreview.family, badges: [.allergy("Contains milk (Nora)")], isLocked: true))
         .padding()
         .background(Palette.cream)
