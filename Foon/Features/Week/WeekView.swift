@@ -540,7 +540,7 @@ struct WeekView: View {
             Button(DayCardText.shopLabel(openItems: openListItems.count)) { showTab(.lists) }
                 .tint(Palette.paprika)
                 .accessibilityLabel("Shopping lists")
-            .accessibilityValue(openListItems.isEmpty ? Text("Nothing to buy") : Text("\(openListItems.count) to buy"))
+                .accessibilityValue(openListItems.isEmpty ? Text("Nothing to buy") : Text("\(openListItems.count) to buy"))
         }
     }
 
