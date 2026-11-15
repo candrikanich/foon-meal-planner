@@ -1,19 +1,31 @@
 import SwiftUI
 
-/// Quiet Kitchen layout constants (Figma "Foon iOS", Screens → "· Quiet Kitchen" frames),
-/// shared so each screen doesn't pick its own radius and padding.
+/// Quiet Kitchen layout constants beyond the Spacing and Radius scales.
 enum Metrics {
-    static let cardRadius: CGFloat = 20
-    static let cardPadding: CGFloat = 16
     static let minTapHeight: CGFloat = 44
 }
 
 extension View {
     /// A flat card on cream: the Quiet Kitchen surface for heroes and grouped content.
-    func foonCard(padding: CGFloat = Metrics.cardPadding) -> some View {
+    func foonCard(padding: CGFloat = Spacing.l) -> some View {
         self.padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.cardSurface, in: .rect(cornerRadius: Metrics.cardRadius, style: .continuous))
+            .background(Palette.cardSurface, in: .rect(cornerRadius: Radius.card, style: .continuous))
+    }
+
+    /// For a system `List` or `Form`: cream behind it, paprika controls. Pair it with `foonRows()` on its content,
+    /// because a row's background can only be set from inside the list.
+    func foonGrouped() -> some View {
+        self.scrollContentBackground(.hidden)
+            .background(Palette.cream)
+            .tint(Palette.paprika)
+    }
+
+    /// For a `List` or `Form`'s content (wrap it in a `Group`): card-surface rows and headline section headers.
+    /// In dark mode the system row gray is nearly the dark cream, so rows need the card color to stand apart.
+    func foonRows() -> some View {
+        self.listRowBackground(Palette.cardSurface)
+            .headerProminence(.increased)
     }
 }
 
@@ -43,8 +55,8 @@ struct PillButtonStyle: ButtonStyle {
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(kind == .prominent ? Palette.onPaprika : tint)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 10)
+                .padding(.horizontal, Spacing.l)
+                .padding(.vertical, Spacing.s)
                 .frame(maxWidth: fullWidth ? .infinity : nil, minHeight: Metrics.minTapHeight)
                 .background(Capsule().fill(kind == .prominent ? tint : tint.opacity(0.14)))
                 .contentShape(Capsule())
@@ -95,7 +107,7 @@ struct EffortMenu: View {
     }
 
     private func pill(showsChevron: Bool) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Spacing.xs) {
             Text(DayCardText.effortLabel(effort))
             if showsChevron {
                 Image(systemName: "chevron.down")
@@ -105,8 +117,8 @@ struct EffortMenu: View {
         }
         .font(.foonCaption)
         .foregroundStyle(effort == .event ? Palette.paprika : Palette.ink)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, Spacing.xs)
         .background(Capsule().fill(.fill.tertiary))
         .contentShape(Capsule())
     }
@@ -125,7 +137,7 @@ struct UnderlineTabs<Value: Hashable>: View {
     @Namespace private var underline
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 24) {
+        HStack(alignment: .bottom, spacing: Spacing.xl) {
             ForEach(options) { option in
                 tab(option)
             }
@@ -139,7 +151,7 @@ struct UnderlineTabs<Value: Hashable>: View {
         return Button {
             withAnimation(.snappy) { selection = option.value }
         } label: {
-            VStack(spacing: 8) {
+            VStack(spacing: Spacing.s) {
                 Text(option.title)
                     .font(.foonHeadline)
                     .foregroundStyle(isSelected ? Palette.ink : .secondary)
@@ -167,14 +179,14 @@ struct SectionHeader<Trailing: View>: View {
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.m) {
                 titleText
-                Spacer(minLength: 8)
+                Spacer(minLength: Spacing.s)
                 trailing
             }
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Spacing.s) {
                 titleText
-                HStack(spacing: 8) { trailing }
+                HStack(spacing: Spacing.s) { trailing }
             }
         }
     }

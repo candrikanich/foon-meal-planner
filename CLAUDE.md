@@ -4,7 +4,7 @@ Foon is an iOS family dinner planner. Mission: **take the weight of dinner off o
 
 Every feature must pass one test: *does it make it easier for more people to contribute, or lighten the planner's load?* If not, it waits.
 
-Full product spec: [docs/spec.md](docs/spec.md). Starter dishes: [docs/starter-pack.md](docs/starter-pack.md). App Store listing and compliance: [docs/app-store-submission.md](docs/app-store-submission.md). These docs are the source of truth: when a decision changes product behavior, update them in the same PR. If a ticket disagrees with the spec, ask in the PR rather than guessing.
+Full product spec: [docs/spec.md](docs/spec.md). Design rules (Quiet Kitchen): [docs/design-system.md](docs/design-system.md). Starter dishes: [docs/starter-pack.md](docs/starter-pack.md). App Store listing and compliance: [docs/app-store-submission.md](docs/app-store-submission.md). These docs are the source of truth: when a decision changes product behavior, update them in the same PR. If a ticket disagrees with the spec, ask in the PR rather than guessing.
 
 ## Stack
 
