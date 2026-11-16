@@ -31,7 +31,6 @@ struct LibraryClient: Sendable {
     var setStatus: @Sendable (_ mealID: UUID, _ status: MealStatus) async throws -> Void
     /// Copies a starter dish into the library (or returns the copy already there) and returns its id.
     var addFromCatalog: @Sendable (_ householdID: UUID, _ dishID: UUID) async throws -> UUID
-    var photoURL: @Sendable (_ path: String) async throws -> URL
     /// Saves the meal's fields and replaces its ingredient lines in one transaction.
     var save: @Sendable (_ mealID: UUID, _ meal: MealDraft.Saved) async throws -> Void
     /// Copy and tweak: returns the new meal's id.
@@ -40,8 +39,6 @@ struct LibraryClient: Sendable {
     var create: @Sendable (_ householdID: UUID, _ meal: MealDraft.Saved) async throws -> UUID
     /// Every item the household has used (meals and lists), for autocomplete.
     var itemNames: @Sendable (_ householdID: UUID) async throws -> [String]
-    /// Uploads a prepared JPEG, points the meal at it, and deletes the photo it replaced.
-    var setPhoto: @Sendable (_ meal: LibraryMeal, _ preparedJPEG: Data) async throws -> Void
     /// Each member's current verdict on each dish, and how often each was liked: what reactions feed planning.
     var verdicts: @Sendable (_ householdID: UUID) async throws -> [MealVerdict] = { _ in [] }
     var likes: @Sendable (_ householdID: UUID) async throws -> [MealLikes] = { _ in [] }
@@ -105,7 +102,6 @@ enum RowPages {
 
 extension LibraryClient {
     static func live(_ client: SupabaseClient) -> LibraryClient {
-        let photos = PhotoStorageClient.live(client)
         return LibraryClient(
             meals: { householdID in
                 let rows: [MealRow] = try await RowPages.all(key: \.id) { after, size in
@@ -159,7 +155,6 @@ extension LibraryClient {
                 .value
                 return meal.id
             },
-            photoURL: photos.signedURL,
             save: { mealID, meal in
                 try await client.rpc("save_meal", params: SaveMealParams(mealID: mealID, meal: meal)).execute()
             },
@@ -186,19 +181,6 @@ extension LibraryClient {
                     .execute()
                     .value
                 return rows.map(\.canonicalName)
-            },
-            setPhoto: { meal, preparedJPEG in
-                try await photos.replace(householdID: meal.householdID, preparedJPEG: preparedJPEG) { path in
-                    do {
-                        return try await client.rpc(
-                            "set_meal_photo", params: SetMealPhotoParams(targetMeal: meal.id, newPath: path)
-                        )
-                        .execute()
-                        .value
-                    } catch let error as PostgrestError where error.code == "42501" {
-                        throw LibraryClientError.notAllowed
-                    }
-                }
             },
             // One row per person per dish, so a family reaches the cap well before their library does.
             verdicts: { householdID in
@@ -272,7 +254,9 @@ extension LibraryClient {
                     throw LibraryClientError.inUse
                 }
             },
-            removePhoto: photos.remove,
+            removePhoto: { path in
+                _ = try await client.storage.from("household-photos").remove(paths: [path])
+            },
             freshMeal: { mealID in
                 let rows: [MealRow] = try await client.from("meals")
                     .select(MealRow.columns + ", updated_at")
@@ -512,16 +496,6 @@ private struct ItemName: Decodable, Sendable {
 
 private struct AddedMeal: Decodable, Sendable {
     let id: UUID
-}
-
-private struct SetMealPhotoParams: Encodable {
-    let targetMeal: UUID
-    let newPath: String
-
-    enum CodingKeys: String, CodingKey {
-        case targetMeal = "target_meal"
-        case newPath = "new_path"
-    }
 }
 
 private struct SetCommentHiddenParams: Encodable {

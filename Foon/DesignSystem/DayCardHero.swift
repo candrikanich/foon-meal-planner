@@ -47,23 +47,17 @@ extension DayCard {
         switch model.slot {
         case .empty:
             Text("Nothing planned yet").font(.foonTitle).foregroundStyle(.secondary)
-        case .meal(let name, let photoURL, let reason, let sides):
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(name).font(.foonLargeTitle).foregroundStyle(Palette.ink)
-                    if let sides = DayCardText.sidesLabel(sides) {
-                        Text(sides).font(.foonBody).foregroundStyle(Palette.ink)
-                    }
-                    if let line = DayCardText.softLine(groups.notes + [reason]) {
-                        Text(line).font(.foonCaption).foregroundStyle(Palette.herb)
-                    }
-                    servingNoteLines(font: .foonCaption)
-                    prepLines(font: .foonCaption)
+        case .meal(let name, let reason, let sides):
+            VStack(alignment: .leading, spacing: 4) {
+                Text(name).font(.foonLargeTitle).foregroundStyle(Palette.ink)
+                if let sides = DayCardText.sidesLabel(sides) {
+                    Text(sides).font(.foonBody).foregroundStyle(Palette.ink)
                 }
-                if let photoURL {
-                    Spacer(minLength: 0)
-                    MealThumbnail(url: photoURL)
+                if let line = DayCardText.softLine(groups.notes + [reason]) {
+                    Text(line).font(.foonCaption).foregroundStyle(Palette.herb)
                 }
+                servingNoteLines(font: .foonCaption)
+                prepLines(font: .foonCaption)
             }
         case .quickPick(let pick):
             VStack(alignment: .leading, spacing: 4) {

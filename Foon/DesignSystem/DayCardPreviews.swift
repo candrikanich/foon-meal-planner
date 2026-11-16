@@ -31,24 +31,24 @@ private enum DayCardPreview {
                      isLocked: locked, servingNotes: notes, leftoversNote: leftovers, cook: cook, jobs: jobs)
     }
 
-    static let tacos = night(0, effort: .rushed, slot: .meal(name: "Tacos", photoURL: nil, reason: "Nora's favorite",
+    static let tacos = night(0, effort: .rushed, slot: .meal(name: "Tacos", reason: "Nora's favorite",
                                                               sides: ["rice", "black beans"]),
                              badges: [.tradition("Taco Tuesday"), .allergy("Contains milk (Nora)")],
                              cook: cook, jobs: jobs)
     static let potRoast = night(1, effort: .full,
-                                slot: .meal(name: "Pot roast", photoURL: nil, reason: "Haven't had it in 7 weeks",
+                                slot: .meal(name: "Pot roast", reason: "Haven't had it in 7 weeks",
                                             sides: ["mashed potatoes", "green beans"]),
                                 badges: [.prep("Thaw tonight"), .startCooking("Start cooking at 5:00 PM for 6:00 PM dinner")],
                                 locked: true, notes: ["Nora: keep everything separate before mixing"])
     static let empty = night(2, slot: .empty)
-    static let crab = night(3, effort: .event, slot: .meal(name: "Crab legs", photoURL: nil, reason: nil),
+    static let crab = night(3, effort: .event, slot: .meal(name: "Crab legs", reason: nil),
                             badges: [.request(from: "Nora"), .equipment("Usually uses a grill")])
     static let eatOut = night(4, effort: .event, slot: .quickPick(.eatOut), locked: true)
     static let leftovers = night(5, effort: .rushed, slot: .quickPick(.leftovers), badges: [.allergy("Contains milk (Nora)")],
                                  leftovers: "From Thursday's Chili")
     static let away = night(6, slot: .away)
     static let longText = night(
-        1, slot: .meal(name: "Slow-roasted shoulder of lamb with preserved lemon and olives", photoURL: nil, reason: nil,
+        1, slot: .meal(name: "Slow-roasted shoulder of lamb with preserved lemon and olives", reason: nil,
                        sides: ["herbed couscous", "charred broccolini", "yogurt and mint sauce"]),
         badges: [.allergy("Contains tree nuts (Nora) and sesame (Owen)"), .prep("Marinate the lamb the night before")])
 
@@ -88,7 +88,7 @@ private enum DayCardPreview {
 
 #Preview("Tonight, nobody cooking yet") {
     DayCardPreview.board {
-        DayCard(model: DayCardPreview.night(0, slot: .meal(name: "Chili", photoURL: nil, reason: "Due for a turn")),
+        DayCard(model: DayCardPreview.night(0, slot: .meal(name: "Chili", reason: "Due for a turn")),
                 actions: DayCardPreview.actions, offer: .init(title: "I'll cook tonight") {}, openNight: {})
     }
 }
@@ -116,7 +116,7 @@ private enum DayCardPreview {
         DayCard(model: DayCardPreview.potRoast, offer: .init(title: "I'll cook tomorrow") {}, openRecipe: {},
                 openNight: {})
         Divider()
-        DayCard(model: DayCardPreview.night(2, slot: .meal(name: "Chili", photoURL: nil, reason: nil),
+        DayCard(model: DayCardPreview.night(2, slot: .meal(name: "Chili", reason: nil),
                                             cook: DayCardPreview.cook, jobs: DayCardPreview.jobs), openNight: {})
         Divider()
         DayCard(model: DayCardPreview.empty)
@@ -141,7 +141,7 @@ private enum DayCardPreview {
 #Preview("Long text") {
     DayCardPreview.board {
         DayCard(model: DayCardPreview.night(0, slot: .meal(name: "Slow-roasted shoulder of lamb with preserved lemon",
-                                                           photoURL: nil, reason: "Haven't had it in 12 weeks",
+                                                           reason: "Haven't had it in 12 weeks",
                                                            sides: ["herbed couscous", "charred broccolini"]),
                                             badges: [.allergy("Contains tree nuts (Nora) and sesame (Owen)")],
                                             cook: DayCardPreview.cook, jobs: DayCardPreview.jobs),
@@ -157,7 +157,7 @@ private enum DayCardPreview {
     }
     DayCardPreview.board {
         DayCard(model: .init(date: DayCardPreview.today, effort: .normal,
-                             slot: .meal(name: "Spaghetti", photoURL: nil, reason: "Due for a turn", sides: ["garlic bread"]),
+                             slot: .meal(name: "Spaghetti", reason: "Due for a turn", sides: ["garlic bread"]),
                              attendance: family, badges: [], isLocked: false),
                 actions: DayCardPreview.actions, openNight: {})
     }
