@@ -23,12 +23,21 @@ struct ListEntry: Identifiable, Equatable, Sendable {
     var folded: [ListEntry] = []
     /// When this line went on the list.
     var createdAt: Date? = nil
+    /// The nights whose dishes need this line, soonest first. Empty on anything added by hand.
+    var nights: [ListNightRef] = []
 
     /// The item: a row is one per item, and keeps its place when a tonight line takes the lead from a weekly one.
     var id: UUID { itemID }
 
     /// Every line this row stands for: checking it off or removing it acts on all of them.
     var lineIDs: [UUID] { [lineID] + folded.map(\.lineID) }
+
+    /// Which nights need it, for the buyer: gone once the item is checked off, and nil with no night to name. A weekly
+    /// line folded under a tonight line still counts.
+    var nightLabel: ListNightLabel? {
+        guard checkedAt == nil else { return nil }
+        return ListNightLabel(([self] + folded).flatMap(\.nights))
+    }
 
     var hasQuickLine: Bool { list == .quick || folded.contains { $0.list == .quick } }
 
@@ -39,7 +48,8 @@ struct ListEntry: Identifiable, Equatable, Sendable {
             return ListEntry(lineID: line.id, itemID: line.itemID, name: item?.name ?? line.itemName, list: line.list,
                              urgency: line.urgency, quantity: line.quantity, lineNote: line.note, itemNote: item?.note,
                              category: item?.category ?? .other, checkedAt: line.checkedAt,
-                             keepOnHand: item?.keepOnHand ?? false, stock: item?.stockState, createdAt: line.createdAt)
+                             keepOnHand: item?.keepOnHand ?? false, stock: item?.stockState, createdAt: line.createdAt,
+                             nights: line.nights)
         }
     }
 }

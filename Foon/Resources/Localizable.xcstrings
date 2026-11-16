@@ -361,6 +361,7 @@
       "comment" : "Tonight poll closed with one winner"
     },
     "%@ · %@" : {
+      "comment" : "A list row's label: a short weekday, then the dish planned that night",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -420,6 +421,7 @@
       "comment" : "Day card badge: the member who asked for this dish"
     },
     "%@, %@" : {
+      "comment" : "Spoken for a list row: a weekday, then the dish planned that night",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2238,7 +2240,7 @@
 
     },
     "For %@" : {
-      "comment" : "Tonight rescue: who's home tonight, e.g. For Ana, Ben and Nora"
+      "comment" : "Spoken for a list row: the nights and dishes that need this item\nTonight rescue: who's home tonight, e.g. For Ana, Ben and Nora"
     },
     "For a night" : {
 

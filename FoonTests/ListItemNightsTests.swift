@@ -87,4 +87,51 @@ struct ListItemNightsTests {
         #expect(stored.first?.nights.map(\.date) == ["2026-11-03", "2026-11-06"])
         #expect(stored.first?.nights.map(\.mealName) == ["Chili", "Tacos"])
     }
+
+    /// An older app's store has list lines saved before `nights` existed: the new models must open it, with no nights.
+    @Test func aLineSavedBeforeNightsExistedOpensWithNone() throws {
+        let folder = URL.temporaryDirectory.appending(path: "foon-nights-migration-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appending(path: "cache.store")
+        let lineID = UUID()
+        do {
+            let older = Schema([CachedPlan.self, CachedNight.self, BeforeNights.CachedListItem.self, CachedItem.self,
+                                PendingChange.self, CachedReminders.self, NotificationRecord.self])
+            let container = try ModelContainer(for: older, configurations: ModelConfiguration(schema: older, url: url))
+            let context = ModelContext(container)
+            context.insert(BeforeNights.CachedListItem(id: lineID, householdID: household))
+            try context.save()
+        }
+        let container = try ModelContainer(for: SyncService.schema,
+                                           configurations: ModelConfiguration(schema: SyncService.schema, url: url))
+        let stored = try ModelContext(container).fetch(FetchDescriptor<CachedListItem>())
+        #expect(stored.map(\.id) == [lineID])
+        #expect(stored.first?.nights == [])
+    }
+}
+
+/// `CachedListItem` as it was before #337 added `nights`: same entity name and every other attribute, so a store written
+/// with it carries the old model's hash. Keep in step with `CachedListItem` minus `nights`.
+private enum BeforeNights {
+    @Model
+    final class CachedListItem {
+        @Attribute(.unique) var id: UUID
+        var householdID: UUID
+        var itemID = UUID()
+        var itemName = "Cheese"
+        var listRaw = ListKind.weekly.rawValue
+        var urgencyRaw = ListUrgency.whenever.rawValue
+        var sourceRaw = ListItemSource.plan.rawValue
+        var note: String?
+        var checkedAt: Date?
+        var quantity: String?
+        var planID: UUID?
+        var createdAt: Date?
+
+        init(id: UUID, householdID: UUID) {
+            self.id = id
+            self.householdID = householdID
+        }
+    }
 }
