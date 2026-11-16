@@ -22,44 +22,48 @@ struct MemberAllergiesView: View {
         @Bindable var model = model
         NavigationStack {
             Form {
-                switch model.phase {
-                case .loading:
-                    ProgressView()
-                case .failed:
-                    Section {
-                        if ownProfile {
-                            Text("Couldn't load your allergies. Check your connection and try again.")
-                        } else {
-                            Text("Couldn't load \(member.firstName)'s allergies. Check your connection and try again.")
-                        }
-                        Button("Try again") { Task { await model.load() } }
-                    }
-                case .ready:
-                    if model.waitsForHouseholdConsent {
+                Group {
+                    switch model.phase {
+                    case .loading:
+                        ProgressView()
+                    case .failed:
                         Section {
-                            Text("Foon keeps allergies once a parent agrees. Ask a parent to add yours first.")
+                            if ownProfile {
+                                Text("Couldn't load your allergies. Check your connection and try again.")
+                            } else {
+                                Text("Couldn't load \(member.firstName)'s allergies. Check your connection and try again.")
+                            }
+                            Button("Try again") { Task { await model.load() } }
                         }
-                    } else {
-                        if let block = model.addBlock {
-                            addBlockSection(block)
-                        } else if model.showsStatement {
+                    case .ready:
+                        if model.waitsForHouseholdConsent {
                             Section {
-                                Text(AllergyConsent.statement).font(.callout)
-                                HealthDataPolicyLink()
+                                Text("Foon keeps allergies once a parent agrees. Ask a parent to add yours first.")
+                            }
+                        } else {
+                            if let block = model.addBlock {
+                                addBlockSection(block)
+                            } else if model.showsStatement {
+                                Section {
+                                    Text(AllergyConsent.statement).font(.callout)
+                                    HealthDataPolicyLink()
+                                }
+                            }
+                            Section {
+                                AllergenChips(selection: $model.answer.allergens)
+                                TextField("Other (like kiwi)", text: $model.answer.otherText)
+                            } footer: {
+                                Text("Foon flags dishes with these. It's a helper, not a guarantee: still check labels.")
                             }
                         }
-                        Section {
-                            AllergenChips(selection: $model.answer.allergens)
-                            TextField("Other (like kiwi)", text: $model.answer.otherText)
-                        } footer: {
-                            Text("Foon flags dishes with these. It's a helper, not a guarantee: still check labels.")
+                        if let message = model.errorMessage {
+                            Section { Text(message).foregroundStyle(.red) }
                         }
                     }
-                    if let message = model.errorMessage {
-                        Section { Text(message).foregroundStyle(.red) }
-                    }
                 }
+                .foonRows()
             }
+                .foonGrouped()
             .navigationTitle(ownProfile ? "Your allergies" : "\(member.firstName)'s allergies")
             .task { await model.load() }
             .toolbar {

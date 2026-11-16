@@ -22,39 +22,43 @@ struct AwayDatesView: View {
 
     var body: some View {
         Form {
-            if !dates.isEmpty {
-                Section("Coming up") {
-                    ForEach(dates) { stretch in
-                        HStack {
-                            Text(stretch.summary(today: today))
-                            Spacer()
-                            Button("Remove", systemImage: "xmark.circle") {
-                                Task { await save { await store.removeAwayDates(stretch) } }
+            Group {
+                if !dates.isEmpty {
+                    Section("Coming up") {
+                        ForEach(dates) { stretch in
+                            HStack {
+                                Text(stretch.summary(today: today))
+                                Spacer()
+                                Button("Remove", systemImage: "xmark.circle") {
+                                    Task { await save { await store.removeAwayDates(stretch) } }
+                                }
+                                .labelStyle(.iconOnly)
+                                .buttonStyle(.borderless)
+                                .tint(.secondary)
+                                .disabled(isSaving)
+                                .accessibilityLabel(String(localized: "Remove \(stretch.summary(today: today))"))
                             }
-                            .labelStyle(.iconOnly)
-                            .buttonStyle(.borderless)
-                            .tint(.secondary)
-                            .disabled(isSaving)
-                            .accessibilityLabel(String(localized: "Remove \(stretch.summary(today: today))"))
                         }
                     }
                 }
-            }
 
-            Section {
-                DatePicker("First night away", selection: $first, in: today.date()..., displayedComponents: .date)
-                DatePicker("Last night away", selection: $last, in: lastNightRange, displayedComponents: .date)
-                Button("Add away dates", systemImage: "airplane") { confirmingAdd = true }
-                    .tint(Palette.paprika)
-                    .disabled(isSaving)
-            } footer: {
-                Text("Foon won't plan dinners for those nights, add them to the list, or send reminders about them. Everyone shows as out, and you'll see Away on This Week.")
-            }
+                Section {
+                    DatePicker("First night away", selection: $first, in: today.date()..., displayedComponents: .date)
+                    DatePicker("Last night away", selection: $last, in: lastNightRange, displayedComponents: .date)
+                    Button("Add away dates", systemImage: "airplane") { confirmingAdd = true }
+                        .tint(Palette.paprika)
+                        .disabled(isSaving)
+                } footer: {
+                    Text("Foon won't plan dinners for those nights, add them to the list, or send reminders about them. Everyone shows as out, and you'll see Away on This Week.")
+                }
 
-            if let message = store.errorMessage {
-                Section { Text(message).foregroundStyle(.red) }
+                if let message = store.errorMessage {
+                    Section { Text(message).foregroundStyle(.red) }
+                }
             }
+            .foonRows()
         }
+            .foonGrouped()
         .navigationTitle("Away dates")
         .onChange(of: first) { _, first in
             last = AwayDates.clampedLast(CalendarDay(last), first: CalendarDay(first)).date()

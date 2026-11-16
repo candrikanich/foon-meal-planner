@@ -99,38 +99,46 @@ struct ReceiptScanView: View {
 
     private var choosing: some View {
         List {
-            Section {
-                #if os(iOS)
-                if VNDocumentCameraViewController.isSupported {
-                    Button { usingCamera = true } label: {
-                        Label("Take a photo", systemImage: "camera")
+            Group {
+                Section {
+                    #if os(iOS)
+                    if VNDocumentCameraViewController.isSupported {
+                        Button { usingCamera = true } label: {
+                            Label("Take a photo", systemImage: "camera")
+                        }
                     }
+                    #endif
+                    PhotosPicker(selection: $photo, matching: .images) {
+                        Label("Choose a photo", systemImage: "photo.on.rectangle")
+                    }
+                } footer: {
+                    Text("Foon reads the receipt on this device and doesn't keep the photo. You'll check what it found before anything changes.")
                 }
-                #endif
-                PhotosPicker(selection: $photo, matching: .images) {
-                    Label("Choose a photo", systemImage: "photo.on.rectangle")
+                if let message = store.errorMessage {
+                    Text(message).font(.callout).foregroundStyle(.red)
                 }
-            } footer: {
-                Text("Foon reads the receipt on this device and doesn't keep the photo. You'll check what it found before anything changes.")
             }
-            if let message = store.errorMessage {
-                Text(message).font(.callout).foregroundStyle(.red)
-            }
+            .foonRows()
         }
+            .foonGrouped()
     }
 
     /// A forwarded email with no groceries Foon could place: nothing to review, only to clear.
     private var nothingFound: some View {
         List {
-            if let message = store.errorMessage {
-                Text(message).font(.callout)
+            Group {
+                if let message = store.errorMessage {
+                    Text(message).font(.callout)
+                }
+                Section {
+                    dismissButton
+                } footer: {
+                    Text("Dismiss clears it from Lists for everyone.")
+                }
             }
-            Section {
-                dismissButton
-            } footer: {
-                Text("Dismiss clears it from Lists for everyone.")
-            }
+            .foonRows()
         }
+            .foonGrouped()
     }
 
     private var dismissButton: some View {
@@ -201,32 +209,36 @@ struct ReceiptDoneView: View {
 
     var body: some View {
         List {
-            Section {
-                Label {
-                    Text("^[\(store.boughtCount) item](inflect: true) marked bought")
-                } icon: {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Palette.herb)
-                }
-            } footer: {
-                Text("They're checked off the lists, and staples are back in stock.")
-            }
-            if let message = store.clearMessage {
-                Text(message).font(.callout).foregroundStyle(.secondary)
-            }
-            if !store.suggestions.isEmpty {
+            Group {
                 Section {
-                    ForEach(store.suggestions, id: \.self) { itemID in suggestion(itemID) }
-                } header: {
-                    Text("Bought again")
+                    Label {
+                        Text("^[\(store.boughtCount) item](inflect: true) marked bought")
+                    } icon: {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Palette.herb)
+                    }
                 } footer: {
-                    Text("Staples show under Keep on hand, so anyone can mark them low or out.")
+                    Text("They're checked off the lists, and staples are back in stock.")
+                }
+                if let message = store.clearMessage {
+                    Text(message).font(.callout).foregroundStyle(.secondary)
+                }
+                if !store.suggestions.isEmpty {
+                    Section {
+                        ForEach(store.suggestions, id: \.self) { itemID in suggestion(itemID) }
+                    } header: {
+                        Text("Bought again")
+                    } footer: {
+                        Text("Staples show under Keep on hand, so anyone can mark them low or out.")
+                    }
                 }
             }
+            .foonRows()
         }
+            .foonGrouped()
     }
 
     private func suggestion(_ itemID: UUID) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.s) {
             Text("Keep \(name(itemID)) on hand?").font(.foonBody)
             HStack {
                 Button("Yes") {

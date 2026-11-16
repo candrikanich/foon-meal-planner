@@ -8,8 +8,8 @@ struct ItemLabel: View {
     var quantity: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
                 if let quantity {
                     Text(quantity).foregroundStyle(.secondary)
                 }
@@ -83,44 +83,48 @@ private struct ItemForm: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField("Vanilla, not plain", text: $store.note, axis: .vertical)
-                        .lineLimit(1...3)
-                        .accessibilityLabel("Note or brand")
-                } header: {
-                    Text("Note or brand")
-                } footer: {
-                    Text("Shown with \(store.item.name) on meals, lists, and in the store.")
-                }
+                Group {
+                    Section {
+                        TextField("Vanilla, not plain", text: $store.note, axis: .vertical)
+                            .lineLimit(1...3)
+                            .accessibilityLabel("Note or brand")
+                    } header: {
+                        Text("Note or brand")
+                    } footer: {
+                        Text("Shown with \(store.item.name) on meals, lists, and in the store.")
+                    }
 
-                Section {
-                    if store.canRecategorize {
-                        Picker("Aisle", selection: $store.category) {
-                            ForEach(ItemCategory.storeOrder, id: \.self) { category in
-                                Label(category.title, systemImage: category.systemImage).tag(category)
+                    Section {
+                        if store.canRecategorize {
+                            Picker("Aisle", selection: $store.category) {
+                                ForEach(ItemCategory.storeOrder, id: \.self) { category in
+                                    Label(category.title, systemImage: category.systemImage).tag(category)
+                                }
+                            }
+                        } else {
+                            LabeledContent("Aisle", value: store.category.title)
+                        }
+                        if store.canKeepOnHand {
+                            Toggle("Keep on hand", isOn: $store.keepOnHand)
+                            if store.keepOnHand {
+                                StockPicker(state: $store.stockState, name: store.item.name)
                             }
                         }
-                    } else {
-                        LabeledContent("Aisle", value: store.category.title)
-                    }
-                    if store.canKeepOnHand {
-                        Toggle("Keep on hand", isOn: $store.keepOnHand)
-                        if store.keepOnHand {
-                            StockPicker(state: $store.stockState, name: store.item.name)
+                    } footer: {
+                        if store.canKeepOnHand {
+                            Text("Staples like milk or paper towels stay on the keep-on-hand list, marked in, low, or out.")
                         }
                     }
-                } footer: {
-                    if store.canKeepOnHand {
-                        Text("Staples like milk or paper towels stay on the keep-on-hand list, marked in, low, or out.")
-                    }
-                }
 
-                if let message = store.errorMessage {
-                    Section {
-                        Text(message).foregroundStyle(.red)
+                    if let message = store.errorMessage {
+                        Section {
+                            Text(message).foregroundStyle(.red)
+                        }
                     }
                 }
+                .foonRows()
             }
+                .foonGrouped()
             .navigationTitle(store.item.name)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

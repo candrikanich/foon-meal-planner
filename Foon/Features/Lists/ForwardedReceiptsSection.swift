@@ -30,6 +30,10 @@ struct ForwardedReceiptsSection: View {
 
 #Preview {
     List {
-        ForwardedReceiptsSection(receipts: ReceiptFixtures.forwarded, canReview: true) { _ in }
+        Group {
+            ForwardedReceiptsSection(receipts: ReceiptFixtures.forwarded, canReview: true) { _ in }
+        }
+        .foonRows()
     }
+        .foonGrouped()
 }

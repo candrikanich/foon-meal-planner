@@ -44,20 +44,24 @@ struct MemberPresetPicker: View {
 
     var body: some View {
         List {
-            Section {
-                option(nil, title: String(localized: "Same as family (\(family.title))",
-                                          comment: "A person's notifications follow the household's preset"),
-                       summary: family.summary)
-            }
-            Section {
-                ForEach(MemberPresetRules.choices(for: member, family: family), id: \.self) { preset in
-                    option(preset, title: preset.title, summary: preset.summary)
+            Group {
+                Section {
+                    option(nil, title: String(localized: "Same as family (\(family.title))",
+                                              comment: "A person's notifications follow the household's preset"),
+                           summary: family.summary)
+                }
+                Section {
+                    ForEach(MemberPresetRules.choices(for: member, family: family), id: \.self) { preset in
+                        option(preset, title: preset.title, summary: preset.summary)
+                    }
+                }
+                if let message = store.errorMessage {
+                    Text(message).font(.callout).foregroundStyle(.red)
                 }
             }
-            if let message = store.errorMessage {
-                Text(message).font(.callout).foregroundStyle(.red)
-            }
+            .foonRows()
         }
+            .foonGrouped()
         .navigationTitle("Notifications")
         .disabled(saving)
     }
@@ -71,7 +75,7 @@ struct MemberPresetPicker: View {
             }
         } label: {
             HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(title).foregroundStyle(.primary)
                     Text(summary).font(.foonCaption).foregroundStyle(.secondary)
                 }

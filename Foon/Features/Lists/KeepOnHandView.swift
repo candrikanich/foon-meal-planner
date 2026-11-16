@@ -28,33 +28,37 @@ struct KeepOnHandView: View {
     var body: some View {
         let staples = staples
         List {
-            Section {
-                TextField("Add a staple", text: $newStaple)
-                    .onSubmit { Task { await add() } }
-                    .submitLabel(.done)
-                if let errorMessage {
-                    Text(errorMessage).font(.callout).foregroundStyle(.red)
+            Group {
+                Section {
+                    TextField("Add a staple", text: $newStaple)
+                        .onSubmit { Task { await add() } }
+                        .submitLabel(.done)
+                    if let errorMessage {
+                        Text(errorMessage).font(.callout).foregroundStyle(.red)
+                    }
+                } footer: {
+                    Text("Cereal, milk, paper towels: what you never want to run out of. Several at once: separate them with commas.")
                 }
-            } footer: {
-                Text("Cereal, milk, paper towels: what you never want to run out of. Several at once: separate them with commas.")
+                Section {
+                    if staples.isEmpty {
+                        Text("No staples yet.").foregroundStyle(.secondary)
+                    }
+                    ForEach(staples) { staple in
+                        row(staple)
+                            .swipeActions(edge: .trailing) {
+                                Button("Stop keeping", systemImage: "minus.circle", role: .destructive) { set(staple.id, to: nil) }
+                            }
+                            .accessibilityAction(named: Text("Stop keeping")) { set(staple.id, to: nil) }
+                    }
+                } footer: {
+                    if !staples.isEmpty {
+                        Text("Out goes straight on the list. Low shows under Staples running low on Lists, and goes on the next weekly list.")
+                    }
+                }
             }
-            Section {
-                if staples.isEmpty {
-                    Text("No staples yet.").foregroundStyle(.secondary)
-                }
-                ForEach(staples) { staple in
-                    row(staple)
-                        .swipeActions(edge: .trailing) {
-                            Button("Stop keeping", systemImage: "minus.circle", role: .destructive) { set(staple.id, to: nil) }
-                        }
-                        .accessibilityAction(named: Text("Stop keeping")) { set(staple.id, to: nil) }
-                }
-            } footer: {
-                if !staples.isEmpty {
-                    Text("Out goes straight on the list. Low shows under Staples running low on Lists, and goes on the next weekly list.")
-                }
-            }
+            .foonRows()
         }
+            .foonGrouped()
         .navigationTitle("Keep on hand")
         .refreshable { await sync?.pull() }
     }

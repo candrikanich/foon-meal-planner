@@ -73,7 +73,7 @@ Tap targets are at least 44 pt (`Metrics.minTapHeight`).
    in the toolbar (`.primaryAction`), a subtitle via `navigationSubtitle` when there's a useful count; system
    floating tab bar. Don't hand-roll headers.
 2. **Grouped list / settings** (Family, Kitchen, member screens, most sheets): system `List`/`Form` with
-   `foonGrouped()` + `foonRows()`; every section has a header or a footer that says why it's there.
+   `foonGrouped()` + `foonRows()`. Give a section a header when it groups different things, and a footer when a setting needs a sentence of why; a section that explains itself needs neither.
 3. **Card feed** (This Week, recaps): `ScrollView` on cream, `Spacing.xl` between cards, `Spacing.l` margins.
 4. **Sheet**: `NavigationStack` inside, inline title, Cancel (leading) and the action (trailing, bold); grouped
    content follows template 2. Show the grabber when the sheet has detents.

@@ -23,7 +23,7 @@ struct RhythmFields: View {
                 .disabled(weekStartIsLocked)
             DatePicker("Dinner at", selection: time(\.dinnerTime), displayedComponents: .hourAndMinute)
         } footer: {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("The week starts on your shopping day.")
                 if let weekNote { Text(weekNote) }
             }
@@ -99,21 +99,25 @@ struct HouseholdRhythmView: View {
         @Bindable var model = model
         NavigationStack {
             Form {
-                RhythmFields(settings: $model.draft, weekStartIsLocked: weekStart != .free, weekNote: weekNote)
-                Section {
-                    Stepper("New dishes a week: \(model.draft.newDishesPerWeek)", value: $model.draft.newDishesPerWeek, in: 0...7)
-                    Stepper("Takeout nights a week: \(model.draft.takeoutNights)", value: $model.draft.takeoutNights, in: 0...7)
-                    Stepper("Leftover nights a week: \(model.draft.leftoverNights)", value: $model.draft.leftoverNights, in: 0...7)
-                    Stepper("Days before a repeat: \(model.draft.repeatWindowDays)", value: $model.draft.repeatWindowDays, in: 0...60)
-                } header: {
-                    Text("Planning mix")
-                } footer: {
-                    Text("Build my week aims for these the next time it runs. Dinners already planned stay as they are.")
+                Group {
+                    RhythmFields(settings: $model.draft, weekStartIsLocked: weekStart != .free, weekNote: weekNote)
+                    Section {
+                        Stepper("New dishes a week: \(model.draft.newDishesPerWeek)", value: $model.draft.newDishesPerWeek, in: 0...7)
+                        Stepper("Takeout nights a week: \(model.draft.takeoutNights)", value: $model.draft.takeoutNights, in: 0...7)
+                        Stepper("Leftover nights a week: \(model.draft.leftoverNights)", value: $model.draft.leftoverNights, in: 0...7)
+                        Stepper("Days before a repeat: \(model.draft.repeatWindowDays)", value: $model.draft.repeatWindowDays, in: 0...60)
+                    } header: {
+                        Text("Planning mix")
+                    } footer: {
+                        Text("Build my week aims for these the next time it runs. Dinners already planned stay as they are.")
+                    }
+                    if let message = store.errorMessage {
+                        Section { Text(message).foregroundStyle(.red) }
+                    }
                 }
-                if let message = store.errorMessage {
-                    Section { Text(message).foregroundStyle(.red) }
-                }
+                .foonRows()
             }
+                .foonGrouped()
             .navigationTitle("Rhythm")
             .onAppear { store.clearError() }
             .task { weekStart = await store.weekStartCheck() }

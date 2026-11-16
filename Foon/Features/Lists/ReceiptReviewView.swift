@@ -15,23 +15,27 @@ struct ReceiptReviewView: View {
 
     var body: some View {
         List {
-            Section {
-                ForEach(review.matched) { row in line(row) }
-            } header: {
-                Text("Bought")
-            } footer: {
-                Text("Tap a line to change its item, or switch it off to skip it.")
-            }
-            if !review.unrecognized.isEmpty {
+            Group {
                 Section {
-                    ForEach(review.unrecognized) { row in line(row) }
+                    ForEach(review.matched) { row in line(row) }
                 } header: {
-                    Text("Didn't recognize")
+                    Text("Bought")
                 } footer: {
-                    Text("Skipped unless you pick an item. Foon remembers what you pick, for everyone's next receipt.")
+                    Text("Tap a line to change its item, or switch it off to skip it.")
+                }
+                if !review.unrecognized.isEmpty {
+                    Section {
+                        ForEach(review.unrecognized) { row in line(row) }
+                    } header: {
+                        Text("Didn't recognize")
+                    } footer: {
+                        Text("Skipped unless you pick an item. Foon remembers what you pick, for everyone's next receipt.")
+                    }
                 }
             }
+            .foonRows()
         }
+            .foonGrouped()
         .sheet(item: $picking) { row in
             ReceiptItemPicker(line: row.text, items: items) { itemID in
                 review.assign(row.id, to: itemID)
@@ -43,9 +47,9 @@ struct ReceiptReviewView: View {
 
     private func line(_ row: ReceiptReview.Row) -> some View {
         let name = row.itemID.flatMap { names[$0] }
-        return HStack(spacing: 12) {
+        return HStack(spacing: Spacing.m) {
             Button { picking = row } label: {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
                     Text(name ?? String(localized: "Pick an item"))
                         .font(.foonBody)
                         .foregroundStyle(name == nil ? .secondary : .primary)
@@ -97,22 +101,26 @@ struct ReceiptItemPicker: View {
     var body: some View {
         NavigationStack {
             List {
-                if let errorMessage {
-                    Text(errorMessage).font(.callout).foregroundStyle(.red)
-                }
-                if offersNew {
-                    Button { Task { await add() } } label: {
-                        Label("Add \u{201C}\(typed)\u{201D} as a new item", systemImage: "plus.circle")
+                Group {
+                    if let errorMessage {
+                        Text(errorMessage).font(.callout).foregroundStyle(.red)
                     }
-                    .disabled(isAdding)
-                }
-                ForEach(shown) { item in
-                    Button(item.name) {
-                        pick(item.id)
-                        dismiss()
+                    if offersNew {
+                        Button { Task { await add() } } label: {
+                            Label("Add \u{201C}\(typed)\u{201D} as a new item", systemImage: "plus.circle")
+                        }
+                        .disabled(isAdding)
+                    }
+                    ForEach(shown) { item in
+                        Button(item.name) {
+                            pick(item.id)
+                            dismiss()
+                        }
                     }
                 }
+                .foonRows()
             }
+                .foonGrouped()
             .searchable(text: $query, prompt: Text("Find or type an item"))
             .navigationTitle(line)
             #if os(iOS)
