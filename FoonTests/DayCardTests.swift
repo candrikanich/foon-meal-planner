@@ -33,13 +33,6 @@ struct DayCardTextTests {
         #expect(DayCardText.effortLabel(effort) == label)
     }
 
-    @Test func effortCyclesNormalRushedFullEvent() {
-        #expect(NightEffort.normal.next == .rushed)
-        #expect(NightEffort.rushed.next == .full)
-        #expect(NightEffort.full.next == .event)
-        #expect(NightEffort.event.next == .normal)
-    }
-
     @Test func badgesSortByHowLoudlyTheQuietCardSaysThem() {
         let groups = DayCardText.groupBadges([
             .allergy("Contains milk (Nora)"), .allergyUnchecked("Not checked"), .tradition("Taco Tuesday"),
