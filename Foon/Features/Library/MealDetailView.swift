@@ -44,8 +44,9 @@ struct MealDetailView: View {
 
     private func content(_ entry: LibraryEntry) -> some View {
         let meal = entry.meal
+        // Template 3 (docs/design-system.md): the dish's name and chips on cream, then one card per section.
         return ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
                 header(entry)
                 if aiQueue?.isProcessing(meal: meal.id) == true {
                     // Saved before the tidy-up came back: it fills in whatever nobody's changed (docs/spec.md → Household AI queue).
@@ -54,23 +55,19 @@ struct MealDetailView: View {
                     } icon: {
                         ProgressView()
                     }
-                    .font(.callout)
+                    .font(.foonBody)
                     .foregroundStyle(.secondary)
                 }
                 if !meal.steps.isEmpty {
-                    Button { cooking = meal } label: {
-                        Label("Start cooking", systemImage: "frying.pan").frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Palette.paprika)
-                    .controlSize(.large)
-                    .accessibilityHint("One step at a time, with timers")
+                    Button("Start cooking", systemImage: "frying.pan") { cooking = meal }
+                        .buttonStyle(.pill(.prominent, fullWidth: true))
+                        .accessibilityHint("One step at a time, with timers")
                 }
                 verdicts(meal)
                 comments(meal)
                 servingNotes(meal)
                 if let message = library.errorMessage {
-                    Text(message).font(.callout).foregroundStyle(.red)
+                    Text(message).font(.foonBody).foregroundStyle(.red)
                 }
                 ingredients(meal)
                 if !meal.sides.isEmpty { sides(meal) }
@@ -80,10 +77,10 @@ struct MealDetailView: View {
                     Link(destination: url) {
                         Label("View the original recipe", systemImage: "safari")
                     }
-                    .tint(Palette.paprika)
+                    .buttonStyle(.pill(.tinted))
                 }
             }
-            .padding()
+            .padding(Spacing.l)
         }
         .background(Palette.cream)
         .navigationTitle(meal.name)
@@ -141,12 +138,14 @@ struct MealDetailView: View {
 
     private func header(_ entry: LibraryEntry) -> some View {
         let meal = entry.meal
-        return VStack(alignment: .leading, spacing: 10) {
-            Text(meal.name).font(.foonLargeTitle).foregroundStyle(Palette.ink)
-            if let cook = library.member(meal.madeByMemberID) {
-                Text("Made by \(cook.firstName)").font(.foonCaption).foregroundStyle(.secondary)
+        return VStack(alignment: .leading, spacing: Spacing.m) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text(meal.name).font(.foonLargeTitle).foregroundStyle(Palette.ink)
+                if let cook = library.member(meal.madeByMemberID) {
+                    Text("Made by \(cook.firstName)").font(.foonCaption).foregroundStyle(.secondary)
+                }
             }
-            ChipFlow(spacing: 6) {
+            ChipFlow(spacing: Spacing.s) {
                 if meal.status == .trial { Chip(text: String(localized: "Trying"), tint: Palette.paprika) }
                 if meal.status == .archived { Chip(text: String(localized: "Archived"), tint: .secondary) }
                 ForEach(meal.tags, id: \.self) { tag in
@@ -159,10 +158,12 @@ struct MealDetailView: View {
                     Chip(text: note, systemImage: "questionmark.circle", tint: Palette.caution)
                 }
             }
-            Label(MealText.history(entry.history), systemImage: "clock.arrow.circlepath")
-                .font(.foonCaption)
-                .foregroundStyle(.secondary)
-            Text("Serves \(meal.servings)").font(.foonCaption).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Label(MealText.history(entry.history), systemImage: "clock.arrow.circlepath")
+                Text("Serves \(meal.servings)")
+            }
+            .font(.foonCaption)
+            .foregroundStyle(.secondary)
         }
     }
 
@@ -172,11 +173,11 @@ struct MealDetailView: View {
         let verdicts = library.reactions.verdicts(for: meal.id)
         let members = library.activeMembers.filter { member in verdicts.contains { $0.memberID == member.id } }
         if !members.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("What everyone thinks").font(.foonTitle).accessibilityAddTraits(.isHeader)
+            VStack(alignment: .leading, spacing: Spacing.m) {
+                SectionHeader("What everyone thinks")
                 ForEach(members) { member in
                     if let verdict = verdicts.first(where: { $0.memberID == member.id }) {
-                        HStack(spacing: 10) {
+                        HStack(spacing: Spacing.s) {
                             MemberAvatar(member: member, size: 28)
                             Text(member.firstName).font(.foonBody)
                             Spacer()
@@ -188,6 +189,7 @@ struct MealDetailView: View {
                     }
                 }
             }
+            .foonCard()
         }
     }
 
@@ -197,21 +199,22 @@ struct MealDetailView: View {
     private func comments(_ meal: LibraryMeal) -> some View {
         let comments = library.comments(for: meal.id)
         if !comments.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Comments").font(.foonTitle).accessibilityAddTraits(.isHeader)
+            VStack(alignment: .leading, spacing: Spacing.m) {
+                SectionHeader("Comments")
                 ForEach(comments) { comment in
                     commentRow(comment)
                 }
             }
+            .foonCard()
         }
     }
 
     private func commentRow(_ comment: MealComment) -> some View {
         let member = household.members.first { $0.id == comment.memberID }
         let name = member?.firstName ?? String(localized: "Someone")
-        return HStack(alignment: .top, spacing: 10) {
+        return HStack(alignment: .top, spacing: Spacing.s) {
             if let member { MemberAvatar(member: member, size: 28) }
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(name).font(.foonCaption).foregroundStyle(.secondary)
                 Text(comment.text).font(.foonBody).foregroundStyle(comment.hidden ? .secondary : Palette.ink)
                 if comment.hidden {
@@ -259,13 +262,13 @@ struct MealDetailView: View {
         let notes = library.servingNotes(for: meal.id)
         let writable = writableMembers
         if !notes.isEmpty || !writable.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Serving notes").font(.foonTitle).accessibilityAddTraits(.isHeader)
+            VStack(alignment: .leading, spacing: Spacing.m) {
+                SectionHeader("Serving notes")
                 ForEach(household.visibleMembers) { member in
                     if let note = notes.first(where: { $0.memberID == member.id }) {
-                        let row = HStack(alignment: .top, spacing: 10) {
+                        let row = HStack(alignment: .top, spacing: Spacing.s) {
                             MemberAvatar(member: member, size: 28)
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: Spacing.xxs) {
                                 Text(member.firstName).font(.foonCaption).foregroundStyle(.secondary)
                                 Text(note.note).font(.foonBody).foregroundStyle(Palette.ink)
                             }
@@ -290,9 +293,10 @@ struct MealDetailView: View {
                     } label: {
                         Label("Add a serving note", systemImage: "plus")
                     }
-                    .tint(Palette.paprika)
+                    .buttonStyle(.pill(.tinted))
                 }
             }
+            .foonCard()
         }
     }
 
@@ -300,37 +304,36 @@ struct MealDetailView: View {
     private var canAddToList: Bool { sync != nil && subscription.access.allowsEditing }
 
     private func ingredients(_ meal: LibraryMeal) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Ingredients").font(.foonTitle)
-                Spacer()
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            SectionHeader(title: "Ingredients") {
                 if !meal.ingredients.isEmpty, canAddToList {
                     Button("Add all to list") {
                         Task { for line in meal.ingredients { await addToList(line) } }
                     }
-                    .font(.foonCaption)
-                    .tint(Palette.paprika)
+                    .buttonStyle(.pill(.tinted))
                     .disabled(meal.ingredients.allSatisfy { addedItemIDs.contains($0.itemID) })
                 }
             }
             if meal.ingredients.isEmpty {
                 Text(canEdit ? "No ingredients yet. Tap Edit to add them." : "No ingredients yet.")
+                    .font(.foonBody)
                     .foregroundStyle(.secondary)
             }
             ForEach(Array(meal.ingredients.enumerated()), id: \.offset) { _, line in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
                     Button { openItem = line.details } label: {
                         ItemLabel(name: line.name, note: line.note, quantity: line.quantityText)
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint("Shows the item's note, aisle, and keep on hand")
-                    Spacer(minLength: 8)
+                    Spacer(minLength: Spacing.s)
                     if canAddToList {
                         addButton(for: line)
                     }
                 }
             }
         }
+        .foonCard()
     }
 
     @ViewBuilder
@@ -352,8 +355,8 @@ struct MealDetailView: View {
     }
 
     private func sides(_ meal: LibraryMeal) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Goes with").font(.foonTitle)
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            SectionHeader("Goes with")
             ForEach(meal.sides, id: \.self) { side in
                 switch side {
                 case .meal(let id):
@@ -369,13 +372,14 @@ struct MealDetailView: View {
             }
             .font(.foonBody)
         }
+        .foonCard()
     }
 
     private func prep(_ prepSteps: [PrepStep]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Prep ahead").font(.foonTitle)
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            SectionHeader("Prep ahead")
             ForEach(Array(prepSteps.enumerated()), id: \.offset) { _, prep in
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
                     Text(prep.step).font(.foonBody)
                     if let lead = MealText.leadTime(hours: prep.leadHours) {
                         Text(lead).font(.foonCaption).foregroundStyle(.secondary)
@@ -383,19 +387,21 @@ struct MealDetailView: View {
                 }
             }
         }
+        .foonCard()
     }
 
     private func steps(_ steps: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Steps").font(.foonTitle)
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            SectionHeader("Steps")
             ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
                     Text("\(index + 1).").font(.foonHeadline).foregroundStyle(Palette.paprika)
                     Text(step).font(.foonBody)
                 }
                 .accessibilityElement(children: .combine)
             }
         }
+        .foonCard()
     }
 
     /// Back in rotation: right away for an archived dish; a retired one asks first, since the family voted it out.
@@ -458,7 +464,7 @@ struct MealDetailView: View {
 
 /// Chips that wrap onto as many lines as they need.
 struct ChipFlow<Content: View>: View {
-    var spacing: CGFloat = 6
+    var spacing: CGFloat = Spacing.s
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -541,25 +547,29 @@ struct ServingNoteEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField("How \(target.member.firstName) likes it", text: $text, axis: .vertical)
-                        .lineLimit(2...4)
-                } footer: {
-                    if let message = library.errorMessage {
-                        Text(message).foregroundStyle(.red)
-                    } else {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Shown on the day card when \(target.member.firstName) is home.")
-                            Text("\(ServingNote.length(text)) of \(ServingNote.maxLength)")
+                Group {
+                    Section {
+                        TextField("How \(target.member.firstName) likes it", text: $text, axis: .vertical)
+                            .lineLimit(2...4)
+                    } footer: {
+                        if let message = library.errorMessage {
+                            Text(message).foregroundStyle(.red)
+                        } else {
+                            VStack(alignment: .leading, spacing: Spacing.xs) {
+                                Text("Shown on the day card when \(target.member.firstName) is home.")
+                                Text("\(ServingNote.length(text)) of \(ServingNote.maxLength)")
+                            }
+                        }
+                    }
+                    if !target.note.isEmpty {
+                        Section {
+                            Button("Clear the note", role: .destructive) { save("") }
                         }
                     }
                 }
-                if !target.note.isEmpty {
-                    Section {
-                        Button("Clear the note", role: .destructive) { save("") }
-                    }
-                }
+                .foonRows()
             }
+            .foonGrouped()
             .navigationTitle("\(target.member.firstName), \(target.meal.name)")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
