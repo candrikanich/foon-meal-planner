@@ -426,7 +426,7 @@
 
     },
     "%@'s favorite" : {
-      "comment" : "Reason chip: a member's favorite"
+      "comment" : "Library row: one person's, or two people's, favorite dish; names already joined\nReason chip: a member's favorite"
     },
     "%@'s request" : {
       "comment" : "Day card badge: the member who asked for this dish"
@@ -1958,6 +1958,29 @@
     },
     "Favorite" : {
 
+    },
+    "Favorite of %lld" : {
+      "comment" : "Library row: a dish three or more family members have as a favorite",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Favorite of %lld"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Favorite of %lld"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "Favorites" : {
 

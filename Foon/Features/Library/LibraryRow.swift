@@ -20,6 +20,12 @@ struct LibraryRow: View {
                 if let meta = LibraryText.meta(of: meal) {
                     Text(meta).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                 }
+                if let favorite = LibraryText.favoritedBy(entry) {
+                    Label(favorite, systemImage: "heart.fill")
+                        .font(.foonCaption)
+                        .foregroundStyle(Palette.paprika)
+                        .multilineTextAlignment(.leading)
+                }
                 attention
             }
             Spacer(minLength: 0)
@@ -38,8 +44,8 @@ struct LibraryRow: View {
 
     @ViewBuilder
     private var leading: some View {
-        if let madeBy {
-            MemberAvatar(member: madeBy, size: 36)
+        if let face = entry.favoritedBy.first ?? madeBy {
+            MemberAvatar(member: face, size: 36)
         } else {
             Image(systemName: "fork.knife")
                 .font(.footnote)
@@ -73,11 +79,17 @@ enum LibraryText {
         if entry.meal.status == .trial { parts.append(String(localized: "Trying")) }
         if entry.meal.status == .archived { parts.append(String(localized: "Archived")) }
         if entry.meal.tags.contains(.quick) { parts.append(String(localized: "Quick")) }
+        if let favorite = favoritedBy(entry) { parts.append(favorite) }
         if let madeBy { parts.append(String(localized: "Made by \(madeBy.firstName)")) }
         parts.append(contentsOf: entry.flags.map(\.summary))
         if let note = entry.uncheckedNote { parts.append(note) }
         if entry.meal.ingredients.isEmpty { parts.append(String(localized: "Add ingredients")) }
         return parts.joined(separator: ", ")
+    }
+
+    /// "Nora's favorite" and the like; nil when no one has the dish as a favorite. Shown and read the same.
+    static func favoritedBy(_ entry: LibraryEntry) -> String? {
+        FavoritedBy.text(entry.favoritedBy)
     }
 
     /// The row's second line: whether it's on trial or archived, then its tags, as "Quick · Slow cooker".
@@ -114,9 +126,14 @@ private struct LibraryRowsPreview: View {
         var long = LibraryMeal.sampleLibrary[0]
         long.name = "Slow-braised short ribs with creamy parmesan polenta and roasted garlic greens"
         let meals = LibraryMeal.sampleLibrary + [long]
+        let family = Member.sampleFamily
         let entries = LibraryQuery.entries(
             meals: meals, library: meals, history: [],
-            allergies: [MemberAllergies(memberID: UUID(), firstName: "Nora", allergens: [.milk])], favorites: []
+            allergies: [MemberAllergies(memberID: UUID(), firstName: "Nora", allergens: [.milk])], favorites: [],
+            // Dishes cycle through none, one, two, and four favoriters.
+            favoritedBy: Dictionary(uniqueKeysWithValues: meals.enumerated().map { index, meal in
+                (meal.id, Array(family.prefix([0, 1, 2, 4][index % 4])))
+            })
         )
         return ScrollView {
             VStack(spacing: 0) {

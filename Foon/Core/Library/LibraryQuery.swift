@@ -42,6 +42,8 @@ struct LibraryEntry: Identifiable, Equatable, Sendable {
     /// How many people's current verdict is favorite, and how often anyone liked it: the Family favorites sort.
     var favoriteCount = 0
     var likes = 0
+    /// Members who have it as a favorite now, in the household's member order (see `FavoritedBy`).
+    var favoritedBy: [Member] = []
     /// Said in place of a flag when there's nothing to check allergies against.
     var uncheckedNote: String? = nil
 
@@ -61,7 +63,8 @@ enum LibraryQuery {
     /// can't quietly lose the flags from its sides.
     static func entries(
         meals: [LibraryMeal], library: [LibraryMeal], history: [MealHistory], allergies: [MemberAllergies],
-        favorites: Set<UUID>, favoriteCounts: [UUID: Int] = [:], likes: [UUID: Int] = [:]
+        favorites: Set<UUID>, favoriteCounts: [UUID: Int] = [:], likes: [UUID: Int] = [:],
+        favoritedBy: [UUID: [Member]] = [:]
     ) -> [LibraryEntry] {
         let historyByMeal = Dictionary(history.map { ($0.mealID, $0) }, uniquingKeysWith: { first, _ in first })
         return meals.map { meal in
@@ -73,6 +76,7 @@ enum LibraryQuery {
                 isFavorite: favorites.contains(meal.id),
                 favoriteCount: favoriteCounts[meal.id] ?? 0,
                 likes: likes[meal.id] ?? 0,
+                favoritedBy: favoritedBy[meal.id] ?? [],
                 uncheckedNote: AllergyMatcher.uncheckedNote(meal: meal, library: library, members: allergies)
             )
         }

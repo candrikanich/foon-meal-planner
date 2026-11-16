@@ -638,6 +638,21 @@ struct LibraryEntriesKeepUpTests {
         #expect(tile(store, mac)?.isFavorite == true)
     }
 
+    @Test func favoritersReachTheTileInMemberOrderAndDropWhenRemoved() async {
+        let store = await loaded()
+        let ann = Member.fixture(firstName: "Ann")
+        let day = CalendarDay(year: 2037, month: 1, day: 1)
+        server.verdicts = [MealVerdict(mealID: mac.id, memberID: nora.id, kind: .favorite, reactedOn: day),
+                           MealVerdict(mealID: mac.id, memberID: ann.id, kind: .favorite, reactedOn: day)]
+        await store.load(members: [ann, nora])
+        #expect(tile(store, mac)?.favoritedBy.map(\.firstName) == ["Ann", "Nora"])
+
+        var gone = nora
+        gone.status = .removed
+        await store.refreshReactions(members: [ann, gone])
+        #expect(tile(store, mac)?.favoritedBy.map(\.firstName) == ["Ann"])
+    }
+
     @Test func aLastUncheckedDishLeavesTheCount() async {
         server.allergies = [AllergyRow(memberID: nora.id, allergen: .milk, customText: nil)]
         let store = await loaded()
