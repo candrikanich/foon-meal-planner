@@ -341,12 +341,14 @@ struct ListEntryRow: View {
     var body: some View {
         Group {
             if typeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 8) { text; chips }
+                VStack(alignment: .leading, spacing: 8) { text; chips; nightLabel }
             } else {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    text
+                    // The item comes first: a long night label wraps before it squeezes the name.
+                    text.layoutPriority(1)
                     Spacer(minLength: 8)
                     chips
+                    nightLabel
                 }
             }
         }
@@ -366,6 +368,19 @@ struct ListEntryRow: View {
             ForEach(entry.folded) { other in
                 Text(alsoOn(other)).font(.foonCaption).foregroundStyle(.secondary)
             }
+        }
+    }
+
+    /// The nights that need it, trailing and quiet. It wraps rather than clips; how long it may get is #351's device review.
+    @ViewBuilder
+    private var nightLabel: some View {
+        if let label = entry.nightLabel {
+            Text(label.text)
+                .font(large ? .foonBody : .foonCaption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(typeSize.isAccessibilitySize ? .leading : .trailing)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(label.spoken)
         }
     }
 
@@ -409,9 +424,14 @@ private func listsPreview() -> some View {
 }
 
 private func previewEntry(_ name: String, quantity: String? = nil, list: ListKind = .weekly,
-                          urgency: ListUrgency = .whenever, note: String? = nil) -> ListEntry {
+                          urgency: ListUrgency = .whenever, note: String? = nil,
+                          nights: [ListNightRef] = [], checkedAt: Date? = nil) -> ListEntry {
     ListEntry(lineID: UUID(), itemID: UUID(), name: name, list: list, urgency: urgency, quantity: quantity,
-              lineNote: note, itemNote: nil, category: .pantry, checkedAt: nil, keepOnHand: false)
+              lineNote: note, itemNote: nil, category: .pantry, checkedAt: checkedAt, keepOnHand: false, nights: nights)
+}
+
+private func night(_ date: String, _ meal: String?) -> ListNightRef {
+    ListNightRef(date: date, mealName: meal)
 }
 
 private struct ListRowsPreview: View {
@@ -423,6 +443,13 @@ private struct ListRowsPreview: View {
             ListEntryRow(entry: previewEntry("Extra-virgin olive oil, cold pressed, the big tin from the Italian shop",
                                              quantity: "2 litres", list: .quick, urgency: .tonight,
                                              note: "Contains tree nuts: Nora, Owen"))
+            ListEntryRow(entry: previewEntry("Onions", quantity: "2", nights: [night("2026-11-17", "Chili")]))
+            ListEntryRow(entry: previewEntry("Cheddar", nights: [night("2026-11-17", "Chili"), night("2026-11-20", "Tacos")]))
+            ListEntryRow(entry: previewEntry("Garlic", nights: [night("2026-11-17", "Chili"), night("2026-11-19", nil),
+                                                                night("2026-11-20", "Tacos")]))
+            ListEntryRow(entry: previewEntry("Cilantro", quantity: "1 bunch", list: .quick, urgency: .tonight,
+                                             nights: [night("2026-11-18", "Slow-roasted pork shoulder with pineapple salsa")]))
+            ListEntryRow(entry: previewEntry("Limes", nights: [night("2026-11-20", "Tacos")], checkedAt: .now))
         }
         .scrollContentBackground(.hidden)
         .background(Palette.cream)

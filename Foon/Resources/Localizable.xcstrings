@@ -171,6 +171,17 @@
         }
       }
     },
+    "%@ on %@" : {
+      "comment" : "Spoken for a list row: the dish, then the weekday it's planned for",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ on %2$@"
+          }
+        }
+      }
+    },
     "%@ out %@" : {
       "comment" : "Saved schedule: a name, then weekdays or how often",
       "localizations" : {
@@ -361,6 +372,7 @@
       "comment" : "Tonight poll closed with one winner"
     },
     "%@ · %@" : {
+      "comment" : "A list row's label: a short weekday, then the dish planned that night",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -420,6 +432,7 @@
       "comment" : "Day card badge: the member who asked for this dish"
     },
     "%@, %@" : {
+      "comment" : "Spoken for a list row: a weekday, then the dish planned that night",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2977,6 +2990,9 @@
     },
     "Names can be up to %lld characters." : {
 
+    },
+    "Needed for %@" : {
+      "comment" : "Spoken for a list row: the dishes and nights that need this item"
     },
     "Needs a parent's OK again" : {
 
