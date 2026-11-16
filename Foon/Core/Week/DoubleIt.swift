@@ -23,7 +23,8 @@ enum DoubleIt {
             home.formUnion(leftovers.allergyHome(allergies))
         }
         return WeeklyList.Night(mealID: night.mealID, home: home,
-                                doubled: later != nil, fromFreezer: night.stashItemID != nil)
+                                doubled: later != nil, fromFreezer: night.stashItemID != nil,
+                                id: night.id, date: night.date)
     }
 
     /// What changing this night also changes, said before it happens: in Swap, and in Plan it. Shuffle isn't offered on

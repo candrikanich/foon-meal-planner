@@ -44,7 +44,8 @@ extension SyncClient {
 
                 let dayAgo = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-86_400))
                 let listItems: [ListItemRow] = try await client.from("list_items")
-                    .select("id, household_id, item_id, list, urgency, source, note, quantity, plan_id, checked_at, created_at")
+                    .select("id, household_id, item_id, list, urgency, source, note, quantity, plan_id, checked_at, created_at, "
+                        + "list_item_nights(plan_nights(date, meals(name)))")
                     .eq("household_id", value: householdID)
                     .or("checked_at.is.null,checked_at.gte.\(dayAgo)")
                     .execute()

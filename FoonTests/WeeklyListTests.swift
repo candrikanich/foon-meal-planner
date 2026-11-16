@@ -183,6 +183,42 @@ struct WeeklyListTests {
         let lines = WeeklyList.build(nights: Array(repeating: night(tacos), count: 7), library: [tacos])
         #expect((lines.first?.quantity?.unicodeScalars.count ?? 0) <= 60)
     }
+
+    // MARK: Nights a line is for (#337)
+
+    private func night(_ meal: LibraryMeal?, id: UUID) -> WeeklyList.Night {
+        WeeklyList.Night(mealID: meal?.id, home: [], id: id)
+    }
+
+    @Test func aLineRemembersEveryNightItsDishNeeds() {
+        let (tuesday, friday, saturday) = (UUID(), UUID(), UUID())
+        let lines = WeeklyList.build(nights: [night(tacos, id: tuesday), night(mac, id: friday), night(tacos, id: saturday)],
+                                     library: [tacos, mac])
+        #expect(lines.first { $0.itemID == cheese }?.nightIDs == [tuesday, friday, saturday])
+        #expect(lines.first { $0.itemID == pasta }?.nightIDs == [friday])
+        #expect(lines.first { $0.itemID == beef }?.nightIDs == [tuesday, saturday])
+    }
+
+    @Test func aNightIsRememberedOnceHoweverManyOfItsDishesNeedTheItem() {
+        let tonight = UUID()
+        let salad = meal("Cheesy salad", [(cheese, "cheddar cheese", nil)])
+        let spaghetti = meal("Spaghetti", [(cheese, "cheddar cheese", nil)], sides: [.meal(salad.id)])
+        let lines = WeeklyList.build(nights: [night(spaghetti, id: tonight)], library: [spaghetti, salad])
+        #expect(lines.first { $0.itemID == cheese }?.nightIDs == [tonight])
+    }
+
+    @Test func aSideLineCarriesItsNight() {
+        let tonight = UUID()
+        let spaghetti = meal("Spaghetti", [(pasta, "spaghetti", nil)], sides: [.item(itemID: bread, name: "garlic bread")])
+        let lines = WeeklyList.build(nights: [night(spaghetti, id: tonight)], library: [spaghetti])
+        #expect(lines.first { $0.itemID == bread }?.nightIDs == [tonight])
+    }
+
+    @Test func aNightWithoutAnIDLeavesALineWithNoNights() {
+        let lines = WeeklyList.build(nights: [night(tacos)], library: [tacos],
+                                     staples: [WeeklyList.Staple(itemID: milk, name: "milk", state: .out)])
+        #expect(lines.allSatisfy { $0.nightIDs.isEmpty })
+    }
 }
 
 @MainActor

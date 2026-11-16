@@ -299,7 +299,7 @@ final class SyncService {
             context.insert(CachedListItem(
                 id: row.id, householdID: household, itemID: row.itemID, itemName: names[row.itemID] ?? "Item",
                 list: row.list, urgency: row.urgency, source: row.source, note: row.note, checkedAt: row.checkedAt,
-                quantity: row.quantity, planID: row.planID, createdAt: row.createdAt
+                quantity: row.quantity, planID: row.planID, createdAt: row.createdAt, nights: row.nights
             ))
         }
     }

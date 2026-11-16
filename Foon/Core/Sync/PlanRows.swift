@@ -97,14 +97,62 @@ struct ListItemRow: Decodable, Equatable, Sendable {
     var planID: UUID? = nil
     /// When it went on the list, so store mode can mark what was added during a store run.
     var createdAt: Date? = nil
+    /// The nights whose dishes it's for, from the pull's `list_item_nights` embed. Empty on a hand-added line.
+    var nights: [ListNightRef] = []
 
     enum CodingKeys: String, CodingKey {
         case id, list, urgency, source, note, quantity
+        case nightLinks = "list_item_nights"
         case planID = "plan_id"
         case createdAt = "created_at"
         case householdID = "household_id"
         case itemID = "item_id"
         case checkedAt = "checked_at"
+    }
+}
+
+/// A night a list line is for: when it is, and what's planned there now. Meal name is nil for a quick pick or an empty night.
+struct ListNightRef: Codable, Hashable, Sendable {
+    /// ISO yyyy-MM-dd, which sorts as a date.
+    let date: String
+    let mealName: String?
+}
+
+/// One `list_item_nights` embed element: the night, and its meal when it has one.
+private struct ListNightLink: Decodable {
+    let night: Night?
+
+    struct Night: Decodable {
+        let date: String
+        let meal: Meal?
+
+        enum CodingKeys: String, CodingKey {
+            case date
+            case meal = "meals"
+        }
+    }
+
+    struct Meal: Decodable { let name: String }
+
+    enum CodingKeys: String, CodingKey { case night = "plan_nights" }
+}
+
+extension ListItemRow {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        householdID = try container.decode(UUID.self, forKey: .householdID)
+        itemID = try container.decode(UUID.self, forKey: .itemID)
+        list = try container.decode(ListKind.self, forKey: .list)
+        urgency = try container.decode(ListUrgency.self, forKey: .urgency)
+        source = try container.decode(ListItemSource.self, forKey: .source)
+        note = try container.decodeIfPresent(String.self, forKey: .note)
+        checkedAt = try container.decodeIfPresent(Date.self, forKey: .checkedAt)
+        quantity = try container.decodeIfPresent(String.self, forKey: .quantity)
+        planID = try container.decodeIfPresent(UUID.self, forKey: .planID)
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
+        let links = try container.decodeIfPresent([ListNightLink].self, forKey: .nightLinks) ?? []
+        nights = links.compactMap(\.night).map { ListNightRef(date: $0.date, mealName: $0.meal?.name) }
     }
 }
 

@@ -190,13 +190,14 @@ extension WeekClient {
     }
 }
 
-private struct ApproveParams: Encodable, Sendable {
+struct ApproveParams: Encodable, Sendable {
     struct Line: Encodable, Sendable {
         let line: WeeklyList.Line
 
         enum CodingKeys: String, CodingKey {
             case itemID = "item_id"
             case quantity, note, staple
+            case nightIDs = "night_ids"
         }
 
         func encode(to encoder: Encoder) throws {
@@ -205,6 +206,7 @@ private struct ApproveParams: Encodable, Sendable {
             try container.encodeIfPresent(line.quantity, forKey: .quantity)
             try container.encodeIfPresent(line.note, forKey: .note)
             try container.encode(line.isStaple, forKey: .staple)
+            try container.encode(line.nightIDs.map(\.uuidString).sorted(), forKey: .nightIDs)
         }
     }
 
