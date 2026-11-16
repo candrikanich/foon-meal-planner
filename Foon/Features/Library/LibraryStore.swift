@@ -98,6 +98,7 @@ final class LibraryStore {
         let history: [MealHistory]
         let allergies: [MemberAllergies]
         let reactions: ReactionSummary
+        let members: [Member]
     }
 
     /// Worked out again only when an input changes, not on each render: the Library screen reads this several times per render,
@@ -105,7 +106,8 @@ final class LibraryStore {
     @ObservationIgnored private var cachedEntries: (inputs: EntryInputs, entries: [LibraryEntry])?
 
     private var allEntries: [LibraryEntry] {
-        let inputs = EntryInputs(meals: meals, history: history, allergies: allergies, reactions: reactions)
+        let inputs = EntryInputs(meals: meals, history: history, allergies: allergies, reactions: reactions,
+                                  members: members)
         if let cachedEntries, cachedEntries.inputs == inputs { return cachedEntries.entries }
         let worked = entries(meals)
         cachedEntries = (inputs, worked)
@@ -115,7 +117,8 @@ final class LibraryStore {
     private func entries(_ shown: [LibraryMeal]) -> [LibraryEntry] {
         let counts = Dictionary(favorites.map { ($0, reactions.favoriteCount($0)) }, uniquingKeysWith: { first, _ in first })
         return LibraryQuery.entries(meals: shown, library: meals, history: history, allergies: allergies, favorites: favorites,
-                                    favoriteCounts: counts, likes: reactions.likes)
+                                    favoriteCounts: counts, likes: reactions.likes,
+                                    favoritedBy: FavoritedBy.byMeal(verdicts: reactions.verdicts, members: members))
     }
 
     var catalogMatches: [CatalogDish] {
