@@ -37,7 +37,7 @@ extension DayCard {
         switch model.slot {
         case .empty:
             Text("Nothing planned yet").font(.foonHeadline).foregroundStyle(Palette.ink)
-        case .meal(let name, _, _, _):
+        case .meal(let name, _, _):
             Text(name).font(.foonHeadline).foregroundStyle(Palette.ink)
         case .quickPick(let pick):
             Text(DayCardText.quickPickLabel(pick)).font(.foonHeadline).foregroundStyle(Palette.ink)
@@ -49,7 +49,7 @@ extension DayCard {
     @ViewBuilder
     private var rowDetails: some View {
         switch model.slot {
-        case .meal(_, _, _, let sides):
+        case .meal(_, _, let sides):
             if let sides = DayCardText.sidesLabel(sides) { Text(sides).font(.foonBody).foregroundStyle(Palette.ink) }
             if let line = DayCardText.softLine(groups.notes) {
                 Text(line).font(.foonCaption).foregroundStyle(Palette.herb)

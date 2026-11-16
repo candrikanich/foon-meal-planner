@@ -529,7 +529,7 @@ final class WeekStore {
 
     static func slot(for night: WeekNight, sides: [String]) -> DayCardModel.Slot {
         if let mealName = night.mealName {
-            return .meal(name: mealName, photoURL: nil, reason: night.reason, sides: sides)
+            return .meal(name: mealName, reason: night.reason, sides: sides)
         }
         if let quickPick = night.quickPick { return .quickPick(quickPick) }
         return .empty

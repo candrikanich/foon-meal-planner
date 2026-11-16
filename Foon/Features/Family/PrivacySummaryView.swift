@@ -9,7 +9,7 @@ struct PrivacySummaryView: View {
                 Section("What Foon keeps") {
                     Text("Your household's name and emoji, first names, avatars, and who's a kid, a parent, or a planner.")
                     Text("Allergies a parent adds, and each person's usual schedule.")
-                    Text("Your meals and meal photos, plans, lists, ideas, votes on dinner, ratings, comments, serving notes, and who cooked.")
+                    Text("Your meals, plans, lists, ideas, votes on dinner, ratings, comments, serving notes, and who cooked.")
                     Text("Your household's time zone, so Foon knows when last night's dinner was.")
                     Text("Your Apple sign-in: an account ID, an email, which can be Apple's private relay address, and your first name if Apple shares it.")
                     Text("Who agreed and when, if a parent agrees to keep allergies or to invite a kid.")
@@ -39,7 +39,7 @@ struct PrivacySummaryView: View {
                 }
 
                 Section("What leaves this device") {
-                    Text("What you add goes to Foon's servers, so your family sees it too. Meal photos lose their location and camera details first.")
+                    Text("What you add goes to Foon's servers, so your family sees it too.")
                     Text("When you import a recipe from a link, Foon's server opens that page to read it.")
                     Text("AI runs on your family's own devices, with Apple's on-device model, and a device that can run it sends nothing for AI. One that can't sends a dish's recipe lines through Foon's servers to a planner's device in your family that can, and only when a planner adds the dish.")
                     Text("The app has no ads and no tracking, and allergies are never sent anywhere for AI.")

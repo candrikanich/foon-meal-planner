@@ -61,19 +61,3 @@ struct DayCard: View {
     }
 }
 
-/// A meal's photo, when it has one: a quiet card has no placeholder tile to fill.
-struct MealThumbnail: View {
-    let url: URL
-    var size: CGFloat = 64
-
-    var body: some View {
-        AsyncImage(url: url) { image in
-            image.resizable().scaledToFill()
-        } placeholder: {
-            Palette.herb.opacity(0.14).overlay(ProgressView())
-        }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .accessibilityHidden(true)
-    }
-}

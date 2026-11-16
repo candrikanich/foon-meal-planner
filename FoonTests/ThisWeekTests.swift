@@ -317,7 +317,7 @@ struct BuildMyWeekStoreTests {
         night.mealID = meals[0].id
         night.mealName = meals[0].name
         night.reason = "Haven't had it in 3 weeks"
-        #expect(WeekStore.slot(for: night, sides: []) == .meal(name: meals[0].name, photoURL: nil,
+        #expect(WeekStore.slot(for: night, sides: []) == .meal(name: meals[0].name,
                                                               reason: "Haven't had it in 3 weeks", sides: []))
     }
 
