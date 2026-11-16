@@ -1,6 +1,9 @@
 -- Photo storage (#13): a private bucket where each household reads its own folder and planners write it.
+-- Meal photos left the app in #346, but stored ones stay, and the app still removes them as a planner.
 begin;
-select plan(13);
+select plan(16);
+-- Newer Storage blocks deleting rows directly; this lets a delete reach the policies, and is a no-op where it doesn't.
+select set_config('storage.allow_delete_query', 'true', true);
 
 create function pg_temp.as_user(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true),
@@ -64,6 +67,7 @@ select throws_ok(
   $$ insert into storage.objects (bucket_id, name) values
        ('household-photos', '00000000-0000-0000-0000-0000000000a0/meals/bob.jpg') $$,
   '42501', null, 'a member who isn''t a planner cannot upload');
+delete from storage.objects where name = '00000000-0000-0000-0000-0000000000a0/meals/tacos.jpg';
 
 -- Other households and signed-out sessions (as Carol) --------------------------------------
 select pg_temp.as_user('c0000000-0000-0000-0000-00000000000c');
@@ -72,6 +76,7 @@ select is_empty(
   'Carol cannot see the Andersons'' photos');
 update storage.objects set name = '00000000-0000-0000-0000-0000000000b0/meals/stolen.jpg'
 where name = '00000000-0000-0000-0000-0000000000a0/meals/tacos.jpg';
+delete from storage.objects where name = '00000000-0000-0000-0000-0000000000a0/meals/tacos.jpg';
 
 select set_config('request.jwt.claims',
   json_build_object('sub', 'a0000000-0000-0000-0000-00000000000a', 'role', 'authenticated',
@@ -82,6 +87,18 @@ select is_empty($$ select 1 from storage.objects where bucket_id = 'household-ph
 select pg_temp.as_admin();
 select is((select count(*)::int from storage.objects where name = '00000000-0000-0000-0000-0000000000a0/meals/tacos.jpg'), 1,
   'Carol''s attempt to move the photo had no effect');
+select is((select count(*)::int from storage.objects where name = '00000000-0000-0000-0000-0000000000a0/meals/tacos.jpg'), 1,
+  'neither a member nor another household can remove it');
+
+-- Planners remove their own household's photos, and only those (as Alice) -------------------
+select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
+delete from storage.objects where name = '00000000-0000-0000-0000-0000000000a0/meals/tacos.jpg';
+delete from storage.objects where name = '00000000-0000-0000-0000-0000000000b0/meals/paella.jpg';
+select pg_temp.as_admin();
+select is_empty($$ select 1 from storage.objects where name = '00000000-0000-0000-0000-0000000000a0/meals/tacos.jpg' $$,
+  'a planner removes their household''s photo');
+select isnt_empty($$ select 1 from storage.objects where name = '00000000-0000-0000-0000-0000000000b0/meals/paella.jpg' $$,
+  'a planner cannot remove another household''s photo');
 
 select * from finish();
 rollback;
