@@ -64,10 +64,13 @@ final class CachedListItem {
     var planID: UUID?
     /// When it went on the list: the server's time once pulled, this phone's for a line added here and not yet pulled.
     var createdAt: Date?
+    /// The nights it's for, soonest first. Defaulted so a store from before this opens without a migration step.
+    var nights: [ListNightRef] = []
 
     init(id: UUID, householdID: UUID, itemID: UUID, itemName: String, list: ListKind, urgency: ListUrgency,
          source: ListItemSource, note: String?, checkedAt: Date?, quantity: String? = nil, planID: UUID? = nil,
-         createdAt: Date? = nil) {
+         createdAt: Date? = nil, nights: [ListNightRef] = []) {
+        self.nights = nights.sorted { $0.date < $1.date }
         self.createdAt = createdAt
         self.quantity = quantity
         self.planID = planID

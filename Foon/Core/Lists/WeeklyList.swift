@@ -12,6 +12,9 @@ enum WeeklyList {
         var doubled = false
         /// Already cooked and in the freezer: only its sides still need buying.
         var fromFreezer = false
+        /// The plan night this is, so a line can remember which nights it's for (`Line.nightIDs`). Nil for a pivot's one dish.
+        var id: UUID?
+        var date: CalendarDay?
     }
 
     /// A keep-on-hand item and its stock state.
@@ -32,6 +35,8 @@ enum WeeklyList {
         let note: String?
         /// A low or out staple rather than a meal ingredient.
         let isStaple: Bool
+        /// The plan nights whose dishes (sides included) need it. By night, not meal name, so a swap or a rename stays right.
+        var nightIDs: Set<UUID> = []
     }
 
     static func build(nights: [Night], library: [LibraryMeal], stock: [UUID: StockState] = [:],
@@ -51,7 +56,7 @@ enum WeeklyList {
                     drafts[line.itemID] = Draft(name: line.name)
                 }
                 drafts[line.itemID]?.add(line, doubled: night.doubled,
-                                         flags: AllergyMatcher.flags(ingredients: [line.name], members: athome))
+                                         flags: AllergyMatcher.flags(ingredients: [line.name], members: athome), nightID: night.id)
             }
         }
 
@@ -83,6 +88,7 @@ enum WeeklyList {
         let name: String
         var quantities: [String] = []
         var meals: [String] = []
+        var nightIDs: Set<UUID> = []
         /// In the order first seen, with everyone it affects.
         var flags: [(trigger: AllergyFlag.Trigger, names: Set<String>)] = []
         init(name: String) {
@@ -92,13 +98,14 @@ enum WeeklyList {
         /// A doubled dish's amount scales here, on the way in, once per night: this is built fresh from the plan each time,
         /// so nothing scaled is ever read back and scaled again. Each part says for itself whether it's already doubled, so
         /// "3 lb (doubled) + 1 lb" can't be doubled again by hand, and notes stay for allergies.
-        mutating func add(_ line: ShoppingLine, doubled: Bool = false, flags found: [AllergyFlag]) {
+        mutating func add(_ line: ShoppingLine, doubled: Bool = false, flags found: [AllergyFlag], nightID: UUID? = nil) {
             if doubled {
                 quantities.append(Self.doubledAmount(line.quantity))
             } else if let quantity = line.quantity {
                 quantities.append(quantity)
             }
             if !meals.contains(line.forMeal) { meals.append(line.forMeal) }
+            if let nightID { nightIDs.insert(nightID) }
             for flag in found {
                 let names = Set(flag.members.map(\.firstName))
                 if let index = flags.firstIndex(where: { $0.trigger == flag.trigger }) {
@@ -111,7 +118,7 @@ enum WeeklyList {
 
         func line(itemID: UUID) -> Line {
             Line(itemID: itemID, name: name, quantity: Self.joined(quantities, limit: 60), forMeals: meals,
-                 note: allergyNote, isStaple: false)
+                 note: allergyNote, isStaple: false, nightIDs: nightIDs)
         }
 
         private static func doubledAmount(_ quantity: String?) -> String {

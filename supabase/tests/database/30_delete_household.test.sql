@@ -99,6 +99,10 @@ select pg_temp.as_user('a0000000-0000-0000-0000-00000000000a');
 select public.create_week('00000000-0000-0000-0000-0000000000a0', '2026-11-01');
 insert into public.list_items (household_id, item_id, list, source) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000001a1', 'quick', 'manual');
+insert into public.list_item_nights (household_id, list_item_id, plan_night_id) values
+  ('00000000-0000-0000-0000-0000000000a0',
+   (select id from public.list_items where household_id = '00000000-0000-0000-0000-0000000000a0' limit 1),
+   (select id from public.plan_nights where household_id = '00000000-0000-0000-0000-0000000000a0' limit 1));
 select public.make_request('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000a3',
   '00000000-0000-0000-0000-0000000002a1', null, null, 'Nora wants', null);
 select public.set_serving_note('00000000-0000-0000-0000-0000000002a1', '00000000-0000-0000-0000-0000000000a3',
