@@ -74,56 +74,60 @@ struct RequestDetailView: View {
 
     private func content(_ request: DinnerRequest) -> some View {
         List {
-            Section {
-                RequestRow(request: request)
-                if let link = request.link {
-                    Link(destination: link) { Label("Open the link", systemImage: "safari") }
+            Group {
+                Section {
+                    RequestRow(request: request)
+                    if let link = request.link {
+                        Link(destination: link) { Label("Open the link", systemImage: "safari") }
+                    }
                 }
-            }
-            if canPlan {
-                Section("What happens next") {
-                    if let mealID = request.mealID {
-                        if let meal = library.meal(mealID) {
-                            Button("Plan it", systemImage: "calendar.badge.plus") { planning = meal }
-                        } else if library.isLoading {
-                            // The library is still loading: never offer to make a dish this idea already has.
-                            Label("Loading the dish...", systemImage: "hourglass").foregroundStyle(.secondary)
+                if canPlan {
+                    Section("What happens next") {
+                        if let mealID = request.mealID {
+                            if let meal = library.meal(mealID) {
+                                Button("Plan it", systemImage: "calendar.badge.plus") { planning = meal }
+                            } else if library.isLoading {
+                                // The library is still loading: never offer to make a dish this idea already has.
+                                Label("Loading the dish...", systemImage: "hourglass").foregroundStyle(.secondary)
+                            } else {
+                                // The reload after making it failed, or it's from another phone: never a dead end.
+                                Button("Couldn't load the dish. Try again", systemImage: "arrow.clockwise") {
+                                    Task { await library.load(members: household.members) }
+                                }
+                            }
                         } else {
-                            // The reload after making it failed, or it's from another phone: never a dead end.
-                            Button("Couldn't load the dish. Try again", systemImage: "arrow.clockwise") {
-                                Task { await library.load(members: household.members) }
+                            Button(savingToLibrary ? "Saving..." : "Save to library", systemImage: "book") {
+                                Task { await saveToLibrary(request) }
+                            }
+                            .disabled(savingToLibrary)
+                        }
+                        if canWait(request) {
+                            // Back to Someday, and no me-too priority until next week.
+                            Button("Not this week", systemImage: "arrow.uturn.right") {
+                                Task { await ideas.update(requestID, RequestUpdate(clearDate: true, skipWeek: thisWeek)) }
                             }
                         }
-                    } else {
-                        Button(savingToLibrary ? "Saving..." : "Save to library", systemImage: "book") {
-                            Task { await saveToLibrary(request) }
+                        if request.status != .special {
+                            Button("Save for a special occasion", systemImage: "gift") {
+                                Task { await ideas.update(requestID, RequestUpdate(status: .special)) }
+                            }
+                        } else {
+                            Button("Back to Someday", systemImage: "tray") {
+                                Task { await ideas.update(requestID, RequestUpdate(status: .open, clearDate: true)) }
+                            }
                         }
-                        .disabled(savingToLibrary)
+                        archive
                     }
-                    if canWait(request) {
-                        // Back to Someday, and no me-too priority until next week.
-                        Button("Not this week", systemImage: "arrow.uturn.right") {
-                            Task { await ideas.update(requestID, RequestUpdate(clearDate: true, skipWeek: thisWeek)) }
-                        }
-                    }
-                    if request.status != .special {
-                        Button("Save for a special occasion", systemImage: "gift") {
-                            Task { await ideas.update(requestID, RequestUpdate(status: .special)) }
-                        }
-                    } else {
-                        Button("Back to Someday", systemImage: "tray") {
-                            Task { await ideas.update(requestID, RequestUpdate(status: .open, clearDate: true)) }
-                        }
-                    }
-                    archive
+                } else if RequestBoard.canArchive(request, me: household.me, members: household.members) {
+                    Section { archive }
                 }
-            } else if RequestBoard.canArchive(request, me: household.me, members: household.members) {
-                Section { archive }
+                if let message = ideas.errorMessage ?? library.errorMessage {
+                    Section { Text(message).foregroundStyle(.red) }
+                }
             }
-            if let message = ideas.errorMessage ?? library.errorMessage {
-                Section { Text(message).foregroundStyle(.red) }
-            }
+            .foonRows()
         }
+            .foonGrouped()
         .disabled(ideas.saving.contains(requestID))
     }
 

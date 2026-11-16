@@ -18,23 +18,27 @@ struct TraditionsView: View {
     var body: some View {
         NavigationStack {
             List {
-                if let message = week.errorMessage {
-                    Text(message).font(.callout).foregroundStyle(.red)
-                }
-                Section {
-                    ForEach(weekdays) { weekday in
-                        Button { editing = weekday } label: {
-                            LabeledContent(weekday.name()) {
-                                Text(summary(week.tradition(on: weekday.iso)))
-                                    .foregroundStyle(week.tradition(on: weekday.iso) == nil ? .tertiary : .secondary)
-                            }
-                        }
-                        .tint(Palette.ink)
+                Group {
+                    if let message = week.errorMessage {
+                        Text(message).font(.callout).foregroundStyle(.red)
                     }
-                } footer: {
-                    Text("Build my week fills these in and locks them. Swapping one changes just that week.")
+                    Section {
+                        ForEach(weekdays) { weekday in
+                            Button { editing = weekday } label: {
+                                LabeledContent(weekday.name()) {
+                                    Text(summary(week.tradition(on: weekday.iso)))
+                                        .foregroundStyle(week.tradition(on: weekday.iso) == nil ? .tertiary : .secondary)
+                                }
+                            }
+                            .tint(Palette.ink)
+                        }
+                    } footer: {
+                        Text("Build my week fills these in and locks them. Swapping one changes just that week.")
+                    }
                 }
+                .foonRows()
             }
+                .foonGrouped()
             .navigationTitle("Traditions")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -90,39 +94,43 @@ private struct TraditionEditor: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Name (optional)") {
-                    TextField(String(localized: "Taco \(weekday.name())", comment: "Tradition name placeholder"),
-                              text: $name)
-                        .onChange(of: name) { _, typed in
-                            if typed.unicodeScalars.count > 40 { name = Tradition.cleanedName(typed) ?? "" }
-                        }
-                }
-                Section("Something else") {
-                    ForEach(QuickPick.all, id: \.self) { quickPick in
-                        row(DayCardText.quickPickLabel(quickPick), systemImage: quickPick.systemImage,
-                            selected: pick == .quickPick(quickPick)) { pick = .quickPick(quickPick) }
+                Group {
+                    Section("Name (optional)") {
+                        TextField(String(localized: "Taco \(weekday.name())", comment: "Tradition name placeholder"),
+                                  text: $name)
+                            .onChange(of: name) { _, typed in
+                                if typed.unicodeScalars.count > 40 { name = Tradition.cleanedName(typed) ?? "" }
+                            }
                     }
-                }
-                Section("A meal") {
-                    if meals.isEmpty {
-                        Text("No meals match.").foregroundStyle(.secondary)
-                    }
-                    ForEach(meals) { meal in
-                        row(meal.name, systemImage: "fork.knife", selected: pick == .meal(meal.id)) {
-                            pick = .meal(meal.id)
+                    Section("Something else") {
+                        ForEach(QuickPick.all, id: \.self) { quickPick in
+                            row(DayCardText.quickPickLabel(quickPick), systemImage: quickPick.systemImage,
+                                selected: pick == .quickPick(quickPick)) { pick = .quickPick(quickPick) }
                         }
                     }
-                }
-                if week.tradition(on: weekday.iso) != nil {
-                    Section {
-                        Button("Remove this tradition", role: .destructive) { Task { await save(nil) } }
-                            .disabled(isSaving)
+                    Section("A meal") {
+                        if meals.isEmpty {
+                            Text("No meals match.").foregroundStyle(.secondary)
+                        }
+                        ForEach(meals) { meal in
+                            row(meal.name, systemImage: "fork.knife", selected: pick == .meal(meal.id)) {
+                                pick = .meal(meal.id)
+                            }
+                        }
+                    }
+                    if week.tradition(on: weekday.iso) != nil {
+                        Section {
+                            Button("Remove this tradition", role: .destructive) { Task { await save(nil) } }
+                                .disabled(isSaving)
+                        }
+                    }
+                    if let message = week.errorMessage {
+                        Section { Text(message).foregroundStyle(.red) }
                     }
                 }
-                if let message = week.errorMessage {
-                    Section { Text(message).foregroundStyle(.red) }
-                }
+                .foonRows()
             }
+                .foonGrouped()
             .searchable(text: $search, prompt: Text("Search your meals"))
             .navigationTitle(weekday.name())
             .disabled(isSaving)

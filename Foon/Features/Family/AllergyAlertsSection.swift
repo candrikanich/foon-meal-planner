@@ -57,16 +57,20 @@ private struct AllergyAlertsConsentView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Text(AllergyConsent.statement)
-                    HealthDataPolicyLink()
-                } footer: {
-                    Text("Then add allergies on each person's profile in Family.")
+                Group {
+                    Section {
+                        Text(AllergyConsent.statement)
+                        HealthDataPolicyLink()
+                    } footer: {
+                        Text("Then add allergies on each person's profile in Family.")
+                    }
+                    if let message = model.errorMessage {
+                        Section { Text(message).foregroundStyle(.red) }
+                    }
                 }
-                if let message = model.errorMessage {
-                    Section { Text(message).foregroundStyle(.red) }
-                }
+                .foonRows()
             }
+                .foonGrouped()
             .navigationTitle("Allergy alerts")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

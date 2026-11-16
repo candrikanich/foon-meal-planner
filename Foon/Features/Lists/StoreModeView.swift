@@ -32,58 +32,62 @@ struct StoreModeView: View {
         let board = ListBoard.store(entries, tripStart: trip.start, skipped: trip.skipped)
         NavigationStack {
             List {
-                if board.aisles.isEmpty {
-                    Section {
-                        Label("Everything's in the cart", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(Palette.herb)
+                Group {
+                    if board.aisles.isEmpty {
+                        Section {
+                            Label("Everything's in the cart", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(Palette.herb)
+                        }
                     }
-                }
-                ForEach(board.aisles) { aisle in
-                    Section {
-                        ForEach(aisle.entries) { entry in
-                            Button { check(entry, true) } label: { row(entry, checked: false) }
-                                .buttonStyle(.plain)
-                                .swipeActions(edge: .trailing) {
-                                    Button("Couldn't find it", systemImage: "questionmark.circle") {
-                                        Task { await couldntFind(entry) }
+                    ForEach(board.aisles) { aisle in
+                        Section {
+                            ForEach(aisle.entries) { entry in
+                                Button { check(entry, true) } label: { row(entry, checked: false) }
+                                    .buttonStyle(.plain)
+                                    .swipeActions(edge: .trailing) {
+                                        Button("Couldn't find it", systemImage: "questionmark.circle") {
+                                            Task { await couldntFind(entry) }
+                                        }
+                                        .tint(Palette.caution)
                                     }
-                                    .tint(Palette.caution)
-                                }
-                                .contextMenu {
-                                    Button("Couldn't find it", systemImage: "questionmark.circle") {
-                                        Task { await couldntFind(entry) }
+                                    .contextMenu {
+                                        Button("Couldn't find it", systemImage: "questionmark.circle") {
+                                            Task { await couldntFind(entry) }
+                                        }
                                     }
-                                }
-                                .accessibilityHint("Marks it in the cart")
-                                .accessibilityActions {
-                                    Button("Couldn't find it") { Task { await couldntFind(entry) } }
-                                }
-                        }
-                    } header: {
-                        Label(aisle.category.title, systemImage: aisle.category.systemImage).font(.foonHeadline)
-                    }
-                }
-                if !board.nextTime.isEmpty {
-                    Section {
-                        ForEach(board.nextTime) { entry in
-                            ListEntryRow(entry: entry).opacity(0.6)
-                        }
-                    } header: {
-                        Text("For next time")
-                    } footer: {
-                        Text("On the quick list for the next trip.")
-                    }
-                }
-                if !board.cart.isEmpty {
-                    Section("In the cart") {
-                        ForEach(board.cart) { entry in
-                            Button { check(entry, false) } label: { row(entry, checked: true) }
-                                .buttonStyle(.plain)
-                                .accessibilityHint("Takes it out of the cart")
+                                    .accessibilityHint("Marks it in the cart")
+                                    .accessibilityActions {
+                                        Button("Couldn't find it") { Task { await couldntFind(entry) } }
+                                    }
+                            }
+                        } header: {
+                            Label(aisle.category.title, systemImage: aisle.category.systemImage).font(.foonHeadline)
                         }
                     }
+                    if !board.nextTime.isEmpty {
+                        Section {
+                            ForEach(board.nextTime) { entry in
+                                ListEntryRow(entry: entry).opacity(0.6)
+                            }
+                        } header: {
+                            Text("For next time")
+                        } footer: {
+                            Text("On the quick list for the next trip.")
+                        }
+                    }
+                    if !board.cart.isEmpty {
+                        Section("In the cart") {
+                            ForEach(board.cart) { entry in
+                                Button { check(entry, false) } label: { row(entry, checked: true) }
+                                    .buttonStyle(.plain)
+                                    .accessibilityHint("Takes it out of the cart")
+                            }
+                        }
+                    }
                 }
+                .foonRows()
             }
+                .foonGrouped()
             .navigationTitle("Store mode")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

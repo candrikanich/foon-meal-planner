@@ -47,40 +47,44 @@ struct MemberDetailView: View {
 
     private func content(_ member: Member) -> some View {
         List {
-            MemberAboutSection(member: member, today: today,
-                               invited: store.invitedMemberIDs.contains(member.id), isYou: member.userID == store.userID)
-            MemberInviteSection(member: member)
-            MemberScheduleSection(member: member, today: today, canEdit: store.editScope(for: member).schedule)
-            MemberNotificationsSection(member: member)
-            if library.hasLoaded {
-                if library.lastLoadFailed { staleNotice }
-                MemberAllergySection(member: member, allergies: library.allergies.first { $0.memberID == member.id },
-                                     scope: store.allergyScope(for: member), householdAgreed: householdAgreed == true)
-                MemberTasteSections(member: member, profile: TasteProfile(
-                    memberID: member.id, verdicts: library.reactions.verdicts, notes: library.servingNotes, meals: library.meals
-                ))
-            } else if library.lastLoadFailed {
-                Section {
-                    Text("Couldn't load allergies and favorites. Check your connection and try again.")
-                    Button("Try again") { Task { await library.load(members: store.members) } }
+            Group {
+                MemberAboutSection(member: member, today: today,
+                                   invited: store.invitedMemberIDs.contains(member.id), isYou: member.userID == store.userID)
+                MemberInviteSection(member: member)
+                MemberScheduleSection(member: member, today: today, canEdit: store.editScope(for: member).schedule)
+                MemberNotificationsSection(member: member)
+                if library.hasLoaded {
+                    if library.lastLoadFailed { staleNotice }
+                    MemberAllergySection(member: member, allergies: library.allergies.first { $0.memberID == member.id },
+                                         scope: store.allergyScope(for: member), householdAgreed: householdAgreed == true)
+                    MemberTasteSections(member: member, profile: TasteProfile(
+                        memberID: member.id, verdicts: library.reactions.verdicts, notes: library.servingNotes, meals: library.meals
+                    ))
+                } else if library.lastLoadFailed {
+                    Section {
+                        Text("Couldn't load allergies and favorites. Check your connection and try again.")
+                        Button("Try again") { Task { await library.load(members: store.members) } }
+                    }
+                } else {
+                    Section { ProgressView() }
                 }
-            } else {
-                Section { ProgressView() }
-            }
-            // Left out at zero too, and while loading or offline: it celebrates trying, it never reports a lack of it.
-            if let tried = TriedNew.monthTitle(for: member.id, in: store.triedThisMonth ?? []) {
-                Section("Trying new things") {
-                    Label(tried, systemImage: "sparkles")
+                // Left out at zero too, and while loading or offline: it celebrates trying, it never reports a lack of it.
+                if let tried = TriedNew.monthTitle(for: member.id, in: store.triedThisMonth ?? []) {
+                    Section("Trying new things") {
+                        Label(tried, systemImage: "sparkles")
+                    }
+                }
+                // No row at zero: this is credit, so nobody's profile says they didn't cook.
+                if let tally = dinner.cookTally.first(where: { $0.memberID == member.id }) {
+                    Section("Cooked this month") {
+                        Text(tally.dinnersTitle)
+                        if tally.thanks > 0 { Text(tally.thanksTitle) }
+                    }
                 }
             }
-            // No row at zero: this is credit, so nobody's profile says they didn't cook.
-            if let tally = dinner.cookTally.first(where: { $0.memberID == member.id }) {
-                Section("Cooked this month") {
-                    Text(tally.dinnersTitle)
-                    if tally.thanks > 0 { Text(tally.thanksTitle) }
-                }
-            }
+            .foonRows()
         }
+            .foonGrouped()
         .toolbar {
             if store.editScope(for: member) != .none {
                 ToolbarItem(placement: .primaryAction) {
@@ -112,7 +116,7 @@ private struct MemberAboutSection: View {
 
     var body: some View {
         Section {
-            HStack(spacing: 12) {
+            HStack(spacing: Spacing.m) {
                 MemberAvatar(member: member, size: 56)
                 Text(member.firstName).font(.title2.bold())
                 if isYou { Text("You").font(.caption).foregroundStyle(.secondary) }
@@ -263,7 +267,7 @@ private struct MemberTasteSections: View {
         if !profile.notes.isEmpty {
             Section("How they like it served") {
                 ForEach(profile.notes) { note in
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Spacing.xxs) {
                         Text(note.dish)
                         Text(note.note).font(.subheadline).foregroundStyle(.secondary)
                     }
