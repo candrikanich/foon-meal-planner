@@ -15,25 +15,29 @@ struct RatingRoundupSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                if let prompts {
-                    if prompts.isEmpty {
-                        Label("All rated. Thanks!", systemImage: "checkmark.circle.fill").foregroundStyle(Palette.herb)
-                    }
-                    ForEach(prompts) { prompt in
-                        Section(dayTitle(prompt.night.date)) {
-                            row(prompt)
+                Group {
+                    if let prompts {
+                        if prompts.isEmpty {
+                            Label("All rated. Thanks!", systemImage: "checkmark.circle.fill").foregroundStyle(Palette.herb)
                         }
+                        ForEach(prompts) { prompt in
+                            Section(dayTitle(prompt.night.date)) {
+                                row(prompt)
+                            }
+                        }
+                    } else if failed {
+                        Text("Couldn't load this week's dinners. Check your connection and try again.")
+                        Button("Try again") { Task { await load() } }
+                    } else {
+                        ProgressView()
                     }
-                } else if failed {
-                    Text("Couldn't load this week's dinners. Check your connection and try again.")
-                    Button("Try again") { Task { await load() } }
-                } else {
-                    ProgressView()
+                    if let message = dinner.errorMessage {
+                        Text(message).font(.foonBody).foregroundStyle(.red)
+                    }
                 }
-                if let message = dinner.errorMessage {
-                    Text(message).font(.callout).foregroundStyle(.red)
-                }
+                .foonRows()
             }
+            .foonGrouped()
             .navigationTitle("This week's dinners")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
@@ -50,23 +54,22 @@ struct RatingRoundupSheet: View {
     }
 
     private func row(_ prompt: DinnerPrompts.Prompt) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Spacing.m) {
             Text(prompt.dishName ?? String(localized: "Dinner")).font(.foonHeadline)
-            HStack {
+            HStack(spacing: Spacing.s) {
                 ForEach(ReactionKind.allCases, id: \.self) { kind in
                     Button {
                         Task { await rate(prompt, kind) }
                     } label: {
                         Label(kind.title, systemImage: kind.systemImage).labelStyle(.iconOnly).frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(Palette.paprika)
+                    .buttonStyle(.pill(.tinted))
                     .disabled(dinner.saving.contains(prompt.night.id))
                     .accessibilityLabel(kind.title)
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Spacing.xs)
     }
 
     private func load() async {
@@ -90,21 +93,18 @@ struct RatingsBackCard: View {
     @Environment(HouseholdStore.self) private var household
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Spacing.m) {
             Label("Want dinner ratings back each night?", systemImage: "fork.knife")
                 .font(.foonHeadline)
             Text("Lately it's been a weekly roundup, since the nightly ones went unanswered.")
                 .font(.foonCaption)
                 .foregroundStyle(.secondary)
             ViewThatFits(in: .horizontal) {
-                HStack { buttons }
-                VStack(alignment: .leading) { buttons }
+                HStack(spacing: Spacing.s) { buttons }
+                VStack(alignment: .leading, spacing: Spacing.s) { buttons }
             }
-            .font(.foonCaption)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Palette.cardSurface))
+        .foonCard()
     }
 
     @ViewBuilder
@@ -113,12 +113,11 @@ struct RatingsBackCard: View {
             guard let context = household.reminderContext else { return }
             Task { await reminders.takeRatingsBack(for: context) }
         }
-        .buttonStyle(.borderedProminent)
-        .tint(Palette.paprika)
+        .buttonStyle(.pill(.prominent))
         Button("Keep it weekly") {
             if let me = household.me { reminders.keepRatingsWeekly(for: me.id) }
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.pill(.tinted))
     }
 }
 

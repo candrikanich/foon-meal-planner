@@ -53,14 +53,14 @@ struct YearRecapView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
                 Text(YearRecap.heading(year: year, today: today))
                     .font(.foonLargeTitle)
                     .foregroundStyle(Palette.ink)
                     .accessibilityAddTraits(.isHeader)
                 content
             }
-            .padding()
+            .padding(Spacing.l)
             .frame(maxWidth: 640, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -73,7 +73,7 @@ struct YearRecapView: View {
     @ViewBuilder private var content: some View {
         switch store.phase {
         case .loading:
-            ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
+            ProgressView().frame(maxWidth: .infinity).padding(.top, Spacing.xxl)
         case .failed:
             ContentUnavailableView {
                 Label("Couldn't load your year", systemImage: "wifi.exclamationmark")
@@ -103,7 +103,7 @@ struct YearRecapContent: View {
     let recap: YearRecap
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.xl) {
             ForEach(recap.lines, id: \.self) { line in
                 YearRecapLineCard(line: line)
             }
@@ -118,14 +118,14 @@ private struct YearRecapLineCard: View {
     let line: YearRecap.Line
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Spacing.m) {
             Label(line.title(), systemImage: line.systemImage)
                 .font(isHeading ? .foonHeadline : .foonBody)
                 .foregroundStyle(Palette.ink)
                 .accessibilityAddTraits(isHeading ? .isHeader : [])
             if case .topDishes(let dishes) = line {
                 ForEach(dishes) { dish in
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Spacing.xxs) {
                         Text(dish.name).font(.foonBody).foregroundStyle(Palette.ink)
                         Text(dish.detail).font(.foonCaption).foregroundStyle(.secondary)
                     }
@@ -134,9 +134,7 @@ private struct YearRecapLineCard: View {
                 }
             }
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Palette.cardSurface))
+        .foonCard()
         .accessibilityElement(children: .contain)
     }
 
@@ -148,7 +146,7 @@ private struct YearRecapLineCard: View {
 #Preview("A good year") {
     let recap = YearRecap(year: 2026, facts: .sample(), members: Member.sampleFamily)
     return ScrollView {
-        if let recap { YearRecapContent(recap: recap).padding() }
+        if let recap { YearRecapContent(recap: recap).padding(Spacing.l) }
     }
     .background(Palette.cream)
 }

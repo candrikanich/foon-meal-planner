@@ -10,17 +10,21 @@ struct CatalogBrowserView: View {
     var body: some View {
         NavigationStack {
             List {
-                if let message = library.errorMessage {
-                    Text(message).font(.callout).foregroundStyle(.red)
-                }
-                ForEach(library.catalogSections) { section in
-                    Section(section.category) {
-                        ForEach(section.dishes) { dish in
-                            CatalogDishRow(dish: dish, canAdd: canAdd)
+                Group {
+                    if let message = library.errorMessage {
+                        Text(message).font(.foonBody).foregroundStyle(.red)
+                    }
+                    ForEach(library.catalogSections) { section in
+                        Section(section.category) {
+                            ForEach(section.dishes) { dish in
+                                CatalogDishRow(dish: dish, canAdd: canAdd)
+                            }
                         }
                     }
                 }
+                .foonRows()
             }
+            .foonGrouped()
             .overlay {
                 if library.catalog.isEmpty {
                     ContentUnavailableView("No ideas yet", systemImage: "sparkles",
@@ -28,6 +32,9 @@ struct CatalogBrowserView: View {
                 }
             }
             .navigationTitle("Browse ideas")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .onAppear { library.clearError() }
             .onDisappear { library.clearError() }
             .toolbar {
@@ -46,14 +53,14 @@ struct CatalogDishRow: View {
     let canAdd: Bool
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(dish.name).font(.body.weight(.medium))
+        HStack(spacing: Spacing.m) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text(dish.name).font(.foonHeadline)
                 if !dish.ingredients.isEmpty {
                     Text(dish.ingredients.prefix(4).joined(separator: ", "))
-                        .font(.subheadline)
+                        .font(.foonCaption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
             }
             Spacer(minLength: 0)
@@ -70,8 +77,7 @@ struct CatalogDishRow: View {
                 .foregroundStyle(Palette.herb)
         } else if canAdd {
             Button("Add") { Task { await library.add(dish) } }
-                .buttonStyle(.bordered)
-                .tint(Palette.paprika)
+                .buttonStyle(.pill(.tinted))
                 .disabled(library.addingDishIDs.contains(dish.id))
                 .accessibilityLabel("Add \(dish.name) to your library")
         }

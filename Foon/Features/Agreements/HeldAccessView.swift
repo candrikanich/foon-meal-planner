@@ -20,11 +20,13 @@ struct HeldAccessView: View {
                 """)
             } actions: {
                 Button("Check again") { Task { await store.load() } }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.pill(.prominent))
                     .disabled(store.isLoading)
                 Button("Sign out") { Task { await session.signOut() } }
+                    .buttonStyle(.pill(.tinted))
             }
         }
+        .background(Palette.cream)
         // A parent agrees in their email, outside Foon: look again on coming back.
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await store.load() } }

@@ -187,45 +187,49 @@ struct RescueContent: View {
 
     var body: some View {
         List {
-            if let message {
-                Text(message).font(.callout).foregroundStyle(.red)
-            }
-            Section {
-                Picker("Time", selection: $minutes) {
-                    ForEach(TonightRescue.minuteChoices, id: \.self) { minutes in
-                        Text("\(minutes) min", comment: "Tonight rescue: how long there is to get dinner on the table")
-                            .tag(minutes)
+            Group {
+                if let message {
+                    Text(message).font(.foonBody).foregroundStyle(.red)
+                }
+                Section {
+                    Picker("Time", selection: $minutes) {
+                        ForEach(TonightRescue.minuteChoices, id: \.self) { minutes in
+                            Text("\(minutes) min", comment: "Tonight rescue: how long there is to get dinner on the table")
+                                .tag(minutes)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    if let forWhom {
+                        Text(forWhom).font(.foonCaption).foregroundStyle(.secondary)
                     }
                 }
-                .pickerStyle(.segmented)
-                if let forWhom {
-                    Text(forWhom).font(.foonCaption).foregroundStyle(.secondary)
-                }
-            }
-            Section {
-                if let ideas {
-                    ForEach(ideas) { idea in row(idea) }
-                } else {
-                    ProgressView().frame(maxWidth: .infinity)
-                }
-                Button("More ideas", systemImage: "arrow.clockwise", action: moreIdeas)
-                    .tint(Palette.paprika)
-                    .disabled(ideas == nil)
-            } footer: {
-                if !canPlan {
-                    Text("A planner can make one tonight's dinner.")
-                }
-            }
-            if canAsk {
                 Section {
-                    Button("Ask the family", systemImage: "checklist", action: askFamily)
+                    if let ideas {
+                        ForEach(ideas) { idea in row(idea) }
+                    } else {
+                        ProgressView().frame(maxWidth: .infinity)
+                    }
+                    Button("More ideas", systemImage: "arrow.clockwise", action: moreIdeas)
                         .tint(Palette.paprika)
                         .disabled(ideas == nil)
                 } footer: {
-                    Text("Starts a quick vote with these ideas and Takeout.")
+                    if !canPlan {
+                        Text("A planner can make one tonight's dinner.")
+                    }
+                }
+                if canAsk {
+                    Section {
+                        Button("Ask the family", systemImage: "checklist", action: askFamily)
+                            .tint(Palette.paprika)
+                            .disabled(ideas == nil)
+                    } footer: {
+                        Text("Starts a quick vote with these ideas and Takeout.")
+                    }
                 }
             }
+            .foonRows()
         }
+        .foonGrouped()
         .disabled(isDisabled)
     }
 
@@ -245,12 +249,12 @@ struct RescueContent: View {
     }
 
     private func rowContent(_ idea: TonightRescue.Idea) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.m) {
             Image(systemName: RescueRow.systemImage(idea.kind))
                 .foregroundStyle(Palette.paprika)
                 .frame(width: 24)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(idea.title).font(.foonBody).foregroundStyle(Palette.ink)
                 if let friendly = wording[idea.id] {
                     Text(friendly).font(.foonCaption).italic().foregroundStyle(Palette.ink)
