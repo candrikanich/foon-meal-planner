@@ -171,6 +171,17 @@
         }
       }
     },
+    "%@ on %@" : {
+      "comment" : "Spoken for a list row: the dish, then the weekday it's planned for",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ on %2$@"
+          }
+        }
+      }
+    },
     "%@ out %@" : {
       "comment" : "Saved schedule: a name, then weekdays or how often",
       "localizations" : {
@@ -2240,7 +2251,7 @@
 
     },
     "For %@" : {
-      "comment" : "Spoken for a list row: the nights and dishes that need this item\nTonight rescue: who's home tonight, e.g. For Ana, Ben and Nora"
+      "comment" : "Tonight rescue: who's home tonight, e.g. For Ana, Ben and Nora"
     },
     "For a night" : {
 
@@ -2979,6 +2990,9 @@
     },
     "Names can be up to %lld characters." : {
 
+    },
+    "Needed for %@" : {
+      "comment" : "Spoken for a list row: the dishes and nights that need this item"
     },
     "Needs a parent's OK again" : {
 

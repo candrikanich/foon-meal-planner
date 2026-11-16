@@ -344,7 +344,8 @@ struct ListEntryRow: View {
                 VStack(alignment: .leading, spacing: 8) { text; chips; nightLabel }
             } else {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    text
+                    // The item comes first: a long night label wraps before it squeezes the name.
+                    text.layoutPriority(1)
                     Spacer(minLength: 8)
                     chips
                     nightLabel

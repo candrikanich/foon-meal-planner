@@ -25,13 +25,13 @@ struct ListNightLabelTests {
     @Test func oneNightReadsDayThenDish() {
         let one = label([night("2026-11-20", "Tacos")])
         #expect(one?.text == "Fri · Tacos")
-        #expect(one?.spoken == "For Friday, Tacos")
+        #expect(one?.spoken == "Needed for Tacos on Friday")
     }
 
     @Test func severalNightsAreSortedByDate() {
         let several = label([night("2026-11-20", "Tacos"), night("2026-11-17", "Chili")])
         #expect(several?.text == "Tue · Chili, Fri · Tacos")
-        #expect(several?.spoken == "For Tuesday, Chili; Friday, Tacos")
+        #expect(several?.spoken == "Needed for Chili on Tuesday and Tacos on Friday")
     }
 
     @Test func theSameNightAndDishReadsOnce() {
@@ -42,7 +42,7 @@ struct ListNightLabelTests {
     @Test func aNightWithNoDishShowsJustTheDay() {
         let mixed = label([night("2026-11-18"), night("2026-11-20", "Tacos")])
         #expect(mixed?.text == "Wed, Fri · Tacos")
-        #expect(mixed?.spoken == "For Wednesday; Friday, Tacos")
+        #expect(mixed?.spoken == "Needed for Wednesday and Tacos on Friday")
     }
 
     @Test func theDateIsACalendarDayInAnyTimeZone() {

@@ -27,14 +27,14 @@ struct ListNightLabel: Equatable, Sendable {
                 ?? part.short
         }
         let fulls = parts.map { part in
-            part.meal.map { String(localized: "\(part.full), \($0)", locale: locale,
-                                   comment: "Spoken for a list row: a weekday, then the dish planned that night") }
+            part.meal.map { String(localized: "\($0) on \(part.full)", locale: locale,
+                                   comment: "Spoken for a list row: the dish, then the weekday it's planned for") }
                 ?? part.full
         }
         text = shorts.formatted(.list(type: .and, width: .narrow).locale(locale))
-        let nightsSpoken = fulls.joined(separator: "; ")
-        spoken = String(localized: "For \(nightsSpoken)", locale: locale,
-                        comment: "Spoken for a list row: the nights and dishes that need this item")
+        let nightsSpoken = fulls.formatted(.list(type: .and, width: .standard).locale(locale))
+        spoken = String(localized: "Needed for \(nightsSpoken)", locale: locale,
+                        comment: "Spoken for a list row: the dishes and nights that need this item")
     }
 
     /// A plain calendar date, read in the given calendar so no time zone shifts it to the day before.
