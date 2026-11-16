@@ -57,42 +57,46 @@ struct StartPollSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                if let message = polls?.errorMessage {
-                    Text(message).font(.callout).foregroundStyle(.red)
-                }
-                if !freezerOffers.isEmpty {
-                    Section("From the freezer") {
-                        ForEach(freezerOffers, id: \.item.id) { offer in
-                            row(.freezer(offer.item.id), title: offer.meal.name,
-                                allergies: SwapRow.allergyCheck(offer: offer, lookup: library.lookup))
+                Group {
+                    if let message = polls?.errorMessage {
+                        Text(message).font(.foonBody).foregroundStyle(.red)
+                    }
+                    if !freezerOffers.isEmpty {
+                        Section("From the freezer") {
+                            ForEach(freezerOffers, id: \.item.id) { offer in
+                                row(.freezer(offer.item.id), title: offer.meal.name,
+                                    allergies: SwapRow.allergyCheck(offer: offer, lookup: library.lookup))
+                            }
                         }
                     }
-                }
-                if !backups.isEmpty {
-                    Section("Backup dinners") {
-                        ForEach(backups) { meal in row(.meal(meal.id), title: meal.name, allergies: allergyCheck(meal)) }
-                    }
-                }
-                if !ideas.isEmpty {
-                    Section("Ideas") {
-                        ForEach(ideas) { meal in row(.meal(meal.id), title: meal.name, allergies: allergyCheck(meal)) }
-                    }
-                }
-                Section("Quick picks") {
-                    ForEach(QuickPick.allCases, id: \.self) { pick in
-                        row(.quickPick(pick), title: DayCardText.quickPickLabel(pick), allergies: AllergyCheck())
-                    }
-                }
-                Section {
-                    Picker("Voting closes in", selection: $minutes) {
-                        ForEach(PollRules.durations, id: \.self) { minutes in
-                            Text("\(minutes) minutes", comment: "How long a tonight poll runs").tag(minutes)
+                    if !backups.isEmpty {
+                        Section("Backup dinners") {
+                            ForEach(backups) { meal in row(.meal(meal.id), title: meal.name, allergies: allergyCheck(meal)) }
                         }
                     }
-                } footer: {
-                    Text("Whoever's home tonight can vote. No vote counts as abstaining. A planner makes the winner tonight's dinner.")
+                    if !ideas.isEmpty {
+                        Section("Ideas") {
+                            ForEach(ideas) { meal in row(.meal(meal.id), title: meal.name, allergies: allergyCheck(meal)) }
+                        }
+                    }
+                    Section("Quick picks") {
+                        ForEach(QuickPick.allCases, id: \.self) { pick in
+                            row(.quickPick(pick), title: DayCardText.quickPickLabel(pick), allergies: AllergyCheck())
+                        }
+                    }
+                    Section {
+                        Picker("Voting closes in", selection: $minutes) {
+                            ForEach(PollRules.durations, id: \.self) { minutes in
+                                Text("\(minutes) minutes", comment: "How long a tonight poll runs").tag(minutes)
+                            }
+                        }
+                    } footer: {
+                        Text("Whoever's home tonight can vote. No vote counts as abstaining. A planner makes the winner tonight's dinner.")
+                    }
                 }
+                .foonRows()
             }
+            .foonGrouped()
             .navigationTitle("Vote on dinner")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -126,7 +130,7 @@ struct StartPollSheet: View {
             if isChosen { chosen.remove(choice) } else if chosen.count < PollRules.optionLimit { chosen.insert(choice) }
         } label: {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(title).foregroundStyle(Palette.ink)
                     AllergyChips(check: allergies)
                 }

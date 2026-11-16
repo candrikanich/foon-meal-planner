@@ -28,6 +28,9 @@ struct NightDetailView: View {
             if let night {
                 form(night)
                     .navigationTitle(DayCardText.dayLabel(for: night.date, today: week.todayDay))
+                    #if os(iOS)
+                    .navigationBarTitleDisplayMode(.inline)
+                    #endif
             } else {
                 ContentUnavailableView("Night not found", systemImage: "calendar")
             }
@@ -89,86 +92,90 @@ struct NightDetailView: View {
 
     private func form(_ night: WeekNight) -> some View {
         Form {
-            Section {
-                dinner(night)
-                if let time = night.dinnerTime {
-                    LabeledContent("Dinner at", value: String(time.prefix(5)))
-                }
-                if canPlan {
-                    Button("Swap", systemImage: "arrow.triangle.2.circlepath") { swapping = true }
-                        .tint(Palette.paprika)
-                        .disabled(week.isBuilding)
-                }
-            } header: {
-                Text(DayCardText.dateLabel(for: night.date))
-            }
-
-            tonightSection(night)
-
-            NightClaimSection(night: night, canPlan: canPlan)
-
-            dinnerJobs(night)
-
-            cookOnceEatTwice(night)
-
-            Section {
-                if canPlan {
-                    Picker("Effort", selection: Binding(
-                        get: { night.effort },
-                        set: { effort in Task { await week.setEffort(effort, nightID: night.id) } }
-                    )) {
-                        ForEach(Self.efforts, id: \.self) { Text(DayCardText.effortLabel($0)).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    busySuggestion(night)
-                } else {
-                    Text(DayCardText.effortLabel(night.effort))
-                }
-            } header: {
-                Text("Effort")
-            } footer: {
-                if canPlan, isBusy(night) {
-                    Text("Your calendar has plans around dinner. Nothing changes unless you tap.")
-                }
-            }
-
-            Section("Who's home") {
-                ForEach(household.visibleMembers.filter { night.attendance[$0.id] != nil }) { member in
-                    let home = night.attendance[member.id] ?? false
-                    if canPlan {
-                        Toggle(isOn: Binding(
-                            get: { home },
-                            set: { _ in Task { await week.toggleAttendance(nightID: night.id, memberID: member.id) } }
-                        )) {
-                            Label { Text(member.firstName) } icon: { MemberAvatar(member: member, size: 28) }
-                        }
-                    } else {
-                        LabeledContent {
-                            Text(home ? "Home" : "Out")
-                        } label: {
-                            Label { Text(member.firstName) } icon: { MemberAvatar(member: member, size: 28) }
-                        }
-                    }
-                }
-            }
-
-            if canPlan {
+            Group {
                 Section {
-                    Toggle("Lock this night", isOn: Binding(
-                        get: { night.locked },
-                        set: { _ in Task { await week.toggleLock(nightID: night.id) } }
-                    ))
+                    dinner(night)
+                    if let time = night.dinnerTime {
+                        LabeledContent("Dinner at", value: String(time.prefix(5)))
+                    }
+                    if canPlan {
+                        Button("Swap", systemImage: "arrow.triangle.2.circlepath") { swapping = true }
+                            .tint(Palette.paprika)
+                            .disabled(week.isBuilding)
+                    }
+                } header: {
+                    Text(DayCardText.dateLabel(for: night.date))
+                }
+
+                tonightSection(night)
+
+                NightClaimSection(night: night, canPlan: canPlan)
+
+                dinnerJobs(night)
+
+                cookOnceEatTwice(night)
+
+                Section {
+                    if canPlan {
+                        Picker("Effort", selection: Binding(
+                            get: { night.effort },
+                            set: { effort in Task { await week.setEffort(effort, nightID: night.id) } }
+                        )) {
+                            ForEach(Self.efforts, id: \.self) { Text(DayCardText.effortLabel($0)).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        busySuggestion(night)
+                    } else {
+                        Text(DayCardText.effortLabel(night.effort))
+                    }
+                } header: {
+                    Text("Effort")
                 } footer: {
-                    Text("Build my week and shuffles leave locked nights as they are.")
+                    if canPlan, isBusy(night) {
+                        Text("Your calendar has plans around dinner. Nothing changes unless you tap.")
+                    }
+                }
+
+                Section("Who's home") {
+                    ForEach(household.visibleMembers.filter { night.attendance[$0.id] != nil }) { member in
+                        let home = night.attendance[member.id] ?? false
+                        if canPlan {
+                            Toggle(isOn: Binding(
+                                get: { home },
+                                set: { _ in Task { await week.toggleAttendance(nightID: night.id, memberID: member.id) } }
+                            )) {
+                                Label { Text(member.firstName) } icon: { MemberAvatar(member: member, size: 28) }
+                            }
+                        } else {
+                            LabeledContent {
+                                Text(home ? "Home" : "Out")
+                            } label: {
+                                Label { Text(member.firstName) } icon: { MemberAvatar(member: member, size: 28) }
+                            }
+                        }
+                    }
+                }
+
+                if canPlan {
+                    Section {
+                        Toggle("Lock this night", isOn: Binding(
+                            get: { night.locked },
+                            set: { _ in Task { await week.toggleLock(nightID: night.id) } }
+                        ))
+                    } footer: {
+                        Text("Build my week and shuffles leave locked nights as they are.")
+                    }
+                }
+
+                NightChangesSection(night: night, canPlan: canPlan) { await syncIdeas(undone: night.id) }
+
+                if let message = week.errorMessage {
+                    Section { Text(message).font(.foonBody).foregroundStyle(.red) }
                 }
             }
-
-            NightChangesSection(night: night, canPlan: canPlan) { await syncIdeas(undone: night.id) }
-
-            if let message = week.errorMessage {
-                Section { Text(message).foregroundStyle(.red) }
-            }
+            .foonRows()
         }
+        .foonGrouped()
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Done") { dismiss() }
@@ -296,7 +303,7 @@ struct NightDetailView: View {
     @ViewBuilder
     private func dinner(_ night: WeekNight) -> some View {
         if let mealID = night.mealID, let name = night.mealName {
-            let dish = VStack(alignment: .leading, spacing: 4) {
+            let dish = VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(name).font(.foonTitle)
                 if let sides = DayCardText.sidesLabel(library.meal(mealID).map(library.sideNames(for:)) ?? []) {
                     Text(sides).font(.foonCaption).foregroundStyle(.secondary)

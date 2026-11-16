@@ -74,7 +74,7 @@ struct NightClaimSection: View {
                         : String(localized: "For someone without their own account: tells the family \(member.firstName) is cooking this night"))
                 }
                 if let message {
-                    Text(message).font(.callout).foregroundStyle(.red)
+                    Text(message).font(.foonBody).foregroundStyle(.red)
                 }
             } header: {
                 Text("Who's cooking")
@@ -87,7 +87,8 @@ struct NightClaimSection: View {
     let household = HouseholdStore.preview()
     let night = WeekNight(id: UUID(), date: CalendarDay(Date()).adding(days: 2), effort: .normal, dinnerTime: nil,
                           mealID: UUID(), mealName: "Chili", quickPick: nil, locked: false, attendance: [:])
-    Form { NightClaimSection(night: night, canPlan: true) }
+    Form { Group { NightClaimSection(night: night, canPlan: true) }.foonRows() }
+        .foonGrouped()
         .environment(household)
         .environment(DinnerStore(householdID: Household.sample.id, client: .preview))
         .environment(WeekStore(householdID: Household.sample.id, client: .preview()))

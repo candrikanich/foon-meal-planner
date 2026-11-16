@@ -55,24 +55,28 @@ struct SharedItemSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                switch route {
-                case .recipeLink(let url, _): link(url, canImport: canAddToLibrary)
-                case .socialLink(let url, _):
-                    link(url, canImport: false)
-                    if isReadingCaption {
-                        Section { ProgressView("Looking for a recipe…") }
-                    } else if readDraft != nil {
-                        readSection
+                Group {
+                    switch route {
+                    case .recipeLink(let url, _): link(url, canImport: canAddToLibrary)
+                    case .socialLink(let url, _):
+                        link(url, canImport: false)
+                        if isReadingCaption {
+                            Section { ProgressView("Looking for a recipe…") }
+                        } else if readDraft != nil {
+                            readSection
+                        }
+                    case .shoppingList: shoppingList
+                    case .capture: readSection
                     }
-                case .shoppingList: shoppingList
-                case .capture: readSection
+                    Section {
+                        Button("Discard", role: .destructive) { finish(.done(nil)) }.disabled(isWorking)
+                    } footer: {
+                        if let errorMessage { Text(errorMessage).font(.foonCaption).foregroundStyle(.red) }
+                    }
                 }
-                Section {
-                    Button("Discard", role: .destructive) { finish(.done(nil)) }.disabled(isWorking)
-                } footer: {
-                    if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
-                }
+                .foonRows()
             }
+            .foonGrouped()
             .navigationTitle("Shared with Foon")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -228,7 +232,7 @@ struct SharedItemSheet: View {
                 }
                 Section {
                     ForEach(draft.lines) { $line in
-                        HStack {
+                        HStack(spacing: Spacing.s) {
                             TextField("Amount", text: $line.quantity).frame(maxWidth: 130)
                             TextField("Ingredient", text: $line.name)
                         }

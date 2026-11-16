@@ -147,32 +147,36 @@ struct PlanItSheet: View {
 
     private func nights(_ choices: [WeekNight]) -> some View {
         List {
-            Section {
-                ForEach(choices) { night in
-                    Button { plan(on: night) } label: { row(night) }
-                        .buttonStyle(.plain)
-                        .disabled(saving != nil || week.isBuilding)
-                        .accessibilityHint(night.isPlanned ? "Replaces what's planned" : "Plans it for this night")
-                }
-            } header: {
-                Text(whichWeek)
-            } footer: {
-                if let failure {
-                    Text(failure).foregroundStyle(.red)
-                } else if week.isBuilding {
-                    Text("Foon is building the week. Try again in a moment.")
-                } else {
-                    Text("The night stays locked, so Rebuild keeps it.")
+            Group {
+                Section {
+                    ForEach(choices) { night in
+                        Button { plan(on: night) } label: { row(night) }
+                            .buttonStyle(.plain)
+                            .disabled(saving != nil || week.isBuilding)
+                            .accessibilityHint(night.isPlanned ? "Replaces what's planned" : "Plans it for this night")
+                    }
+                } header: {
+                    Text(whichWeek)
+                } footer: {
+                    if let failure {
+                        Text(failure).foregroundStyle(.red)
+                    } else if week.isBuilding {
+                        Text("Foon is building the week. Try again in a moment.")
+                    } else {
+                        Text("The night stays locked, so Rebuild keeps it.")
+                    }
                 }
             }
+            .foonRows()
         }
+        .foonGrouped()
         // The note on a night that couldn't check says to pull down.
         .refreshable { await loadLibrary() }
     }
 
     private func row(_ night: WeekNight) -> some View {
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text("\(DayCardText.dayLabel(for: night.date, today: week.currentDay)) · \(DayCardText.dateLabel(for: night.date))")
                     .font(.foonHeadline)
                 Text(PlanIt.currentPick(night)).font(.foonCaption).foregroundStyle(.secondary)
