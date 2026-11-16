@@ -139,11 +139,6 @@ final class WeekStore {
         }
     }
 
-    func cycleEffort(nightID: UUID) async {
-        guard let index = nightIndex(nightID), let current = week?.nights[index].effort else { return }
-        await setEffort(current.next, nightID: nightID)
-    }
-
     func setEffort(_ effort: NightEffort, nightID: UUID) async {
         guard let index = nightIndex(nightID), week?.nights[index].effort != effort else { return }
         week?.nights[index].effort = effort

@@ -172,7 +172,7 @@ struct WeekStoreTests {
         #expect(store.errorMessage != nil)
     }
 
-    @Test func theEffortChipCyclesAndIsSent() async {
+    @Test func aChosenEffortIsShownAndSent() async {
         let sent = Mutex<[NightEffort]>([])
         let existing = week(effort: .event)
         let store = WeekStore(householdID: household, client: .fake(
@@ -180,7 +180,7 @@ struct WeekStoreTests {
             setEffort: { _, effort in sent.withLock { $0.append(effort) } }
         ), today: { sunday })
         await store.load(settings: HouseholdSettings())
-        await store.cycleEffort(nightID: existing.nights[0].id)
+        await store.setEffort(.normal, nightID: existing.nights[0].id)
         #expect(store.week?.nights[0].effort == .normal)
         #expect(sent.withLock { $0 } == [.normal])
     }
@@ -271,10 +271,10 @@ struct WeekStoreTests {
         ), today: { sunday })
         await store.load(settings: HouseholdSettings())
         let night = existing.nights[0].id
-        async let one: Void = store.cycleEffort(nightID: night)
-        async let two: Void = store.cycleEffort(nightID: night)
-        async let three: Void = store.cycleEffort(nightID: night)
-        _ = await (one, two, three)
+        let one = Task { await store.setEffort(.rushed, nightID: night) }
+        let two = Task { await store.setEffort(.full, nightID: night) }
+        let three = Task { await store.setEffort(.event, nightID: night) }
+        _ = await (one.value, two.value, three.value)
         #expect(store.week?.nights[0].effort == .event)
         #expect(sent.withLock { $0 } == [.rushed, .full, .event])
     }

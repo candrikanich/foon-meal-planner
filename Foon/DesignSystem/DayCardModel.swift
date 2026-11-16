@@ -93,16 +93,6 @@ extension QuickPick {
 }
 
 extension NightEffort {
-    /// Tapping the effort chip cycles normal → rushed → full → event.
-    var next: NightEffort {
-        switch self {
-        case .normal: .rushed
-        case .rushed: .full
-        case .full: .event
-        case .event: .normal
-        }
-    }
-
     /// Menu order, lightest night first.
     static let ordered: [NightEffort] = [.normal, .rushed, .full, .event]
 
