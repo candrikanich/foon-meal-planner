@@ -29,98 +29,102 @@ struct MemberEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Who they are") {
-                    TextField("First name", text: $draft.firstName)
-                        .disabled(!scope.name)
-                    AvatarPicker(selection: $draft.avatar)
-                    if scope.identity {
-                        Picker("Age", selection: $draft.ageGroup) {
-                            Text("Adult").tag(AgeGroup.adult)
-                            Text("Kid").tag(AgeGroup.kid)
-                        }
-                        .pickerStyle(.segmented)
-                        .disabled(staysAdult)
-                        if staysAdult {
-                            Text("Someone who signs in as an adult stays one.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                        if draft.ageGroup == .adult {
-                            Toggle("Parent", isOn: $draft.guardian)
-                        }
-                    }
-                }
-
-                if scope.planning {
-                    Section {
-                        Picker("Planning", selection: $draft.role) {
-                            Text("Planner").tag(MemberRole.planner)
-                            Text("Member").tag(MemberRole.member)
-                        }
-                    } footer: {
-                        Text("Parents manage the family, allergies, and privacy choices. Planners build the week and manage meals.")
-                    }
-
-                    Section {
-                        Toggle("Eats separately", isOn: $draft.eatsSeparately)
-                    } footer: {
-                        Text("For babies and toddlers. They aren't asked to rate dinners, and their ratings and me-toos don't count. They still count as home, so allergy flags and serving notes cover them.")
-                    }
-
-                    Section("Status") {
-                        Picker("Status", selection: $draft.status) {
-                            Text("Home").tag(MemberStatus.active)
-                            Text("Away").tag(MemberStatus.away)
-                        }
-                        .pickerStyle(.segmented)
-                        if draft.status == .away {
-                            Toggle("Return date", isOn: hasReturnDate)
-                            if draft.awayUntil != nil {
-                                DatePicker("Back on", selection: returnDate, in: today.date()..., displayedComponents: .date)
+                Group {
+                    Section("Who they are") {
+                        TextField("First name", text: $draft.firstName)
+                            .disabled(!scope.name)
+                        AvatarPicker(selection: $draft.avatar)
+                        if scope.identity {
+                            Picker("Age", selection: $draft.ageGroup) {
+                                Text("Adult").tag(AgeGroup.adult)
+                                Text("Kid").tag(AgeGroup.kid)
+                            }
+                            .pickerStyle(.segmented)
+                            .disabled(staysAdult)
+                            if staysAdult {
+                                Text("Someone who signs in as an adult stays one.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if draft.ageGroup == .adult {
+                                Toggle("Parent", isOn: $draft.guardian)
                             }
                         }
                     }
-                }
 
-                if scope.schedule {
-                    Section {
-                        WeekdayAwayPicker(usuallyAway: $draft.usuallyAway)
-                    } header: {
-                        Text("Usually home for dinner")
-                    } footer: {
-                        Text("Each new week starts from this. Tap a day they're usually out, like a work or practice night.")
-                    }
-                    awayPatternSection
-                }
-
-                if let member, store.canRemove(member) {
-                    Section {
-                        Button("Remove from household", role: .destructive) {
-                            confirmingRemoval = true
+                    if scope.planning {
+                        Section {
+                            Picker("Planning", selection: $draft.role) {
+                                Text("Planner").tag(MemberRole.planner)
+                                Text("Member").tag(MemberRole.member)
+                            }
+                        } footer: {
+                            Text("Parents manage the family, allergies, and privacy choices. Planners build the week and manage meals.")
                         }
-                        .disabled(isSaving)
-                    } footer: {
-                        Text("Their ratings and cooking history stay.")
-                    }
-                }
 
-                if let member, store.canDeleteKid(member) {
-                    Section {
-                        Button("Delete everything about \(member.firstName)", role: .destructive) {
-                            deletingKid = true
+                        Section {
+                            Toggle("Eats separately", isOn: $draft.eatsSeparately)
+                        } footer: {
+                            Text("For babies and toddlers. They aren't asked to rate dinners, and their ratings and me-toos don't count. They still count as home, so allergy flags and serving notes cover them.")
                         }
-                        .disabled(isSaving)
-                    } footer: {
-                        Text("Deletes their profile and everything Foon keeps about them, now.")
-                    }
-                }
 
-                if let message = store.errorMessage {
-                    Section {
-                        Text(message).foregroundStyle(.red)
+                        Section("Status") {
+                            Picker("Status", selection: $draft.status) {
+                                Text("Home").tag(MemberStatus.active)
+                                Text("Away").tag(MemberStatus.away)
+                            }
+                            .pickerStyle(.segmented)
+                            if draft.status == .away {
+                                Toggle("Return date", isOn: hasReturnDate)
+                                if draft.awayUntil != nil {
+                                    DatePicker("Back on", selection: returnDate, in: today.date()..., displayedComponents: .date)
+                                }
+                            }
+                        }
+                    }
+
+                    if scope.schedule {
+                        Section {
+                            WeekdayAwayPicker(usuallyAway: $draft.usuallyAway)
+                        } header: {
+                            Text("Usually home for dinner")
+                        } footer: {
+                            Text("Each new week starts from this. Tap a day they're usually out, like a work or practice night.")
+                        }
+                        awayPatternSection
+                    }
+
+                    if let member, store.canRemove(member) {
+                        Section {
+                            Button("Remove from household", role: .destructive) {
+                                confirmingRemoval = true
+                            }
+                            .disabled(isSaving)
+                        } footer: {
+                            Text("Their ratings and cooking history stay.")
+                        }
+                    }
+
+                    if let member, store.canDeleteKid(member) {
+                        Section {
+                            Button("Delete everything about \(member.firstName)", role: .destructive) {
+                                deletingKid = true
+                            }
+                            .disabled(isSaving)
+                        } footer: {
+                            Text("Deletes their profile and everything Foon keeps about them, now.")
+                        }
+                    }
+
+                    if let message = store.errorMessage {
+                        Section {
+                            Text(message).foregroundStyle(.red)
+                        }
                     }
                 }
+                .foonRows()
             }
+                .foonGrouped()
             .navigationTitle(member.map { String(localized: "Edit \($0.firstName)", comment: "Member editor title: first name") } ?? String(localized: "Add member"))
             .onAppear {
                 store.clearError()

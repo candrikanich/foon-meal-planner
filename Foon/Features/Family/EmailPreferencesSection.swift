@@ -22,7 +22,7 @@ struct EmailPreferencesSection: View {
                             }
                         }
                     )) {
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Spacing.xxs) {
                             Text(email.title)
                             Text(email.explanation).font(.foonCaption).foregroundStyle(.secondary)
                         }
@@ -57,13 +57,17 @@ private struct EmailOptInAgreementView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Text(email.statement)
+                Group {
+                    Section {
+                        Text(email.statement)
+                    }
+                    if let message = model.errorMessage {
+                        Section { Text(message).foregroundStyle(.red) }
+                    }
                 }
-                if let message = model.errorMessage {
-                    Section { Text(message).foregroundStyle(.red) }
-                }
+                .foonRows()
             }
+                .foonGrouped()
             .navigationTitle(email.title)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

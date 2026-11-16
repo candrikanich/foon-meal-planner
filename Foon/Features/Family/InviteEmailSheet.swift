@@ -13,12 +13,16 @@ struct InviteEmailSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                if model.phase == .sent {
-                    sentSection
-                } else {
-                    addressSection
+                Group {
+                    if model.phase == .sent {
+                        sentSection
+                    } else {
+                        addressSection
+                    }
                 }
+                .foonRows()
             }
+                .foonGrouped()
             .navigationTitle("Email the invite")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

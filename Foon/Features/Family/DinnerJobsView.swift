@@ -11,42 +11,46 @@ struct DinnerJobsView: View {
 
     var body: some View {
         Form {
-            Section {
-                ForEach(DinnerJob.allCases, id: \.self) { job in
-                    Toggle(job.title, isOn: Binding(
-                        get: { settings.jobs.contains(job) },
-                        set: { isOn in save { await store.setDinnerJob(job, isOn: isOn) } }
-                    ))
-                }
-            } header: {
-                Text("Which jobs")
-            } footer: {
-                Text("Foon takes turns among whoever's home each night, and whoever's cooking gets the night off. Nobody checks anything off, and Foon doesn't keep score.")
-            }
-
-            if !settings.jobs.isEmpty {
+            Group {
                 Section {
-                    ForEach(eligible) { member in
-                        Toggle(isOn: Binding(
-                            get: { !settings.leftOut.contains(member.id) },
-                            set: { isIn in save { await store.setDinnerJobPerson(member.id, isIn: isIn) } }
-                        )) {
-                            Label { Text(member.firstName) } icon: { MemberAvatar(member: member, size: 28) }
-                        }
+                    ForEach(DinnerJob.allCases, id: \.self) { job in
+                        Toggle(job.title, isOn: Binding(
+                            get: { settings.jobs.contains(job) },
+                            set: { isOn in save { await store.setDinnerJob(job, isOn: isOn) } }
+                        ))
                     }
                 } header: {
-                    Text("Who takes turns")
+                    Text("Which jobs")
                 } footer: {
-                    if store.visibleMembers.contains(where: \.eatsSeparately) {
-                        Text("Someone who eats separately isn't in the rotation.")
+                    Text("Foon takes turns among whoever's home each night, and whoever's cooking gets the night off. Nobody checks anything off, and Foon doesn't keep score.")
+                }
+
+                if !settings.jobs.isEmpty {
+                    Section {
+                        ForEach(eligible) { member in
+                            Toggle(isOn: Binding(
+                                get: { !settings.leftOut.contains(member.id) },
+                                set: { isIn in save { await store.setDinnerJobPerson(member.id, isIn: isIn) } }
+                            )) {
+                                Label { Text(member.firstName) } icon: { MemberAvatar(member: member, size: 28) }
+                            }
+                        }
+                    } header: {
+                        Text("Who takes turns")
+                    } footer: {
+                        if store.visibleMembers.contains(where: \.eatsSeparately) {
+                            Text("Someone who eats separately isn't in the rotation.")
+                        }
                     }
                 }
-            }
 
-            if let message = store.errorMessage {
-                Section { Text(message).foregroundStyle(.red) }
+                if let message = store.errorMessage {
+                    Section { Text(message).foregroundStyle(.red) }
+                }
             }
+            .foonRows()
         }
+            .foonGrouped()
         .disabled(isSaving)
         .navigationTitle("Dinner jobs")
         .onAppear { store.clearError() }
