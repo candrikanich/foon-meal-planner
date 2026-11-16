@@ -371,7 +371,7 @@ struct ListEntryRow: View {
         }
     }
 
-    /// The nights that need it, trailing and quiet. It wraps rather than clips; how long it may get is #351's device review.
+    /// The nights that need it, trailing and quiet. It keeps every night and wraps rather than clips (#351's device review).
     @ViewBuilder
     private var nightLabel: some View {
         if let label = entry.nightLabel {
