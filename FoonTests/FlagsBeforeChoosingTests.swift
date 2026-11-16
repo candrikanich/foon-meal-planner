@@ -443,7 +443,7 @@ struct FlagsBeforeChoosingTests {
         #expect(PlanIt.choices(in: layout, for: spaghetti.id).map(\.id) == [tonight.id])
         let flagged = LibraryQuery.entries(meals: [spaghetti, caesar], library: [spaghetti, caesar], history: [],
                                            allergies: noraAllergies, favorites: [])
-        #expect(LibraryQuery.apply(flagged, filter: nil, sort: .notLately, search: "spag").map(\.meal.id) == [spaghetti.id])
+        #expect(LibraryQuery.apply(flagged, filters: [], sort: .notLately, search: "spag").map(\.meal.id) == [spaghetti.id])
         let dish = spaghetti, side = caesar
         let item = FreezerItem(id: UUID(), mealID: dish.id, mealName: dish.name, madeOn: sunday, state: .in)
         let offer = try #require(FreezerStash.offers([item], on: tonight, week: [tonight], library: [dish, side], notForMe: [:],

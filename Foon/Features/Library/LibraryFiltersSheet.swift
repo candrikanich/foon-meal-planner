@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The filter choices in a sheet. One at a time; tapping the chosen one again clears it.
+/// The filter choices in a sheet. Each chip toggles; chosen ones narrow together (#338).
 struct LibraryFiltersSheet: View {
-    @Binding var selection: LibraryFilter?
+    @Binding var selection: Set<LibraryFilter>
     let dismiss: () -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -18,14 +18,20 @@ struct LibraryFiltersSheet: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text("Filters").font(.foonTitle).foregroundStyle(Palette.ink).accessibilityAddTraits(.isHeader)
                     Spacer()
+                    if !selection.isEmpty {
+                        Button("Clear") { selection = [] }
+                            .buttonStyle(.borderless)
+                            .tint(Palette.paprika)
+                            .accessibilityHint(Text("Turns every filter off"))
+                    }
                     Button("Done", action: dismiss).buttonStyle(.pill(.tinted))
                 }
                 Text(LibraryText.filtersSummary(selection)).font(.subheadline).foregroundStyle(.secondary)
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(LibraryFilter.allCases) { filter in
-                        let isOn = selection == filter
+                        let isOn = selection.contains(filter)
                         Button {
-                            selection = isOn ? nil : filter
+                            if isOn { selection.remove(filter) } else { selection.insert(filter) }
                         } label: {
                             Text(filter.title)
                         }
@@ -61,13 +67,13 @@ private struct FilterChipStyle: ButtonStyle {
 }
 
 #Preview("Filters") {
-    @Previewable @State var filter: LibraryFilter? = .favorites
-    Color.clear.sheet(isPresented: .constant(true)) { LibraryFiltersSheet(selection: $filter) {} }
+    @Previewable @State var filters: Set<LibraryFilter> = [.favorites, .quick]
+    Color.clear.sheet(isPresented: .constant(true)) { LibraryFiltersSheet(selection: $filters) {} }
 }
 
 #Preview("Filters dark AX3") {
-    @Previewable @State var filter: LibraryFilter? = .backup
-    Color.clear.sheet(isPresented: .constant(true)) { LibraryFiltersSheet(selection: $filter) {} }
+    @Previewable @State var filters: Set<LibraryFilter> = [.backup]
+    Color.clear.sheet(isPresented: .constant(true)) { LibraryFiltersSheet(selection: $filters) {} }
         .preferredColorScheme(.dark)
         .dynamicTypeSize(.accessibility3)
 }

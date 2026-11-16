@@ -79,9 +79,9 @@ struct LibraryFavoritesTests {
             likes: [MealLikes(mealID: chili.id, likes: 5)]
         ))
         await store.load(members: [])
-        store.filter = .favorites
+        store.filters = [.favorites]
         #expect(store.visibleEntries.map(\.meal.name) == ["Soup", "Tacos"], "the Favorites chip isn't empty anymore")
-        store.filter = nil
+        store.filters = []
         store.sort = .familyFavorites
         #expect(store.visibleEntries.map(\.meal.name) == ["Tacos", "Soup", "Chili"],
                 "two favorites, then one, then liked but nobody's favorite")

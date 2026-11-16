@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import Supabase
 
-/// The library screen's state: the household's meals, the catalog, and the chosen filter, sort, and search.
+/// The library screen's state: the household's meals, the catalog, and the chosen filters, sort, and search.
 @Observable @MainActor
 final class LibraryStore {
     private(set) var meals: [LibraryMeal] = []
@@ -45,7 +45,7 @@ final class LibraryStore {
     /// Meals being copied (Copy and tweak), for the same reason.
     private(set) var copyingMealIDs: Set<UUID> = []
 
-    var filter: LibraryFilter?
+    var filters: Set<LibraryFilter> = []
     var sort: LibrarySort = .notLately
     var search = ""
 
@@ -84,12 +84,14 @@ final class LibraryStore {
     private var favorites: Set<UUID> { Set(reactions.favorites.values.flatMap { $0 }) }
 
     var visibleEntries: [LibraryEntry] {
-        LibraryQuery.apply(allEntries, filter: filter, sort: sort, search: search)
+        LibraryQuery.apply(allEntries, filters: filters, sort: sort, search: search)
     }
 
-    /// Dishes in rotation whose allergies can't be checked yet.
+    /// Dishes whose allergies can't be checked yet, among those the other chosen filters show: with Allergy flags and Quick,
+    /// the note counts quick dishes, so its number describes the list under it. With no other filter, the rotation.
     var uncheckedCount: Int {
-        allEntries.filter { $0.meal.status.isInRotation && $0.uncheckedNote != nil }.count
+        LibraryQuery.apply(allEntries, filters: filters.subtracting([.allergyFlags]), sort: sort, search: "")
+            .count { $0.uncheckedNote != nil }
     }
 
     /// Everything an entry is worked out from. Add to this if `entries(_:)` ever reads anything else, or a tile keeps old flags.

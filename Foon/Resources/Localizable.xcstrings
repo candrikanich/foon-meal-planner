@@ -1312,6 +1312,9 @@
     "Choose a photo" : {
 
     },
+    "Clear" : {
+
+    },
     "Clear the note" : {
 
     },
@@ -2014,6 +2017,9 @@
     },
     "Filters · %@" : {
 
+    },
+    "Filters · %lld" : {
+      "comment" : "Library: how many filters are on"
     },
     "Filters, %@ selected" : {
 
@@ -3245,6 +3251,9 @@
     "Nothing left on the list." : {
 
     },
+    "Nothing matches all of these" : {
+
+    },
     "Nothing on the lists changes, and it's cleared for everyone." : {
 
     },
@@ -3984,6 +3993,9 @@
 
     },
     "Showing meals in your rotation" : {
+
+    },
+    "Showing meals that match all %lld filters" : {
 
     },
     "Shown on the day card when %@ is home." : {
@@ -4855,6 +4867,9 @@
     "Try another meal or ingredient." : {
 
     },
+    "Try turning a filter off." : {
+
+    },
     "Trying" : {
 
     },
@@ -4877,6 +4892,9 @@
 
     },
     "Turn this off if you buy it fresh, and Foon skips thaw reminders and won't hold a dish back to give it time to thaw." : {
+
+    },
+    "Turns every filter off" : {
 
     },
     "Turns this email off." : {

@@ -109,15 +109,30 @@ enum LibraryText {
         meals == 1 ? String(localized: "1 meal") : String(localized: "\(meals) meals")
     }
 
-    /// The Filters pill names what's applied, so a separate label for it isn't needed.
-    static func filtersPill(_ filter: LibraryFilter?) -> String {
-        guard let filter else { return String(localized: "Filters") }
-        return String(localized: "Filters · \(filter.title)")
+    /// The Filters pill names what's applied, so a separate label for it isn't needed. Past one, it counts them.
+    static func filtersPill(_ filters: Set<LibraryFilter>) -> String {
+        let chosen = LibraryFilter.ordered(filters)
+        switch chosen.count {
+        case 0: return String(localized: "Filters")
+        case 1: return String(localized: "Filters · \(chosen[0].title)")
+        default: return String(localized: "Filters · \(chosen.count)", comment: "Library: how many filters are on")
+        }
     }
 
-    static func filtersSummary(_ filter: LibraryFilter?) -> String {
-        guard let filter else { return String(localized: "Showing meals in your rotation") }
-        return String(localized: "Showing \(filter.title.localizedLowercase)")
+    /// VoiceOver names every chosen filter, since the pill only counts them.
+    static func filtersLabel(_ filters: Set<LibraryFilter>) -> String {
+        let chosen = LibraryFilter.ordered(filters)
+        guard !chosen.isEmpty else { return String(localized: "Filters") }
+        return String(localized: "Filters, \(chosen.map(\.title).formatted(.list(type: .and))) selected")
+    }
+
+    static func filtersSummary(_ filters: Set<LibraryFilter>) -> String {
+        let chosen = LibraryFilter.ordered(filters)
+        switch chosen.count {
+        case 0: return String(localized: "Showing meals in your rotation")
+        case 1: return String(localized: "Showing \(chosen[0].title.localizedLowercase)")
+        default: return String(localized: "Showing meals that match all \(chosen.count) filters")
+        }
     }
 }
 

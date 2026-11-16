@@ -1,10 +1,14 @@
 import Foundation
 
-/// Filter chips on the library screen (docs/spec.md → Library screen). One at a time; none shows the rotation.
+/// Filter chips on the library screen (docs/spec.md → Library screen). Several narrow together (#338): Quick and Favorites
+/// is quick favorites. None shows the rotation; Archived swaps it for archived and retired dishes.
 enum LibraryFilter: String, CaseIterable, Identifiable, Sendable {
     case favorites, quick, trying, backup, allergyFlags, archived
 
     var id: Self { self }
+
+    /// The chosen filters in chip order, so labels read the same however they were picked.
+    static func ordered(_ filters: Set<Self>) -> [Self] { allCases.filter(filters.contains) }
 
     var title: String {
         switch self {
@@ -82,12 +86,13 @@ enum LibraryQuery {
         }
     }
 
-    static func apply(_ entries: [LibraryEntry], filter: LibraryFilter?, sort: LibrarySort, search: String) -> [LibraryEntry] {
+    static func apply(_ entries: [LibraryEntry], filters: Set<LibraryFilter>, sort: LibrarySort,
+                      search: String) -> [LibraryEntry] {
         let terms = searchTerms(search)
         return entries
             .filter { entry in
                 let fields = searchable(entry.meal)
-                return matches(entry, filter) && terms.allSatisfy { term in fields.contains { $0.contains(term) } }
+                return matches(entry, filters) && terms.allSatisfy { term in fields.contains { $0.contains(term) } }
             }
             .sorted(by: ordering(sort))
     }
@@ -97,7 +102,7 @@ enum LibraryQuery {
     static func searchMatches(_ meals: [LibraryMeal], history: [MealHistory], search: String, limit: Int) -> [LibraryMeal] {
         let historyByMeal = Dictionary(history.map { ($0.mealID, $0) }, uniquingKeysWith: { first, _ in first })
         let entries = meals.map { LibraryEntry(meal: $0, history: historyByMeal[$0.id], flags: [], isFavorite: false) }
-        return apply(entries, filter: nil, sort: .notLately, search: search).prefix(limit).map(\.meal)
+        return apply(entries, filters: [], sort: .notLately, search: search).prefix(limit).map(\.meal)
     }
 
     /// Starter dishes matching a search, shown below the family's own; dishes already copied in are skipped.
@@ -147,16 +152,21 @@ enum LibraryQuery {
 
     // MARK: - Private
 
-    private static func matches(_ entry: LibraryEntry, _ filter: LibraryFilter?) -> Bool {
+    /// The rotation, or the archive when Archived is chosen, narrowed by every other chosen filter.
+    private static func matches(_ entry: LibraryEntry, _ filters: Set<LibraryFilter>) -> Bool {
+        guard entry.meal.status.isInRotation != filters.contains(.archived) else { return false }
+        return filters.allSatisfy { has(entry, $0) }
+    }
+
+    private static func has(_ entry: LibraryEntry, _ filter: LibraryFilter) -> Bool {
         let meal = entry.meal
-        guard let filter else { return meal.status.isInRotation }
         switch filter {
         case .archived: return !meal.status.isInRotation
-        case .favorites: return meal.status.isInRotation && entry.isFavorite
-        case .quick: return meal.status.isInRotation && meal.tags.contains(.quick)
+        case .favorites: return entry.isFavorite
+        case .quick: return meal.tags.contains(.quick)
         case .trying: return meal.status == .trial
-        case .backup: return meal.status.isInRotation && meal.tags.contains(.backup)
-        case .allergyFlags: return meal.status.isInRotation && !entry.flags.isEmpty
+        case .backup: return meal.tags.contains(.backup)
+        case .allergyFlags: return !entry.flags.isEmpty
         }
     }
 
