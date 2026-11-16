@@ -6,12 +6,13 @@ struct WelcomeView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Spacing.l) {
             Spacer()
             Text("Foon")
-                .font(.largeTitle.bold())
+                .font(.foonLargeTitle)
+                .foregroundStyle(Palette.ink)
             Text("Different tastes. Same table.")
-                .font(.title3)
+                .font(.foonHeadline)
                 .foregroundStyle(.secondary)
             Spacer()
             SignInWithAppleButton(.continue) { request in
@@ -27,12 +28,13 @@ struct WelcomeView: View {
             .frame(height: 50)
             if let message = session.errorMessage {
                 Text(message)
-                    .font(.footnote)
+                    .font(.foonCaption)
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
             }
         }
-        .padding(24)
+        .padding(Spacing.xl)
+        .background(Palette.cream)
         .onChange(of: session.errorMessage) { _, message in
             if let message {
                 AccessibilityNotification.Announcement(message).post()

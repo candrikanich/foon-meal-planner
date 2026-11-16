@@ -10,17 +10,17 @@ struct ShowcaseStep: View {
     @State private var rescueAsked = false
 
     var body: some View {
-        List {
-            Section {
-                Text(OnboardingShowcase.intro).foregroundStyle(.secondary)
-            }
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
+                Text(OnboardingShowcase.intro).font(.foonBody).foregroundStyle(.secondary)
                 RecipeCard(model: model) { recipeAsked = true }
-            }
-            Section {
+                    .foonCard()
                 RescueCard(model: model) { rescueAsked = true }
+                    .foonCard()
             }
+            .padding(Spacing.l)
         }
+        .background(Palette.cream)
         .navigationTitle(OnboardingShowcase.title)
         .safeAreaInset(edge: .bottom) {
             StepFooter(primary: OnboardingShowcase.continueTitle(tried: model.tried), onPrimary: onNext)
@@ -38,12 +38,12 @@ private struct CardHeader: View {
     let detail: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.s) {
             Label(title, systemImage: systemImage)
                 .font(.foonHeadline)
                 .foregroundStyle(Palette.ink)
-            Text(body1)
-            Text(detail).font(.callout).foregroundStyle(.secondary)
+            Text(body1).font(.foonBody)
+            Text(detail).font(.foonBody).foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
     }
@@ -55,50 +55,52 @@ private struct RecipeCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        CardHeader(title: OnboardingShowcase.recipeTitle, systemImage: "square.and.arrow.down",
-                   body1: OnboardingShowcase.recipeBody,
-                   detail: OnboardingShowcase.recipeDetail(model.variant))
-        if model.recipeShown {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(OnboardingShowcase.recipeShared).font(.foonCaption).foregroundStyle(.secondary)
-                Text(model.recipe.post)
-                    .font(.footnote.monospaced())
-                    .lineLimit(8)
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(Palette.cardSurface))
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            CardHeader(title: OnboardingShowcase.recipeTitle, systemImage: "square.and.arrow.down",
+                       body1: OnboardingShowcase.recipeBody,
+                       detail: OnboardingShowcase.recipeDetail(model.variant))
+            if model.recipeShown {
+                VStack(alignment: .leading, spacing: Spacing.s) {
+                    Text(OnboardingShowcase.recipeShared).font(.foonCaption).foregroundStyle(.secondary)
+                    Text(model.recipe.post)
+                        .font(.footnote.monospaced())
+                        .lineLimit(8)
+                        .padding(Spacing.m)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.quaternary, in: .rect(cornerRadius: Radius.medium, style: .continuous))
+                }
+                .accessibilityElement(children: .combine)
+                landed
+                Text(OnboardingShowcase.recipeExample).font(.foonCaption).foregroundStyle(.secondary)
+            } else {
+                Button(OnboardingShowcase.showMe, systemImage: "play.circle", action: onTry)
+                    .buttonStyle(.pill(.tinted))
+                    .accessibilityLabel(Text("Show a shared recipe landing in your ideas"))
+                    .accessibilityInputLabels([Text(OnboardingShowcase.showMe), Text("Show a shared recipe")])
             }
-            .accessibilityElement(children: .combine)
-            landed
-            Text(OnboardingShowcase.recipeExample).font(.foonCaption).foregroundStyle(.secondary)
-        } else {
-            Button(OnboardingShowcase.showMe, systemImage: "play.circle", action: onTry)
-                .tint(Palette.paprika)
-                .accessibilityLabel(Text("Show a shared recipe landing in your ideas"))
-                .accessibilityInputLabels([Text(OnboardingShowcase.showMe), Text("Show a shared recipe")])
         }
     }
 
     private var landed: some View {
         let shown = Landed(model.tidied, plain: model.recipe.plain)
         let caption = Text(OnboardingShowcase.recipeLands).font(.foonCaption).foregroundStyle(.secondary)
-        return VStack(alignment: .leading, spacing: 6) {
+        return VStack(alignment: .leading, spacing: Spacing.s) {
             // The share sheet's own wait, so the demo is what sharing is really like.
             if model.isTidying {
                 caption
                 TidyProgressCard(startedAt: model.tidyStarted, limit: OnboardingShowcase.tidyTimeout)
             } else {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: Spacing.s) {
                     caption
                     if let note = model.tidyNote {
                         Text(note).font(.foonCaption).foregroundStyle(.secondary)
                     }
-                    Text(shown.name).font(.foonBody.weight(.semibold))
+                    Text(shown.name).font(.foonHeadline)
                     ForEach(Array(shown.ingredients.enumerated()), id: \.offset) { _, line in
                         Label(line, systemImage: "circle.fill").labelStyle(Bullet())
                     }
                     ForEach(Array(shown.steps.enumerated()), id: \.offset) { index, step in
-                        Text("\(index + 1). \(step)", comment: "Onboarding: a numbered recipe step").font(.callout)
+                        Text("\(index + 1). \(step)", comment: "Onboarding: a numbered recipe step").font(.foonBody)
                     }
                 }
                 .accessibilityElement(children: .combine)
@@ -127,9 +129,9 @@ private struct RecipeCard: View {
 
 private struct Bullet: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
             configuration.icon.font(.system(size: 5)).foregroundStyle(.secondary)
-            configuration.title.font(.callout)
+            configuration.title.font(.foonBody)
         }
     }
 }
@@ -139,28 +141,30 @@ private struct RescueCard: View {
     let onTry: () -> Void
 
     var body: some View {
-        CardHeader(title: OnboardingShowcase.rescueTitle, systemImage: "lifepreserver",
-                   body1: OnboardingShowcase.rescueBody,
-                   detail: OnboardingShowcase.rescueDetail(model.variant))
-        if let ideas = model.rescue {
-            ForEach(ideas) { idea in row(idea) }
-            Text(OnboardingShowcase.rescueExample).font(.foonCaption).foregroundStyle(.secondary)
-        } else {
-            Button(OnboardingShowcase.showMe, systemImage: "play.circle", action: onTry)
-                .tint(Palette.paprika)
-                .accessibilityLabel(Text("Show three ideas for tonight from your dinners"))
-                .accessibilityInputLabels([Text(OnboardingShowcase.showMe), Text("Show ideas for tonight")])
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            CardHeader(title: OnboardingShowcase.rescueTitle, systemImage: "lifepreserver",
+                       body1: OnboardingShowcase.rescueBody,
+                       detail: OnboardingShowcase.rescueDetail(model.variant))
+            if let ideas = model.rescue {
+                ForEach(ideas) { idea in row(idea) }
+                Text(OnboardingShowcase.rescueExample).font(.foonCaption).foregroundStyle(.secondary)
+            } else {
+                Button(OnboardingShowcase.showMe, systemImage: "play.circle", action: onTry)
+                    .buttonStyle(.pill(.tinted))
+                    .accessibilityLabel(Text("Show three ideas for tonight from your dinners"))
+                    .accessibilityInputLabels([Text(OnboardingShowcase.showMe), Text("Show ideas for tonight")])
+            }
         }
     }
 
     private func row(_ idea: TonightRescue.Idea) -> some View {
         let friendly = model.wording[idea.id]
-        return HStack(alignment: .firstTextBaseline, spacing: 12) {
+        return HStack(alignment: .firstTextBaseline, spacing: Spacing.m) {
             Image(systemName: RescueRow.systemImage(idea.kind))
                 .foregroundStyle(Palette.paprika)
                 .frame(width: 24)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(idea.title).font(.foonBody).foregroundStyle(Palette.ink)
                 if let friendly {
                     Text(friendly).font(.foonCaption).italic().foregroundStyle(Palette.ink)

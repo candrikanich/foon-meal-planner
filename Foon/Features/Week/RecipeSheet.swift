@@ -10,7 +10,7 @@ struct RecipeSheet: View {
         NavigationStack {
             MealDetailView(mealID: mealID, canEdit: canEdit)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
                 }
         }
     }

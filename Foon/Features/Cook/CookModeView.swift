@@ -72,30 +72,33 @@ struct CookModeView: View {
 
     private var beforeYouStart: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
                 Text("Before you start").font(.foonLargeTitle).foregroundStyle(Palette.ink)
                 if !servingNotes.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: Spacing.m) {
                         Text(notesAreTonight ? String(localized: "Tonight") : String(localized: "Serving notes"))
                             .font(.foonHeadline)
                         ForEach(servingNotes, id: \.self) { note in
                             Label(note, systemImage: "fork.knife").font(.foonBody)
                         }
                     }
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(Palette.cardSurface))
+                    .foonCard()
                 }
                 if !meal.ingredients.isEmpty {
-                    Text("You'll need").font(.foonHeadline)
-                    ForEach(Array(meal.ingredients.enumerated()), id: \.offset) { _, line in
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(line.name).font(.foonBody)
-                            Spacer()
-                            if let quantity = line.quantityText { Text(quantity).font(.foonBody).foregroundStyle(.secondary) }
+                    VStack(alignment: .leading, spacing: Spacing.m) {
+                        Text("You'll need").font(.foonHeadline).accessibilityAddTraits(.isHeader)
+                        ForEach(Array(meal.ingredients.enumerated()), id: \.offset) { _, line in
+                            HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
+                                Text(line.name).font(.foonBody)
+                                Spacer()
+                                if let quantity = line.quantityText {
+                                    Text(quantity).font(.foonBody).foregroundStyle(.secondary)
+                                }
+                            }
+                            .accessibilityElement(children: .combine)
                         }
-                        .accessibilityElement(children: .combine)
                     }
+                    .foonCard()
                 }
                 if meal.steps.isEmpty {
                     Text("This dish has no steps yet. Add them on the meal to cook along here.")
@@ -103,13 +106,13 @@ struct CookModeView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding()
+            .padding(Spacing.l)
         }
     }
 
     private func stepPage(_ step: String, number: Int) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
                 Text("Step \(number) of \(meal.steps.count)").font(.foonHeadline).foregroundStyle(.secondary)
                 Text(step).font(.system(.title)).foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
@@ -120,13 +123,11 @@ struct CookModeView: View {
                         Label("Timer: \(timer.label)", systemImage: "timer")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Palette.paprika)
-                    .controlSize(.large)
+                    .buttonStyle(.pill(.prominent, fullWidth: true))
                     .accessibilityHint("Starts a timer; an alert goes off when it's done, even with the phone locked")
                 }
             }
-            .padding()
+            .padding(Spacing.l)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -135,7 +136,7 @@ struct CookModeView: View {
 
     private var runningTimers: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            VStack(spacing: 8) {
+            VStack(spacing: Spacing.s) {
                 if timers.alertsOff {
                     Link(destination: Self.notificationSettings) {
                         Label("Alerts are off, so keep Foon open. Turn them on in Settings.", systemImage: "bell.slash")
@@ -145,7 +146,7 @@ struct CookModeView: View {
                 }
                 ForEach(timers.running) { timer in
                     let remaining = timer.remaining(at: context.date)
-                    HStack {
+                    HStack(spacing: Spacing.s) {
                         Image(systemName: remaining == 0 ? "bell.fill" : "timer")
                             .foregroundStyle(remaining == 0 ? Palette.paprika : .secondary)
                         Text(timer.label).font(.foonBody)
@@ -166,19 +167,20 @@ struct CookModeView: View {
                     .accessibilityElement(children: .contain)
                 }
             }
-            .padding()
+            .padding(Spacing.l)
             .background(.bar)
         }
     }
 
     private var controls: some View {
-        HStack {
+        HStack(spacing: Spacing.s) {
             Button {
                 withAnimation { page = max(page - 1, 0) }
             } label: {
                 Label("Back", systemImage: "chevron.left").frame(maxWidth: .infinity)
             }
             .keyboardShortcut(.leftArrow, modifiers: [])
+            .buttonStyle(.pill(.tinted, fullWidth: true))
             .disabled(page == 0)
             if page < pageCount - 1 {
                 Button {
@@ -187,18 +189,15 @@ struct CookModeView: View {
                     Label(page == 0 ? "Start cooking" : "Next", systemImage: "chevron.right").frame(maxWidth: .infinity)
                 }
                 .keyboardShortcut(.rightArrow, modifiers: [])
-                .buttonStyle(.borderedProminent)
-                .tint(Palette.paprika)
+                .buttonStyle(.pill(.prominent, fullWidth: true))
             } else {
                 Button { dismiss() } label: {
                     Label("All done", systemImage: "checkmark").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Palette.herb)
+                .buttonStyle(.pill(.prominent, fullWidth: true))
             }
         }
-        .controlSize(.large)
-        .padding()
+        .padding(Spacing.l)
         .background(.bar)
     }
 

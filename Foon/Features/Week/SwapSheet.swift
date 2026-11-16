@@ -62,28 +62,32 @@ struct SwapSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                if let message = week.errorMessage ?? library.errorMessage {
-                    Text(message).font(.callout).foregroundStyle(.red)
-                }
-                if let unwinding {
-                    Section { Text(unwinding).font(.foonCaption).foregroundStyle(.secondary) }
-                }
-                if search.isEmpty {
-                    suggestionsSection
-                    heldBackSection
-                    freezerSection
-                    quickPicksSection
-                    if night?.isPlanned == true {
-                        Section {
-                            Button("Leave it empty", role: .destructive) { Task { await choose(.empty) } }
-                        } footer: {
-                            Text("Fill or Pick for me can plan it again.")
-                        }
+                Group {
+                    if let message = week.errorMessage ?? library.errorMessage {
+                        Text(message).font(.foonBody).foregroundStyle(.red)
                     }
-                } else {
-                    searchResults
+                    if let unwinding {
+                        Section { Text(unwinding).font(.foonCaption).foregroundStyle(.secondary) }
+                    }
+                    if search.isEmpty {
+                        suggestionsSection
+                        heldBackSection
+                        freezerSection
+                        quickPicksSection
+                        if night?.isPlanned == true {
+                            Section {
+                                Button("Leave it empty", role: .destructive) { Task { await choose(.empty) } }
+                            } footer: {
+                                Text("Fill or Pick for me can plan it again.")
+                            }
+                        }
+                    } else {
+                        searchResults
+                    }
                 }
+                .foonRows()
             }
+            .foonGrouped()
             .searchable(text: $search, prompt: Text("Search your meals or add one"))
             .scrollDismissesKeyboard(.immediately)
             .disabled(isWorking)
@@ -148,7 +152,7 @@ struct SwapSheet: View {
         let details: [String] = [reason] + equipment.map(\.usuallyUsesText)
         return Button { Task { await choose(.meal(id: meal.id, name: meal.name)) } } label: {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(meal.name).font(.foonHeadline).foregroundStyle(Palette.ink)
                     AllergyChips(check: allergies)
                     Chip(text: reason, systemImage: "sparkles")
@@ -196,7 +200,7 @@ struct SwapSheet: View {
         let allergies = allergyCheck(meal)
         let details: [String] = rules.map(\.looksLikeText)
         return Button { Task { await choose(.meal(id: meal.id, name: meal.name)) } } label: {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(meal.name).font(.foonHeadline).foregroundStyle(Palette.ink)
                 AllergyChips(check: allergies)
                 ForEach(rules, id: \.self) { rule in
@@ -251,7 +255,7 @@ struct SwapSheet: View {
             }
         } label: {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(offer.meal.name).font(.foonHeadline).foregroundStyle(Palette.ink)
                     Chip(text: made, systemImage: "snowflake")
                     AllergyChips(check: allergies)
@@ -315,7 +319,7 @@ struct SwapSheet: View {
         let allergies = allergyCheck(meal)
         let details: [String] = rules.map(\.looksLikeText)
         return Button { Task { await choose(.meal(id: meal.id, name: meal.name)) } } label: {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(meal.name)
                 AllergyChips(check: allergies)
                 ForEach(rules, id: \.self) { rule in
@@ -330,7 +334,7 @@ struct SwapSheet: View {
     private func catalogRow(_ dish: CatalogDish) -> some View {
         let allergies = SwapRow.allergyCheck(catalog: dish, on: night, allergies: library.allergies)
         return Button { Task { await chooseCatalog(dish) } } label: {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Label(dish.name, systemImage: "plus.circle")
                 AllergyChips(check: allergies)
             }
@@ -344,7 +348,7 @@ struct SwapSheet: View {
         let allergies = allergyCheck(meal)
         let text = String(localized: "Restore \(meal.name) and plan it")
         return Button { Task { await restore(meal) } } label: {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Label(text, systemImage: "arrow.uturn.backward")
                 AllergyChips(check: allergies)
             }

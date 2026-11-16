@@ -17,10 +17,10 @@ struct DinnerMemoriesView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: Spacing.xl) {
                 content
             }
-            .padding()
+            .padding(Spacing.l)
             .frame(maxWidth: 640, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -54,10 +54,8 @@ struct DinnerMemoriesView: View {
                 Task { await store.turnOn() }
             } label: {
                 Label("Show my dinner photos", systemImage: "photo.on.rectangle")
-                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(.pill(.prominent, fullWidth: true))
         } else {
             switchCard
             ForEach(store.dinners) { dinner in
@@ -77,7 +75,7 @@ struct DinnerMemoriesView: View {
     }
 
     private var switchCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.s) {
             Toggle("Show dinner photos", systemImage: "photo.on.rectangle", isOn: Binding(
                 get: { store.isOn },
                 set: { on in
@@ -95,17 +93,17 @@ struct DinnerMemoriesView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding()
-        .background(RoundedRectangle(cornerRadius: 16).fill(Palette.cardSurface))
+        .foonCard()
     }
 
     @ViewBuilder private var footer: some View {
         if store.failed {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Spacing.s) {
                 Text("Couldn't load your dinners. Check your connection and try again.")
                     .font(.foonBody)
                     .foregroundStyle(.secondary)
                 Button("Try again") { Task { await loadMore() } }
+                    .buttonStyle(.pill(.tinted))
             }
         } else if store.isEmpty {
             ContentUnavailableView {
@@ -117,7 +115,7 @@ struct DinnerMemoriesView: View {
             // Reaching the bottom reads the next few months back, never the whole library at once.
             ProgressView()
                 .frame(maxWidth: .infinity)
-                .padding()
+                .padding(Spacing.l)
                 .task(id: store.nextRead) { await loadMore() }
         }
     }
@@ -148,8 +146,8 @@ private struct MemoryDinnerCard: View {
     let open: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(DinnerMemories.dateLabel(for: dinner.night, today: today, calendar: calendar))
                     .font(.foonCaption)
                     .foregroundStyle(.secondary)
@@ -160,7 +158,7 @@ private struct MemoryDinnerCard: View {
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                HStack(spacing: Spacing.s) {
                     ForEach(dinner.shownPhotoIDs, id: \.self) { id in
                         Button { open(id) } label: {
                             MemoryThumbnail(id: id, source: source)
@@ -182,9 +180,7 @@ private struct MemoryDinnerCard: View {
                 }
             }
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Palette.cardSurface))
+        .foonCard()
         .accessibilityElement(children: .contain)
     }
 }
@@ -197,8 +193,8 @@ private struct MemoryThumbnail: View {
     @State private var image: Image?
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 10)
-            .fill(Palette.cream)
+        RoundedRectangle(cornerRadius: Radius.small)
+            .fill(.quaternary)
             .frame(width: Self.side, height: Self.side)
             .overlay {
                 if let image {
@@ -207,7 +203,7 @@ private struct MemoryThumbnail: View {
                     Image(systemName: "photo").foregroundStyle(.secondary)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.small))
             .task(id: id) { image = await source.image(id, CGSize(width: Self.side, height: Self.side)) }
     }
 }
@@ -235,7 +231,7 @@ private struct OpenedPhotoView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding()
+            .padding(Spacing.l)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }

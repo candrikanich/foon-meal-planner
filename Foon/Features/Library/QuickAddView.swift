@@ -23,46 +23,53 @@ struct QuickAddView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField("Meal name", text: $name)
-                        .focused($focus, equals: .name)
-                        .submitLabel(.next)
-                        .onSubmit { focus = .ingredients }
-                }
-
-                Section {
-                    TextField("1 lb ground beef, taco shells, cheese", text: $ingredients, axis: .vertical)
-                        .focused($focus, equals: .ingredients)
-                        .lineLimit(2...6)
-                        .accessibilityLabel("Ingredients")
-                    ForEach(suggestions, id: \.self) { suggestion in
-                        Button {
-                            ingredients = IngredientAutocomplete.completing(ingredients, with: suggestion)
-                        } label: {
-                            Label(suggestion, systemImage: "text.badge.plus")
-                        }
-                    }
-                } header: {
-                    Text("Ingredients (optional)")
-                } footer: {
-                    Text("Separate them with commas or new lines. You can add them later too.")
-                }
-
-                if !parsed.isEmpty {
-                    Section("Will add") {
-                        ForEach(Array(parsed.enumerated()), id: \.offset) { _, line in
-                            LabeledContent(line.name, value: line.quantity ?? "")
-                        }
-                    }
-                }
-
-                if let message = library.errorMessage {
+                Group {
                     Section {
-                        Text(message).foregroundStyle(.red)
+                        TextField("Meal name", text: $name)
+                            .focused($focus, equals: .name)
+                            .submitLabel(.next)
+                            .onSubmit { focus = .ingredients }
+                    }
+
+                    Section {
+                        TextField("1 lb ground beef, taco shells, cheese", text: $ingredients, axis: .vertical)
+                            .focused($focus, equals: .ingredients)
+                            .lineLimit(2...6)
+                            .accessibilityLabel("Ingredients")
+                        ForEach(suggestions, id: \.self) { suggestion in
+                            Button {
+                                ingredients = IngredientAutocomplete.completing(ingredients, with: suggestion)
+                            } label: {
+                                Label(suggestion, systemImage: "text.badge.plus")
+                            }
+                        }
+                    } header: {
+                        Text("Ingredients (optional)")
+                    } footer: {
+                        Text("Separate them with commas or new lines. You can add them later too.")
+                    }
+
+                    if !parsed.isEmpty {
+                        Section("Will add") {
+                            ForEach(Array(parsed.enumerated()), id: \.offset) { _, line in
+                                LabeledContent(line.name, value: line.quantity ?? "")
+                            }
+                        }
+                    }
+
+                    if let message = library.errorMessage {
+                        Section {
+                            Text(message).font(.foonBody).foregroundStyle(.red)
+                        }
                     }
                 }
+                .foonRows()
             }
+            .foonGrouped()
             .navigationTitle("Quick add")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .defaultFocus($focus, .name)
             .onAppear { library.clearError() }
             .toolbar {

@@ -36,7 +36,7 @@ struct OnboardingFlow: View {
                 if household.household?.planningSettings.samplePending != true {
                     ProgressView(value: Double(step.rawValue + 1), total: Double(Step.allCases.count))
                         .tint(Palette.paprika)
-                        .padding(.horizontal)
+                        .padding(.horizontal, Spacing.l)
                         .accessibilityLabel("Step \(step.rawValue + 1) of \(Step.allCases.count)")
                 }
             }
@@ -93,18 +93,19 @@ struct StepFooter: View {
     var onSecondary: (() -> Void)?
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Spacing.s) {
             Button(action: onPrimary) {
-                Text(primary).frame(maxWidth: .infinity)
+                Text(primary)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Palette.paprika)
+            .buttonStyle(.pill(.prominent, fullWidth: true))
             .disabled(isWorking)
             if let secondary, let onSecondary {
-                Button(secondary, action: onSecondary).disabled(isWorking)
+                Button(secondary, action: onSecondary)
+                    .buttonStyle(.pill(.tinted, fullWidth: true))
+                    .disabled(isWorking)
             }
         }
-        .padding()
+        .padding(Spacing.l)
         .background(.bar)
     }
 }
@@ -116,15 +117,19 @@ private struct FamilyStep: View {
 
     var body: some View {
         List {
-            Section {
-                ForEach(household.visibleMembers) { member in
-                    MemberRow(member: member, isYou: member.userID == household.userID)
+            Group {
+                Section {
+                    ForEach(household.visibleMembers) { member in
+                        MemberRow(member: member, isYou: member.userID == household.userID)
+                    }
+                    Button("Add someone", systemImage: "person.badge.plus") { adding = true }
+                } footer: {
+                    Text("Add everyone who eats with you, kids too. They can join on their own phones later.")
                 }
-                Button("Add someone", systemImage: "person.badge.plus") { adding = true }
-            } footer: {
-                Text("Add everyone who eats with you, kids too. They can join on their own phones later.")
             }
+            .foonRows()
         }
+        .foonGrouped()
         .navigationTitle("Who's at your table?")
         .safeAreaInset(edge: .bottom) { StepFooter(primary: String(localized: "Next"), onPrimary: onNext) }
         .sheet(isPresented: $adding) { MemberEditorView(member: nil) }
@@ -140,31 +145,35 @@ private struct AllergyStep: View {
 
     var body: some View {
         List {
-            if !hasAllergies {
-                Section {
-                    Text("Does anyone have food allergies?").font(.foonTitle)
-                    Text("Foon flags dishes that contain them, and you plan as usual.")
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Section {
-                    Text(AllergyConsent.statement).font(.callout)
-                    HealthDataPolicyLink()
-                } footer: {
-                    // The same words as member allergies, so the promise reads the same wherever allergies are added.
-                    Text("Foon flags dishes with these. It's a helper, not a guarantee: still check labels.")
-                }
-                ForEach(household.visibleMembers) { member in
-                    Section(member.firstName) {
-                        AllergenChips(selection: binding(for: member).allergens)
-                        TextField("Other (like kiwi)", text: otherBinding(for: member))
+            Group {
+                if !hasAllergies {
+                    Section {
+                        Text("Does anyone have food allergies?").font(.foonTitle)
+                        Text("Foon flags dishes that contain them, and you plan as usual.")
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Section {
+                        Text(AllergyConsent.statement).font(.foonBody)
+                        HealthDataPolicyLink()
+                    } footer: {
+                        // The same words as member allergies, so the promise reads the same wherever allergies are added.
+                        Text("Foon flags dishes with these. It's a helper, not a guarantee: still check labels.")
+                    }
+                    ForEach(household.visibleMembers) { member in
+                        Section(member.firstName) {
+                            AllergenChips(selection: binding(for: member).allergens)
+                            TextField("Other (like kiwi)", text: otherBinding(for: member))
+                        }
+                    }
+                    if let message = model.errorMessage {
+                        Section { Text(message).font(.foonBody).foregroundStyle(.red) }
                     }
                 }
-                if let message = model.errorMessage {
-                    Section { Text(message).foregroundStyle(.red) }
-                }
             }
+            .foonRows()
         }
+        .foonGrouped()
         .navigationTitle("Allergies")
         .safeAreaInset(edge: .bottom) {
             if hasAllergies {
@@ -205,7 +214,7 @@ struct AllergenChips: View {
     @Binding var selection: Set<Allergen>
 
     var body: some View {
-        ChipFlow(spacing: 8) {
+        ChipFlow(spacing: Spacing.s) {
             ForEach(Allergen.allCases.filter { $0 != .custom }, id: \.self) { allergen in
                 let on = selection.contains(allergen)
                 Button {
@@ -213,8 +222,8 @@ struct AllergenChips: View {
                 } label: {
                     Text(allergen.displayName.localizedCapitalized)
                         .font(.foonCaption)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, Spacing.m)
+                        .padding(.vertical, Spacing.s)
                         .foregroundStyle(on ? Palette.onPaprika : Palette.ink)
                         .background(Capsule().fill(on ? Palette.caution : Palette.cardSurface))
                         .overlay(Capsule().strokeBorder(.quaternary))
@@ -223,7 +232,7 @@ struct AllergenChips: View {
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Spacing.xs)
     }
 }
 
@@ -239,45 +248,48 @@ private struct DinnersStep: View {
 
     var body: some View {
         List {
-            Section {
-                Text("Which of these does your family make?").font(.foonTitle)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(DinnerPicker.tabs(library.catalog), id: \.self) { option in
-                            Button(option.title) {
-                                tab = option
-                                showAll = false
+            Group {
+                Section {
+                    Text("Which of these does your family make?").font(.foonTitle)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: Spacing.s) {
+                            ForEach(DinnerPicker.tabs(library.catalog), id: \.self) { option in
+                                Button(option.title) {
+                                    tab = option
+                                    showAll = false
+                                }
+                                .buttonStyle(.pill(.tinted, tint: tab == option ? Palette.paprika : .secondary))
+                                .accessibilityAddTraits(tab == option ? .isSelected : [])
                             }
-                            .buttonStyle(.bordered)
-                            .tint(tab == option ? Palette.paprika : .secondary)
-                            .accessibilityAddTraits(tab == option ? .isSelected : [])
                         }
                     }
                 }
-            }
-            Section {
-                let dishes = DinnerPicker.visible(library.catalog, tab: tab, search: search, showAll: showAll)
-                ForEach(dishes) { dish in
-                    Button { model.toggle(dish) } label: { dishRow(dish) }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(model.picked.contains(dish.id) ? .isSelected : [])
-                }
-                if search.isEmpty, !showAll,
-                   DinnerPicker.visible(library.catalog, tab: tab, search: "", showAll: true).count > dishes.count {
-                    Button("Show more") { showAll = true }
-                }
-            } footer: {
-                Text("Tap the dinners your family already makes. You can add your own anytime.")
-            }
-            if library.catalog.isEmpty, let message = library.errorMessage {
                 Section {
-                    Text(message).foregroundStyle(.red)
-                    Button("Try again") { Task { await library.load(members: household.members) } }
+                    let dishes = DinnerPicker.visible(library.catalog, tab: tab, search: search, showAll: showAll)
+                    ForEach(dishes) { dish in
+                        Button { model.toggle(dish) } label: { dishRow(dish) }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(model.picked.contains(dish.id) ? .isSelected : [])
+                    }
+                    if search.isEmpty, !showAll,
+                       DinnerPicker.visible(library.catalog, tab: tab, search: "", showAll: true).count > dishes.count {
+                        Button("Show more") { showAll = true }
+                    }
+                } footer: {
+                    Text("Tap the dinners your family already makes. You can add your own anytime.")
                 }
-            } else if let message = library.errorMessage {
-                Section { Text(message).foregroundStyle(.red) }
+                if library.catalog.isEmpty, let message = library.errorMessage {
+                    Section {
+                        Text(message).font(.foonBody).foregroundStyle(.red)
+                        Button("Try again") { Task { await library.load(members: household.members) } }
+                    }
+                } else if let message = library.errorMessage {
+                    Section { Text(message).font(.foonBody).foregroundStyle(.red) }
+                }
             }
+            .foonRows()
         }
+        .foonGrouped()
         .searchable(text: $search, prompt: Text("Search dinners"))
         .navigationTitle("Dinners")
         .safeAreaInset(edge: .bottom) {
@@ -298,11 +310,11 @@ private struct DinnersStep: View {
     private func dishRow(_ dish: CatalogDish) -> some View {
         let picked = model.picked.contains(dish.id)
         let flags = model.flags(for: dish, members: household.visibleMembers)
-        return HStack(spacing: 12) {
+        return HStack(spacing: Spacing.m) {
             Image(systemName: picked ? "checkmark.circle.fill" : "circle")
                 .font(.title3)
                 .foregroundStyle(picked ? Palette.herb : .secondary)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(dish.name).font(.foonBody)
                 ForEach(flags, id: \.self) { flag in
                     Label(flag.summary, systemImage: "exclamationmark.triangle.fill")
@@ -335,8 +347,12 @@ private struct RhythmStep: View {
 
     var body: some View {
         Form {
-            RhythmFields(settings: $settings)
+            Group {
+                RhythmFields(settings: $settings)
+            }
+            .foonRows()
         }
+        .foonGrouped()
         .navigationTitle("Your rhythm")
         .safeAreaInset(edge: .bottom) { StepFooter(primary: String(localized: "Next"), onPrimary: onNext) }
     }
@@ -351,22 +367,26 @@ private struct InviteStep: View {
 
     var body: some View {
         List {
-            Section {
-                if invitable.isEmpty {
-                    Text("Everyone's here. You can invite people later from Family.").foregroundStyle(.secondary)
-                }
-                ForEach(invitable) { member in
-                    Button { inviting = member } label: {
-                        MemberRow(member: member, isYou: false,
-                                  invited: household.invitedMemberIDs.contains(member.id))
+            Group {
+                Section {
+                    if invitable.isEmpty {
+                        Text("Everyone's here. You can invite people later from Family.").foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Opens their profile to send an invite")
+                    ForEach(invitable) { member in
+                        Button { inviting = member } label: {
+                            MemberRow(member: member, isYou: false,
+                                      invited: household.invitedMemberIDs.contains(member.id))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Opens their profile to send an invite")
+                    }
+                } footer: {
+                    Text("Each person gets a link and a code to join on their own phone. Kids need a parent's OK first.")
                 }
-            } footer: {
-                Text("Each person gets a link and a code to join on their own phone. Kids need a parent's OK first.")
             }
+            .foonRows()
         }
+        .foonGrouped()
         .navigationTitle("Invite your family")
         .safeAreaInset(edge: .bottom) {
             StepFooter(primary: String(localized: "Go to This Week"), onPrimary: onDone)
@@ -386,7 +406,7 @@ private struct SampleFamilySetup: View {
     @State private var failed = false
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Spacing.l) {
             if failed {
                 ContentUnavailableView {
                     Label("Couldn't set up the sample family", systemImage: "wifi.exclamationmark")
@@ -401,6 +421,7 @@ private struct SampleFamilySetup: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Palette.cream)
         .task { await run() }
     }
 
