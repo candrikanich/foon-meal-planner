@@ -50,7 +50,7 @@ struct LibraryQueryTests {
                        MealHistory(mealID: meals[7].id, timesMade: 1, lastMade: CalendarDay(year: 2026, month: 9, day: 1))]
         for search in ["chicken", "CHICKEN", "rice", "tacos", "nothing like it", "chicken rice"] {
             let full = LibraryQuery.apply(LibraryQuery.entries(allOf: meals, history: history, allergies: [nora], favorites: []),
-                                          filter: nil, sort: .notLately, search: search)
+                                          filters: [], sort: .notLately, search: search)
             let found = LibraryQuery.searchMatches(meals, history: history, search: search, limit: 12)
             #expect(found.map(\.id) == full.prefix(12).map(\.meal.id), "\(search)")
         }
@@ -86,7 +86,7 @@ struct LibraryQueryTests {
             meal("Tacos"), meal("Trial curry", status: .trial),
             meal("Old casserole", status: .archived), meal("Liver", status: .retired)
         ], history: [], allergies: [], favorites: [])
-        #expect(names(LibraryQuery.apply(entries, filter: nil, sort: .recentlyAdded, search: ""))
+        #expect(names(LibraryQuery.apply(entries, filters: [], sort: .recentlyAdded, search: ""))
             == ["Tacos", "Trial curry"])
     }
 
@@ -95,7 +95,7 @@ struct LibraryQueryTests {
             meal("Tacos"), meal("Old casserole", status: .archived, addedDaysAgo: 1),
             meal("Liver", status: .retired, addedDaysAgo: 2)
         ], history: [], allergies: [], favorites: [])
-        #expect(names(LibraryQuery.apply(entries, filter: .archived, sort: .recentlyAdded, search: ""))
+        #expect(names(LibraryQuery.apply(entries, filters: [.archived], sort: .recentlyAdded, search: ""))
             == ["Old casserole", "Liver"])
     }
 
@@ -115,7 +115,36 @@ struct LibraryQueryTests {
             lasagna,
             meal("Archived quick thing", tags: [.quick, .backup], status: .archived, addedDaysAgo: 4)
         ], history: [], allergies: [nora], favorites: [lasagna.id])
-        #expect(names(LibraryQuery.apply(entries, filter: filter, sort: .recentlyAdded, search: "")) == expected)
+        #expect(names(LibraryQuery.apply(entries, filters: [filter], sort: .recentlyAdded, search: "")) == expected)
+    }
+
+    /// #338: filters narrow together, so Quick and Favorites is quick favorites, not either.
+    @Test func severalFiltersMatchEveryOne() {
+        let quickFavorite = meal("Tacos", tags: [.quick])
+        let slowFavorite = meal("Lasagna", ingredients: ["ricotta"], addedDaysAgo: 1)
+        let entries = LibraryQuery.entries(allOf: [
+            quickFavorite, slowFavorite,
+            meal("Quesadillas", tags: [.quick, .backup], addedDaysAgo: 2),
+            meal("Trial stir fry", tags: [.quick], status: .trial, addedDaysAgo: 3)
+        ], history: [], allergies: [nora], favorites: [quickFavorite.id, slowFavorite.id])
+        func shown(_ filters: Set<LibraryFilter>) -> [String] {
+            names(LibraryQuery.apply(entries, filters: filters, sort: .recentlyAdded, search: ""))
+        }
+        #expect(shown([.quick, .favorites]) == ["Tacos"])
+        #expect(shown([.quick, .backup]) == ["Quesadillas"])
+        #expect(shown([.quick, .trying]) == ["Trial stir fry"])
+        #expect(shown([.favorites, .allergyFlags]) == ["Lasagna"])
+        #expect(shown([.backup, .favorites]).isEmpty)
+    }
+
+    @Test func archivedWithAnotherFilterNarrowsTheArchive() {
+        let entries = LibraryQuery.entries(allOf: [
+            meal("Tacos", tags: [.quick]),
+            meal("Old quick thing", tags: [.quick], status: .archived, addedDaysAgo: 1),
+            meal("Old casserole", status: .retired, addedDaysAgo: 2)
+        ], history: [], allergies: [], favorites: [])
+        #expect(names(LibraryQuery.apply(entries, filters: [.archived, .quick], sort: .recentlyAdded, search: ""))
+            == ["Old quick thing"])
     }
 
     // MARK: Sorts
@@ -128,7 +157,7 @@ struct LibraryQueryTests {
             MealHistory(mealID: soup.id, timesMade: 4, lastMade: CalendarDay(year: 2026, month: 8, day: 9))
         ]
         let entries = LibraryQuery.entries(allOf: [tacos, new, chili, soup], history: history, allergies: [], favorites: [])
-        #expect(names(LibraryQuery.apply(entries, filter: nil, sort: .notLately, search: ""))
+        #expect(names(LibraryQuery.apply(entries, filters: [], sort: .notLately, search: ""))
             == ["Chili", "Soup", "Tacos", "New dish"])
     }
 
@@ -140,7 +169,7 @@ struct LibraryQueryTests {
             MealHistory(mealID: soup.id, timesMade: 4, lastMade: CalendarDay(year: 2026, month: 8, day: 9))
         ]
         let entries = LibraryQuery.entries(allOf: [new, chili, soup, tacos], history: history, allergies: [], favorites: [])
-        #expect(names(LibraryQuery.apply(entries, filter: nil, sort: .mostMade, search: ""))
+        #expect(names(LibraryQuery.apply(entries, filters: [], sort: .mostMade, search: ""))
             == ["Tacos", "Soup", "Chili", "New dish"])
     }
 
@@ -148,14 +177,14 @@ struct LibraryQueryTests {
         let entries = LibraryQuery.entries(allOf: [
             meal("Oldest", addedDaysAgo: 30), meal("Newest", addedDaysAgo: 0), meal("Middle", addedDaysAgo: 5)
         ], history: [], allergies: [], favorites: [])
-        #expect(names(LibraryQuery.apply(entries, filter: nil, sort: .recentlyAdded, search: ""))
+        #expect(names(LibraryQuery.apply(entries, filters: [], sort: .recentlyAdded, search: ""))
             == ["Newest", "Middle", "Oldest"])
     }
 
     @Test func tiesFallBackToTheName() {
         let entries = LibraryQuery.entries(allOf: [meal("Ziti"), meal("apple pork"), meal("Burgers")],
                                            history: [], allergies: [], favorites: [])
-        #expect(names(LibraryQuery.apply(entries, filter: nil, sort: .notLately, search: ""))
+        #expect(names(LibraryQuery.apply(entries, filters: [], sort: .notLately, search: ""))
             == ["apple pork", "Burgers", "Ziti"])
     }
 
@@ -167,8 +196,8 @@ struct LibraryQueryTests {
             meal("Chicken fried rice", ingredients: ["chicken thighs", "rice"]),
             meal("Jambalaya", ingredients: ["andouille sausage", "Rice"])
         ], history: [], allergies: [], favorites: [])
-        #expect(names(LibraryQuery.apply(entries, filter: nil, sort: .notLately, search: "creme")) == ["Crème brûlée french toast"])
-        #expect(names(LibraryQuery.apply(entries, filter: nil, sort: .notLately, search: "RICE"))
+        #expect(names(LibraryQuery.apply(entries, filters: [], sort: .notLately, search: "creme")) == ["Crème brûlée french toast"])
+        #expect(names(LibraryQuery.apply(entries, filters: [], sort: .notLately, search: "RICE"))
             == ["Chicken fried rice", "Jambalaya"])
     }
 
@@ -177,7 +206,7 @@ struct LibraryQueryTests {
             meal("Chicken fried rice", ingredients: ["chicken thighs", "rice"]),
             meal("Jambalaya", ingredients: ["andouille sausage", "rice"])
         ], history: [], allergies: [], favorites: [])
-        #expect(names(LibraryQuery.apply(entries, filter: nil, sort: .notLately, search: " rice  chicken "))
+        #expect(names(LibraryQuery.apply(entries, filters: [], sort: .notLately, search: " rice  chicken "))
             == ["Chicken fried rice"])
     }
 
@@ -185,7 +214,7 @@ struct LibraryQueryTests {
         let entries = LibraryQuery.entries(allOf: [
             meal("Tacos", tags: [.quick]), meal("Fish tacos", status: .archived)
         ], history: [], allergies: [], favorites: [])
-        #expect(names(LibraryQuery.apply(entries, filter: .archived, sort: .notLately, search: "tacos")) == ["Fish tacos"])
+        #expect(names(LibraryQuery.apply(entries, filters: [.archived], sort: .notLately, search: "tacos")) == ["Fish tacos"])
     }
 
     // MARK: Catalog

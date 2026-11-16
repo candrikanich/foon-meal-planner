@@ -380,17 +380,17 @@ struct UncheckedInTheLibraryTests {
     }
 
     @Test func itIsntAnAllergyFlag() {
-        let flagged = LibraryQuery.apply(entries(allergies), filter: .allergyFlags, sort: .recentlyAdded, search: "")
+        let flagged = LibraryQuery.apply(entries(allergies), filters: [.allergyFlags], sort: .recentlyAdded, search: "")
         #expect(flagged.map(\.meal.id) == [mac.id])
     }
 
     @Test func theFlagsFilterDoesntCallUncheckedDishesSafe() {
-        let clear = LibraryText.emptyState(filter: .allergyFlags, searching: false)
+        let clear = LibraryText.emptyState(filters: [.allergyFlags], searching: false)
         #expect(clear.message.contains("None of your meals contain"))
-        let one = LibraryText.emptyState(filter: .allergyFlags, searching: false, unchecked: 1)
+        let one = LibraryText.emptyState(filters: [.allergyFlags], searching: false, unchecked: 1)
         #expect(!one.message.contains("None of your meals contain"))
         #expect(one.message.contains("1 meal"))
-        let some = LibraryText.emptyState(filter: .allergyFlags, searching: false, unchecked: 3)
+        let some = LibraryText.emptyState(filters: [.allergyFlags], searching: false, unchecked: 3)
         #expect(some.message.contains("3 meals"))
         #expect(some.systemImage != "checkmark.shield", "nothing here has been checked clear")
     }
@@ -598,11 +598,21 @@ struct DishThatDidntLoadTests {
 struct UncheckedCountTests {
     private let nora = Member.fixture(firstName: "Nora", ageGroup: .kid)
 
-    private func count(_ meals: [LibraryMeal], allergies: Bool = true) async -> Int {
+    private func count(_ meals: [LibraryMeal], allergies: Bool = true, filters: Set<LibraryFilter> = []) async -> Int {
         let rows = allergies ? [AllergyRow(memberID: nora.id, allergen: .milk, customText: nil)] : []
         let store = LibraryStore(householdID: Household.sample.id, client: .fake(meals: { _ in meals }, allergies: { _ in rows }))
         await store.load(members: [nora])
+        store.filters = filters
         return store.uncheckedCount
+    }
+
+    /// #338: combined with Allergy flags, the other filters decide which dishes the note counts.
+    @Test func countsOnlyWhatTheOtherFiltersShow() async {
+        let meals: [LibraryMeal] = [.fixture(name: "Chili"), .fixture(name: "Quesadillas", tags: [.quick]),
+                                    .fixture(name: "Old", status: .archived)]
+        #expect(await count(meals, filters: [.allergyFlags]) == 2)
+        #expect(await count(meals, filters: [.allergyFlags, .quick]) == 1)
+        #expect(await count(meals, filters: [.allergyFlags, .archived]) == 1)
     }
 
     @Test func countsOnlyDishesInRotation() async {
@@ -623,13 +633,13 @@ struct UncheckedCountTests {
     }
 
     @Test func theFilterSaysSoEvenWithSomethingFlagged() throws {
-        let one = try #require(LibraryText.uncheckedFilterNote(filter: .allergyFlags, unchecked: 1))
+        let one = try #require(LibraryText.uncheckedFilterNote(filters: [.allergyFlags], unchecked: 1))
         #expect(one.contains("1 meal"))
         #expect(!one.contains("no ingredients"), "a side that can't be found has its ingredients; the dish says which it is")
-        let some = try #require(LibraryText.uncheckedFilterNote(filter: .allergyFlags, unchecked: 5))
+        let some = try #require(LibraryText.uncheckedFilterNote(filters: [.allergyFlags], unchecked: 5))
         #expect(some.contains("5 meals"))
-        #expect(LibraryText.uncheckedFilterNote(filter: .allergyFlags, unchecked: 0) == nil)
-        #expect(LibraryText.uncheckedFilterNote(filter: nil, unchecked: 5) == nil, "only on that filter")
-        #expect(LibraryText.uncheckedFilterNote(filter: .favorites, unchecked: 5) == nil)
+        #expect(LibraryText.uncheckedFilterNote(filters: [.allergyFlags], unchecked: 0) == nil)
+        #expect(LibraryText.uncheckedFilterNote(filters: [], unchecked: 5) == nil, "only on that filter")
+        #expect(LibraryText.uncheckedFilterNote(filters: [.favorites], unchecked: 5) == nil)
     }
 }

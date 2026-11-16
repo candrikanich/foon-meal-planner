@@ -74,7 +74,7 @@ struct LibraryView: View {
             }
             .sheet(item: $planning, onDismiss: { Task { await library.refreshUnused() } }) { meal in PlanItSheet(meal: meal) }
             .sheet(isPresented: $filtering) {
-                LibraryFiltersSheet(selection: $library.filter) { filtering = false }
+                LibraryFiltersSheet(selection: $library.filters) { filtering = false }
             }
             .sheet(isPresented: $browsingCatalog) {
                 CatalogBrowserView(canAdd: canEdit)
@@ -98,7 +98,7 @@ struct LibraryView: View {
         } else if entries.isEmpty && catalogMatches.isEmpty {
             emptyState
         } else {
-            if let note = LibraryText.uncheckedFilterNote(filter: library.filter, unchecked: library.uncheckedCount) {
+            if let note = LibraryText.uncheckedFilterNote(filters: library.filters, unchecked: library.uncheckedCount) {
                 Label(note, systemImage: "questionmark.circle")
                     .font(.foonCaption)
                     .foregroundStyle(Palette.caution)
@@ -154,11 +154,10 @@ struct LibraryView: View {
     private var controls: some View {
         @Bindable var library = library
         let filters = Button { filtering = true } label: {
-            Label(LibraryText.filtersPill(library.filter), systemImage: "line.3.horizontal.decrease")
+            Label(LibraryText.filtersPill(library.filters), systemImage: "line.3.horizontal.decrease")
         }
         .buttonStyle(.pill(.tinted))
-        .accessibilityLabel(library.filter.map { String(localized: "Filters, \($0.title) selected") }
-                            ?? String(localized: "Filters"))
+        .accessibilityLabel(LibraryText.filtersLabel(library.filters))
         let sort = Menu {
             Picker("Sort", selection: $library.sort) {
                 ForEach(LibrarySort.allCases) { sort in Text(sort.title).tag(sort) }
@@ -193,14 +192,14 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        let copy = LibraryText.emptyState(filter: library.filter, searching: !library.search.isEmpty,
+        let copy = LibraryText.emptyState(filters: library.filters, searching: !library.search.isEmpty,
                                           unchecked: library.uncheckedCount)
         ContentUnavailableView {
             Label(copy.title, systemImage: copy.systemImage)
         } description: {
             Text(copy.message)
         } actions: {
-            if library.filter == nil && library.search.isEmpty {
+            if library.filters.isEmpty && library.search.isEmpty {
                 if canEdit {
                     Button("Quick add") { quickAdding = true }
                         .buttonStyle(.borderedProminent)
@@ -242,8 +241,8 @@ extension LibraryText {
 
     /// The Allergy flags filter lists what's flagged; this says what it can't vouch for, so the list doesn't read as
     /// complete. Counts a dish with no ingredients, one whose side has none, and one whose side can't be found.
-    static func uncheckedFilterNote(filter: LibraryFilter?, unchecked: Int) -> String? {
-        filter == .allergyFlags && unchecked > 0 ? uncheckedNote(unchecked) : nil
+    static func uncheckedFilterNote(filters: Set<LibraryFilter>, unchecked: Int) -> String? {
+        filters.contains(.allergyFlags) && unchecked > 0 ? uncheckedNote(unchecked) : nil
     }
 
     private static func uncheckedNote(_ count: Int) -> String {
@@ -252,13 +251,19 @@ extension LibraryText {
             : String(localized: "\(count) meals can't be fully checked for allergies. Open them to see why.")
     }
 
-    static func emptyState(filter: LibraryFilter?, searching: Bool, unchecked: Int = 0) -> EmptyState {
+    static func emptyState(filters: Set<LibraryFilter>, searching: Bool, unchecked: Int = 0) -> EmptyState {
         if searching {
             return EmptyState(title: String(localized: "No matches"),
                               message: String(localized: "Try another meal or ingredient."),
                               systemImage: "magnifyingglass")
         }
-        switch filter {
+        let chosen = LibraryFilter.ordered(filters)
+        guard chosen.count < 2 else {
+            return EmptyState(title: String(localized: "Nothing matches all of these"),
+                              message: String(localized: "Try turning a filter off."),
+                              systemImage: "line.3.horizontal.decrease")
+        }
+        switch chosen.first {
         case nil:
             return EmptyState(title: String(localized: "No meals yet"),
                               message: String(localized: "Add the dinners your family already makes."),

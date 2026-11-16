@@ -87,7 +87,7 @@ private struct TraditionEditor: View {
 
     private var meals: [LibraryMeal] {
         LibraryQuery.apply(LibraryQuery.entries(meals: library.meals, library: library.meals, history: [], allergies: [], favorites: []),
-                           filter: nil, sort: .recentlyAdded, search: search).map(\.meal)
+                           filters: [], sort: .recentlyAdded, search: search).map(\.meal)
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 

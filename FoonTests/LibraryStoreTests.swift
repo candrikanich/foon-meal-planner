@@ -64,7 +64,7 @@ struct LibraryStoreTests {
         await store.load(members: [])
         await store.setArchived(true, mealID: tacos.id)
         #expect(store.visibleEntries.isEmpty)
-        store.filter = .archived
+        store.filters = [.archived]
         #expect(store.visibleEntries.map(\.meal.name) == ["Tacos"])
         await store.setArchived(false, mealID: tacos.id)
         #expect(store.visibleEntries.isEmpty)
