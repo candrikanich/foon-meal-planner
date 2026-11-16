@@ -435,7 +435,7 @@ struct KitchenSettingsTests {
     }
 }
 
-/// "Start cooking at 5:45 PM for 6:30 PM dinner" (#55).
+/// The cook window, "Cook 5:45–6:30 PM" (#55, #340).
 struct StartCookingTests {
     private let today = CalendarDay(year: 2026, month: 11, day: 3)
     private let enUS = Locale(identifier: "en_US")
@@ -450,7 +450,7 @@ struct StartCookingTests {
 
     /// The system's time format puts a narrow space before PM.
     private func text(_ nudge: StartCooking?, locale: Locale? = nil) -> String? {
-        nudge?.text(locale: locale ?? enUS).replacingOccurrences(of: "\u{202F}", with: " ")
+        PrepLine.make(prep: nil, start: nudge, locale: locale ?? enUS)?.text.spacesPlain
     }
 
     private func nudge(_ meal: LibraryMeal, _ night: WeekNight? = nil, settings: HouseholdSettings = HouseholdSettings(),
@@ -473,7 +473,7 @@ struct StartCookingTests {
     // MARK: Where the time comes from
 
     @Test func aDishsOwnTimeSaysAt() {
-        #expect(text(nudge(timed(45))) == "Start cooking at 5:45 PM for 6:30 PM dinner")
+        #expect(text(nudge(timed(45))) == "Cook 5:45 – 6:30 PM")
     }
 
     @Test func aDishsOwnTimeBeatsItsTags() {
@@ -500,14 +500,14 @@ struct StartCookingTests {
     }
 
     @Test func anEstimateSaysAround() {
-        #expect(text(nudge(.fixture(name: "Tacos", tags: [.quick]))) == "Start cooking around 6:00 PM for 6:30 PM dinner")
+        #expect(text(nudge(.fixture(name: "Tacos", tags: [.quick]))) == "Cook around 6:00 – 6:30 PM")
     }
 
     @Test func aNightWithNoTimeUsesTheHouseholds() {
         var settings = HouseholdSettings()
         settings.dinnerTime = "17:30"
         let nudge = nudge(.fixture(name: "Tacos", tags: [.quick]), night(time: nil), settings: settings)
-        #expect(text(nudge) == "Start cooking around 5:00 PM for 5:30 PM dinner")
+        #expect(text(nudge) == "Cook around 5:00 – 5:30 PM")
     }
 
     @Test func aTimeThatWontReadGetsNoNudge() {
@@ -515,7 +515,7 @@ struct StartCookingTests {
     }
 
     @Test func aTwentyFourHourLocaleReadsThatWay() {
-        #expect(text(nudge(timed(45)), locale: Locale(identifier: "en_GB")) == "Start cooking at 17:45 for 18:30 dinner")
+        #expect(text(nudge(timed(45)), locale: Locale(identifier: "en_GB")) == "Cook 17:45 – 18:30")
     }
 
     // MARK: The midnight boundary
@@ -523,7 +523,7 @@ struct StartCookingTests {
     @Test func aStartAtMidnightStillShows() {
         let nudge = nudge(timed(30), night(time: "00:30"), at: 0)
         #expect(nudge?.startMinute == 0)
-        #expect(text(nudge) == "Start cooking at 12:00 AM for 12:30 AM dinner")
+        #expect(text(nudge) == "Cook from 12:00 AM")
     }
 
     @Test func aStartTheDayBeforeGetsNoNudge() {
@@ -553,7 +553,7 @@ struct StartCookingTests {
     @Test func aPassedStartLetsThePrepChipComeBack() {
         let badges = NightBadges.badges(meal: chili, library: [chili], allergies: [], home: [], lookup: .loaded,
                                         start: nudge(chili, at: 15 * 60))
-        #expect(badges == [.prep("Start the slow cooker · 8 hours ahead")])
+        #expect(badges == [.prepLine(PrepLine("Start the slow cooker · 8 hours ahead"))])
     }
 
     @Test func theCurrentMinuteIsTheHouseholds() {
@@ -587,15 +587,15 @@ struct StartCookingTests {
         let meal = LibraryMeal.fixture(name: "Tacos", tags: [.quick])
         let nudge = nudge(meal)
         #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], lookup: .loaded, start: nudge)
-            == [.startCooking(nudge?.text() ?? "")])
+            == [.prepLine(PrepLine.make(prep: nil, start: nudge)!)])
     }
 
     @Test func theSlowCookerStepGivesWay() {
         let nudge = nudge(chili)
         #expect(NightBadges.badges(meal: chili, library: [chili], allergies: [], home: [], lookup: .loaded, start: nudge)
-            == [.startCooking(nudge?.text() ?? "")])
+            == [.prepLine(PrepLine.make(prep: nil, start: nudge)!)])
         #expect(NightBadges.badges(meal: chili, library: [chili], allergies: [], home: [], lookup: .loaded)
-            == [.prep("Start the slow cooker · 8 hours ahead")])
+            == [.prepLine(PrepLine("Start the slow cooker · 8 hours ahead"))])
     }
 
     @Test func aDishsOwnTimeWinsOverADifferentSlowCookerStep() {
@@ -604,14 +604,14 @@ struct StartCookingTests {
         let nudge = nudge(meal)
         #expect(nudge?.cookMinutes == 360)
         #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], lookup: .loaded, start: nudge)
-            == [.startCooking(nudge?.text() ?? "")])
+            == [.prepLine(PrepLine.make(prep: nil, start: nudge)!)])
     }
 
     @Test func aMarinateWithTheSameLeadStillShows() {
         let meal = timed(60, name: "Kebabs", prepSteps: [PrepStep(step: "Marinate the chicken", leadHours: 1)])
         let nudge = nudge(meal)
         #expect(NightBadges.badges(meal: meal, library: [meal], allergies: [], home: [], lookup: .loaded, start: nudge)
-            == [.startCooking(nudge?.text() ?? ""), .prep("Marinate the chicken · 1 hour ahead")])
+            == [.prepLine(PrepLine.make(prep: "Marinate the chicken · 1 hour ahead", start: nudge)!)])
     }
 
     @Test func aThawStepStillShows() {
@@ -620,15 +620,17 @@ struct StartCookingTests {
                                                     PrepStep(step: "Start the slow cooker", leadHours: 8)])
         let nudge = nudge(roast)
         #expect(NightBadges.badges(meal: roast, library: [roast], allergies: [], home: [], lookup: .loaded, start: nudge)
-            == [.startCooking(nudge?.text() ?? ""), .prep("Thaw the meat · 1 day ahead")])
+            == [.prepLine(PrepLine.make(prep: "Thaw the meat · 1 day ahead", start: nudge)!)])
     }
 
     @Test func theCardReadsItToVoiceOver() {
         let card = DayCardModel(date: today, effort: .normal, slot: .empty, attendance: [],
-                                badges: [.startCooking("Start cooking at 5:45 PM for 6:30 PM dinner"),
+                                badges: [.prepLine(PrepLine("Thaw · Cook 5:45 – 6:30 PM",
+                                                            spoken: "Thaw. Start cooking at 5:45 PM for dinner at 6:30 PM")),
                                          .equipment("Usually uses a grill")], isLocked: false)
         let summary = DayCardText.accessibilitySummary(card, today: today)
-        #expect(summary.contains("Start cooking at 5:45 PM for 6:30 PM dinner"))
+        #expect(summary.contains("Thaw. Start cooking at 5:45 PM for dinner at 6:30 PM"))
+        #expect(!summary.contains("Cook 5:45"))
         #expect(summary.contains("Usually uses a grill"))
     }
 

@@ -26,10 +26,10 @@ struct DayCardModel: Identifiable, Equatable, Sendable {
         case allergyUnchecked(String)
         case tradition(String)
         case request(from: String)
-        case prep(String)
+        /// The first prep step and the cook window, as one line.
+        case prepLine(PrepLine)
         case equipment(String)
         case foodRule(String)
-        case startCooking(String)
         case doubled(String)
     }
 
@@ -157,10 +157,15 @@ enum DayCardText {
 
     static func badgeLabel(_ badge: DayCardModel.Badge) -> String {
         switch badge {
-        case .allergy(let text), .allergyUnchecked(let text), .tradition(let text), .prep(let text), .equipment(let text), .foodRule(let text),
-             .startCooking(let text), .doubled(let text): text
+        case .allergy(let text), .allergyUnchecked(let text), .tradition(let text), .equipment(let text), .foodRule(let text), .doubled(let text): text
+        case .prepLine(let line): line.text
         case .request(let name): String(localized: "\(name)'s request", comment: "Day card badge: the member who asked for this dish")
         }
+    }
+
+    /// What VoiceOver reads for a badge: the prep line is a full sentence, not its dash.
+    static func spokenBadge(_ badge: DayCardModel.Badge) -> String {
+        if case .prepLine(let line) = badge { line.spoken } else { badgeLabel(badge) }
     }
 
     /// A claim is a promise, so it's about tonight; a log says what happened.
@@ -177,11 +182,11 @@ enum DayCardText {
         String(localized: "\(job.title): \(job.firstName)", comment: "A dinner job and whose turn it is")
     }
 
-    /// Badges by how loudly a quiet card says them: allergies in warning color, prep and start-cooking beside the dish,
+    /// Badges by how loudly a quiet card says them: allergies in warning color, the prep line beside the dish,
     /// everything else as one soft line.
     struct BadgeGroups: Equatable {
         var warnings: [String] = []
-        var prep: [String] = []
+        var prep: [PrepLine] = []
         var notes: [String] = []
     }
 
@@ -189,7 +194,7 @@ enum DayCardText {
         badges.reduce(into: BadgeGroups()) { groups, badge in
             switch badge {
             case .allergy, .allergyUnchecked: groups.warnings.append(badgeLabel(badge))
-            case .prep, .startCooking: groups.prep.append(badgeLabel(badge))
+            case .prepLine(let line): groups.prep.append(line)
             case .tradition, .request, .equipment, .foodRule, .doubled: groups.notes.append(badgeLabel(badge))
             }
         }
@@ -227,7 +232,7 @@ enum DayCardText {
         let away = card.attendance.filter { !$0.isHome }.map(\.firstName)
         if !home.isEmpty { parts.append(String(localized: "Home: \(home.joined(separator: ", "))")) }
         if !away.isEmpty { parts.append(String(localized: "Away: \(away.joined(separator: ", "))")) }
-        parts.append(contentsOf: card.badges.map(badgeLabel))
+        parts.append(contentsOf: card.badges.map(spokenBadge))
         parts.append(contentsOf: card.servingNotes)
         if let cook = card.cook { parts.append(cookLabel(cook)) }
         parts.append(contentsOf: card.jobs.map(jobLabel))

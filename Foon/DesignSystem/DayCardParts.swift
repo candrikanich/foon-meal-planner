@@ -91,10 +91,11 @@ extension DayCard {
     }
 
     func prepLines(font: Font) -> some View {
-        ForEach(groups.prep, id: \.self) { text in
-            Label(text, systemImage: "timer")
+        ForEach(groups.prep, id: \.self) { line in
+            Label(line.text, systemImage: "timer")
                 .font(font)
                 .foregroundStyle(.secondary)
+                .accessibilityLabel(line.spoken)
         }
     }
 

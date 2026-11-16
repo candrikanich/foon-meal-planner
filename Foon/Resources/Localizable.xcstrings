@@ -1362,6 +1362,18 @@
         }
       }
     },
+    "Cook %@" : {
+      "comment" : "Day card prep line: the time range to cook in"
+    },
+    "Cook around %@" : {
+      "comment" : "Day card prep line: an estimated time range to cook in"
+    },
+    "Cook from %@" : {
+      "comment" : "Day card prep line: a morning start, one clock time"
+    },
+    "Cook from around %@" : {
+      "comment" : "Day card prep line: an estimated morning start"
+    },
     "Cook it the way your family likes it." : {
       "comment" : "Onboarding: example recipe step 2"
     },
@@ -4148,24 +4160,24 @@
     "Start cooking" : {
 
     },
-    "Start cooking around %@ for %@ dinner" : {
-      "comment" : "Day card badge from an estimated cooking time: two clock times",
+    "Start cooking around %@ for dinner at %@" : {
+      "comment" : "VoiceOver, day card: an estimated start and the dinner time",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Start cooking around %1$@ for %2$@ dinner"
+            "value" : "Start cooking around %1$@ for dinner at %2$@"
           }
         }
       }
     },
-    "Start cooking at %@ for %@ dinner" : {
-      "comment" : "Day card badge from the dish's own cooking time: two clock times",
+    "Start cooking at %@ for dinner at %@" : {
+      "comment" : "VoiceOver, day card: the start and the dinner time",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Start cooking at %1$@ for %2$@ dinner"
+            "value" : "Start cooking at %1$@ for dinner at %2$@"
           }
         }
       }
