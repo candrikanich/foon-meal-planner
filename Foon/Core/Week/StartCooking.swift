@@ -1,6 +1,6 @@
 import Foundation
 
-/// "Start cooking at 5:45 PM for 6:30 PM dinner" (docs/spec.md → Cooking start time): a dish's time, counted back from
+/// The cook window, "Cook 5:45–6:30 PM" (docs/spec.md → Cooking start time): a dish's time, counted back from
 /// that night's dinner. Wall-clock minutes only, so no time zone or daylight saving can move it.
 struct StartCooking: Equatable, Sendable {
     /// For the only dishes where a tag or name is a fair guess, and an estimate says "around". Anything else gets no
@@ -53,19 +53,24 @@ struct StartCooking: Equatable, Sendable {
         return hour * 60 + minute
     }
 
-    func text(locale: Locale = .current) -> String {
-        let start = Self.clock(startMinute, locale: locale), dinner = Self.clock(dinnerMinute, locale: locale)
-        return isEstimate
-            ? String(localized: "Start cooking around \(start) for \(dinner) dinner",
-                     comment: "Day card badge from an estimated cooking time: two clock times")
-            : String(localized: "Start cooking at \(start) for \(dinner) dinner",
-                     comment: "Day card badge from the dish's own cooking time: two clock times")
+    /// "3:00–6:00 PM", in the locale's own 12 or 24-hour style.
+    func range(locale: Locale) -> String {
+        let calendar = Self.clockCalendar
+        let start = Self.date(startMinute), end = Self.date(dinnerMinute)
+        return (start..<end).formatted(Date.IntervalFormatStyle(date: .omitted, time: .shortened, locale: locale,
+                                                                calendar: calendar, timeZone: .gmt))
     }
 
-    private static func clock(_ minute: Int, locale: Locale) -> String {
+    func clock(_ minute: Int, locale: Locale) -> String {
+        Self.date(minute).formatted(Date.FormatStyle(locale: locale, calendar: Self.clockCalendar, timeZone: .gmt)
+            .hour().minute())
+    }
+
+    private static var clockCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .gmt
-        let date = Date(timeIntervalSinceReferenceDate: TimeInterval(minute * 60))
-        return date.formatted(Date.FormatStyle(locale: locale, calendar: calendar, timeZone: .gmt).hour().minute())
+        return calendar
     }
+
+    private static func date(_ minute: Int) -> Date { Date(timeIntervalSinceReferenceDate: TimeInterval(minute * 60)) }
 }

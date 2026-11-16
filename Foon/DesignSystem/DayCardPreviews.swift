@@ -19,6 +19,21 @@ private enum DayCardPreview {
     static let jobs: [DayCardModel.JobLine] = [.init(title: "Set the table", firstName: "Nora"),
                                                .init(title: "Do the dishes", firstName: "Owen")]
 
+    /// `start` nil is a prep step alone; a nil `prep` is the cook window alone.
+    static func prepLine(_ prep: String?, start: Int?, dinner: Int, estimate: Bool = false) -> DayCardModel.Badge {
+        let window = start.map { StartCooking(cookMinutes: dinner - $0, isEstimate: estimate, startMinute: $0,
+                                              dinnerMinute: dinner) }
+        return .prepLine(PrepLine.make(prep: prep, start: window, locale: Locale(identifier: "en_US")) ?? PrepLine(""))
+    }
+
+    static let prepLineCases: [DayCardModel] = [
+        night(0, slot: .meal(name: "Pot roast", reason: nil), badges: [prepLine("Thaw tonight", start: 15 * 60, dinner: 18 * 60)]),
+        night(1, slot: .meal(name: "Grilled chicken", reason: nil), badges: [prepLine("Marinate · 4 hours ahead", start: nil, dinner: 0)]),
+        night(2, slot: .meal(name: "Tacos", reason: nil), badges: [prepLine(nil, start: 17 * 60 + 30, dinner: 18 * 60, estimate: true)]),
+        night(3, slot: .meal(name: "Chili", reason: nil), badges: [prepLine(nil, start: 9 * 60, dinner: 18 * 60, estimate: true)]),
+        night(4, slot: .meal(name: "Pasta", reason: nil))
+    ]
+
     static var actions: DayCard.Actions {
         DayCard.Actions(toggleAttendance: { _ in }, setEffort: { _ in }, toggleLock: {}, shuffle: {}, swap: {}, open: {})
     }
@@ -38,7 +53,7 @@ private enum DayCardPreview {
     static let potRoast = night(1, effort: .full,
                                 slot: .meal(name: "Pot roast", reason: "Haven't had it in 7 weeks",
                                             sides: ["mashed potatoes", "green beans"]),
-                                badges: [.prep("Thaw tonight"), .startCooking("Start cooking at 5:00 PM for 6:00 PM dinner")],
+                                badges: [prepLine("Thaw tonight", start: 15 * 60, dinner: 18 * 60)],
                                 locked: true, notes: ["Nora: keep everything separate before mixing"])
     static let empty = night(2, slot: .empty)
     static let crab = night(3, effort: .event, slot: .meal(name: "Crab legs", reason: nil),
@@ -50,7 +65,7 @@ private enum DayCardPreview {
     static let longText = night(
         1, slot: .meal(name: "Slow-roasted shoulder of lamb with preserved lemon and olives", reason: nil,
                        sides: ["herbed couscous", "charred broccolini", "yogurt and mint sauce"]),
-        badges: [.allergy("Contains tree nuts (Nora) and sesame (Owen)"), .prep("Marinate the lamb the night before")])
+        badges: [.allergy("Contains tree nuts (Nora) and sesame (Owen)"), prepLine("Marinate the lamb the night before", start: nil, dinner: 0)])
 
     static func board<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         ScrollView {
@@ -161,4 +176,13 @@ private enum DayCardPreview {
                              attendance: family, badges: [], isLocked: false),
                 actions: DayCardPreview.actions, openNight: {})
     }
+}
+
+#Preview("Prep line: both, prep only, times only, slow cooker, none") {
+    DayCardPreview.board { DayCardPreview.rows(DayCardPreview.prepLineCases) }
+}
+
+#Preview("Prep line, AX3") {
+    DayCardPreview.board { DayCardPreview.rows(DayCardPreview.prepLineCases) }
+        .dynamicTypeSize(.accessibility3)
 }

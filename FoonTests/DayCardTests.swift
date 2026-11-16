@@ -36,19 +36,18 @@ struct DayCardTextTests {
     @Test func badgesSortByHowLoudlyTheQuietCardSaysThem() {
         let groups = DayCardText.groupBadges([
             .allergy("Contains milk (Nora)"), .allergyUnchecked("Not checked"), .tradition("Taco Tuesday"),
-            .prep("Thaw tonight"), .startCooking("Start cooking at 5:00 PM"), .request(from: "Owen"),
+            .prepLine(PrepLine("Thaw tonight · Cook 5:00 – 6:00 PM")), .request(from: "Owen"),
             .equipment("Usually uses a grill"), .foodRule("Meatless Monday"), .doubled("Doubled: leftovers Friday")
         ])
         #expect(groups.warnings == ["Contains milk (Nora)", "Not checked"])
-        #expect(groups.prep == ["Thaw tonight", "Start cooking at 5:00 PM"])
+        #expect(groups.prep == [PrepLine("Thaw tonight · Cook 5:00 – 6:00 PM")])
         #expect(groups.notes == ["Taco Tuesday", "Owen's request", "Usually uses a grill", "Meatless Monday",
                                  "Doubled: leftovers Friday"])
     }
 
     @Test func everyBadgeLandsInExactlyOneGroup() {
         let badges: [DayCardModel.Badge] = [.allergy("a"), .allergyUnchecked("b"), .tradition("c"), .request(from: "d"),
-                                            .prep("e"), .equipment("f"), .foodRule("g"), .startCooking("h"),
-                                            .doubled("i")]
+                                            .prepLine(PrepLine("e")), .equipment("f"), .foodRule("g"), .doubled("i")]
         let groups = DayCardText.groupBadges(badges)
         #expect(groups.warnings.count + groups.prep.count + groups.notes.count == badges.count)
     }

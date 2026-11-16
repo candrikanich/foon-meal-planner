@@ -3,8 +3,9 @@ import Foundation
 /// The badges a planned night's card carries. Allergy flags name only who's home that night, and count the
 /// meal's sides, as the shopping list does. Then a food rule it looks to break, on a night still ahead, however it got
 /// there (a request, a pin, the planner's own pick); it never blocks anything. Then what the dish usually uses that the
-/// kitchen doesn't have, when to start cooking, and the first prep step, which reminds what to start ahead. A time to start
-/// replaces the slow cooker's step: the two would be the same instruction, or conflict when the dish has its own time.
+/// kitchen doesn't have, when to start cooking, and the first prep step, which reminds what to start ahead. The prep step and the cook
+/// window share one line (`PrepLine`). A time to start replaces the slow cooker's step: the two would be the same
+/// instruction, or conflict when the dish has its own time.
 enum NightBadges {
     /// What's said about a dish's allergies on a night: on its card, and in Swap and Plan it before it's chosen, so they
     /// can't disagree. `home` is `WeekNight.allergyHome`. A dish the library can't find (`nil`) says it couldn't be checked, once
@@ -33,7 +34,7 @@ enum NightBadges {
 
     static func badges(meal: LibraryMeal, library: [LibraryMeal], allergies: [MemberAllergies], home: Set<UUID>,
                        lookup: LibraryLookup, settings: HouseholdSettings = HouseholdSettings(), start: StartCooking? = nil,
-                       alreadyCooked: Bool = false, ruleDay: CalendarDay? = nil) -> [DayCardModel.Badge] {
+                       alreadyCooked: Bool = false, ruleDay: CalendarDay? = nil, locale: Locale = .current) -> [DayCardModel.Badge] {
         let allergyBadges = allergyBadges(allergyCheck(dish: meal, library: library, allergies: allergies, home: home,
                                                        lookup: lookup))
         let rules: [DayCardModel.Badge] = ruleDay.map { day in
@@ -46,13 +47,11 @@ enum NightBadges {
             settings.usesPrep(PrepKind(step: step.step))
                 && (start == nil || !DishTraits(name: step.step).equipment.contains(.slowCooker))
         }.map { step in
-            DayCardModel.Badge.prep([step.step, MealText.leadTime(hours: step.leadHours)].compactMap { $0 }
-                .joined(separator: " · "))
+            [step.step, MealText.leadTime(hours: step.leadHours)].compactMap { $0 }.joined(separator: " · ")
         }
         return allergyBadges
             + rules
             + settings.missingEquipment(for: meal).map { .equipment($0.usuallyUsesText) }
-            + (start.map { [.startCooking($0.text())] } ?? [])
-            + (prep.map { [$0] } ?? [])
+            + (PrepLine.make(prep: prep, start: start, locale: locale).map { [.prepLine($0)] } ?? [])
     }
 }
