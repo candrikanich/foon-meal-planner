@@ -15,37 +15,46 @@ struct AgreementsGateView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    if gate.firstTime {
-                        Text("""
-                        Foon's Terms of Use and Privacy Policy say how Foon works and what it keeps about your family. \
-                        Read them, then agree to keep going.
-                        """)
-                    } else {
-                        Text("Foon changed its Terms of Use or Privacy Policy. Here's what changed:")
-                        ForEach(gate.summaries, id: \.self) { summary in
-                            Text(summary).foregroundStyle(.secondary)
+                Group {
+                    Section {
+                        if gate.firstTime {
+                            Text("""
+                            Foon's Terms of Use and Privacy Policy say how Foon works and what it keeps about your family. \
+                            Read them, then agree to keep going.
+                            """)
+                        } else {
+                            Text("Foon changed its Terms of Use or Privacy Policy. Here's what changed:")
+                            ForEach(gate.summaries, id: \.self) { summary in
+                                Text(summary).font(.foonBody).foregroundStyle(.secondary)
+                            }
+                        }
+                        PolicyLinks()
+                    }
+                    Section {
+                        Button {
+                            Task { await agree() }
+                        } label: {
+                            Text("Agree")
+                        }
+                        .buttonStyle(.pill(.prominent, fullWidth: true))
+                        .listRowBackground(Color.clear)
+                        .disabled(actions.isSaving)
+                        .accessibilityHint("Agrees to the Terms of Use and Privacy Policy")
+                    } footer: {
+                        if let message = actions.errorMessage {
+                            Text(message).font(.foonCaption).foregroundStyle(.red)
+                        } else {
+                            Text("Tapping Agree means you agree to the Terms of Use and Privacy Policy.")
                         }
                     }
-                    PolicyLinks()
                 }
-                Section {
-                    Button {
-                        Task { await agree() }
-                    } label: {
-                        Text("Agree").frame(maxWidth: .infinity)
-                    }
-                    .disabled(actions.isSaving)
-                    .accessibilityHint("Agrees to the Terms of Use and Privacy Policy")
-                } footer: {
-                    if let message = actions.errorMessage {
-                        Text(message).foregroundStyle(.red)
-                    } else {
-                        Text("Tapping Agree means you agree to the Terms of Use and Privacy Policy.")
-                    }
-                }
+                .foonRows()
             }
+            .foonGrouped()
             .navigationTitle(gate.firstTime ? "Before you start" : "We updated our terms")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     if onAgreed == nil {

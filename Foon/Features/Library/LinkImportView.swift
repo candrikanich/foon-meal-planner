@@ -33,38 +33,42 @@ struct LinkImportView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField("Recipe link", text: $link, prompt: Text(verbatim: "https://"))
-                        .textContentType(.URL)
-                        .autocorrectionDisabled()
-                        #if os(iOS)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        #endif
-                        .onSubmit(read)
-                    Button(isWorking && draft == nil ? "Reading…" : "Read recipe", action: read)
-                        .disabled(isWorking || isAdding || link.trimmingCharacters(in: .whitespaces).isEmpty)
-                } footer: {
-                    Text("Most recipe sites work. Foon reads the recipe card, not the whole page.")
-                }
-
-                if let imported, let draft = Binding($draft) {
-                    preview(imported, draft: draft)
-                }
-
-                if let message = library.errorMessage {
+                Group {
                     Section {
-                        Text(message).foregroundStyle(.red)
-                        if let unreadable {
-                            Button("Save just the link") { useLinkOnly(unreadable) }
-                        }
+                        TextField("Recipe link", text: $link, prompt: Text(verbatim: "https://"))
+                            .textContentType(.URL)
+                            .autocorrectionDisabled()
+                            #if os(iOS)
+                            .keyboardType(.URL)
+                            .textInputAutocapitalization(.never)
+                            #endif
+                            .onSubmit(read)
+                        Button(isWorking && draft == nil ? "Reading…" : "Read recipe", action: read)
+                            .disabled(isWorking || isAdding || link.trimmingCharacters(in: .whitespaces).isEmpty)
                     } footer: {
-                        if unreadable != nil, !library.importWasCapped {
-                            Text("Some sites don't let apps read their recipes. You can add the ingredients yourself.")
+                        Text("Most recipe sites work. Foon reads the recipe card, not the whole page.")
+                    }
+
+                    if let imported, let draft = Binding($draft) {
+                        preview(imported, draft: draft)
+                    }
+
+                    if let message = library.errorMessage {
+                        Section {
+                            Text(message).font(.foonBody).foregroundStyle(.red)
+                            if let unreadable {
+                                Button("Save just the link") { useLinkOnly(unreadable) }
+                            }
+                        } footer: {
+                            if unreadable != nil, !library.importWasCapped {
+                                Text("Some sites don't let apps read their recipes. You can add the ingredients yourself.")
+                            }
                         }
                     }
                 }
+                .foonRows()
             }
+            .foonGrouped()
             .navigationTitle("From a link")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

@@ -47,75 +47,82 @@ struct IWantSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Picker("What", selection: $kind) {
-                        Text("From our meals").tag(Kind.library)
-                        Text("Name it").tag(Kind.name)
-                        Text("A link").tag(Kind.link)
-                    }
-                    .pickerStyle(.segmented)
-                }
-                switch kind {
-                case .library:
+                Group {
                     Section {
-                        TextField("Search our meals", text: $search)
-                        ForEach(meals.prefix(30)) { meal in
-                            Button { mealID = meal.id } label: {
-                                HStack {
-                                    Text(meal.name).foregroundStyle(Palette.ink)
-                                    Spacer()
-                                    if mealID == meal.id { Image(systemName: "checkmark").foregroundStyle(Palette.paprika) }
+                        Picker("What", selection: $kind) {
+                            Text("From our meals").tag(Kind.library)
+                            Text("Name it").tag(Kind.name)
+                            Text("A link").tag(Kind.link)
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    switch kind {
+                    case .library:
+                        Section {
+                            TextField("Search our meals", text: $search)
+                            ForEach(meals.prefix(30)) { meal in
+                                Button { mealID = meal.id } label: {
+                                    HStack(spacing: Spacing.s) {
+                                        Text(meal.name).foregroundStyle(Palette.ink)
+                                        Spacer()
+                                        if mealID == meal.id {
+                                            Image(systemName: "checkmark").foregroundStyle(Palette.paprika)
+                                        }
+                                    }
                                 }
+                                .accessibilityAddTraits(mealID == meal.id ? .isSelected : [])
                             }
-                            .accessibilityAddTraits(mealID == meal.id ? .isSelected : [])
+                        }
+                    case .name:
+                        Section {
+                            TextField("Crab legs, Grandma's pie...", text: $title)
+                        } footer: {
+                            Text("Up to \(NewRequest.titleLimit) characters.")
+                        }
+                    case .link:
+                        Section {
+                            TextField("Recipe or video link", text: $link, prompt: Text(verbatim: "https://"))
+                                .textContentType(.URL)
+                                .autocorrectionDisabled()
+                                #if os(iOS)
+                                .keyboardType(.URL)
+                                .textInputAutocapitalization(.never)
+                                #endif
+                            TextField("What is it? (optional)", text: $title)
+                        } footer: {
+                            Text("It shows under New finds until a planner adds it to the library.")
                         }
                     }
-                case .name:
                     Section {
-                        TextField("Crab legs, Grandma's pie...", text: $title)
+                        TextField("A note (optional)", text: $note, axis: .vertical).lineLimit(1...3)
+                        Toggle("For a night", isOn: $hasNight)
+                        if hasNight {
+                            // From the same "today" the rest of This Week uses.
+                            DatePicker("Night", selection: $night, in: week.todayDay.date()...,
+                                       displayedComponents: .date)
+                        }
                     } footer: {
-                        Text("Up to \(NewRequest.titleLimit) characters.")
-                    }
-                case .link:
-                    Section {
-                        TextField("Recipe or video link", text: $link, prompt: Text(verbatim: "https://"))
-                            .textContentType(.URL)
-                            .autocorrectionDisabled()
-                            #if os(iOS)
-                            .keyboardType(.URL)
-                            .textInputAutocapitalization(.never)
-                            #endif
-                        TextField("What is it? (optional)", text: $title)
-                    } footer: {
-                        Text("It shows under New finds until a planner adds it to the library.")
-                    }
-                }
-                Section {
-                    TextField("A note (optional)", text: $note, axis: .vertical).lineLimit(1...3)
-                    Toggle("For a night", isOn: $hasNight)
-                    if hasNight {
-                        // From the same "today" the rest of This Week uses.
-                        DatePicker("Night", selection: $night, in: week.todayDay.date()..., displayedComponents: .date)
-                    }
-                } footer: {
-                    if nightIsAway {
-                        Text("The family's away that night, so there's no dinner to plan. Pick another night, or send it without one.")
-                    }
-                }
-                if askers.count > 1 {
-                    Section("Who wants it") {
-                        Picker("From", selection: Binding(get: { from ?? household.me?.id }, set: { from = $0 })) {
-                            ForEach(askers) { member in Text(member.firstName).tag(Optional(member.id)) }
+                        if nightIsAway {
+                            Text("The family's away that night, so there's no dinner to plan. Pick another night, or send it without one.")
                         }
                     }
+                    if askers.count > 1 {
+                        Section("Who wants it") {
+                            Picker("From", selection: Binding(get: { from ?? household.me?.id }, set: { from = $0 })) {
+                                ForEach(askers) { member in Text(member.firstName).tag(Optional(member.id)) }
+                            }
+                        }
+                    }
+                    if household.me == nil {
+                        Section { Text("Loading your profile...").foregroundStyle(.secondary) }
+                    }
+                    if let message = ideas.errorMessage {
+                        Section { Text(message).font(.foonBody).foregroundStyle(.red) }
+                    }
                 }
-                if household.me == nil {
-                    Section { Text("Loading your profile...").foregroundStyle(.secondary) }
-                }
-                if let message = ideas.errorMessage {
-                    Section { Text(message).foregroundStyle(.red) }
-                }
+                .foonRows()
             }
+            .foonGrouped()
             .navigationTitle("I want...")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

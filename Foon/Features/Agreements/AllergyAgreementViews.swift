@@ -12,29 +12,36 @@ struct AllergyAgreementView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if let summary {
-                    Section("What changed") { Text(summary) }
-                }
-                Section {
-                    Text(AllergyConsent.statement)
-                    HealthDataPolicyLink()
-                } header: {
-                    Text("What a parent agrees to")
-                } footer: {
-                    if canAgree {
-                        Text("You agree for your household. A parent can withdraw anytime in Family → Allergy alerts.")
-                    } else {
-                        Text("""
-                        Only a parent agrees for the household. Until one does, nobody can add allergies, and the ones \
-                        already here still flag dishes.
-                        """)
+                Group {
+                    if let summary {
+                        Section("What changed") { Text(summary) }
+                    }
+                    Section {
+                        Text(AllergyConsent.statement)
+                        HealthDataPolicyLink()
+                    } header: {
+                        Text("What a parent agrees to")
+                    } footer: {
+                        if canAgree {
+                            Text("You agree for your household. A parent can withdraw anytime in Family → Allergy alerts.")
+                        } else {
+                            Text("""
+                            Only a parent agrees for the household. Until one does, nobody can add allergies, and the ones \
+                            already here still flag dishes.
+                            """)
+                        }
+                    }
+                    if let message = actions.errorMessage {
+                        Section { Text(message).font(.foonBody).foregroundStyle(.red) }
                     }
                 }
-                if let message = actions.errorMessage {
-                    Section { Text(message).foregroundStyle(.red) }
-                }
+                .foonRows()
             }
+            .foonGrouped()
             .navigationTitle("Allergy wording")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(canAgree ? "Cancel" : "Done") { dismiss() }
@@ -72,23 +79,30 @@ struct OwnAllergiesAgreementView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if let summary {
-                    Section { Text(summary) }
+                Group {
+                    if let summary {
+                        Section { Text(summary) }
+                    }
+                    Section {
+                        Text(OwnAllergyConsent.statement)
+                        HealthDataPolicyLink()
+                    } footer: {
+                        Text("""
+                        If you don't, the allergies on your profile still flag dishes, and you can remove them. You can't \
+                        add new ones until you agree.
+                        """)
+                    }
+                    if let message = actions.errorMessage {
+                        Section { Text(message).font(.foonBody).foregroundStyle(.red) }
+                    }
                 }
-                Section {
-                    Text(OwnAllergyConsent.statement)
-                    HealthDataPolicyLink()
-                } footer: {
-                    Text("""
-                    If you don't, the allergies on your profile still flag dishes, and you can remove them. You can't \
-                    add new ones until you agree.
-                    """)
-                }
-                if let message = actions.errorMessage {
-                    Section { Text(message).foregroundStyle(.red) }
-                }
+                .foonRows()
             }
+            .foonGrouped()
             .navigationTitle("Keep your allergies in Foon?")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Not now") { dismiss() }

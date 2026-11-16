@@ -26,71 +26,78 @@ struct MealEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField("Name", text: $draft.name)
-                    Stepper("Serves \(draft.servings)", value: $draft.servings, in: 1...50)
-                    Picker("Made by", selection: $draft.madeByMemberID) {
-                        Text("No one in particular").tag(UUID?.none)
-                        ForEach(library.activeMembers) { member in
-                            Text(member.firstName).tag(UUID?.some(member.id))
-                        }
-                    }
-                }
-
-                Section {
-                    Picker("Time to cook", selection: $draft.cookMinutes) {
-                        Text("Not sure").tag(Int?.none)
-                        ForEach(MealText.cookTimeChoices(including: meal.cookMinutes), id: \.self) { minutes in
-                            Text(MealText.cookTime(minutes: minutes)).tag(Int?.some(minutes))
-                        }
-                    }
-                } footer: {
-                    Text("Sets when This Week says to start cooking. If you're not sure, only quick and slow cooker dishes get an estimate.")
-                }
-
-                Section("Tags") {
-                    ForEach(MealTag.allCases, id: \.self) { tag in
-                        Toggle(tag.title, isOn: Binding(
-                            get: { draft.tags.contains(tag) },
-                            set: { isOn in
-                                if isOn { draft.tags.insert(tag) } else { draft.tags.remove(tag) }
-                            }
-                        ))
-                    }
-                }
-
-                ingredientsSection
-
-                sidesSection
-
-                prepSection
-
-                Section {
-                    TextEditor(text: $draft.stepsText)
-                        .frame(minHeight: 120)
-                        .accessibilityLabel("Recipe steps")
-                } header: {
-                    Text("Steps")
-                } footer: {
-                    Text("Optional. One step per line.")
-                }
-
-                Section("Recipe link") {
-                    TextField("https://", text: $draft.link)
-                        .autocorrectionDisabled()
-                        #if os(iOS)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        #endif
-                }
-
-                if let message = library.errorMessage {
+                Group {
                     Section {
-                        Text(message).foregroundStyle(.red)
+                        TextField("Name", text: $draft.name)
+                        Stepper("Serves \(draft.servings)", value: $draft.servings, in: 1...50)
+                        Picker("Made by", selection: $draft.madeByMemberID) {
+                            Text("No one in particular").tag(UUID?.none)
+                            ForEach(library.activeMembers) { member in
+                                Text(member.firstName).tag(UUID?.some(member.id))
+                            }
+                        }
+                    }
+
+                    Section {
+                        Picker("Time to cook", selection: $draft.cookMinutes) {
+                            Text("Not sure").tag(Int?.none)
+                            ForEach(MealText.cookTimeChoices(including: meal.cookMinutes), id: \.self) { minutes in
+                                Text(MealText.cookTime(minutes: minutes)).tag(Int?.some(minutes))
+                            }
+                        }
+                    } footer: {
+                        Text("Sets when This Week says to start cooking. If you're not sure, only quick and slow cooker dishes get an estimate.")
+                    }
+
+                    Section("Tags") {
+                        ForEach(MealTag.allCases, id: \.self) { tag in
+                            Toggle(tag.title, isOn: Binding(
+                                get: { draft.tags.contains(tag) },
+                                set: { isOn in
+                                    if isOn { draft.tags.insert(tag) } else { draft.tags.remove(tag) }
+                                }
+                            ))
+                        }
+                    }
+
+                    ingredientsSection
+
+                    sidesSection
+
+                    prepSection
+
+                    Section {
+                        TextEditor(text: $draft.stepsText)
+                            .frame(minHeight: 120)
+                            .accessibilityLabel("Recipe steps")
+                    } header: {
+                        Text("Steps")
+                    } footer: {
+                        Text("Optional. One step per line.")
+                    }
+
+                    Section("Recipe link") {
+                        TextField("https://", text: $draft.link)
+                            .autocorrectionDisabled()
+                            #if os(iOS)
+                            .keyboardType(.URL)
+                            .textInputAutocapitalization(.never)
+                            #endif
+                    }
+
+                    if let message = library.errorMessage {
+                        Section {
+                            Text(message).font(.foonBody).foregroundStyle(.red)
+                        }
                     }
                 }
+                .foonRows()
             }
+            .foonGrouped()
             .navigationTitle(meal.name)
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .onAppear { library.clearError() }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -124,7 +131,7 @@ struct MealEditorView: View {
     private var ingredientsSection: some View {
         Section {
             ForEach($draft.lines) { $line in
-                HStack {
+                HStack(spacing: Spacing.s) {
                     TextField("Amount", text: $line.quantity)
                         .frame(maxWidth: 90)
                         .foregroundStyle(.secondary)
@@ -200,7 +207,7 @@ struct MealEditorView: View {
     private var prepSection: some View {
         Section {
             ForEach($draft.prepLines) { $line in
-                VStack(alignment: .leading) {
+                VStack(alignment: .leading, spacing: Spacing.s) {
                     TextField("What to do", text: $line.step)
                     Picker("When", selection: $line.leadHours) {
                         Text("No reminder").tag(Int?.none)
