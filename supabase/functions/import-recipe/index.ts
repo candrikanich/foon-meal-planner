@@ -1,5 +1,6 @@
 // Recipe link import (#21). No secrets: it fetches the page and reads its recipe data. The only database call is the
 // per-user daily cap (#116), made with the caller's own token.
+import { withSentry } from "../_shared/sentry.ts";
 import { fetchPage } from "./fetch.ts";
 import { handleImport } from "./handler.ts";
 
@@ -25,10 +26,10 @@ async function claimSlot(authorization: string): Promise<boolean> {
   return (await response.json()) === true;
 }
 
-Deno.serve((req) =>
+Deno.serve(withSentry("import-recipe", (req) =>
   handleImport(req, {
     claimSlot,
     fetchPage: (link) => fetchPage(link, { fetch, resolve }),
     log: (message, error) => console.error(message, error),
   })
-);
+));

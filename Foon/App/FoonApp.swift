@@ -21,6 +21,8 @@ struct FoonApp: App {
     static let cache = (try? SyncService.persistentContainer()) ?? (try! SyncService.inMemoryContainer())
 
     init() {
+        // First, so a crash anywhere after launch is reported.
+        CrashReporting.start()
         // Cook-mode timer alerts show (with sound) even while Foon is in front.
         UNUserNotificationCenter.current().delegate = CookAlertPresenter.shared
         ReminderCenter.registerActions()

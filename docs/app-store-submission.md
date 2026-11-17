@@ -82,12 +82,17 @@ Data used to track you: **None.**
 | Purchase history (the in-app subscription; and a forwarded receipt email's lines, #237, kept until the family reviews it, 14 days at most) | Yes | App functionality | Yes |
 | Other data (the age range Apple's Declared Age Range API gives when someone joins with an invite, #88: a band such as "13 to 15", never a birthdate; once the claim is checked only kid or adult is kept) | Yes | App functionality | Yes |
 | Product interaction (which reminders went out and were answered: kind, night, time; that a shopping trip finished with something bought, and when) | Yes | App functionality (reminders), Analytics (finished trips, #260) | Yes |
+| Crash data (Sentry, #28: the crash or error, its stack trace, device model, OS and app version) | Yes | App functionality | No |
+| Performance data (Sentry, #28: how long launches, screens and requests took; every QA trace, a tenth of family Foon's) | Yes | App functionality | No |
+| Other diagnostic data (Sentry, #28: app hangs, and the screens and request paths just before an error, without query strings) | Yes | App functionality | No |
 
 An address a parent types to email an adult's invite (#48 PR B) changes nothing here: it goes to Resend for that one email, in real time, and Foon never stores it, and Email address is already declared.
 
 Forwarded receipts (#237): an adult forwards a store's receipt email to the household's Foon address. Its lines of text reach Foon's servers and wait for the family to review them (Purchase history, above; deleted on confirm or dismiss, or after 14 days). The address an adult forwards from is kept only as a sha256 and a hint such as c•••@gmail.com (covered by Email address). Resend, which receives the email, keeps it for 30 days.
 
-Finished shopping trips (#260, only those where something was bought) are the one product interaction kept for Analytics: the household and the time, counted only across at least 5 households (docs/metrics.md), never used for tracking. An analytics SDK and crash and performance data aren't in the app yet: they come back to this table with #28.
+Finished shopping trips (#260, only those where something was bought) are the one product interaction kept for Analytics: the household and the time, counted only across at least 5 households (docs/metrics.md), never used for tracking. A product analytics SDK isn't in the app yet (#28).
+
+Crash and diagnostics (#28): Foon QA sends, and family Foon will once privacy policy v3 names Sentry (#356), crashes, errors, app hangs and a sample of performance traces to Sentry (project foon-ios; Edge Function errors go to foon-edge). Not linked: reports carry no user ID, account, household, name or email, and Sentry drops IP addresses on arrival; the only identifier is a random one per install, which Sentry uses to count how many installs a crash hit. No screenshots, view hierarchy, Session Replay, failed-request headers, file paths, touches or console lines. Not used for tracking. Debug builds send nothing.
 
 Not collected: photos (meal photos left the app in #346: nothing is uploaded any more, and a tester household's stored ones are only kept), precise or coarse location, contacts, browsing history, search history, financial info, sensitive info beyond allergies, calendar data (read on device only, never collected), library photos shown in Dinner memories (read on device only, never uploaded or kept), receipt photos (read on device only, never uploaded or kept; what's kept is "Other user content": receipt lines the family corrected and the item each is).
 

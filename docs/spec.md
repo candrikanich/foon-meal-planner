@@ -817,7 +817,7 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
 
 | Need | Choice | Note |
 | --- | --- | --- |
-| Errors and crashes | Sentry | iOS and Edge Functions; PII scrubbing on |
+| Errors and crashes | Sentry | Built (#28): projects foon-ios and foon-edge; no user, IP, screenshots, replay or request data; Foon QA and staging now; family Foon and production with privacy v3 (#356) |
 | Product analytics | TelemetryDeck or PostHog | Anonymized; no personal data |
 | Subscriptions | RevenueCat (consider) | Entitlements, webhooks, founding offers; check pricing |
 | Email | Resend | Adults only (parents, for consent); see below |
@@ -890,7 +890,7 @@ Build everything, in order: Phase 1 (the Sunday flow) is what to sit down with y
 - [x] Weekly shopping list generated from the plan; check-off with offline sync
 - [ ] Success test: download to first plan and list in under 15 minutes
 
-* [ ] Observability: Sentry with PII scrubbing; TelemetryDeck or anonymized PostHog; privacy manifest (privacy manifest built, #273; Sentry and analytics open, #28)
+* [ ] Observability: Sentry with PII scrubbing; TelemetryDeck or anonymized PostHog; privacy manifest (privacy manifest built, #273; Sentry built in the iOS app and Edge Functions, #28; analytics open, #28)
 * [x] Account deletion (with Sign in with Apple token revocation) and household data export (#29)
 * [x] Edge cases: fewer than 7 meals, 1-member and 8+ member households, localizable strings
 

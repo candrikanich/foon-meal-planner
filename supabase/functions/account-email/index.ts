@@ -8,6 +8,7 @@
 // https://getfoon.com for links; INVITE_PATH=/qa/invite on staging makes emailed invites open Foon QA; EMAIL_POSTAL_ADDRESS (lines split by ";") is required for founding updates;
 // FOUNDING_UPDATES_SECRET and FOUNDING_UPDATES_PREVIEW_TO are the Action's. Nothing is claimed until
 // app_config.account_email_enabled is on. docs/account-email.md has the setup.
+import { withSentry } from "../_shared/sentry.ts";
 import { createClient } from "@supabase/supabase-js";
 import { resendConfigFromEnv, sendEmail } from "../_shared/resend.ts";
 import { DEFAULT_SITE_URL } from "./email.ts";
@@ -43,7 +44,7 @@ async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise
   return data as T;
 }
 
-Deno.serve((req) => {
+Deno.serve(withSentry("account-email", (req) => {
   const url = new URL(req.url);
   const unsubscribe = url.searchParams.get("unsubscribe");
   if (unsubscribe !== null) {
@@ -112,4 +113,4 @@ Deno.serve((req) => {
     unsubscribeUrl: links.url,
     postalAddress,
   });
-});
+}));

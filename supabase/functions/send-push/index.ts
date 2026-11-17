@@ -2,6 +2,7 @@
 // header, so it skips Supabase's JWT check (config.toml). Needs the service role and the Apple key: APPLE_TEAM_ID,
 // APPLE_KEY_ID, APPLE_PRIVATE_KEY; on staging also APNS_TOPIC=com.andrikanich.foon.qa (Foon QA). Unset, it's
 // Foon's com.andrikanich.foon.
+import { withSentry } from "../_shared/sentry.ts";
 import { createClient } from "@supabase/supabase-js";
 import { apnsConfigFromEnv, apnsTopicFromEnv, cachedProviderToken, deliver } from "./apns.ts";
 import { handleSendPush, type OutboxRow } from "./handler.ts";
@@ -32,7 +33,7 @@ const tokenStore = {
   },
 };
 
-Deno.serve((req) =>
+Deno.serve(withSentry("send-push", (req) =>
   handleSendPush(req, {
     cronSecret: Deno.env.get("PUSH_CRON_SECRET"),
     providerToken: apns ? () => cachedProviderToken(apns, tokenStore) : null,
@@ -54,4 +55,4 @@ Deno.serve((req) =>
     // Ids and status codes only: no tokens, names, or household data in logs.
     log: (message, error) => console.error(message, error instanceof Error ? error.message : error),
   })
-);
+));

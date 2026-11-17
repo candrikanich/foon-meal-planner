@@ -1,6 +1,7 @@
 // Apple calls it with no JWT, so it skips Supabase's JWT check (config.toml); the signature on the payload is the check.
 // Needs the service role, and APPLE_APP_ID (the app's numeric App Store id, not a secret) for production notifications.
 // Verification needs no secret: Apple Root CA - G3 ships with the function.
+import { withSentry } from "../_shared/sentry.ts";
 import { createClient } from "@supabase/supabase-js";
 import { appleRootCAG3Base64 } from "./apple_root_ca_g3.ts";
 import { handleAppStoreNotification } from "./handler.ts";
@@ -23,7 +24,7 @@ const verify = appleVerifier({
   appAppleId: Number.isInteger(appAppleId) && appAppleId > 0 ? appAppleId : undefined,
 });
 
-Deno.serve((req) =>
+Deno.serve(withSentry("app-store-notifications", (req) =>
   handleAppStoreNotification(req, {
     verify,
     apply: async (update) => {
@@ -47,4 +48,4 @@ Deno.serve((req) =>
     },
     log: (message, error) => console.error(message, error instanceof Error ? error.message : error ?? ""),
   })
-);
+));
