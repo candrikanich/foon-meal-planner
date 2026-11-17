@@ -1,3 +1,4 @@
+import PostHog
 import SwiftUI
 
 /// From a link (docs/spec.md → Adding a meal): paste a recipe page, see what Foon read, scaled to the household, then
@@ -189,6 +190,7 @@ struct LinkImportView: View {
                 isAdding = false
                 return
             }
+            PostHogSDK.shared.capture("meal_created", properties: ["source": "recipe_link"])
             onAdded(id)
             dismiss()
         }

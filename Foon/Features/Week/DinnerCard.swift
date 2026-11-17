@@ -1,3 +1,4 @@
+import PostHog
 import SwiftUI
 
 /// The after-dinner cards at the top of This Week (docs/spec.md → After-dinner loop): "Chili last night?" with one-tap
@@ -77,6 +78,7 @@ struct DinnerCard: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(question).font(.foonHeadline).foregroundStyle(Palette.ink)
             ReactionRow(selected: nil, disabled: isSaving) { kind in
+                PostHogSDK.shared.capture("dinner_rated")
                 Task { await dinner.rate(nightID: prompt.night.id, memberID: me.id, kind) }
             }
             actions

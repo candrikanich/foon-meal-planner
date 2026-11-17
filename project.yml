@@ -23,6 +23,9 @@ packages:
   Sentry:
     url: https://github.com/getsentry/sentry-cocoa
     from: 9.35.0
+  PostHog:
+    url: https://github.com/PostHog/posthog-ios
+    from: 3.59.3
 
 settings:
   base:
@@ -74,6 +77,7 @@ targets:
       # The prebuilt framework: SentrySPM (built from source) fails Xcode 27's explicit-module dependency scan.
       - package: Sentry
         product: Sentry
+      - package: PostHog
       - target: FoonShare
         destinationFilters: [iOS]
       - target: FoonDinner
@@ -101,6 +105,8 @@ targets:
       properties:
         SupabaseURL: $(SUPABASE_URL)
         SupabaseAnonKey: $(SUPABASE_ANON_KEY)
+        PostHogProjectToken: $(POSTHOG_PROJECT_TOKEN)
+        PostHogHost: $(POSTHOG_HOST)
         FoonAppGroup: $(FOON_APP_GROUP)
         FoonURLScheme: $(FOON_URL_SCHEME)
         FoonInvitePath: $(FOON_INVITE_PATH)

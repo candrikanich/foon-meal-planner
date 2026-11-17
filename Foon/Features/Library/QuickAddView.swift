@@ -1,3 +1,4 @@
+import PostHog
 import SwiftUI
 
 /// Quick add (docs/spec.md → Adding a meal): type a name and save. Ingredients are optional and typed
@@ -82,6 +83,7 @@ struct QuickAddView: View {
                         Task {
                             isSaving = true
                             if let id = await library.quickAdd(name: name, ingredients: ingredients) {
+                                PostHogSDK.shared.capture("meal_created", properties: ["source": "quick_add"])
                                 dismiss()
                                 onAdded(id)
                             }

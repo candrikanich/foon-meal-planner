@@ -1,3 +1,4 @@
+import PostHog
 import SwiftUI
 
 /// "I want...": a dish from the library, a name, or a link, with an optional note and night. Pass the phone: a
@@ -142,7 +143,12 @@ struct IWantSheet: View {
 
     private func send() {
         guard let request else { return }
-        Task { if await ideas.make(request) { dismiss() } }
+        Task {
+            if await ideas.make(request) {
+                PostHogSDK.shared.capture("meal_request_sent")
+                dismiss()
+            }
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 import Foundation
 import FoundationModels
+import PostHog
 import Synchronization
 
 /// Whether Apple's on-device model can run here: an eligible device, Apple Intelligence on, and the model downloaded.
@@ -36,6 +37,40 @@ enum AIOutcome<Output: Sendable>: Sendable {
 
 extension AIOutcome: Equatable where Output: Equatable {}
 
+/// Sends the existing on-device model calls as AI Observability generations without affecting their result or timeout.
+private enum AIObservability {
+    /// There are no user-managed conversations around these one-shot helpers, so an app run is the conversation scope.
+    static let sessionID = UUID().uuidString
+    /// Manual capture includes prompt and completion content by default. Set false before sending sensitive AI content.
+    static let capturesPromptAndCompletion = true
+
+    static func capture(traceID: String, spanName: String, instructions: String, prompt: String,
+                        output: String? = nil, error: String? = nil, startedAt: Date) {
+        var properties: [String: Any] = [
+            "$ai_trace_id": traceID,
+            "$ai_session_id": sessionID,
+            "$ai_span_name": spanName,
+            "$ai_model": "apple-foundation-models",
+            "$ai_provider": "apple",
+            "$ai_latency": Date().timeIntervalSince(startedAt)
+        ]
+        if capturesPromptAndCompletion {
+            properties["$ai_input"] = [
+                ["role": "system", "content": instructions],
+                ["role": "user", "content": prompt]
+            ]
+            if let output {
+                properties["$ai_output_choices"] = [["role": "assistant", "content": output]]
+            }
+        }
+        if let error {
+            properties["$ai_is_error"] = true
+            properties["$ai_error"] = error
+        }
+        PostHogSDK.shared.capture("$ai_generation", properties: properties)
+    }
+}
+
 /// The on-device model, as closures, so tests stub it without Apple Intelligence (CI and the simulator usually lack it).
 /// A helper only: every caller has a non-AI path, and a call never throws, crashes or outlasts its timeout.
 struct AIService: Sendable {
@@ -45,25 +80,48 @@ struct AIService: Sendable {
         -> GeneratedContent
     /// Long enough for a few seconds of on-device generation with room to spare, short enough that nobody's left waiting.
     var timeout: Duration = .seconds(30)
+    /// Only the production Foundation Models client reports generations; previews and test doubles do not.
+    var reportsGenerations = false
 
     var canRun: Bool { availability() == .available }
 
     func generate<Output: Generable & Sendable>(_ type: Output.Type, instructions: String,
                                                 prompt: String) async -> AIOutcome<Output> {
         guard canRun else { return .unavailable }
+        let traceID = UUID().uuidString
+        let startedAt = Date()
         let respond = respond
         let answer = await Self.firstOf(timeout: timeout) {
             try await respond(instructions, prompt, Output.generationSchema)
         }
         switch answer {
         case nil:
+            captureGeneration(traceID: traceID, type: type, instructions: instructions, prompt: prompt,
+                              error: "timed_out", startedAt: startedAt)
             return .timedOut
         case .failure:
+            captureGeneration(traceID: traceID, type: type, instructions: instructions, prompt: prompt,
+                              error: "generation_failed", startedAt: startedAt)
             return .failed
         case .success(let content):
-            guard let output = try? Output(content) else { return .failed }
+            let generated = String(describing: content)
+            guard let output = try? Output(content) else {
+                captureGeneration(traceID: traceID, type: type, instructions: instructions, prompt: prompt,
+                                  output: generated, error: "invalid_generated_content", startedAt: startedAt)
+                return .failed
+            }
+            captureGeneration(traceID: traceID, type: type, instructions: instructions, prompt: prompt,
+                              output: String(describing: output), startedAt: startedAt)
             return .done(output)
         }
+    }
+
+    private func captureGeneration<Output: Generable>(traceID: String, type: Output.Type, instructions: String,
+                                                       prompt: String, output: String? = nil, error: String? = nil,
+                                                       startedAt: Date) {
+        guard reportsGenerations else { return }
+        AIObservability.capture(traceID: traceID, spanName: String(describing: type), instructions: instructions,
+                                prompt: prompt, output: output, error: error, startedAt: startedAt)
     }
 
     /// The work's result, or nil once the timeout passes or the caller is cancelled, whichever is first. The work runs in a
@@ -104,7 +162,8 @@ extension AIService {
         respond: { instructions, prompt, schema in
             let session = LanguageModelSession(instructions: instructions)
             return try await session.respond(to: prompt, schema: schema).content
-        }
+        },
+        reportsGenerations: true
     )
 
     /// Previews and tests that never reach the model.

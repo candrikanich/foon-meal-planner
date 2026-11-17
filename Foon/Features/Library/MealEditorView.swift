@@ -1,3 +1,4 @@
+import PostHog
 import SwiftUI
 
 /// Edits a meal: name, servings, tags, who makes it, ingredients (typed or pasted naturally,
@@ -110,6 +111,7 @@ struct MealEditorView: View {
                             commitNewIngredients()
                             commitNewSide()
                             if await library.save(draft, mealID: meal.id) {
+                                PostHogSDK.shared.capture("meal_updated")
                                 replanReminders()
                                 dismiss()
                             }

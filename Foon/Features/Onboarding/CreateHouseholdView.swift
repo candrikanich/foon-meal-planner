@@ -1,6 +1,7 @@
 #if canImport(DeclaredAgeRange)
 @preconcurrency import DeclaredAgeRange
 #endif
+import PostHog
 import SwiftUI
 
 struct CreateHouseholdView: View {
@@ -56,6 +57,9 @@ struct CreateHouseholdView: View {
         Task {
             isSaving = true
             await store.createHousehold(name: name, emoji: emoji, firstName: firstName)
+            if store.household != nil {
+                PostHogSDK.shared.capture("household_created", properties: ["source": "standard"])
+            }
             isSaving = false
         }
     }
@@ -79,6 +83,9 @@ struct CreateHouseholdView: View {
             await store.createHousehold(name: String(localized: "The Sample Family"), emoji: "🧪",
                                         firstName: firstName.isEmpty ? String(localized: "You") : firstName,
                                         sample: true)
+            if store.household != nil {
+                PostHogSDK.shared.capture("household_created", properties: ["source": "sample"])
+            }
             isSaving = false
         }
     }
@@ -117,7 +124,10 @@ struct CreateHouseholdView: View {
                             Task {
                                 isSaving = true
                                 await store.redeem(inviteCode, ageBand: await askAgeBand())
-                                if store.household != nil { session.clearPendingInvite() }
+                                if store.household != nil {
+                                    PostHogSDK.shared.capture("household_joined")
+                                    session.clearPendingInvite()
+                                }
                                 isSaving = false
                             }
                         } label: {

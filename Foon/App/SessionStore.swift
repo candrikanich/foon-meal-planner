@@ -18,6 +18,8 @@ final class SessionStore {
 
     private let auth: AuthClient
     private var pendingNonce: String?
+    private var postHogUserID: UUID?
+    private var hasAppliedPostHogIdentity = false
 
     init(auth: AuthClient) {
         self.auth = auth
@@ -26,6 +28,7 @@ final class SessionStore {
     func start() async {
         var verified: UUID?
         for await userID in auth.sessionChanges() {
+            applyPostHogIdentity(for: userID)
             state = userID.map(State.signedIn) ?? .signedOut
             // A stored session can outlive its account (deleted elsewhere, revoked); check once per user.
             if let userID, userID != verified {
@@ -35,6 +38,25 @@ final class SessionStore {
                 }
             }
         }
+    }
+
+    private func applyPostHogIdentity(for userID: UUID?) {
+        guard !hasAppliedPostHogIdentity || postHogUserID != userID else { return }
+        hasAppliedPostHogIdentity = true
+
+        if let userID {
+            // An account switch without an intermediate signed-out state must not merge two people.
+            if postHogUserID != nil {
+                PostHogAnalytics.reset()
+            }
+            PostHogAnalytics.identify(userID: userID)
+            PostHogAnalytics.logInfo("authentication identity applied", attributes: ["state": "signed_in"])
+        } else {
+            // Clear a persisted identity when the app launches with an expired or removed session.
+            PostHogAnalytics.reset()
+            PostHogAnalytics.logInfo("authentication identity cleared", attributes: ["state": "signed_out"])
+        }
+        postHogUserID = userID
     }
 
     /// Starts a Sign in with Apple request; returns the hashed nonce Apple needs.

@@ -1,3 +1,4 @@
+import PostHog
 import SwiftData
 import SwiftUI
 
@@ -441,7 +442,10 @@ struct WeekView: View {
         isApproving = true
         defer { isApproving = false }
         // Pull right away so the cart badge and Lists show the new list without waiting for Realtime.
-        if await week.approveLatest(weeklyList) { await sync?.pullAfterApproving() }
+        if await week.approveLatest(weeklyList) {
+            PostHogSDK.shared.capture("weekly_list_approved")
+            await sync?.pullAfterApproving()
+        }
     }
 
     private func approveText(_ count: Int, update: Bool) -> String {
@@ -592,11 +596,13 @@ struct WeekView: View {
     }
 
     private func build() async {
+        PostHogSDK.shared.capture("week_build_requested", properties: ["action": "build"])
         await week.buildWeek { await planningContext() }
         await ideas.sync(with: week.week, today: week.todayDay, requestNights: week.requestNights, away: week.awayDates)
     }
 
     private func fillRemaining() async {
+        PostHogSDK.shared.capture("week_build_requested", properties: ["action": "fill_remaining"])
         await week.fillRemaining { await planningContext() }
         await ideas.sync(with: week.week, today: week.todayDay, requestNights: week.requestNights, away: week.awayDates)
     }

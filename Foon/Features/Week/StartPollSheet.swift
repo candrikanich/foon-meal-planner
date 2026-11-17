@@ -1,3 +1,4 @@
+import PostHog
 import SwiftData
 import SwiftUI
 
@@ -163,6 +164,10 @@ struct StartPollSheet: View {
         let ordered = freezerOffers.map { PollChoice.freezer($0.item.id) } + backups.map { PollChoice.meal($0.id) }
             + ideas.map { PollChoice.meal($0.id) } + QuickPick.allCases.map { PollChoice.quickPick($0) }
         if await polls.start(nightID: nightID, minutes: minutes, choices: ordered.filter(chosen.contains)) {
+            PostHogSDK.shared.capture("dinner_poll_started", properties: [
+                "choice_count": chosen.count,
+                "duration_minutes": minutes
+            ])
             started()
             dismiss()
         }
