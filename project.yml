@@ -19,6 +19,10 @@ packages:
   Supabase:
     url: https://github.com/supabase/supabase-swift
     from: 2.55.0
+  # Crash and error reports (#28); see Foon/Core/Services/CrashReporting.swift.
+  Sentry:
+    url: https://github.com/getsentry/sentry-cocoa
+    from: 9.35.0
 
 settings:
   base:
@@ -38,7 +42,12 @@ settings:
     FOON_APP_ICON: AppIcon
     FOON_URL_SCHEME: foon
     FOON_INVITE_PATH: /invite
+    # Sentry project foon-ios (#28). A DSN only lets a build send reports, so it's public by design, like the anon key.
+    # Debug and Release leave the environment empty and send nothing.
+    FOON_SENTRY_DSN: https://203e0f89f83b11ad01e192613d1d2dd3@o4510886326960128.ingest.us.sentry.io/4512447552749568
+    FOON_SENTRY_ENV: ""
   configs:
+    # Family Foon (Release) reports as "production" once privacy policy v3 (#356) names Sentry; until then only Foon QA.
     Staging:
       FOON_APP_ID: com.andrikanich.foon.qa
       FOON_APP_NAME: Foon QA
@@ -48,6 +57,7 @@ settings:
       FOON_INVITE_PATH: /qa/invite
       # QA-only code (the design gallery) compiles under FOON_QA; family Foon's Release never has it.
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) FOON_QA
+      FOON_SENTRY_ENV: staging
 
 targets:
   Foon:
@@ -61,6 +71,9 @@ targets:
         buildPhase: none
     dependencies:
       - package: Supabase
+      # The prebuilt framework: SentrySPM (built from source) fails Xcode 27's explicit-module dependency scan.
+      - package: Sentry
+        product: Sentry
       - target: FoonShare
         destinationFilters: [iOS]
       - target: FoonDinner
@@ -91,6 +104,8 @@ targets:
         FoonAppGroup: $(FOON_APP_GROUP)
         FoonURLScheme: $(FOON_URL_SCHEME)
         FoonInvitePath: $(FOON_INVITE_PATH)
+        SentryDSN: $(FOON_SENTRY_DSN)
+        SentryEnvironment: $(FOON_SENTRY_ENV)
         CFBundleURLTypes:
           - CFBundleURLName: $(FOON_APP_ID)
             CFBundleURLSchemes: [$(FOON_URL_SCHEME)]

@@ -1,6 +1,7 @@
 // Browsers and mail clients call it with no Supabase JWT, so it skips the JWT check (config.toml); the rules are in
 // handler.ts. Needs the service role. RESEND_API_KEY and WAITLIST_FROM turn the confirmation email on; without them a
 // signup is stored and the log says email is off. WAITLIST_SITE_URL overrides https://getfoon.com (e.g. a preview).
+import { withSentry } from "../_shared/sentry.ts";
 import { createClient } from "@supabase/supabase-js";
 import { resendConfigFromEnv } from "../_shared/resend.ts";
 import { newToken, sha256 } from "../_shared/token.ts";
@@ -25,7 +26,7 @@ const sign = signer(serviceKey);
 // Supabase's runtime global: keeps the function alive for work started after the response.
 declare const EdgeRuntime: { waitUntil(work: Promise<unknown>): void };
 
-Deno.serve((req) =>
+Deno.serve(withSentry("waitlist", (req) =>
   handleWaitlist(req, {
     allowedOrigins: [
       "https://getfoon.com",
@@ -93,4 +94,4 @@ Deno.serve((req) =>
         error instanceof Error ? error.message : error ?? "",
       ),
   })
-);
+));

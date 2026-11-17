@@ -5,6 +5,7 @@
 // Needs the service role. RESEND_API_KEY fetches received mail and, with RECEIPT_INBOX_FROM, sends confirmations;
 // RECEIPT_INBOX_WEBHOOK_SECRET is the webhook's signing secret; RECEIPT_INBOX_DOMAIN overrides in.getfoon.com and
 // RECEIPT_INBOX_SITE_URL overrides https://getfoon.com for the confirmation page.
+import { withSentry } from "../_shared/sentry.ts";
 import { createClient } from "@supabase/supabase-js";
 import { resendConfigFromEnv, sendEmail } from "../_shared/resend.ts";
 import { confirmOrigins, DEFAULT_SITE_URL, handleConfirm } from "./confirm.ts";
@@ -37,7 +38,7 @@ async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
-Deno.serve((req) => {
+Deno.serve(withSentry("receipt-inbox", (req) => {
   const url = new URL(req.url);
   const confirm = url.searchParams.get("confirm");
   if (confirm !== null) {
@@ -88,4 +89,4 @@ Deno.serve((req) => {
     now: () => Date.now(),
     log,
   });
-});
+}));

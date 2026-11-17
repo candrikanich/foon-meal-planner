@@ -25,8 +25,9 @@ list, 2026-11-06). A Safe Harbor program doesn't cover the terms or the state he
 - Every factual statement is meant to be true of the code on `main`. Where we weren't sure, the text says `[CHECK]`. Legal questions are marked `> **Review:**` inline.
 - The documents say "Foon" throughout and name the legal party once: The Recruiting Compass LLC.
 - Governing law: Ohio. Contact: support@getfoon.com.
-- Analytics and crash reporting don't exist yet (#28), so the drafts don't mention them. When they're added, the
-  privacy policy, retention policy, App Store label and "no tracking" claims need another look first.
+- Crash reporting (Sentry, #28) is in the app and the Edge Functions; product analytics isn't yet. The App Store label
+  and privacy manifest list crash, performance and diagnostic data, not linked to anyone. The policy wording comes in
+  privacy v3 with #356 (Chris, 2026-11-17), so families agree once; nothing goes to family Foon before v3 is in.
 
 ## Reviewer checklist
 

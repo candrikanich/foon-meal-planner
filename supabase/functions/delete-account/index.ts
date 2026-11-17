@@ -2,6 +2,7 @@
 // app) and the Sign in with Apple key as secrets: APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_CLIENT_ID (the bundle id),
 // APPLE_PRIVATE_KEY. The deletion receipt (#48) goes out with RESEND_API_KEY and ACCOUNT_EMAIL_FROM set and
 // app_config.account_email_enabled on; ACCOUNT_EMAIL_SITE_URL overrides https://getfoon.com for its privacy link.
+import { withSentry } from "../_shared/sentry.ts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { resendConfigFromEnv, sendEmail } from "../_shared/resend.ts";
 import { appleConfigFromEnv, revokeAppleToken } from "./apple.ts";
@@ -38,7 +39,7 @@ async function householdPhotoPaths(client: SupabaseClient, folder: string): Prom
   }
 }
 
-Deno.serve((req) =>
+Deno.serve(withSentry("delete-account", (req) =>
   handleDeleteAccount(req, {
     userFromToken: async (jwt) => (await admin.auth.getUser(jwt)).data.user?.id ?? null,
     appleSubject: async (userID) => {
@@ -88,4 +89,4 @@ Deno.serve((req) =>
     // Ids and status codes only: no names, tokens, or household data in logs.
     log: (message, error) => console.error(message, error instanceof Error ? error.message : error),
   })
-);
+));

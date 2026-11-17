@@ -5,6 +5,7 @@
 // CONSENT_CRON_SECRET must match Vault's consent_cron_secret, which pg_cron sends to ?renewals=1; unset, renewal emails
 // never go.
 // docs/parental-consent.md has the setup.
+import { withSentry } from "../_shared/sentry.ts";
 import { createClient } from "@supabase/supabase-js";
 import { resendConfigFromEnv, sendEmail } from "../_shared/resend.ts";
 import { newToken, sha256 } from "../_shared/token.ts";
@@ -38,7 +39,7 @@ async function rpc<T>(name: string, args: Row): Promise<T> {
   return data as T;
 }
 
-Deno.serve((req) =>
+Deno.serve(withSentry("parental-consent", (req) =>
   handleParentalConsent(req, {
     allowedOrigins: consentOrigins(Deno.env.get("CONSENT_SITE_URL")),
     siteUrl: Deno.env.get("CONSENT_SITE_URL") ?? "https://getfoon.com",
@@ -151,4 +152,4 @@ Deno.serve((req) =>
       console.error(message, [code, detail].filter(Boolean).join(" "));
     },
   })
-);
+));
