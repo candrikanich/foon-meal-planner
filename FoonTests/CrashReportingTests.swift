@@ -24,4 +24,12 @@ struct CrashReportingTests {
         #expect(CrashReporting.keepsBreadcrumb(category: "http"))
         #expect(CrashReporting.keepsBreadcrumb(category: "ui.lifecycle"))
     }
+
+    @Test func requestQueriesNeverLeaveTheDevice() throws {
+        let data: [String: Any] = ["url": "https://x.supabase.co/rest/v1/meals", "method": "GET",
+                                   "http.query": "household_id=eq.abc", "http.fragment": "top"]
+        let kept = try #require(CrashReporting.withoutQueries(data))
+        #expect(Set(kept.keys) == ["url", "method"])
+        #expect(CrashReporting.withoutQueries(nil) == nil)
+    }
 }

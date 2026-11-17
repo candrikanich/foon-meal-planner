@@ -4,9 +4,9 @@ import Sentry
 /// Crash and error reports to Sentry (#28), from Foon QA and family Foon only. Debug builds send nothing.
 ///
 /// Kids use Foon, so reports carry no person: no user, no IP address, no screenshots or view hierarchy, no Session
-/// Replay, and no failed-request headers. What's left is the crash or error, the device and OS, and sanitized request
-/// paths (Sentry drops query strings). The foon-ios project scrubs IP addresses and known sensitive fields again on
-/// arrival. docs/legal/privacy.md and the App Store label describe this.
+/// Replay, no failed-request headers, and no request query strings. What's left is the crash or error, the device and
+/// OS, and request paths. The foon-ios project scrubs IP addresses and known sensitive fields again on arrival.
+/// docs/legal/privacy.md and the App Store label describe this.
 struct CrashReporting: Equatable, Sendable {
     static let dsnKey = "SentryDSN"
     static let environmentKey = "SentryEnvironment"
@@ -31,6 +31,13 @@ struct CrashReporting: Equatable, Sendable {
         !["touch", "console"].contains(category)
     }
 
+    /// Sentry keeps a request's query apart from its URL, and Supabase queries name households and filter values.
+    static let queryKeys = ["http.query", "http.fragment"]
+
+    static func withoutQueries(_ data: [String: Any]?) -> [String: Any]? {
+        data?.filter { !queryKeys.contains($0.key) }
+    }
+
     @MainActor
     static func start(bundle: Bundle = .main) {
         guard let config = CrashReporting(info: bundle.infoDictionary ?? [:]) else { return }
@@ -48,7 +55,13 @@ struct CrashReporting: Equatable, Sendable {
             options.enableFileIOTracing = false
             options.enableCoreDataTracing = false
             options.beforeBreadcrumb = { breadcrumb in
-                keepsBreadcrumb(category: breadcrumb.category) ? breadcrumb : nil
+                guard keepsBreadcrumb(category: breadcrumb.category) else { return nil }
+                breadcrumb.data = withoutQueries(breadcrumb.data)
+                return breadcrumb
+            }
+            options.beforeSendSpan = { span in
+                queryKeys.forEach { span.removeData(key: $0) }
+                return span
             }
         }
     }
@@ -63,7 +76,7 @@ struct CrashReporting: Equatable, Sendable {
     #endif
 
     private static func value(for key: String, in info: [String: Any]) -> String? {
-        guard let value = (info[key] as? String)?.trimmingCharacters(in: .whitespaces), !value.isEmpty else { return nil }
-        return value
+        let value = (info[key] as? String)?.trimmingCharacters(in: .whitespaces)
+        return value?.isEmpty == false ? value : nil
     }
 }
