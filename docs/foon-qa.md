@@ -88,7 +88,7 @@ Tagging by hand (`git tag beta/<date> <commit>`, then push) still works; the wor
   problem.
 - **Crash reports** (#28) go to Sentry project foon-ios, environment `staging`; staging's Edge Function errors go to
   foon-edge. Family Foon and production functions start reporting (as `production`) with privacy v3 (#356). To check they arrive, tap Family → **Send a test error** (Foon QA only) and look
-  for "Sentry test error <time>" in foon-ios's Issues. Crash stack traces are readable once both Xcode Cloud workflows
+  for "Sentry test error <time>" in foon-ios's Issues; the footer shows the first 8 characters of the sent report's ID. Crash stack traces are readable once both Xcode Cloud workflows
   have the secret `SENTRY_AUTH_TOKEN` (`ci_scripts/ci_post_xcodebuild.sh` sends each archive's dSYMs).
 - **Emailed invites** on staging need `INVITE_PATH=/qa/invite`, or they open Foon instead of Foon QA.
 

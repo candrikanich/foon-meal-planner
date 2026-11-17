@@ -59,6 +59,9 @@ struct CrashReporting: Equatable, Sendable {
                 breadcrumb.data = withoutQueries(breadcrumb.data)
                 return breadcrumb
             }
+            // sentry-cocoa 9 sends transactions through beforeSend too. Version 10 moves them to
+            // beforeSendTransaction, which needs the same withoutLocation when Foon upgrades.
+            options.beforeSend = { withoutLocation($0) }
             options.beforeSendSpan = { span in
                 queryKeys.forEach { span.removeData(key: $0) }
                 return span
@@ -66,12 +69,25 @@ struct CrashReporting: Equatable, Sendable {
         }
     }
 
+    /// Without an address, Sentry's server uses the connection's and looks up a city before it scrubs the address, even
+    /// with the SDK's infer_ip "never" (checked 2026-11-17). An explicit 0.0.0.0 has no city, and the scrubber drops it.
+    static func withoutLocation<E: Event>(_ event: E) -> E {
+        let user = event.user ?? User()
+        user.ipAddress = "0.0.0.0"
+        user.geo = nil
+        event.user = user
+        return event
+    }
+
     #if DEBUG || FOON_QA
-    /// Foon QA's Family screen sends one of these to prove reports arrive (docs/foon-qa.md).
-    static func sendTestError(now: Date = .now) {
+    /// Foon QA's Family screen sends one of these to prove reports arrive (docs/foon-qa.md). Returns the report's
+    /// ID to show on screen, or nil when this build doesn't report.
+    static func sendTestError(now: Date = .now) -> String? {
+        guard SentrySDK.isEnabled else { return nil }
         let message = "Sentry test error \(Int(now.timeIntervalSince1970))"
-        SentrySDK.capture(error: NSError(domain: "Foon.CrashReportingTest", code: 1,
-                                         userInfo: [NSLocalizedDescriptionKey: message]))
+        let id = SentrySDK.capture(error: NSError(domain: "Foon.CrashReportingTest", code: 1,
+                                                  userInfo: [NSLocalizedDescriptionKey: message]))
+        return id.sentryIdString
     }
     #endif
 

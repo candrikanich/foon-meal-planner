@@ -1,3 +1,4 @@
+import Sentry
 import Testing
 @testable import Foon
 
@@ -31,5 +32,14 @@ struct CrashReportingTests {
         let kept = try #require(CrashReporting.withoutQueries(data))
         #expect(Set(kept.keys) == ["url", "method"])
         #expect(CrashReporting.withoutQueries(nil) == nil)
+    }
+
+    @Test func reportsCarryNoLocation() {
+        let event = Event(level: .error)
+        event.user = User(userId: "install-id")
+        let sent = CrashReporting.withoutLocation(event)
+        #expect(sent.user?.userId == "install-id")
+        #expect(sent.user?.ipAddress == "0.0.0.0", "an explicit address stops Sentry looking up a city")
+        #expect(CrashReporting.withoutLocation(Event(level: .error)).user?.ipAddress == "0.0.0.0")
     }
 }
