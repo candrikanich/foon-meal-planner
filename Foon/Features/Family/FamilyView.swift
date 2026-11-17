@@ -13,6 +13,7 @@ struct FamilyView: View {
     @State private var exportURL: URL?
     @State private var allergyAlerts: AllergyAlertsModel?
     @State private var emailPreferences: EmailPreferencesModel?
+    @State private var testErrorResult: String?
 
     private var isOwner: Bool { store.household?.owner == store.userID }
 
@@ -165,9 +166,13 @@ struct FamilyView: View {
                         Text(verbatim: "Foon QA only: every color, type style and component in the app.")
                     }
                     Section {
-                        Button { CrashReporting.sendTestError() } label: { Text(verbatim: "Send a test error") }
+                        Button {
+                            testErrorResult = CrashReporting.sendTestError().map { "Sent report \($0.prefix(8))." }
+                                ?? "This build doesn't send reports."
+                        } label: { Text(verbatim: "Send a test error") }
                     } footer: {
-                        Text(verbatim: "Foon QA only: sends one error to Sentry to check that reports arrive.")
+                        Text(verbatim: testErrorResult
+                             ?? "Foon QA only: sends one error to Sentry to check that reports arrive.")
                     }
                     #endif
 
