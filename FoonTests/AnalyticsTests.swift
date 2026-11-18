@@ -33,8 +33,12 @@ struct AnalyticsTests {
         #expect(!config.preloadFeatureFlags)
     }
 
-    @Test func eventsLeaveWithoutTheTimeZone() {
-        let sent = Analytics.withoutLocation(["$timezone": "America/New_York", "$os": "iOS", "environment": "staging"])
-        #expect(Set(sent.keys) == ["$os", "environment"])
+    @Test func eventsLeaveWithOnlyListedProperties() {
+        let sent = Analytics.sentProperties([
+            "$timezone": "America/New_York", "$device_name": "iPhone", "$session_id": "s", "$network_wifi": true,
+            "$process_person_profile": false, "$geoip_disable": true, "$os_version": "26.1", "environment": "staging",
+            "kind": "good",
+        ])
+        #expect(Set(sent.keys) == ["$process_person_profile", "$geoip_disable", "$os_version", "environment", "kind"])
     }
 }

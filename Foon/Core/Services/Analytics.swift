@@ -75,7 +75,7 @@ struct Analytics: Equatable, Sendable {
         // Without the server's city lookup, PostHog keeps no location, like Sentry's 0.0.0.0 (CrashReporting).
         config.disableGeoIp = true
         config.setBeforeSend { event in
-            event.properties = Self.withoutLocation(event.properties)
+            event.properties = Self.sentProperties(event.properties)
             return event
         }
         config.captureApplicationLifecycleEvents = false
@@ -97,11 +97,18 @@ struct Analytics: Equatable, Sendable {
         return config
     }
 
-    /// The SDK adds the device's time zone to every event, and a time zone narrows down where a family lives.
-    static let locationKeys: Set = ["$timezone", "$timezone_offset"]
+    /// The only properties an event leaves with. The SDK adds more to every event, such as the device's time zone,
+    /// which narrows down where a family lives; a list of what may go also stops whatever a later SDK version adds.
+    static let sentKeys: Set = [
+        "environment", "kind",
+        // PostHog's own switches: without them it would build a person profile and look up a city.
+        "$process_person_profile", "$geoip_disable",
+        "$lib", "$lib_version", "$app_version", "$app_build", "$os_name", "$os_version",
+        "$device_type", "$device_model", "$locale",
+    ]
 
-    static func withoutLocation(_ properties: [String: Any]) -> [String: Any] {
-        properties.filter { !locationKeys.contains($0.key) }
+    static func sentProperties(_ properties: [String: Any]) -> [String: Any] {
+        properties.filter { sentKeys.contains($0.key) }
     }
 
     private static func value(for key: String, in info: [String: Any]) -> String? {

@@ -166,12 +166,14 @@ final class WeekStore {
 
     /// Starts the week if needed, then drafts every night that isn't kept (locked, event, or past).
     /// The context is fetched inside, after the building flag is up, so taps during the library load are ignored.
-    func buildWeek(_ context: () async -> PlanningContext?) async {
+    /// The sample family's own build isn't `counted`: nobody asked for it.
+    func buildWeek(counted: Bool = true, _ context: () async -> PlanningContext?) async {
         await planning(context) { context in
             if week == nil { await startWeek() }
             guard let week else { return }
             let inputs = context.inputs(for: week, today: today())
-            if await apply(BuildMyWeek.draft(inputs, seed: seed()), inputs: inputs) { Analytics.capture(.weekBuilt) }
+            let saved = await apply(BuildMyWeek.draft(inputs, seed: seed()), inputs: inputs)
+            if saved, counted { Analytics.capture(.weekBuilt) }
         }
     }
 
