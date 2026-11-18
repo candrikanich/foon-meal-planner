@@ -23,6 +23,7 @@ struct FoonApp: App {
     init() {
         // First, so a crash anywhere after launch is reported.
         CrashReporting.start()
+        Analytics.start()
         // Cook-mode timer alerts show (with sound) even while Foon is in front.
         UNUserNotificationCenter.current().delegate = CookAlertPresenter.shared
         ReminderCenter.registerActions()

@@ -522,7 +522,9 @@ final class HouseholdStore {
         var done = settings
         done.onboarded = true
         done.samplePending = false
-        return await updateSettings(done)
+        let finished = await updateSettings(done)
+        if finished { Analytics.capture(.onboardingCompleted) }
+        return finished
     }
 
     func createHousehold(name: String, emoji: String?, firstName: String, sample: Bool = false) async {
@@ -777,6 +779,7 @@ final class HouseholdStore {
                 return
             }
             joinedJustNow = true
+            Analytics.capture(.memberJoined)
             await load()
         } catch {
             errorMessage = String(localized: "Couldn't check that code. Check your connection and try again.")

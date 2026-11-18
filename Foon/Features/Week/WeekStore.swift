@@ -171,7 +171,7 @@ final class WeekStore {
             if week == nil { await startWeek() }
             guard let week else { return }
             let inputs = context.inputs(for: week, today: today())
-            await apply(BuildMyWeek.draft(inputs, seed: seed()), inputs: inputs)
+            if await apply(BuildMyWeek.draft(inputs, seed: seed()), inputs: inputs) { Analytics.capture(.weekBuilt) }
         }
     }
 
@@ -222,9 +222,10 @@ final class WeekStore {
 
     /// Shows the picks at once and saves them together; if the save fails, shows what the server has.
     /// Writes only nights that were open going in (not locked, event, or past) and that got a pick: a draft
-    /// that finds nothing never clears a night that already has dinner.
-    private func apply(_ plans: [NightPlan], inputs: PlanningInputs) async {
-        guard let planID = week?.planID else { return }
+    /// that finds nothing never clears a night that already has dinner. Returns whether it saved any.
+    @discardableResult
+    private func apply(_ plans: [NightPlan], inputs: PlanningInputs) async -> Bool {
+        guard let planID = week?.planID else { return false }
         defer {
             requestNights = Dictionary(plans.compactMap { plan -> (UUID, UUID)? in
                 guard case .request = plan.reason, let mealID = plan.pick?.mealID,
@@ -243,7 +244,7 @@ final class WeekStore {
             NightUpdate(nightID: plan.nightID, mealID: plan.pick?.mealID, quickPick: plan.pick?.quickPick,
                         reason: plan.reason?.text, locked: plan.locks ? true : nil)
         }
-        guard !updates.isEmpty else { return }
+        guard !updates.isEmpty else { return false }
         let names = Dictionary(inputs.meals.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
         let touchesLink = updates.contains { isLinked($0.nightID) }
         for update in updates {
@@ -264,9 +265,11 @@ final class WeekStore {
                 noteListChanged()
                 await settleThenReload()
             }
+            return true
         } catch {
             errorMessage = message(for: error, otherwise: String(localized: "Couldn't save the plan. Check your connection and try again."))
             await reload()
+            return false
         }
     }
 
@@ -342,6 +345,7 @@ final class WeekStore {
         // The server just moved the night at the other end of a link; show what it did.
         if succeeded, linked { await settleThenReload() }
         if succeeded, saved.mealID != nil, week?.approvedAt != nil, date >= today() { swappedDish = SwappedDish(nightID: nightID) }
+        if succeeded { Analytics.capture(.nightSwapped) }
         return succeeded
     }
 
@@ -462,6 +466,7 @@ final class WeekStore {
                 week?.listStale = false
             }
             errorMessage = nil
+            Analytics.capture(.weekApproved)
             return true
         } catch {
             errorMessage = String(localized: "Couldn't approve the week. Check your connection and try again.")
