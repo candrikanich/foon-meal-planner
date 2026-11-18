@@ -50,6 +50,10 @@
 	<string>Foon shows your photos from around dinner, on this device only. It never uploads or saves them.</string>
 	<key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
 	<true/>
+	<key>PostHogEnvironment</key>
+	<string>$(FOON_POSTHOG_ENV)</string>
+	<key>PostHogKey</key>
+	<string>$(FOON_POSTHOG_KEY)</string>
 	<key>SentryDSN</key>
 	<string>$(FOON_SENTRY_DSN)</string>
 	<key>SentryEnvironment</key>

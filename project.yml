@@ -23,6 +23,10 @@ packages:
   Sentry:
     url: https://github.com/getsentry/sentry-cocoa
     from: 9.35.0
+  # Product events (#28); see Foon/Core/Services/Analytics.swift.
+  PostHog:
+    url: https://github.com/PostHog/posthog-ios
+    from: 3.97.0
 
 settings:
   base:
@@ -46,8 +50,13 @@ settings:
     # Debug and Release leave the environment empty and send nothing.
     FOON_SENTRY_DSN: https://203e0f89f83b11ad01e192613d1d2dd3@o4510886326960128.ingest.us.sentry.io/4512447552749568
     FOON_SENTRY_ENV: ""
+    # PostHog project Foon, US Cloud (#28). Like the DSN, a project key only lets a build send events. Debug and Release
+    # leave the environment empty and send nothing.
+    FOON_POSTHOG_KEY: phc_qdnjQh2iK9BhtRTeaKwiuP7sDdwkE2Pm9nbQ2HKNPYYd
+    FOON_POSTHOG_ENV: ""
   configs:
-    # Family Foon (Release) reports as "production" once privacy policy v3 (#356) names Sentry; until then only Foon QA.
+    # Family Foon (Release) reports as "production" once privacy policy v3 (#356) names Sentry and PostHog; until then
+    # only Foon QA.
     Staging:
       FOON_APP_ID: com.andrikanich.foon.qa
       FOON_APP_NAME: Foon QA
@@ -58,6 +67,7 @@ settings:
       # QA-only code (the design gallery) compiles under FOON_QA; family Foon's Release never has it.
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) FOON_QA
       FOON_SENTRY_ENV: staging
+      FOON_POSTHOG_ENV: staging
 
 targets:
   Foon:
@@ -74,6 +84,7 @@ targets:
       # The prebuilt framework: SentrySPM (built from source) fails Xcode 27's explicit-module dependency scan.
       - package: Sentry
         product: Sentry
+      - package: PostHog
       - target: FoonShare
         destinationFilters: [iOS]
       - target: FoonDinner
@@ -106,6 +117,8 @@ targets:
         FoonInvitePath: $(FOON_INVITE_PATH)
         SentryDSN: $(FOON_SENTRY_DSN)
         SentryEnvironment: $(FOON_SENTRY_ENV)
+        PostHogKey: $(FOON_POSTHOG_KEY)
+        PostHogEnvironment: $(FOON_POSTHOG_ENV)
         CFBundleURLTypes:
           - CFBundleURLName: $(FOON_APP_ID)
             CFBundleURLSchemes: [$(FOON_URL_SCHEME)]

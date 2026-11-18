@@ -134,7 +134,10 @@ final class DinnerStore {
         let saved = await write(nightID, failure: String(localized: "Couldn't save that. Check your connection and try again.")) {
             [client] in _ = try await client.react(nightID, memberID, kind)
         }
-        if saved { waiting?.removeDinnerAnswers(night: nightID, member: memberID, savedAt: now()) }
+        if saved {
+            waiting?.removeDinnerAnswers(night: nightID, member: memberID, savedAt: now())
+            Analytics.capture(.reactionAdded(kind))
+        }
         return saved
     }
 
@@ -250,9 +253,12 @@ final class DinnerStore {
     /// "I'll cook Thursday". Returns whether it saved. A refusal reads again, so the card shows why.
     @discardableResult
     func claim(nightID: UUID, memberID: UUID) async -> Bool {
-        await claimWrite(nightID, refused: String(localized: "You can offer for yourself, or for someone without their own account.")) {
+        let refused = String(localized: "You can offer for yourself, or for someone without their own account.")
+        let claimed = await claimWrite(nightID, refused: refused) {
             [client] in try await client.claimNight(nightID, memberID)
         }
+        if claimed { Analytics.capture(.nightClaimed) }
+        return claimed
     }
 
     @discardableResult

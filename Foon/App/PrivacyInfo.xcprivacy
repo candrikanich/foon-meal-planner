@@ -3,8 +3,8 @@
 <!--
   Foon's privacy manifest (#67). It matches the App Store privacy label in docs/app-store-submission.md. Crash,
   performance and other diagnostic data go to Sentry (#28), not linked to anyone; the Sentry package ships its own
-  manifest for the required-reason APIs it uses. A product analytics SDK isn't in the app yet (#28): add it here and to
-  the label when it is.
+  manifest for the required-reason APIs it uses. Product interaction is also for Analytics: finished shopping trips
+  (#260) and the PostHog events in Analytics.swift (#28, not linked to anyone; the entry stays linked for reminders).
   Required-reason APIs:
   - UserDefaults: the app's own settings (CA92.1), and the App Group suite the app shares with its extensions (1C8F.1).
   - File timestamps: the share inbox in the App Group container reads its files' modification dates to clear stale
@@ -148,6 +148,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 	</array>

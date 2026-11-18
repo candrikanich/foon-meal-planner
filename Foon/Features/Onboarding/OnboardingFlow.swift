@@ -448,7 +448,7 @@ private struct SampleFamilySetup: View {
         guard !dishes.isEmpty, dishes.allSatisfy(library.isInLibrary) else { failed = true; return }
         let settings = household.household?.planningSettings ?? HouseholdSettings()
         await week.load(settings: settings)
-        await week.buildWeek {
+        await week.buildWeek(counted: false) {
             PlanningContext(meals: library.meals, history: library.history, settings: settings,
                             members: household.visibleMembers, traditions: week.traditions,
                             reactions: library.reactions)

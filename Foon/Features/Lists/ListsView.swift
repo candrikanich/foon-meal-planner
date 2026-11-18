@@ -151,6 +151,7 @@ struct ListsView: View {
 
     private func openStoreMode() {
         storeModeTip.invalidate(reason: .actionPerformed)
+        Analytics.capture(.storeModeOpened)
         shopping = true
     }
 

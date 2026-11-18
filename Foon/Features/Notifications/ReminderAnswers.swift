@@ -236,6 +236,8 @@ enum DinnerAnswerDelivery {
             if now.timeIntervalSince(answer.at) < DinnerAnswer.keptFor {
                 do {
                     try await client.answerDinner(answer)
+                    // A notification's or the card's reaction never passes DinnerStore.react, which counts the app's.
+                    if case .reaction(let kind) = answer.answer { Analytics.capture(.reactionAdded(kind)) }
                 } catch let error as PostgrestError where error.code.map(finalRefusals.contains) == true {
                     // It's had its answer.
                 } catch is PostgrestError {
