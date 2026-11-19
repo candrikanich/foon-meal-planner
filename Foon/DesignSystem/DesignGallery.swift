@@ -140,6 +140,7 @@ struct DesignGallery: View {
             }
             Text(verbatim: "Sheet-pan chicken fajitas").font(.foonTitle).foregroundStyle(Palette.ink)
             Text(verbatim: "Start cooking at 5:15").font(.foonBody).foregroundStyle(.secondary)
+            Text(verbatim: "Nora: keep everything separate before mixing").font(.foonBody).foonInset()
             HStack(spacing: Spacing.s) {
                 Button { } label: { Text(verbatim: "View meal") }.buttonStyle(.pill(.prominent, fullWidth: true))
                 Button { } label: { Text(verbatim: "Swap") }.buttonStyle(.pill(.tinted))

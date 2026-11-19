@@ -65,9 +65,7 @@ private struct RecipeCard: View {
                     Text(model.recipe.post)
                         .font(.footnote.monospaced())
                         .lineLimit(8)
-                        .padding(Spacing.m)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.quaternary, in: .rect(cornerRadius: Radius.medium, style: .continuous))
+                        .foonInset()
                 }
                 .accessibilityElement(children: .combine)
                 landed
@@ -206,6 +204,26 @@ private struct RescueCard: View {
     let model = ShowcaseModel(dish: nil, library: [], allergies: [], settings: HouseholdSettings(),
                               today: CalendarDay(Date()), ai: .none, seed: 1)
     NavigationStack { ShowcaseStep(model: model, onNext: {}) }
+        .task {
+            await model.showRecipe()
+            await model.showRescue()
+        }
+}
+
+#Preview("Tried, dark") {
+    let model = previewModel(.none)
+    NavigationStack { ShowcaseStep(model: model, onNext: {}) }
+        .preferredColorScheme(.dark)
+        .task {
+            await model.showRecipe()
+            await model.showRescue()
+        }
+}
+
+#Preview("Tried, accessibility size") {
+    let model = previewModel(.none)
+    NavigationStack { ShowcaseStep(model: model, onNext: {}) }
+        .dynamicTypeSize(.accessibility2)
         .task {
             await model.showRecipe()
             await model.showRescue()

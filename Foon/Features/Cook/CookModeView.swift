@@ -121,9 +121,9 @@ struct CookModeView: View {
                         timers.start(timer, dish: meal.name)
                     } label: {
                         Label("Timer: \(timer.label)", systemImage: "timer")
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.pill(.prominent, fullWidth: true))
+                    // Tinted: Next is the page's one main action, and a step can hold more than one timer.
+                    .buttonStyle(.pill(.tinted, fullWidth: true))
                     .accessibilityHint("Starts a timer; an alert goes off when it's done, even with the phone locked")
                 }
             }
@@ -177,7 +177,7 @@ struct CookModeView: View {
             Button {
                 withAnimation { page = max(page - 1, 0) }
             } label: {
-                Label("Back", systemImage: "chevron.left").frame(maxWidth: .infinity)
+                Label("Back", systemImage: "chevron.left")
             }
             .keyboardShortcut(.leftArrow, modifiers: [])
             .buttonStyle(.pill(.tinted, fullWidth: true))
@@ -186,13 +186,13 @@ struct CookModeView: View {
                 Button {
                     withAnimation { page += 1 }
                 } label: {
-                    Label(page == 0 ? "Start cooking" : "Next", systemImage: "chevron.right").frame(maxWidth: .infinity)
+                    Label(page == 0 ? "Start cooking" : "Next", systemImage: "chevron.right")
                 }
                 .keyboardShortcut(.rightArrow, modifiers: [])
                 .buttonStyle(.pill(.prominent, fullWidth: true))
             } else {
                 Button { dismiss() } label: {
-                    Label("All done", systemImage: "checkmark").frame(maxWidth: .infinity)
+                    Label("All done", systemImage: "checkmark")
                 }
                 .buttonStyle(.pill(.prominent, fullWidth: true))
             }
@@ -231,4 +231,19 @@ struct CookModeView: View {
                   "Rest 5-10 minutes, then serve."]
     return CookModeView(meal: meal, servingNotes: ["Nora: keep everything separate before mixing"],
                         timers: CookTimers(notifier: .none))
+}
+
+#Preview("Cook mode, dark") {
+    var meal = LibraryMeal.sampleLibrary[0]
+    meal.steps = ["Brown the beef in a big pot.", "Add the beans and tomatoes. Simmer 30 minutes, then 10 more."]
+    return CookModeView(meal: meal, servingNotes: [], timers: CookTimers(notifier: .none))
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Cook mode, accessibility size") {
+    var meal = LibraryMeal.sampleLibrary[0]
+    meal.steps = ["Brown the beef in a big pot.", "Add the beans and tomatoes. Simmer 30 minutes."]
+    return CookModeView(meal: meal, servingNotes: ["Nora: keep everything separate before mixing"],
+                        timers: CookTimers(notifier: .none))
+        .dynamicTypeSize(.accessibility2)
 }
