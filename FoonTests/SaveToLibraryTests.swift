@@ -582,7 +582,7 @@ struct DishThatDidntLoadTests {
             create: { _, _ in made.id }
         ))
         failing.withLock { $0 = true }
-        let id = await store.create(MealDraft(newNamed: "Chili"))
+        let id = await store.create(MealDraft(newNamed: "Chili"), from: .idea)
         #expect(id == made.id)
         #expect(store.meal(made.id) == nil)
         let idea = DinnerRequest(requestedByMemberID: UUID(), mealID: made.id)

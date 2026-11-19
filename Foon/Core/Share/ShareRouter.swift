@@ -93,7 +93,7 @@ enum ShareRouter {
     }
 
     /// The domain or a subdomain of it; "notinstagram.com" doesn't count.
-    private static func socialSite(_ url: URL) -> String? {
+    static func socialSite(_ url: URL) -> String? {
         guard let host = url.host()?.lowercased() else { return nil }
         if pinterestDomains.contains(where: { host == $0 || host.hasSuffix(".\($0)") }) { return "Pinterest" }
         return socialSites.first { host == $0.key || host.hasSuffix(".\($0.key)") }?.value

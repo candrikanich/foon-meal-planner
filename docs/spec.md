@@ -818,7 +818,7 @@ As of 2026-10-25: Texas age-assurance rules and the amended COPPA rule are both 
 | Need | Choice | Note |
 | --- | --- | --- |
 | Errors and crashes | Sentry | Built (#28): projects foon-ios and foon-edge; no user, IP, screenshots, replay or request data; Foon QA and staging now; family Foon and production with privacy v3 (#356) |
-| Product analytics | PostHog (#28) | Eight anonymous events, no person profiles, no location; see app-store-submission.md |
+| Product analytics | PostHog (#28) | Nine anonymous events, no person profiles, no location; see app-store-submission.md |
 | Subscriptions | RevenueCat (consider) | Entitlements, webhooks, founding offers; check pricing |
 | Email | Resend | Adults only (parents, for consent); see below |
 | Landing page and waitlist | Nuxt on Vercel | Founding-family signups |
@@ -1068,6 +1068,7 @@ One subscription per household: $5.99 a month or $49.99 a year after a 30-day fr
   - *North star:* the share of logged dinners at the table in approved weeks where someone other than a planner (role planner, or the owner) asked for that night's dish, said me too to it, voted in that night's poll, claimed the night, or cooked it.
   - *The rest:* weekly active households (anyone in it did something stored that week), plans approved, median contributors per household, after-dinner response rate (reactions by people marked home for a logged dish, over those people), and per sign-up week: onboarding completion, share with a first plan and median hours to it, and week-1 and week-4 retention.
   - *Shopping trips (#260):* finished trips per week, counting only trips where something was checked off. Finish trip stores the household and the time on the server (`shopping_trips`, kept 13 months), never what was bought, where, or by whom.
+  - *How dishes get added (#175, PostHog):* one anonymous `dish_added` event per dish saved, with only the way it came in (quick add, starter dish, copy, an idea, a link, the share sheet, a photo, a PDF) and, for a link or share, the kind of site (recipe site, Instagram, TikTok, other social, other). It settles whether families find dishes on social media, recipe sites, or not online at all, and whether reading TikTok captions is worth it. Never the address, the dish, its ingredients, a household or a person; a failed save and the sample family's dishes send nothing. Foon QA only until privacy v3 (#356); see app-store-submission.md → Product analytics.
   - *Waiting:* trial-to-paid is null until StoreKit and the entitlement (#66).
 
 **Before building much:** run a two-week shared-note trial (assigned nights, requests) and show your wife the Phase 1 prototype for feedback.

@@ -33,6 +33,7 @@ struct Analytics: Equatable, Sendable {
         case reactionAdded(ReactionKind)
         case memberJoined
         case storeModeOpened
+        case dishAdded(DishSource)
 
         var name: String {
             switch self {
@@ -44,14 +45,66 @@ struct Analytics: Equatable, Sendable {
             case .reactionAdded: "reaction_added"
             case .memberJoined: "member_joined"
             case .storeModeOpened: "store_mode_opened"
+            case .dishAdded: "dish_added"
             }
         }
 
-        /// Only the kind of reaction, never who gave it or for which dish.
+        /// Only the kind of reaction, never who gave it or for which dish; only how a dish came in, never the dish or
+        /// its address.
         var properties: [String: String] {
             switch self {
             case .reactionAdded(let kind): ["kind": kind.rawValue]
+            case .dishAdded(let source): source.properties
             default: [:]
+            }
+        }
+    }
+
+    /// How a dish reached the library (#175): settles whether families find recipes on social media, on recipe sites,
+    /// or not online at all.
+    enum DishSource: Equatable, Sendable {
+        case quickAdd
+        case starterDish
+        /// Copy and tweak.
+        case copy
+        /// Made from a dinner idea's name.
+        case idea
+        /// Read from a link typed or pasted in Foon, or an idea's link.
+        case link(Site)
+        /// Shared to Foon from another app.
+        case shareSheet(Site)
+        case photo
+        case pdf
+
+        var properties: [String: String] {
+            switch self {
+            case .quickAdd: ["way": "quick_add"]
+            case .starterDish: ["way": "starter_dish"]
+            case .copy: ["way": "copy"]
+            case .idea: ["way": "idea"]
+            case .link(let site): ["way": "link", "site": site.rawValue]
+            case .shareSheet(let site): ["way": "share_sheet", "site": site.rawValue]
+            case .photo: ["way": "photo"]
+            case .pdf: ["way": "pdf"]
+            }
+        }
+    }
+
+    /// The kind of place a link went, never the link.
+    enum Site: String, Equatable, Sendable {
+        case recipeSite = "recipe_site"
+        case instagram
+        case tiktok
+        case otherSocial = "other_social"
+        case other
+
+        /// A page Foon read a recipe card from is a recipe site; any other page that isn't social is other.
+        init(_ url: URL, readRecipe: Bool) {
+            switch ShareRouter.socialSite(url) {
+            case "Instagram": self = .instagram
+            case "TikTok": self = .tiktok
+            case .some: self = .otherSocial
+            case nil: self = readRecipe ? .recipeSite : .other
             }
         }
     }
@@ -100,7 +153,7 @@ struct Analytics: Equatable, Sendable {
     /// The only properties an event leaves with. The SDK adds more to every event, such as the device's time zone,
     /// which narrows down where a family lives; a list of what may go also stops whatever a later SDK version adds.
     static let sentKeys: Set = [
-        "environment", "kind",
+        "environment", "kind", "way", "site",
         // PostHog's own switches: without them it would build a person profile and look up a city.
         "$process_person_profile", "$geoip_disable",
         "$lib", "$lib_version", "$app_version", "$app_build", "$os_name", "$os_version",

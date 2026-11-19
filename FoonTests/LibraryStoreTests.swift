@@ -475,6 +475,38 @@ struct LibraryStoreTests {
         #expect(!LibraryStore.canEdit(me: nora, isOwner: false))
         #expect(LibraryStore.canEdit(me: nil, isOwner: true))
     }
+
+    @Test func eachSavedDishCountsOnceWithHowItCameIn() async {
+        let store = LibraryStore(householdID: household, client: .fake())
+        var sent: [Analytics.Event] = []
+        store.record = { sent.append($0) }
+        _ = await store.quickAdd(name: "Chili", ingredients: "beans")
+        _ = await store.create(MealDraft(newNamed: "Gnocchi"), from: .link(.recipeSite))
+        _ = await store.create(MealDraft(newNamed: "Feta pasta"), from: .shareSheet(.tiktok))
+        _ = await store.create(MealDraft(newNamed: "Soup"), from: .photo)
+        await store.add(.fixture())
+        _ = await store.copy(LibraryMeal.fixture(name: "Tacos"))
+        #expect(sent == [.dishAdded(.quickAdd), .dishAdded(.link(.recipeSite)), .dishAdded(.shareSheet(.tiktok)),
+                         .dishAdded(.photo), .dishAdded(.starterDish), .dishAdded(.copy)])
+    }
+
+    @Test func aDishThatIsntSavedOrIsTheSampleFamilysIsntCounted() async {
+        let store = LibraryStore(householdID: household, client: .fake(
+            addFromCatalog: { _, _ in throw URLError(.notConnectedToInternet) },
+            copy: { _, _ in throw URLError(.notConnectedToInternet) },
+            create: { _, _ in throw URLError(.notConnectedToInternet) }
+        ))
+        var sent: [Analytics.Event] = []
+        store.record = { sent.append($0) }
+        _ = await store.quickAdd(name: "Chili", ingredients: "")
+        _ = await store.create(MealDraft(newNamed: ""), from: .pdf)
+        await store.add(.fixture())
+        _ = await store.copy(LibraryMeal.fixture(name: "Tacos"))
+        let sample = LibraryStore(householdID: household, client: .fake())
+        sample.record = { sent.append($0) }
+        await sample.add(.fixture(), counted: false)
+        #expect(sent.isEmpty)
+    }
 }
 
 extension LibraryClient {

@@ -63,6 +63,8 @@ final class LibraryStore {
     private var readsOut = 0
     let householdID: UUID
     let client: LibraryClient
+    /// Where a saved dish's `dish_added` goes; tests read it here instead.
+    @ObservationIgnored var record: (Analytics.Event) -> Void = Analytics.capture
 
     init(householdID: UUID, client: LibraryClient) {
         self.householdID = householdID
@@ -263,14 +265,15 @@ final class LibraryStore {
         }
     }
 
-    /// Copies a starter dish into the library and returns the new meal's id.
+    /// Copies a starter dish into the library and returns the new meal's id. The sample family's dishes aren't counted.
     @discardableResult
-    func add(_ dish: CatalogDish) async -> UUID? {
+    func add(_ dish: CatalogDish, counted: Bool = true) async -> UUID? {
         guard !addingDishIDs.contains(dish.id) else { return nil }
         addingDishIDs.insert(dish.id)
         defer { addingDishIDs.remove(dish.id) }
         do {
             let id = try await client.addFromCatalog(householdID, dish.id)
+            if counted { record(.dishAdded(.starterDish)) }
             await load(members: members)
             return id
         } catch {
@@ -443,7 +446,7 @@ final class LibraryStore {
     func quickAdd(name: String, ingredients: String) async -> UUID? {
         var draft = MealDraft(newNamed: name)
         draft.addIngredients(ingredients)
-        return await create(draft)
+        return await create(draft, from: .quickAdd)
     }
 
     /// Reads a recipe link. Nil (with a message) when the link can't be opened or read.
@@ -478,8 +481,8 @@ final class LibraryStore {
         return url
     }
 
-    /// Adds a new meal from a draft (quick add, a recipe link) and returns its id.
-    func create(_ draft: MealDraft) async -> UUID? {
+    /// Adds a new meal from a draft (quick add, a recipe link, a share) and returns its id.
+    func create(_ draft: MealDraft, from source: Analytics.DishSource) async -> UUID? {
         let saved: MealDraft.Saved
         do {
             saved = try draft.validated()
@@ -489,6 +492,7 @@ final class LibraryStore {
         }
         do {
             let id = try await client.create(householdID, saved)
+            record(.dishAdded(source))
             await load(members: members)
             return id
         } catch {
@@ -505,6 +509,7 @@ final class LibraryStore {
         defer { copyingMealIDs.remove(meal.id) }
         do {
             let id = try await client.copy(meal.id, MealDraft.copyName(for: meal.name))
+            record(.dishAdded(.copy))
             await load(members: members)
             guard self.meal(id) != nil else {
                 errorMessage = String(localized: "The copy was made but hasn't loaded yet. Pull to refresh the library.")
