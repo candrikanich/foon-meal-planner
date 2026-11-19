@@ -114,7 +114,7 @@ struct SharedItemSheet: View {
             }
             .sheet(isPresented: $importing) {
                 if case .recipeLink(let url, _) = route {
-                    LinkImportView(sharedLink: url) { _ in finish(.done(.library)) }
+                    LinkImportView(sharedLink: url, fromShareSheet: true) { _ in finish(.done(.library)) }
                 }
             }
         }
@@ -338,7 +338,7 @@ struct SharedItemSheet: View {
         library.clearError()
         // Read before the save: a result landing during it merges into a draft nobody saves, so it still has to follow.
         let taken = resultTaken
-        if let mealID = await library.create(draft) {
+        if let mealID = await library.create(draft, from: source) {
             savedMeal = true
             // Whatever of the tidy-up isn't in this draft yet goes into the dish later, around anything changed here.
             if let tidyPayload, let baseline {
@@ -349,6 +349,17 @@ struct SharedItemSheet: View {
         } else {
             errorMessage = library.errorMessage
             library.clearError()
+        }
+    }
+
+    /// Only a photo, a PDF, or a social post's caption is added here; a recipe page goes through `LinkImportView`, and
+    /// shared text goes to the list.
+    private var source: Analytics.DishSource {
+        switch route {
+        case .capture(.image): .photo
+        case .capture(.pdf): .pdf
+        case .socialLink(let url, _), .recipeLink(let url, _): .shareSheet(Analytics.Site(url, readRecipe: false))
+        case .shoppingList: .shareSheet(.other)
         }
     }
 

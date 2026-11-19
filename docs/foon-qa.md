@@ -91,7 +91,7 @@ Tagging by hand (`git tag beta/<date> <commit>`, then push) still works; the wor
   for "Sentry test error <time>" in foon-ios's Issues; the footer shows the first 8 characters of the sent report's ID. Crash stack traces are readable once both Xcode Cloud workflows
   have the secret `SENTRY_AUTH_TOKEN` (`ci_scripts/ci_post_xcodebuild.sh` sends each archive's dSYMs).
 - **Product events** (#28) go to PostHog project Foon (US Cloud) with `environment` `staging`; family Foon starts with
-  privacy v3 (#356). To check they arrive, build a week or open store mode and look in PostHog → Activity. The eight
+  privacy v3 (#356). To check they arrive, build a week or open store mode and look in PostHog → Activity. The nine
   events and what they carry are in docs/app-store-submission.md → Product analytics.
 - **Emailed invites** on staging need `INVITE_PATH=/qa/invite`, or they open Foon instead of Foon QA.
 

@@ -152,7 +152,7 @@ struct RequestDetailView: View {
         case .link(let mealID):
             await link(mealID)
         case .make(let draft):
-            guard let made = await library.create(draft) else { return }
+            guard let made = await library.create(draft, from: .idea) else { return }
             await link(made)
         }
     }

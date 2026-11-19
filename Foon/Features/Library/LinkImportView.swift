@@ -6,10 +6,12 @@ struct LinkImportView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(HouseholdStore.self) private var household
     @Environment(\.dismiss) private var dismiss
-    /// A link from the share sheet: read at once.
+    /// A link from the share sheet or an idea: read at once.
     var sharedLink: URL?
     /// An idea's own name: it goes on the dish, whatever the page calls it.
     var name: String?
+    /// Shared to Foon from another app, which `dish_added` counts apart from a link added in Foon.
+    var fromShareSheet = false
     let onAdded: (UUID) -> Void
 
     @State private var link = ""
@@ -172,6 +174,11 @@ struct LinkImportView: View {
         }
     }
 
+    private var source: Analytics.DishSource {
+        let site = imported.map { Analytics.Site($0.url, readRecipe: $0.recipe != nil) } ?? .other
+        return fromShareSheet ? .shareSheet(site) : .link(site)
+    }
+
     private func useLinkOnly(_ url: URL) {
         library.clearError()
         let linkOnly = RecipeImport(recipe: nil, title: nil, url: url)
@@ -185,7 +192,7 @@ struct LinkImportView: View {
         guard let draft, !isAdding else { return }
         isAdding = true
         Task {
-            guard let id = await library.create(draft) else {
+            guard let id = await library.create(draft, from: source) else {
                 isAdding = false
                 return
             }

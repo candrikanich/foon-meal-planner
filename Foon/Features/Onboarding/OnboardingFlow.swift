@@ -443,7 +443,7 @@ private struct SampleFamilySetup: View {
         await library.load(members: household.members)
         let dishes = SampleFamily.pick(from: library.catalog)
         for dish in dishes where !library.isInLibrary(dish) {
-            await library.add(dish)
+            await library.add(dish, counted: false)
         }
         guard !dishes.isEmpty, dishes.allSatisfy(library.isInLibrary) else { failed = true; return }
         let settings = household.household?.planningSettings ?? HouseholdSettings()
