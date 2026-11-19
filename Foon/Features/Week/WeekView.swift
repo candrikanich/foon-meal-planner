@@ -647,3 +647,39 @@ struct WeekView: View {
             await library.load(members: Member.sampleFamily)
         }
 }
+
+#Preview("Planner, partly planned, dark") {
+    let household = HouseholdStore.preview()
+    let library = LibraryStore(householdID: Household.sample.id, client: .preview())
+    WeekView()
+        .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
+        .environment(household)
+        .environment(WeekStore(householdID: Household.sample.id, client: .preview(started: true)))
+        .environment(DinnerStore(householdID: Household.sample.id, client: .preview))
+        .environment(IdeasStore(householdID: Household.sample.id, client: .preview()))
+        .environment(library)
+        .modelContainer(try! SyncService.inMemoryContainer())
+        .preferredColorScheme(.dark)
+        .task {
+            await household.load()
+            await library.load(members: Member.sampleFamily)
+        }
+}
+
+#Preview("Planner, partly planned, accessibility size") {
+    let household = HouseholdStore.preview()
+    let library = LibraryStore(householdID: Household.sample.id, client: .preview())
+    WeekView()
+        .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
+        .environment(household)
+        .environment(WeekStore(householdID: Household.sample.id, client: .preview(started: true)))
+        .environment(DinnerStore(householdID: Household.sample.id, client: .preview))
+        .environment(IdeasStore(householdID: Household.sample.id, client: .preview()))
+        .environment(library)
+        .modelContainer(try! SyncService.inMemoryContainer())
+        .dynamicTypeSize(.accessibility2)
+        .task {
+            await household.load()
+            await library.load(members: Member.sampleFamily)
+        }
+}

@@ -132,19 +132,22 @@ struct ReactionRow: View {
     let onPick: (ReactionKind) -> Void
 
     var body: some View {
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: typeSize.isAccessibilitySize ? 2 : 4)
-        LazyVGrid(columns: columns, spacing: 8) {
+        let columns = Array(repeating: GridItem(.flexible(), spacing: Spacing.s),
+                            count: typeSize.isAccessibilitySize ? 2 : 4)
+        LazyVGrid(columns: columns, spacing: Spacing.s) {
             ForEach(ReactionKind.allCases, id: \.self) { kind in
                 let on = selected == kind
                 Button { onPick(kind) } label: {
-                    VStack(spacing: 4) {
+                    VStack(spacing: Spacing.xs) {
                         Image(systemName: kind.systemImage).font(.title3)
                         Text(kind.title).font(.foonCaption).multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity, minHeight: 56)
-                    .padding(.vertical, 4)
+                    .padding(.vertical, Spacing.xs)
                     .foregroundStyle(on ? Palette.onPaprika : Palette.ink)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(on ? Palette.paprika : Color.secondary.opacity(0.12)))
+                    // Unpicked reactions sit on the same fill as the effort pill, so ink stays readable in dark mode.
+                    .background(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous)
+                        .fill(on ? AnyShapeStyle(Palette.paprika) : AnyShapeStyle(.fill.tertiary)))
                 }
                 .buttonStyle(.plain)
                 .disabled(disabled)

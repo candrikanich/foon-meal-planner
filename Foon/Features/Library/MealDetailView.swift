@@ -635,3 +635,35 @@ struct ServingNoteEditor: View {
         await library.load(members: Member.sampleFamily)
     }
 }
+
+#Preview("Planner, dark") {
+    let household = HouseholdStore.preview()
+    let library = LibraryStore(householdID: Household.sample.id, client: .preview())
+    NavigationStack {
+        MealDetailView(mealID: LibraryMeal.sampleLibrary[0].id, canEdit: true)
+    }
+    .environment(library)
+    .environment(household)
+    .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
+    .preferredColorScheme(.dark)
+    .task {
+        await household.load()
+        await library.load(members: Member.sampleFamily)
+    }
+}
+
+#Preview("Member, flagged, accessibility size") {
+    let household = HouseholdStore.preview()
+    let library = LibraryStore(householdID: Household.sample.id, client: .preview())
+    NavigationStack {
+        MealDetailView(mealID: LibraryMeal.sampleLibrary[1].id, canEdit: false)
+    }
+    .environment(library)
+    .environment(household)
+    .environment(SubscriptionStore(householdID: Household.sample.id, client: .preview(), storeKit: .preview))
+    .dynamicTypeSize(.accessibility2)
+    .task {
+        await household.load()
+        await library.load(members: Member.sampleFamily)
+    }
+}

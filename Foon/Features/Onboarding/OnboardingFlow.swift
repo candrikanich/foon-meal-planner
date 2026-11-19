@@ -503,3 +503,13 @@ private struct OnboardingPreview<Content: View>: View {
     @Previewable @State var settings = HouseholdSettings()
     NavigationStack { RhythmStep(settings: $settings, onNext: {}) }
 }
+
+#Preview("Onboarding, dark") {
+    OnboardingPreview { OnboardingFlow(onFinish: {}) }
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Onboarding, accessibility size") {
+    OnboardingPreview { OnboardingFlow(onFinish: {}) }
+        .dynamicTypeSize(.accessibility2)
+}

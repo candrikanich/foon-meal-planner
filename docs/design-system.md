@@ -46,8 +46,9 @@ Spacing steps (`Spacing`): **xxs 2 · xs 4 · s 8 · m 12 · l 16 · xl 24 · xx
 - Inside a chip or pill, icon to label: `xs`. Items in a row (chips, buttons): `s`. Lines inside a card or row: `m`.
 - Card padding and screen margins: `l`. Between cards and sections: `xl`. Around empty states: `xxl`.
 
-Radii (`Radius`): **small 8** (thumbnails, swatches) · **medium 14** (chips that wrap, fields, inner panels) ·
-**card 20** (cards, `.continuous`). Pills are capsules, avatars circles. Flat: no shadows, no borders on cards.
+Radii (`Radius`): **small 8** (thumbnails, swatches) · **medium 14** (chips that wrap, fields, inner panels,
+reaction tiles) · **card 20** (cards, `.continuous`). Pills are capsules, avatars circles. Flat: no shadows, no
+borders on cards.
 Tap targets are at least 44 pt (`Metrics.minTapHeight`).
 
 ## Components
@@ -56,8 +57,10 @@ Tap targets are at least 44 pt (`Metrics.minTapHeight`).
 |---|---|---|
 | `foonGrouped()` + `foonRows()` | Every system `List`/`Form` | `foonGrouped()` on the list, `foonRows()` on a `Group` around its content. Both, always: in dark mode system rows vanish into cream. |
 | `.foonCard()` | Custom content on a scroll view: tonight hero, recaps, prompts | One idea per card. Cards don't nest. |
-| `.pill(.prominent)` | The one main action on a screen or card | At most one per card, one per screen above the fold |
+| `.foonInset()` | A panel set into a card: quoted or shared text, a note | Cream fill, `Radius.medium`, `m` padding. Never a system gray (`.quaternary`): cold in light, invisible in dark |
+| `.pill(.prominent)` | The one main action on a screen or card | At most one per card, one per screen above the fold. Two timers or two answers are tinted |
 | `.pill(.tinted)` | Actions beside the main one | Up to 2 beside a prominent; more go behind **More** (a `Menu`) |
+| `fullWidth: true` | A card's or step's closing action, an action alone on a clear row (Agree, Start cooking), or an equal pair (Back / Next) | Fills what its row leaves: the hero's View meal stretches beside a hugging Swap. Pills inside a card's body (Show me) hug their label |
 | Plain/system buttons | Toolbar, rows, inline links | Toolbar items use SF Symbols with an accessibility label |
 | `Chip` | Reasons, badges, effort, allergy flags | Text first, icon optional; caution tint only for allergies/warnings |
 | `AllergyChips` | Wherever a dish is offered | Never hidden behind a tap |
@@ -103,3 +106,15 @@ Short, warm, plain. Sentence case everywhere. Rate the dish, never the cook. Nam
 ## Round 2
 
 Design tweaks found in QA go in one tracking issue and are applied here first, then in code and the gallery.
+
+Round 2 (#357, 2026-11-19) settled round 1's open layout calls from the Figma screens made so far; Chris reviews them
+against fuller Figma screens later:
+
+- **Full-width pills** stay where Figma put them (the hero's View meal) and where a pill closes a card, a step or a
+  clear row. Rule above.
+- **Onboarding showcase** stays a card feed (template 3): each card is one thing to try, which is what cards are for.
+- **Inner panels** use `.foonInset()` instead of `.quaternary`.
+- **One prominent per screen:** Cook mode's timers went tinted; Next is the page's main action.
+- **Reaction tiles** use the tokens (`s`/`xs` spacing, `Radius.medium`) and the effort pill's fill.
+- **Previews:** This Week, Cook mode, meal detail, the showcase and onboarding each have dark and accessibility-size
+  previews. The Tonight sheet's look waits on #335.

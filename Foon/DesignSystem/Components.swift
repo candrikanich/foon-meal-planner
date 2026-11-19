@@ -16,6 +16,14 @@ extension View {
             .background(Palette.cardSurface, in: .rect(cornerRadius: Radius.card, style: .continuous))
     }
 
+    /// A panel set into a card, such as quoted text: cream, so it reads as a window back to the page rather than a
+    /// second card. A system gray went cold on cream in light mode and nearly vanished in dark.
+    func foonInset() -> some View {
+        self.padding(Spacing.m)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Palette.cream, in: .rect(cornerRadius: Radius.medium, style: .continuous))
+    }
+
     /// For a system `List` or `Form`: cream behind it, paprika controls. Pair it with `foonRows()` on its content,
     /// because a row's background can only be set from inside the list.
     func foonGrouped() -> some View {
